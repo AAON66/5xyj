@@ -80,7 +80,7 @@
     {
       "id": 16,
       "title": "双模板导出服务",
-      "passes": false
+      "passes": true
     },
     {
       "id": 17,

@@ -224,3 +224,24 @@
 ### Notes:
 - 当前已完成任务 15，并已将 task.json 中对应任务标记为 passes: true。
 - 下一步最合适继续进入任务 16，开始做双模板导出服务。
+
+## 2026-03-20 - Task: 双模板导出服务
+
+### What was done:
+- 新增 backend/app/exporters/template_exporter.py，实现双模板导出服务，可同时生成薪酬模板和工具表最终版模板，并按模板类型分别返回产物状态。
+- 导出器支持读取真实模板、重建干净工作表、保留表头样式与布局，并将标准化记录写入目标列；当任意一份模板缺失或导出失败时，整体结果会标记为 failed。
+- 工具表导出不再依赖模板里的历史示例公式，而是直接根据标准化字段计算个人/单位汇总列，避免把模板中上百万行示例和外部引用一起带入输出。
+- 更新 backend/app/core/config.py 和 .env.example，新增 SALARY_TEMPLATE_PATH 与 FINAL_TOOL_TEMPLATE_PATH 配置入口，方便后续通过环境变量指定两份模板。
+- 新增 backend/app/exporters/__init__.py 和 backend/tests/test_template_exporter.py，使用两份真实模板验证关键列落位和“任一模板失败则整体失败”的规则。
+### Testing:
+- py -m compileall backend
+- .\.venv\Scripts\python.exe -m pytest backend\tests\test_template_exporter.py -p no:cacheprovider
+- .\.venv\Scripts\python.exe -m pytest backend\tests -p no:cacheprovider
+
+### Risks / Open Questions:
+- 当前导出映射已覆盖模板中的核心字段和校验列，但公积金相关字段仍按 0 写入，因为主链路里尚未建立公积金标准字段；后续若导入范围扩展到公积金明细，需要补充对应标准字段与映射。
+- 工具表模板的其它辅助工作表目前保留原样，没有重建示例数据；现阶段已满足双模板主输出要求，但后续如果业务依赖这些辅助页，也可以继续做联动填充。
+- 模板文件位于桌面目录，当前本地环境已通过 .env 指向真实模板；跨环境运行时仍需要显式配置对应路径或把模板放入 data/templates。
+### Notes:
+- 当前已完成任务 16，并已将 task.json 中对应任务标记为 passes: true。
+- 下一步最合适继续进入任务 17，把导入批次解析、标准化预览和结果查询 API 串起来。
