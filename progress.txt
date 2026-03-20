@@ -1,0 +1,24 @@
+## 2026-03-20 - Task: 项目基础配置
+
+### What was done:
+- 补齐了根目录 `architecture.md` 和 `task.json`，避免项目状态只存在于隐藏目录。
+- 创建了 `backend`、`frontend`、`data`、`tests` 的基础目录结构，并预留后续解析、映射、校验、匹配和导出模块目录。
+- 新增后端依赖清单、最小 FastAPI 入口和后端健康检查冒烟测试。
+- 新增前端 Vite + React + TypeScript 骨架、基础路由、导航布局和 API 客户端封装。
+- 新增 `.env.example`、`.gitignore` 和 `README.md` 作为启动说明与环境配置模板。
+
+### Testing:
+- `py -m compileall backend`
+- `.\.venv\Scripts\python.exe -c "from backend.app.main import app; print(app.title); print(app.version)"`
+- `cmd /c npm.cmd install`
+- `cmd /c npm.cmd run build`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests -o cache_dir=.pytest_cache`
+
+### Risks / Open Questions:
+- 真实地区样例文件、双模板文件和员工主数据尚未进入工作区，核心链路暂时无法验证。
+- `pytest` 在当前机器上会尝试创建若干受限临时缓存目录，虽然测试已通过，但后续建议统一指定更干净的缓存目录或关闭缓存插件。
+- Python 运行环境当前为 3.13.7，后续需继续确认依赖与目标部署版本兼容性。
+
+### Notes:
+- 当前已完成任务 1，并将 `task.json` 中对应任务标记为 `passes: true`。
+- 下一步建议进入任务 2 或任务 3，优先补齐配置管理和数据库基础设施。
