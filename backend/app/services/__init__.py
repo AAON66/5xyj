@@ -25,6 +25,12 @@ from backend.app.services.normalization_service import (
     standardize_workbook,
     standardize_workbook_with_fallback,
 )
+from backend.app.services.validation_service import (
+    ValidationPreviewIssue,
+    ValidationResult,
+    build_validation_issue_models,
+    validate_standardized_result,
+)
 
 __all__ = [
     "BatchNotFoundError",
@@ -35,7 +41,10 @@ __all__ = [
     "LLMMappingResult",
     "NormalizedPreviewRecord",
     "StandardizationResult",
+    "ValidationPreviewIssue",
+    "ValidationResult",
     "build_normalized_models",
+    "build_validation_issue_models",
     "create_import_batch",
     "get_import_batch",
     "list_import_batches",
@@ -49,4 +58,5 @@ __all__ = [
     "serialize_import_batch",
     "standardize_workbook",
     "standardize_workbook_with_fallback",
+    "validate_standardized_result",
 ]

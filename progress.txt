@@ -182,3 +182,24 @@
 ### Notes:
 - 当前已完成任务 13，并已将 task.json 中对应任务标记为 passes: true。
 - 下一步最合适继续进入任务 14，开始做标准化结果的数据校验服务。
+
+## 2026-03-20 - Task: 数据校验服务
+
+### What was done:
+- 新增 backend/app/services/validation_service.py，实现标准化结果校验，覆盖必填字段缺失、身份证号格式校验、总金额与单位/个人金额一致性校验，以及重复记录检测。
+- 重复检测支持“身份证号 + 账期”优先，以及“姓名 + 公司 + 账期”的回退策略；当账期字段缺失时，会以缺失账期作为保守键继续识别潜在重复，避免漏报。
+- 新增 build_validation_issue_models，可将预览级校验结果转换为 ValidationIssue 模型对象，便于后续写入 validation_issues。
+- 更新 backend/app/services/__init__.py，导出校验服务入口。
+- 新增 backend/tests/test_validation_service.py，使用广州、厦门真实样例验证无误报，并覆盖缺失字段、身份证格式错误、金额不一致、按身份证重复和按姓名公司重复等场景。
+### Testing:
+- py -m compileall backend
+- .\.venv\Scripts\python.exe -m pytest backend\tests\test_validation_service.py -p no:cacheprovider
+- .\.venv\Scripts\python.exe -m pytest backend\tests -p no:cacheprovider
+
+### Risks / Open Questions:
+- 当前金额一致性校验聚焦 company_total_amount + personal_total_amount = total_amount，尚未扩展到各险种分项求和；如果后续业务明确要求分项汇总校验，可以在这一层继续细化。
+- 账期缺失时的重复检测现在会做保守提示，这能减少漏报，但在极端情况下可能引入人工复核量；后续如果导入链路能更稳定地补齐 billing_period，重复检测会更精确。
+- 身份证校验当前按 18 位中国大陆身份证规则执行，若后续员工主数据里存在护照或其它证件类型，还需要结合 id_type 放宽或分支处理。
+### Notes:
+- 当前已完成任务 14，并已将 task.json 中对应任务标记为 passes: true。
+- 下一步最合适继续进入任务 15，开始做工号匹配服务。
