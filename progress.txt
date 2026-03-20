@@ -354,3 +354,24 @@
 ### Notes:
 - Task 21 is complete and `task.json` has been updated to mark it as `passes: true`.
 - The next best step is task 22: build the validation and matching result page on top of the APIs from tasks 18 and 19.
+
+## 2026-03-20 - Task: Validation And Matching Results Page
+
+### What was done:
+- Added `frontend/src/services/runtime.ts` to encapsulate batch validation and matching API calls with typed models for issue lists, match rows, blocked reasons, and aggregate counts.
+- Added `frontend/src/pages/Results.tsx` and wired it into `frontend/src/App.tsx`, `frontend/src/pages/index.ts`, and `frontend/src/components/AppShell.tsx` so the app now has a dedicated route for validation and matching results.
+- Built the results page to support batch switching, on-demand validation, on-demand matching, issue severity cards, match status cards, candidate employee chips, and blocked-state messaging when employee master data is missing.
+- Extended `frontend/src/styles.css` with runtime result layouts and badges so validation and matching states remain readable on both desktop and mobile.
+
+### Testing:
+- `cmd /c npm.cmd run lint`
+- `cmd /c npm.cmd run build`
+
+### Risks / Open Questions:
+- The results page currently shows persisted validation and matching results only; if the workflow later needs side-by-side comparison with parse preview rows, task 25 can link the two pages more tightly.
+- Duplicate candidate employee IDs are shown only when the backend GET response includes them; if later UI flows need richer candidate detail, the backend may need to persist more matching context.
+- This page intentionally focuses on execution and review, not manual correction yet; task 26 remains the right place to add explicit mapping or match override controls.
+
+### Notes:
+- Task 22 is complete and `task.json` has been updated to mark it as `passes: true`.
+- The next best step is task 23: connect the dual-template export page to the export APIs.

@@ -637,3 +637,99 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+
+.runtime-layout,
+.runtime-detail-grid {
+  align-items: start;
+}
+
+.runtime-summary-grid {
+  display: grid;
+  gap: 16px;
+}
+
+.summary-grid {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.issue-list,
+.match-list {
+  display: grid;
+  gap: 12px;
+}
+
+.issue-card,
+.match-card {
+  display: grid;
+  gap: 8px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(31, 42, 61, 0.08);
+  background: rgba(248, 250, 254, 0.96);
+}
+
+.issue-card__head,
+.match-card__head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.severity-badge,
+.match-badge {
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.severity-badge--error {
+  background: rgba(188, 67, 55, 0.12);
+  color: #9f3228;
+}
+
+.severity-badge--warning {
+  background: rgba(195, 132, 29, 0.14);
+  color: #8e5a0d;
+}
+
+.severity-badge--info {
+  background: rgba(50, 117, 182, 0.14);
+  color: #24598a;
+}
+
+.match-badge--matched {
+  background: rgba(36, 115, 70, 0.12);
+  color: #245333;
+}
+
+.match-badge--unmatched {
+  background: rgba(31, 42, 61, 0.1);
+  color: #41526a;
+}
+
+.match-badge--duplicate {
+  background: rgba(191, 95, 40, 0.12);
+  color: #9a4a1b;
+}
+
+.match-badge--low_confidence {
+  background: rgba(91, 88, 176, 0.14);
+  color: #4f4ba3;
+}
+
+.candidate-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 980px) {
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+}

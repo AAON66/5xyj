@@ -110,7 +110,7 @@
     {
       "id": 22,
       "title": "校验与匹配结果页面",
-      "passes": false
+      "passes": true
     },
     {
       "id": 23,
