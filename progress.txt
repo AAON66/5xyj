@@ -133,3 +133,45 @@
 ### Notes:
 - 当前已完成任务 7，并将 `task.json` 中对应任务标记为 `passes: true`。
 - 由于主链路优先，这一步先实现了导入批次管理；下一步建议进入任务 8，继续做 Workbook / Sheet 发现服务。
+
+## 2026-03-20 - Task: Workbook / Sheet 发现服务
+
+### What was done:
+- 新增 `backend/app/parsers/workbook_discovery.py`，实现工作簿扫描、sheet 打分、候选表头行识别、数据起始行检测和候选区域解释信息输出。
+- 更新 `backend/app/parsers/__init__.py`，导出 Workbook 发现服务的核心类型与入口函数。
+- 新增 `backend/tests/test_workbook_discovery.py`，通过广州样式和长沙样式的合成工作簿验证“标题/说明区 + 双层表头”与“有效 sheet 不是第一个”的发现逻辑。
+- 调整启发式规则，优先识别更宽的表头行、连续双层表头和更像明细区的起始行，避免把单位信息或所属期说明行误识别为表头。
+
+### Testing:
+- `py -m compileall backend`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_workbook_discovery.py -p no:cacheprovider`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests -p no:cacheprovider`
+
+### Risks / Open Questions:
+- `data/samples` 目录当前只有 `.gitkeep`，缺少广州、长沙等真实已确认样例文件；因此这一步虽然已有合成测试覆盖，但仍无法按项目要求完成真实地区样例验证。
+- 当前发现服务仍属于启发式识别，后续在接入真实样例后，可能需要继续补充对透视表、前置说明区更长、空行更复杂场景的打分规则。
+- 在真实样例缺失前，任务 8 不应标记为完成，也不应推进到假装“已验证通过”的状态。
+
+### Notes:
+- 本轮先完成了 Workbook / Sheet 发现服务的可运行实现和自动化测试基础。
+- 需要补充真实地区样例后，才能决定是否将任务 8 在 `task.json` 中标记为 `passes: true`。
+
+## 2026-03-20 - Task: Workbook / Sheet 发现服务 - Validation Completed
+
+### What was done:
+- 使用真实地区样例补齐 Workbook 发现服务验证，确认广州样例可定位 `sheet1` 的表头区与数据起始行，长沙样例可识别 `Sheet4` 为有效工作表。
+- 调整发现服务评分策略，不再按整张表累加分值，而是更关注表头质量、透视/汇总提示和数据区起点，同时对 `征收项目 / 征收品目 / 人员编号 / 费率` 这类事务明细表标记做适度降权。
+- 将真实样例验证固化到 `backend/tests/test_workbook_discovery.py`，并在样例缺失时自动跳过，避免仓库代码强依赖本地样例文件存在。
+
+### Testing:
+- `py -m compileall backend`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_workbook_discovery.py -p no:cacheprovider`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests -p no:cacheprovider`
+
+### Risks / Open Questions:
+- 当前 Workbook 发现服务已经通过广州与长沙真实样例验证，但更多地区的细粒度发现差异还会在任务 9 的表头展开与后续解析任务中继续暴露，需要持续用真实样例回归。
+- 真实样例文件当前保留在本地工作区用于验证，自动化测试在样例缺失时会跳过对应断言，因此跨环境时仍需要单独准备样例才能获得同等验证强度。
+
+### Notes:
+- 当前已完成任务 8，并将 `task.json` 中对应任务标记为 `passes: true`。
+- 下一步建议进入任务 9，继续做表头识别与复合表头展开服务。
