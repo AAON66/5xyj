@@ -417,3 +417,24 @@
 ### Notes:
 - Task 24 is complete and `task.json` has been updated to mark it as `passes: true`.
 - The next best step is task 25: build the import batch detail page and connect recent activity or import lists into that drill-down view.
+
+## 2026-03-20 - Task: Import Batch Detail Page
+
+### What was done:
+- Added `frontend/src/pages/ImportBatchDetail.tsx` as a dedicated drill-down route for a single import batch, including source file switching, parse refresh, mapping review, filtered-row review, normalized preview rows, and unmapped field snapshots.
+- Updated `frontend/src/App.tsx` and `frontend/src/pages/index.ts` to expose `/imports/:batchId` as a first-class page in the app router.
+- Refined `frontend/src/pages/Imports.tsx` so the import homepage stays focused on upload and quick preview, while batch cards and the current-batch summary now link into the new detail page.
+- Updated `frontend/src/pages/Dashboard.tsx` and `frontend/src/styles.css` so recent activity cards also drill into batch detail and the new detail-page layout has responsive file selectors and metadata cards.
+
+### Testing:
+- `cmd /c npm.cmd run lint`
+- `cmd /c npm.cmd run build`
+
+### Risks / Open Questions:
+- The detail page currently refreshes parse results on demand but does not yet show validation, match, or export state inline; later UI tasks may choose to link those stages together at the batch level.
+- File switching relies on persisted preview data; if a batch has never been parsed, the page falls back gracefully but still needs a manual refresh parse before showing file-level preview content.
+- Batch detail currently focuses on read-only inspection; task 26 remains the right place to add manual mapping or correction actions.
+
+### Notes:
+- Task 25 is complete and `task.json` has been updated to mark it as `passes: true`.
+- The next best step is task 26: build field mapping configuration and manual correction UI on top of this new batch detail entry point.

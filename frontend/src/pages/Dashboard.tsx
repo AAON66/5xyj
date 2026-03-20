@@ -235,7 +235,7 @@ export function DashboardPage() {
         {overview?.recent_batches.length ? (
           <div className="recent-batch-grid">
             {overview.recent_batches.map((batch) => (
-              <article key={batch.batch_id} className="recent-batch-card">
+              <Link key={batch.batch_id} to={`/imports/${batch.batch_id}`} className="recent-batch-card">
                 <div className="recent-batch-card__head">
                   <div>
                     <strong>{batch.batch_name}</strong>
@@ -265,7 +265,7 @@ export function DashboardPage() {
                     <strong>{batch.export_job_count}</strong>
                   </div>
                 </div>
-              </article>
+              </Link>
             ))}
           </div>
         ) : (

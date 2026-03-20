@@ -125,7 +125,7 @@
     {
       "id": 25,
       "title": "导入批次详情页面",
-      "passes": false
+      "passes": true
     },
     {
       "id": 26,
