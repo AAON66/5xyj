@@ -311,3 +311,25 @@
 ### Notes:
 - Task 19 is complete and `task.json` has been updated to mark it as `passes: true`.
 - The next best step is task 20: add dashboard statistics APIs on top of batch, validation, match, and export states.
+
+## 2026-03-20 - Task: Dashboard Statistics API
+
+### What was done:
+- Added `backend/app/services/dashboard_service.py` to aggregate batch totals, status distributions, match outcomes, issue severities, export statuses, and recent batch summaries for the dashboard.
+- Added `backend/app/schemas/dashboard.py` and `backend/app/api/v1/dashboard.py`, exposing `GET /api/v1/dashboard/overview` as a wrapped dashboard overview endpoint.
+- Updated `backend/app/api/v1/router.py` to register the dashboard router alongside the existing system and imports routers.
+- Added `backend/tests/test_dashboard_api.py` to cover both the empty-workspace state and a populated end-to-end batch flow that reaches parse, validate, match, and export before checking overview counts.
+
+### Testing:
+- `py -m compileall backend`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_dashboard_api.py -p no:cacheprovider`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests -p no:cacheprovider`
+
+### Risks / Open Questions:
+- The current overview focuses on aggregate counts and recent batches; if the frontend later needs time-series trends or per-region breakdowns, those can be added in a follow-up without changing this base endpoint.
+- Recent batch summaries are limited to the latest 5 batches; if the UI needs a longer activity feed, we can add pagination or a dedicated recent-batches endpoint later.
+- Dashboard statistics currently reflect persisted database state only, so transient parse previews that have not been persisted will not appear in the overview by design.
+
+### Notes:
+- Task 20 is complete and `task.json` has been updated to mark it as `passes: true`.
+- The next best step is task 21: connect the upload and parse preview page to the backend APIs.

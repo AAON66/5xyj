@@ -100,7 +100,7 @@
     {
       "id": 20,
       "title": "看板统计 API",
-      "passes": false
+      "passes": true
     },
     {
       "id": 21,
