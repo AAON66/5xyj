@@ -1,7 +1,7 @@
 ﻿import { Route, Routes } from "react-router-dom";
 
 import { AppShell } from "./components";
-import { DashboardPage, EmployeesPage, ExportsPage, ImportBatchDetailPage, ImportsPage, NotFoundPage, ResultsPage } from "./pages";
+import { DashboardPage, EmployeesPage, ExportsPage, ImportBatchDetailPage, ImportsPage, MappingsPage, NotFoundPage, ResultsPage } from "./pages";
 
 export default function App() {
   return (
@@ -10,6 +10,7 @@ export default function App() {
         <Route path="/" element={<DashboardPage />} />
         <Route path="/imports" element={<ImportsPage />} />
         <Route path="/imports/:batchId" element={<ImportBatchDetailPage />} />
+        <Route path="/mappings" element={<MappingsPage />} />
         <Route path="/results" element={<ResultsPage />} />
         <Route path="/exports" element={<ExportsPage />} />
         <Route path="/employees" element={<EmployeesPage />} />

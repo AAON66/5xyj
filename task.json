@@ -130,7 +130,7 @@
     {
       "id": 26,
       "title": "字段映射配置与人工修正页面",
-      "passes": false
+      "passes": true
     },
     {
       "id": 27,

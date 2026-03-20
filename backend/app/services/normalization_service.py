@@ -67,14 +67,16 @@ def standardize_workbook(
     region: str | None = None,
     company_name: str | None = None,
     source_file_name: str | None = None,
+    extraction: HeaderExtraction | None = None,
+    normalization: HeaderNormalizationResult | None = None,
 ) -> StandardizationResult:
     workbook_path = Path(path)
-    extraction = extract_header_structure(workbook_path)
-    normalization = normalize_header_extraction(extraction, region=region)
+    runtime_extraction = extraction or extract_header_structure(workbook_path)
+    runtime_normalization = normalization or normalize_header_extraction(runtime_extraction, region=region)
     return _standardize_rows(
         workbook_path,
-        extraction,
-        normalization,
+        runtime_extraction,
+        runtime_normalization,
         region=region,
         company_name=company_name,
         source_file_name=source_file_name,
@@ -88,18 +90,20 @@ async def standardize_workbook_with_fallback(
     company_name: str | None = None,
     source_file_name: str | None = None,
     confidence_threshold: float = 0.8,
+    extraction: HeaderExtraction | None = None,
+    normalization: HeaderNormalizationResult | None = None,
 ) -> StandardizationResult:
     workbook_path = Path(path)
-    extraction = extract_header_structure(workbook_path)
-    normalization = await normalize_header_extraction_with_fallback(
-        extraction,
+    runtime_extraction = extraction or extract_header_structure(workbook_path)
+    runtime_normalization = normalization or await normalize_header_extraction_with_fallback(
+        runtime_extraction,
         region=region,
         confidence_threshold=confidence_threshold,
     )
     return _standardize_rows(
         workbook_path,
-        extraction,
-        normalization,
+        runtime_extraction,
+        runtime_normalization,
         region=region,
         company_name=company_name,
         source_file_name=source_file_name,

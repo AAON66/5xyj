@@ -1048,3 +1048,58 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+
+.mapping-config-grid,
+.mapping-summary-grid,
+.mapping-editor-list,
+.mapping-editor-meta,
+.mapping-editor-actions {
+  display: grid;
+  gap: 16px;
+}
+
+.mapping-editor-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid rgba(31, 42, 61, 0.08);
+  background: rgba(248, 250, 254, 0.96);
+}
+
+.mapping-editor-card__head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mapping-editor-card__head p {
+  margin: 6px 0 0;
+  color: #647287;
+}
+
+.mapping-editor-meta {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  color: #5c697d;
+}
+
+.mapping-editor-actions {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+}
+
+.recent-batch-card:hover,
+.source-file-summary-card:hover,
+.batch-card__link:hover,
+.inline-link:hover {
+  opacity: 0.88;
+}
+
+@media (max-width: 980px) {
+  .mapping-editor-meta,
+  .mapping-editor-actions {
+    grid-template-columns: 1fr;
+  }
+}

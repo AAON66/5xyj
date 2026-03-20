@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import hashlib
 import shutil
@@ -12,9 +12,9 @@ from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
 from backend.app.core.config import Settings
-from backend.app.models import ImportBatch, SourceFile
-from backend.app.models.enums import BatchStatus
-from backend.app.parsers import extract_header_structure
+from backend.app.models import HeaderMapping, ImportBatch, SourceFile
+from backend.app.models.enums import BatchStatus, MappingSource
+from backend.app.parsers import HeaderExtraction, extract_header_structure
 from backend.app.schemas.imports import (
     FilteredRowPreviewRead,
     HeaderMappingPreviewRead,
@@ -25,8 +25,8 @@ from backend.app.schemas.imports import (
     SourceFilePreviewRead,
     SourceFileRead,
 )
-from backend.app.services.header_normalizer import normalize_header_extraction
-from backend.app.services.normalization_service import standardize_workbook
+from backend.app.services.header_normalizer import HeaderMappingDecision, HeaderNormalizationResult, normalize_header_extraction
+from backend.app.services.normalization_service import StandardizationResult, standardize_workbook
 
 ALLOWED_EXTENSIONS = {'.xlsx', '.xls'}
 
@@ -49,6 +49,13 @@ class StoredUpload:
     storage_path: Path
     file_size: int
     file_hash: str
+
+
+@dataclass
+class AnalyzedSourceFile:
+    extraction: HeaderExtraction
+    normalization: HeaderNormalizationResult
+    standardized: StandardizationResult
 
 
 async def create_import_batch(
@@ -106,11 +113,13 @@ def list_import_batches(db: Session) -> list[ImportBatchSummaryRead]:
     return [_to_summary_schema(batch) for batch in batches]
 
 
+
 def get_import_batch(db: Session, batch_id: str) -> ImportBatch:
     batch = db.query(ImportBatch).filter(ImportBatch.id == batch_id).first()
     if batch is None:
         raise BatchNotFoundError(f"Import batch '{batch_id}' was not found.")
     return batch
+
 
 
 def preview_import_batch(db: Session, batch_id: str) -> ImportBatchPreviewRead:
@@ -124,6 +133,7 @@ def preview_import_batch(db: Session, batch_id: str) -> ImportBatchPreviewRead:
     )
 
 
+
 def parse_import_batch(db: Session, batch_id: str) -> ImportBatchPreviewRead:
     batch = get_import_batch(db, batch_id)
     batch.status = BatchStatus.PARSING
@@ -132,9 +142,11 @@ def parse_import_batch(db: Session, batch_id: str) -> ImportBatchPreviewRead:
     try:
         file_previews = []
         for source_file in batch.source_files:
-            file_preview = _build_source_file_preview(source_file)
+            analyzed = _analyze_source_file(source_file)
+            _persist_source_file_mappings(db, source_file, analyzed.normalization.decisions)
+            file_preview = _build_source_file_preview_from_analysis(source_file, analyzed)
             file_previews.append(file_preview)
-            source_file.raw_sheet_name = file_preview.raw_sheet_name
+            source_file.raw_sheet_name = analyzed.standardized.sheet_name
         batch.status = BatchStatus.NORMALIZED
         db.commit()
     except Exception:
@@ -149,6 +161,7 @@ def parse_import_batch(db: Session, batch_id: str) -> ImportBatchPreviewRead:
         status=batch.status.value,
         source_files=file_previews,
     )
+
 
 
 def serialize_import_batch(batch: ImportBatch) -> ImportBatchDetailRead:
@@ -175,17 +188,18 @@ def serialize_import_batch(batch: ImportBatch) -> ImportBatchDetailRead:
     )
 
 
-def _build_source_file_preview(source_file: SourceFile) -> SourceFilePreviewRead:
-    workbook_path = Path(source_file.file_path)
-    extraction = extract_header_structure(workbook_path)
-    normalization = normalize_header_extraction(extraction, region=source_file.region)
-    standardized = standardize_workbook(
-        workbook_path,
-        region=source_file.region,
-        company_name=source_file.company_name,
-        source_file_name=source_file.file_name,
-    )
 
+def _build_source_file_preview(source_file: SourceFile) -> SourceFilePreviewRead:
+    return _build_source_file_preview_from_analysis(source_file, _analyze_source_file(source_file))
+
+
+
+def _build_source_file_preview_from_analysis(
+    source_file: SourceFile,
+    analysis: AnalyzedSourceFile,
+) -> SourceFilePreviewRead:
+    standardized = analysis.standardized
+    normalization = analysis.normalization
     return SourceFilePreviewRead(
         source_file_id=source_file.id,
         file_name=source_file.file_name,
@@ -232,6 +246,108 @@ def _build_source_file_preview(source_file: SourceFile) -> SourceFilePreviewRead
     )
 
 
+
+def _analyze_source_file(source_file: SourceFile) -> AnalyzedSourceFile:
+    workbook_path = Path(source_file.file_path)
+    extraction = extract_header_structure(workbook_path)
+    base_normalization = normalize_header_extraction(extraction, region=source_file.region)
+    normalization = _apply_manual_mapping_overrides(base_normalization, source_file.header_mappings)
+    standardized = standardize_workbook(
+        workbook_path,
+        region=source_file.region,
+        company_name=source_file.company_name,
+        source_file_name=source_file.file_name,
+        extraction=extraction,
+        normalization=normalization,
+    )
+    return AnalyzedSourceFile(
+        extraction=extraction,
+        normalization=normalization,
+        standardized=standardized,
+    )
+
+
+
+def _apply_manual_mapping_overrides(
+    normalization: HeaderNormalizationResult,
+    persisted_mappings: list[HeaderMapping],
+) -> HeaderNormalizationResult:
+    manual_by_signature = {
+        mapping.raw_header_signature: mapping
+        for mapping in persisted_mappings
+        if mapping.manually_overridden
+    }
+    if not manual_by_signature:
+        return normalization
+
+    decisions: list[HeaderMappingDecision] = []
+    for decision in normalization.decisions:
+        manual_mapping = manual_by_signature.get(decision.raw_header_signature)
+        if manual_mapping is None:
+            decisions.append(decision)
+            continue
+        candidate_fields = list(manual_mapping.candidate_fields or decision.candidate_fields)
+        if manual_mapping.canonical_field and manual_mapping.canonical_field not in candidate_fields:
+            candidate_fields.insert(0, manual_mapping.canonical_field)
+        decisions.append(
+            HeaderMappingDecision(
+                raw_header=decision.raw_header,
+                raw_header_signature=decision.raw_header_signature,
+                canonical_field=manual_mapping.canonical_field,
+                mapping_source=MappingSource.MANUAL.value,
+                confidence=manual_mapping.confidence,
+                candidate_fields=candidate_fields,
+                matched_rules=decision.matched_rules,
+                llm_attempted=decision.llm_attempted,
+                llm_status=decision.llm_status,
+                rule_overrode_llm=decision.rule_overrode_llm,
+            )
+        )
+
+    return HeaderNormalizationResult(
+        source_file=normalization.source_file,
+        sheet_name=normalization.sheet_name,
+        raw_header_signature=normalization.raw_header_signature,
+        decisions=decisions,
+        unmapped_headers=[decision.raw_header_signature for decision in decisions if decision.canonical_field is None],
+    )
+
+
+
+def _persist_source_file_mappings(
+    db: Session,
+    source_file: SourceFile,
+    decisions: list[HeaderMappingDecision],
+) -> None:
+    existing_by_signature = {mapping.raw_header_signature: mapping for mapping in source_file.header_mappings}
+    seen_signatures: set[str] = set()
+
+    for decision in decisions:
+        seen_signatures.add(decision.raw_header_signature)
+        mapping = existing_by_signature.get(decision.raw_header_signature)
+        if mapping is None:
+            mapping = HeaderMapping(source_file_id=source_file.id)
+            db.add(mapping)
+            source_file.header_mappings.append(mapping)
+
+        mapping.raw_header = decision.raw_header
+        mapping.raw_header_signature = decision.raw_header_signature
+        mapping.canonical_field = decision.canonical_field
+        mapping.mapping_source = (
+            MappingSource(decision.mapping_source)
+            if decision.mapping_source in {item.value for item in MappingSource}
+            else MappingSource.RULE
+        )
+        mapping.confidence = decision.confidence
+        mapping.manually_overridden = decision.mapping_source == MappingSource.MANUAL.value
+        mapping.candidate_fields = decision.candidate_fields
+
+    for signature, mapping in list(existing_by_signature.items()):
+        if signature not in seen_signatures:
+            db.delete(mapping)
+
+
+
 def _to_summary_schema(batch: ImportBatch) -> ImportBatchSummaryRead:
     return ImportBatchSummaryRead(
         id=batch.id,
@@ -243,8 +359,10 @@ def _to_summary_schema(batch: ImportBatch) -> ImportBatchSummaryRead:
     )
 
 
+
 def _build_batch_name() -> str:
     return f"import-batch-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+
 
 
 def _normalize_metadata_list(values: list[str] | None, file_count: int, field_name: str) -> list[str | None]:
@@ -279,6 +397,7 @@ async def _store_upload(batch_dir: Path, upload: UploadFile) -> StoredUpload:
         file_size=len(payload),
         file_hash=hashlib.sha256(payload).hexdigest(),
     )
+
 
 
 def _json_safe_dict(values: dict[str, object | None]) -> dict[str, object | None]:

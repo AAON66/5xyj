@@ -438,3 +438,28 @@
 ### Notes:
 - Task 25 is complete and `task.json` has been updated to mark it as `passes: true`.
 - The next best step is task 26: build field mapping configuration and manual correction UI on top of this new batch detail entry point.
+
+## 2026-03-20 - Task: Field Mapping Configuration And Manual Correction Page
+
+### What was done:
+- Added backend mapping persistence and correction support: `backend/app/services/import_service.py` now stores header mappings on parse, keeps manual overrides across re-parse, and applies those overrides back into preview normalization.
+- Added backend mapping APIs through `backend/app/api/v1/mappings.py`, `backend/app/services/mapping_service.py`, and `backend/app/schemas/mappings.py`, supporting filtered mapping list queries and manual `PATCH` updates for canonical fields.
+- Added `backend/tests/test_mapping_api.py` to verify mapping persistence, manual override application in preview results, invalid canonical-field rejection, and sample coverage across Shenzhen and Guangzhou files.
+- Added frontend mapping management UI through `frontend/src/services/mappings.ts` and `frontend/src/pages/Mappings.tsx`, then wired it into routing/navigation and linked batch detail into the new correction page.
+- Updated `frontend/src/pages/ImportBatchDetail.tsx`, `frontend/src/pages/Imports.tsx`, `frontend/src/pages/Dashboard.tsx`, and `frontend/src/styles.css` so batch drill-down and recent activity can flow directly into mapping correction.
+
+### Testing:
+- `py -m compileall backend`
+- `./.venv/Scripts/python.exe -m pytest backend/tests/test_mapping_api.py -p no:cacheprovider`
+- `./.venv/Scripts/python.exe -m pytest backend/tests -p no:cacheprovider`
+- `cmd /c npm.cmd run lint`
+- `cmd /c npm.cmd run build`
+
+### Risks / Open Questions:
+- Manual mapping correction currently updates header normalization and preview output, but it does not yet trigger downstream validation or matching reruns automatically; users still need to refresh later pipeline stages explicitly.
+- Mapping overrides are stored per source-file header signature, which fits the current batch/file model well; if future workflows need reusable global mapping rules, that should become a separate rule-management layer instead of overloading manual overrides.
+- The page currently supports one-by-one save actions; if operators later need bulk approve/apply flows, we can extend the API to accept batched updates.
+
+### Notes:
+- Task 26 is complete and `task.json` has been updated to mark it as `passes: true`.
+- The next best step is task 27: improve cross-page error handling, loading states, and user feedback consistency.
