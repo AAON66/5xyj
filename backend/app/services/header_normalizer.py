@@ -3,8 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from backend.app.mappings.manual_field_aliases import AliasRule, MANUAL_ALIAS_RULES, normalize_signature
+from backend.app.mappings.manual_field_aliases import AliasRule, MANUAL_ALIAS_RULES
 from backend.app.parsers import HeaderExtraction, HeaderColumn, extract_header_structure
+from backend.app.services.llm_mapping_service import LLMMappingResult, map_header_with_llm
 
 
 @dataclass(slots=True)
@@ -16,6 +17,9 @@ class HeaderMappingDecision:
     confidence: float | None
     candidate_fields: list[str]
     matched_rules: list[str]
+    llm_attempted: bool = False
+    llm_status: str = "not_requested"
+    rule_overrode_llm: bool = False
 
 
 @dataclass(slots=True)
@@ -43,6 +47,49 @@ def normalize_header_extraction(extraction: HeaderExtraction, region: str | None
     )
 
 
+async def normalize_header_extraction_with_fallback(
+    extraction: HeaderExtraction,
+    region: str | None = None,
+    *,
+    confidence_threshold: float = 0.8,
+) -> HeaderNormalizationResult:
+    decisions = []
+    for column in extraction.columns:
+        decision = normalize_header_column(column, region=region)
+        if decision.canonical_field is not None:
+            decisions.append(decision)
+            continue
+        decisions.append(
+            await normalize_header_column_with_fallback(
+                column,
+                region=region,
+                confidence_threshold=confidence_threshold,
+            )
+        )
+
+    return HeaderNormalizationResult(
+        source_file=extraction.source_file,
+        sheet_name=extraction.sheet_name,
+        raw_header_signature=extraction.raw_header_signature,
+        decisions=decisions,
+        unmapped_headers=[decision.raw_header_signature for decision in decisions if decision.canonical_field is None],
+    )
+
+
+async def normalize_headers_with_fallback(
+    path: str | Path,
+    region: str | None = None,
+    *,
+    confidence_threshold: float = 0.8,
+) -> HeaderNormalizationResult:
+    extraction = extract_header_structure(path)
+    return await normalize_header_extraction_with_fallback(
+        extraction,
+        region=region,
+        confidence_threshold=confidence_threshold,
+    )
+
+
 def normalize_header_column(column: HeaderColumn, region: str | None = None) -> HeaderMappingDecision:
     matches: list[tuple[AliasRule, float]] = []
     for rule in MANUAL_ALIAS_RULES:
@@ -66,7 +113,58 @@ def normalize_header_column(column: HeaderColumn, region: str | None = None) -> 
     )
 
 
-def _dedupe_preserve_order(values: list[str] | tuple[str, ...] | object) -> list[str]:
+async def normalize_header_column_with_fallback(
+    column: HeaderColumn,
+    region: str | None = None,
+    *,
+    confidence_threshold: float = 0.8,
+) -> HeaderMappingDecision:
+    decision = normalize_header_column(column, region=region)
+    if decision.canonical_field is not None:
+        return decision
+
+    llm_result = await map_header_with_llm(column.signature, region=region)
+    return _merge_llm_result(decision, llm_result, confidence_threshold=confidence_threshold)
+
+
+def _merge_llm_result(
+    decision: HeaderMappingDecision,
+    llm_result: LLMMappingResult,
+    *,
+    confidence_threshold: float,
+) -> HeaderMappingDecision:
+    candidate_fields = _dedupe_preserve_order([*decision.candidate_fields, *llm_result.candidate_fields])
+    llm_attempted = llm_result.status != "not_requested"
+
+    if llm_result.canonical_field and (llm_result.confidence or 0) >= confidence_threshold:
+        return HeaderMappingDecision(
+            raw_header=decision.raw_header,
+            raw_header_signature=decision.raw_header_signature,
+            canonical_field=llm_result.canonical_field,
+            mapping_source="llm",
+            confidence=llm_result.confidence,
+            candidate_fields=candidate_fields,
+            matched_rules=decision.matched_rules,
+            llm_attempted=llm_attempted,
+            llm_status=llm_result.status,
+            rule_overrode_llm=False,
+        )
+
+    return HeaderMappingDecision(
+        raw_header=decision.raw_header,
+        raw_header_signature=decision.raw_header_signature,
+        canonical_field=None,
+        mapping_source="unmapped",
+        confidence=llm_result.confidence,
+        candidate_fields=candidate_fields,
+        matched_rules=decision.matched_rules,
+        llm_attempted=llm_attempted,
+        llm_status=llm_result.status,
+        rule_overrode_llm=False,
+    )
+
+
+def _dedupe_preserve_order(values: object) -> list[str]:
     items = list(values)
     result: list[str] = []
     for item in items:

@@ -219,3 +219,25 @@
 ### Notes:
 - 当前已完成任务 10，并将 `task.json` 中对应任务标记为 `passes: true`。
 - 下一步建议进入任务 11，补 DeepSeek 兜底映射服务和无 API Key 降级逻辑。
+
+## 2026-03-20 - Task: DeepSeek 兜底映射服务
+
+### What was done:
+- 新增 `backend/app/services/llm_mapping_service.py`，封装 DeepSeek `chat/completions` 调用、JSON 响应解析、标准字段候选校验和错误降级逻辑。
+- 扩展 `backend/app/services/header_normalizer.py`，在规则未命中时提供 `normalize_header_column_with_fallback` 与批量 fallback 入口，确保规则优先、LLM 只在必要时介入。
+- 为映射决策补充 `llm_attempted`、`llm_status`、候选字段与置信度保留，便于后续审计和人工修正。
+- 更新服务导出，并新增 `backend/tests/test_llm_mapping_service.py`，覆盖规则命中不调用 LLM、无 API Key 自动降级、高置信度接收、低置信度拒绝、HTTP 异常处理和批量 fallback 行为。
+
+### Testing:
+- `py -m compileall backend`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_llm_mapping_service.py -p no:cacheprovider`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests -p no:cacheprovider`
+
+### Risks / Open Questions:
+- 当前 DeepSeek 封装已具备可运行接口，但仍依赖用户后续提供有效 API Key；在未提供前会稳定降级为 `skipped_no_api_key`。
+- LLM 结果目前只在置信度超过阈值时接管，低置信度结果会保留候选字段但不会静默接受；后续如果需要人工确认流程，还需要继续向前后端透出这些候选信息。
+- 这一步只做字段语义兜底，不会让 LLM 参与金额计算、匹配或导出填充，后续也应继续保持这个边界。
+
+### Notes:
+- 当前已完成任务 11，并将 `task.json` 中对应任务标记为 `passes: true`。
+- 下一步建议进入任务 12，开始做非明细行过滤服务。
