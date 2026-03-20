@@ -1,4 +1,4 @@
-from backend.app.services.header_normalizer import (
+﻿from backend.app.services.header_normalizer import (
     HeaderMappingDecision,
     HeaderNormalizationResult,
     normalize_header_column,
@@ -18,6 +18,13 @@ from backend.app.services.import_service import (
     serialize_import_batch,
 )
 from backend.app.services.llm_mapping_service import LLMMappingResult, map_header_with_llm
+from backend.app.services.normalization_service import (
+    NormalizedPreviewRecord,
+    StandardizationResult,
+    build_normalized_models,
+    standardize_workbook,
+    standardize_workbook_with_fallback,
+)
 
 __all__ = [
     "BatchNotFoundError",
@@ -26,6 +33,9 @@ __all__ = [
     "ImportServiceError",
     "InvalidUploadError",
     "LLMMappingResult",
+    "NormalizedPreviewRecord",
+    "StandardizationResult",
+    "build_normalized_models",
     "create_import_batch",
     "get_import_batch",
     "list_import_batches",
@@ -37,4 +47,6 @@ __all__ = [
     "normalize_headers",
     "normalize_headers_with_fallback",
     "serialize_import_batch",
+    "standardize_workbook",
+    "standardize_workbook_with_fallback",
 ]

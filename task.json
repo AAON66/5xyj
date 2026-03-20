@@ -2,37 +2,165 @@
   "project": "社保表格聚合工具",
   "description": "聚合不同地区社保表格，完成识别、标准化、过滤、匹配、校验与双模板导出。",
   "tasks": [
-    {"id": 1, "title": "项目基础配置", "passes": true},
-    {"id": 2, "title": "数据库 Schema 设计", "passes": true},
-    {"id": 3, "title": "配置管理与基础依赖注入", "passes": true},
-    {"id": 4, "title": "FastAPI 应用初始化", "passes": true},
-    {"id": 5, "title": "React 前端初始化", "passes": true},
-    {"id": 6, "title": "员工主数据与工号主档导入", "passes": false},
-    {"id": 7, "title": "文件上传与导入批次管理", "passes": true},
-    {"id": 8, "title": "Workbook / Sheet 发现服务", "passes": true},
-    {"id": 9, "title": "表头识别与复合表头展开服务", "passes": true},
-    {"id": 10, "title": "规则映射服务与别名规则库", "passes": true},
-    {"id": 11, "title": "DeepSeek 兜底映射服务", "passes": true},
-    {"id": 12, "title": "非明细行过滤服务", "passes": true},
-    {"id": 13, "title": "标准化聚合服务", "passes": false},
-    {"id": 14, "title": "数据校验服务", "passes": false},
-    {"id": 15, "title": "工号匹配服务", "passes": false},
-    {"id": 16, "title": "双模板导出服务", "passes": false},
-    {"id": 17, "title": "导入与解析 API", "passes": false},
-    {"id": 18, "title": "校验与匹配 API", "passes": false},
-    {"id": 19, "title": "导出 API", "passes": false},
-    {"id": 20, "title": "看板统计 API", "passes": false},
-    {"id": 21, "title": "上传与解析预览页面", "passes": false},
-    {"id": 22, "title": "校验与匹配结果页面", "passes": false},
-    {"id": 23, "title": "双模板导出页面", "passes": false},
-    {"id": 24, "title": "看板首页 UI", "passes": false},
-    {"id": 25, "title": "导入批次详情页面", "passes": false},
-    {"id": 26, "title": "字段映射配置与人工修正页面", "passes": false},
-    {"id": 27, "title": "错误处理与加载状态", "passes": false},
-    {"id": 28, "title": "响应式适配", "passes": false},
-    {"id": 29, "title": "地区样例解析自动化测试", "passes": false},
-    {"id": 30, "title": "双模板导出自动化测试", "passes": false},
-    {"id": 31, "title": "DeepSeek 集成测试与降级验证", "passes": false},
-    {"id": 32, "title": "最终联调与部署文档", "passes": false}
+    {
+      "id": 1,
+      "title": "项目基础配置",
+      "passes": true
+    },
+    {
+      "id": 2,
+      "title": "数据库 Schema 设计",
+      "passes": true
+    },
+    {
+      "id": 3,
+      "title": "配置管理与基础依赖注入",
+      "passes": true
+    },
+    {
+      "id": 4,
+      "title": "FastAPI 应用初始化",
+      "passes": true
+    },
+    {
+      "id": 5,
+      "title": "React 前端初始化",
+      "passes": true
+    },
+    {
+      "id": 6,
+      "title": "员工主数据与工号主档导入",
+      "passes": false
+    },
+    {
+      "id": 7,
+      "title": "文件上传与导入批次管理",
+      "passes": true
+    },
+    {
+      "id": 8,
+      "title": "Workbook / Sheet 发现服务",
+      "passes": true
+    },
+    {
+      "id": 9,
+      "title": "表头识别与复合表头展开服务",
+      "passes": true
+    },
+    {
+      "id": 10,
+      "title": "规则映射服务与别名规则库",
+      "passes": true
+    },
+    {
+      "id": 11,
+      "title": "DeepSeek 兜底映射服务",
+      "passes": true
+    },
+    {
+      "id": 12,
+      "title": "非明细行过滤服务",
+      "passes": true
+    },
+    {
+      "id": 13,
+      "title": "标准化聚合服务",
+      "passes": true
+    },
+    {
+      "id": 14,
+      "title": "数据校验服务",
+      "passes": false
+    },
+    {
+      "id": 15,
+      "title": "工号匹配服务",
+      "passes": false
+    },
+    {
+      "id": 16,
+      "title": "双模板导出服务",
+      "passes": false
+    },
+    {
+      "id": 17,
+      "title": "导入与解析 API",
+      "passes": false
+    },
+    {
+      "id": 18,
+      "title": "校验与匹配 API",
+      "passes": false
+    },
+    {
+      "id": 19,
+      "title": "导出 API",
+      "passes": false
+    },
+    {
+      "id": 20,
+      "title": "看板统计 API",
+      "passes": false
+    },
+    {
+      "id": 21,
+      "title": "上传与解析预览页面",
+      "passes": false
+    },
+    {
+      "id": 22,
+      "title": "校验与匹配结果页面",
+      "passes": false
+    },
+    {
+      "id": 23,
+      "title": "双模板导出页面",
+      "passes": false
+    },
+    {
+      "id": 24,
+      "title": "看板首页 UI",
+      "passes": false
+    },
+    {
+      "id": 25,
+      "title": "导入批次详情页面",
+      "passes": false
+    },
+    {
+      "id": 26,
+      "title": "字段映射配置与人工修正页面",
+      "passes": false
+    },
+    {
+      "id": 27,
+      "title": "错误处理与加载状态",
+      "passes": false
+    },
+    {
+      "id": 28,
+      "title": "响应式适配",
+      "passes": false
+    },
+    {
+      "id": 29,
+      "title": "地区样例解析自动化测试",
+      "passes": false
+    },
+    {
+      "id": 30,
+      "title": "双模板导出自动化测试",
+      "passes": false
+    },
+    {
+      "id": 31,
+      "title": "DeepSeek 集成测试与降级验证",
+      "passes": false
+    },
+    {
+      "id": 32,
+      "title": "最终联调与部署文档",
+      "passes": false
+    }
   ]
 }

@@ -162,3 +162,23 @@
 ### Notes:
 - 褰撳墠宸插畬鎴愪换鍔?12锛屽苟宸插皢 `task.json` 涓搴斾换鍔℃爣璁颁负 `passes: true`銆?
 - 涓嬩竴姝ユ渶鍚堥€傜户缁繘鍏ヤ换鍔?13锛屽紑濮嬫妸鍙戠幇銆佽〃澶村睍寮€銆佽鍒欐槧灏勩€丩LM 鍏滃簳鍜岄潪鏄庣粏琛岃繃婊や覆鎴愭爣鍑嗗寲鑱氬悎鏈嶅姟銆?
+## 2026-03-20 - Task: 标准化聚合服务
+
+### What was done:
+- 新增 backend/app/services/normalization_service.py，把工作簿发现、表头展开、规则映射和非明细行过滤串成标准化聚合链路，按行输出统一字段、未识别字段、原始列值和原始载荷。
+- 聚合器会保留 source_row_number、raw_sheet_name、raw_header_signature、source_file_name、region、company_name 等溯源信息，并对金额字段统一转成 Decimal。
+- 新增 build_normalized_models，可把标准化预览结果直接转换为 NormalizedRecord 模型对象，便于后续写入 normalized_records。
+- 更新 backend/app/services/__init__.py，导出标准化聚合服务入口。
+- 新增 backend/tests/test_normalization_service.py，使用广州、杭州、厦门、深圳、武汉、长沙真实样例验证统一字段落地、非明细行过滤和模型构建。
+### Testing:
+- py -m compileall backend
+- .\.venv\Scripts\python.exe -m pytest backend\tests\test_normalization_service.py -p no:cacheprovider
+- .\.venv\Scripts\python.exe -m pytest backend\tests -p no:cacheprovider
+
+### Risks / Open Questions:
+- 当前 payment_base 和 payment_salary 在多险种重复出现时采用首个非空值并记录 field_conflicts；后续若业务需要更严格的基数冲突判定，可以在校验阶段继续升级。
+- 标准化服务当前已输出结构化结果和模型转换入口，但还没有接入批次解析 API；任务 17 时需要把这条链路真正挂到导入批次上。
+- 未识别字段目前保存在 unmapped_values 和 raw_payload 中，后续字段映射人工修正页面可以直接复用这些原始信息。
+### Notes:
+- 当前已完成任务 13，并已将 task.json 中对应任务标记为 passes: true。
+- 下一步最合适继续进入任务 14，开始做标准化结果的数据校验服务。
