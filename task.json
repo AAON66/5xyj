@@ -35,7 +35,7 @@
                                     "建立表间外键关系与必要索引",
                                     "生成初始 migration 并执行 upgrade"
                                 ],
-                      "passes":  false
+                      "passes":  true
                   },
                   {
                       "id":  3,

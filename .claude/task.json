@@ -1,0 +1,597 @@
+{
+  "project": "智能学习计划系统",
+  "description": "根据用户需求制定个性化学习计划的智能系统",
+  "tasks": [
+    {
+      "id": 1,
+      "title": "项目基础配置",
+      "description": "配置项目的基础设置和依赖",
+      "steps": [
+        "创建 Python 虚拟环境: python -m venv venv",
+        "安装核心依赖: fastapi, uvicorn[standard], sqlalchemy, alembic, psycopg2-binary",
+        "安装认证依赖: python-jose[cryptography], passlib[bcrypt]",
+        "安装 HTTP 客户端: httpx, aiohttp",
+        "安装数据验证: pydantic, pydantic-settings",
+        "安装机器学习库: scikit-learn, numpy, pandas",
+        "创建 .env.example 模板文件（包含所有必需的环境变量）",
+        "创建 backend/app/utils/helpers.py 工具函数文件",
+        "创建 requirements.txt 依赖清单"
+      ],
+      "passes": false
+    },
+    {
+      "id": 2,
+      "title": "PostgreSQL 数据库 Schema",
+      "description": "创建数据库表结构（学习计划相关表）",
+      "steps": [
+        "使用 Alembic 初始化数据库迁移: alembic init alembic",
+        "创建 SQLAlchemy 模型 backend/app/models/user.py (id, email, hashed_password, created_at)",
+        "创建 backend/app/models/plan.py - learning_plans 表 (id, user_id, title, goal, user_background, total_duration_days, difficulty_level, status, start_date, target_end_date, created_at, updated_at)",
+        "status 字段: draft/analysis/planning/content/method/active/completed/paused",
+        "创建 backend/app/models/analysis.py - need_analysis 表 (id, plan_id, analysis_result, key_points, recommended_path, confirmed, version, created_at)",
+        "创建 backend/app/models/stage.py - plan_stages 表 (id, plan_id, order_index, stage_name, description, duration_days, milestones, status, confirmed, created_at)",
+        "创建 backend/app/models/resource.py - learning_resources 表 (id, stage_id, resource_type, title, description, url, provider, estimated_hours, difficulty, is_free, order_index, user_selected, created_at)",
+        "创建 backend/app/models/method.py - learning_methods 表 (id, stage_id, method_type, title, content, schedule, order_index, confirmed, created_at)",
+        "创建 backend/app/models/progress.py - progress_records 表 (id, plan_id, stage_id, record_date, study_minutes, content_studied, completion_percentage, notes, created_at)",
+        "创建 backend/app/models/checkin.py - check_ins 表 (id, plan_id, check_in_date, completed, study_minutes, reflection, mood_score, created_at)",
+        "设置外键关系和索引",
+        "生成 Alembic migration 文件: alembic revision --autogenerate -m 'initial schema'",
+        "运行迁移: alembic upgrade head"
+      ],
+      "passes": false
+    },
+    {
+      "id": 3,
+      "title": "数据库连接和配置",
+      "description": "创建数据库连接和配置管理",
+      "steps": [
+        "创建 backend/app/core/database.py (SQLAlchemy 数据库引擎和会话)",
+        "创建 backend/app/core/config.py (Pydantic Settings 配置管理)",
+        "创建 backend/app/dependencies.py (依赖注入函数，如 get_db)",
+        "配置数据库连接池",
+        "创建数据库初始化脚本"
+      ],
+      "passes": false
+    },
+    {
+      "id": 4,
+      "title": "用户认证 - 注册和登录 API",
+      "description": "实现用户注册和登录功能",
+      "steps": [
+        "创建 backend/app/core/security.py (JWT token 生成和验证、密码哈希)",
+        "创建 backend/app/schemas/user.py (Pydantic 用户模式)",
+        "创建 backend/app/api/v1/auth.py",
+        "POST /api/v1/auth/register 用户注册接口",
+        "POST /api/v1/auth/login 用户登录接口（返回 access_token 和 refresh_token）",
+        "POST /api/v1/auth/refresh 刷新 token 接口",
+        "实现密码哈希和验证",
+        "实现 JWT token 生成",
+        "添加认证依赖函数 get_current_user"
+      ],
+      "passes": false
+    },
+    {
+      "id": 5,
+      "title": "FastAPI 应用初始化",
+      "description": "创建 FastAPI 应用主入口",
+      "steps": [
+        "创建 backend/app/main.py FastAPI 应用入口",
+        "配置 CORS 中间件",
+        "注册 API 路由 (v1 版本)",
+        "配置全局异常处理",
+        "添加健康检查端点 GET /health",
+        "配置日志记录",
+        "创建启动脚本"
+      ],
+      "passes": false
+    },
+    {
+      "id": 6,
+      "title": "前端项目初始化",
+      "description": "创建 React 前端项目",
+      "steps": [
+        "使用 Vite 创建 React + TypeScript 项目: npm create vite@latest frontend -- --template react-ts",
+        "安装 Tailwind CSS: npm install -D tailwindcss postcss autoprefixer",
+        "配置 Tailwind CSS",
+        "安装 React Router: npm install react-router-dom",
+        "安装 HTTP 客户端: npm install axios",
+        "创建基础目录结构: src/components, src/pages, src/services, src/hooks, src/utils",
+        "创建 API 服务封装 src/services/api.ts"
+      ],
+      "passes": false
+    },
+    {
+      "id": 7,
+      "title": "前端认证功能",
+      "description": "实现前端登录、注册和认证保护",
+      "steps": [
+        "创建 src/pages/Login.tsx 登录页面",
+        "创建 src/pages/Register.tsx 注册页面",
+        "创建 src/components/auth/LoginForm.tsx 登录表单",
+        "创建 src/components/auth/RegisterForm.tsx 注册表单",
+        "创建 src/services/auth.ts 认证服务（调用后端 API）",
+        "创建 src/hooks/useAuth.ts 认证 Hook",
+        "实现 token 存储（localStorage）",
+        "创建 src/components/ProtectedRoute.tsx 路由保护组件",
+        "配置路由保护逻辑"
+      ],
+      "passes": false
+    },
+    {
+      "id": 8,
+      "title": "DeepSeek R1 API 封装",
+      "description": "封装 DeepSeek R1 模型的调用",
+      "steps": [
+        "创建 backend/app/services/llm_service.py",
+        "使用 httpx 实现异步 API 调用",
+        "实现 chat completions API 调用函数",
+        "实现错误处理和重试逻辑",
+        "编写需求分析 prompt 模板",
+        "编写学习计划生成 prompt 模板",
+        "编写学习资源推荐 prompt 模板",
+        "编写学习方式建议 prompt 模板",
+        "创建 backend/app/schemas/ai.py 定义 AI 响应类型"
+      ],
+      "passes": false
+    },
+    {
+      "id": 9,
+      "title": "学习计划服务层",
+      "description": "创建学习计划的业务逻辑",
+      "steps": [
+        "创建 backend/app/services/plan_service.py",
+        "创建 backend/app/schemas/plan.py (Pydantic 模式)",
+        "实现 create_plan() 创建学习计划",
+        "实现 get_plans() 获取用户学习计划列表（支持分页）",
+        "实现 get_plan_by_id() 获取单个计划（含所有关联数据）",
+        "实现 update_plan() 更新计划",
+        "实现 update_plan_status() 更新计划状态",
+        "实现 delete_plan() 删除计划",
+        "实现 start_plan() 开始执行计划",
+        "实现 pause_plan() 暂停计划",
+        "实现 complete_plan() 完成计划",
+        "添加权限验证（用户只能操作自己的计划）"
+      ],
+      "passes": false
+    },
+    {
+      "id": 10,
+      "title": "需求分析服务层",
+      "description": "创建需求分析的业务逻辑",
+      "steps": [
+        "创建 backend/app/services/analysis_service.py",
+        "创建 backend/app/schemas/analysis.py (Pydantic 模式)",
+        "实现 create_analysis() 保存需求分析结果",
+        "实现 get_analysis_by_plan_id() 获取计划的需求分析",
+        "实现 confirm_analysis() 确认需求分析",
+        "实现 delete_analysis_by_plan_id() 删除分析（重新生成时用）",
+        "集成 LLM 服务生成分析"
+      ],
+      "passes": false
+    },
+    {
+      "id": 11,
+      "title": "学习阶段服务层",
+      "description": "创建学习阶段的业务逻辑",
+      "steps": [
+        "创建 backend/app/services/stage_service.py",
+        "创建 backend/app/schemas/stage.py (Pydantic 模式)",
+        "实现 create_stages() 批量创建学习阶段",
+        "实现 get_stages_by_plan_id() 获取计划的阶段列表",
+        "实现 update_stage() 更新阶段信息",
+        "实现 confirm_stage() 确认阶段",
+        "实现 confirm_all_stages() 确认所有阶段",
+        "实现 update_stage_status() 更新阶段状态",
+        "实现 delete_stages_by_plan_id() 删除计划的所有阶段（重新生成时用）",
+        "集成 LLM 服务生成阶段"
+      ],
+      "passes": false
+    },
+    {
+      "id": 12,
+      "title": "学习资源服务层",
+      "description": "创建学习资源的业务逻辑",
+      "steps": [
+        "创建 backend/app/services/resource_service.py",
+        "创建 backend/app/schemas/resource.py (Pydantic 模式)",
+        "实现 create_resources() 批量创建学习资源",
+        "实现 get_resources_by_stage_id() 获取阶段的资源列表",
+        "实现 select_resource() 用户选择资源",
+        "实现 replace_resource() 替换资源",
+        "实现 delete_resource() 删除资源",
+        "集成 LLM 服务推荐资源"
+      ],
+      "passes": false
+    },
+    {
+      "id": 13,
+      "title": "学习方式服务层",
+      "description": "创建学习方式的业务逻辑",
+      "steps": [
+        "创建 backend/app/services/method_service.py",
+        "创建 backend/app/schemas/method.py (Pydantic 模式)",
+        "实现 create_methods() 批量创建学习方式",
+        "实现 get_methods_by_stage_id() 获取阶段的学习方式",
+        "实现 update_method() 更新学习方式",
+        "实现 confirm_method() 确认学习方式",
+        "实现 delete_methods_by_plan_id() 删除计划的所有方式（重新生成时用）",
+        "集成 LLM 服务生成学习方式"
+      ],
+      "passes": false
+    },
+    {
+      "id": 14,
+      "title": "进度跟踪服务层",
+      "description": "创建进度记录和打卡的业务逻辑",
+      "steps": [
+        "创建 backend/app/services/progress_service.py",
+        "创建 backend/app/schemas/progress.py (Pydantic 模式)",
+        "实现 create_progress_record() 记录学习进度",
+        "实现 get_progress_by_plan_id() 获取计划的进度记录",
+        "实现 create_check_in() 每日打卡",
+        "实现 get_check_ins_by_plan_id() 获取打卡记录",
+        "实现 get_stats_by_plan_id() 获取统计数据（总时长、完成率、连续天数等）",
+        "使用 pandas 进行数据统计分析"
+      ],
+      "passes": false
+    },
+    {
+      "id": 15,
+      "title": "学习计划 API - CRUD",
+      "description": "实现学习计划的增删改查 API",
+      "steps": [
+        "创建 backend/app/api/v1/plans.py",
+        "POST /api/v1/plans 创建学习计划",
+        "GET /api/v1/plans 获取学习计划列表（支持分页、筛选）",
+        "GET /api/v1/plans/{id} 获取计划详情（包含所有关联数据）",
+        "PATCH /api/v1/plans/{id} 更新计划（标题、目标、背景）",
+        "DELETE /api/v1/plans/{id} 删除计划",
+        "POST /api/v1/plans/{id}/start 开始执行计划",
+        "POST /api/v1/plans/{id}/pause 暂停计划",
+        "POST /api/v1/plans/{id}/complete 完成计划",
+        "添加 JWT 认证依赖",
+        "验证用户是计划所有者",
+        "添加请求验证和错误处理"
+      ],
+      "passes": false
+    },
+    {
+      "id": 16,
+      "title": "需求分析 API",
+      "description": "实现需求分析的生成和确认",
+      "steps": [
+        "创建 backend/app/api/v1/analysis.py",
+        "POST /api/v1/analysis/generate 生成需求分析",
+        "调用 DeepSeek R1 分析用户需求",
+        "解析返回的分析结果",
+        "保存分析结果到数据库",
+        "更新计划 status 为 'analysis'",
+        "POST /api/v1/analysis/regenerate 重新生成分析",
+        "POST /api/v1/analysis/{id}/confirm 确认需求分析",
+        "添加 JWT 认证和权限验证",
+        "添加异步任务处理（可选）"
+      ],
+      "passes": false
+    },
+    {
+      "id": 17,
+      "title": "学习阶段 API",
+      "description": "实现学习阶段的生成和管理",
+      "steps": [
+        "创建 backend/app/api/v1/stages.py",
+        "POST /api/v1/stages/generate 生成学习阶段",
+        "调用 DeepSeek R1 生成学习路线图",
+        "解析返回的阶段列表（包含里程碑）",
+        "保存阶段到数据库",
+        "更新计划 status 为 'planning'",
+        "POST /api/v1/stages/regenerate 重新生成阶段",
+        "PATCH /api/v1/stages/{id} 修改阶段信息",
+        "POST /api/v1/stages/{id}/confirm 确认阶段",
+        "POST /api/v1/stages/confirm-all 确认所有阶段",
+        "GET /api/v1/plans/{id}/stages 获取计划的阶段列表",
+        "添加 JWT 认证和权限验证"
+      ],
+      "passes": false
+    },
+    {
+      "id": 18,
+      "title": "学习资源 API",
+      "description": "实现学习资源的推荐和管理",
+      "steps": [
+        "创建 backend/app/api/v1/resources.py",
+        "POST /api/v1/resources/recommend 为阶段推荐学习资源",
+        "调用 DeepSeek R1 推荐资源",
+        "解析返回的资源列表",
+        "保存资源到数据库",
+        "更新计划 status 为 'content'",
+        "GET /api/v1/stages/{id}/resources 获取阶段的资源列表",
+        "POST /api/v1/resources/{id}/select 用户选择资源",
+        "POST /api/v1/resources/{id}/replace 替换资源",
+        "DELETE /api/v1/resources/{id} 删除资源",
+        "添加 JWT 认证和权限验证"
+      ],
+      "passes": false
+    },
+    {
+      "id": 19,
+      "title": "学习方式 API",
+      "description": "实现学习方式的生成和管理",
+      "steps": [
+        "创建 backend/app/api/v1/methods.py",
+        "POST /api/v1/methods/generate 生成学习方式建议",
+        "调用 DeepSeek R1 生成学习方法",
+        "解析返回的方法列表",
+        "保存方法到数据库",
+        "更新计划 status 为 'method'",
+        "POST /api/v1/methods/regenerate 重新生成学习方式",
+        "PATCH /api/v1/methods/{id} 修改学习方式",
+        "POST /api/v1/methods/{id}/confirm 确认学习方式",
+        "添加 JWT 认证和权限验证"
+      ],
+      "passes": false
+    },
+    {
+      "id": 20,
+      "title": "进度跟踪 API",
+      "description": "实现进度记录和打卡 API",
+      "steps": [
+        "创建 backend/app/api/v1/progress.py",
+        "POST /api/v1/progress/record 记录学习进度",
+        "GET /api/v1/plans/{id}/progress 获取计划的进度记录",
+        "GET /api/v1/plans/{id}/stats 获取统计数据",
+        "POST /api/v1/check-in 每日打卡",
+        "GET /api/v1/plans/{id}/check-ins 获取打卡记录",
+        "添加 JWT 认证和权限验证",
+        "实现数据聚合和统计分析"
+      ],
+      "passes": false
+    },
+    {
+      "id": 21,
+      "title": "首页 - UI 实现",
+      "description": "实现首页界面",
+      "steps": [
+        "创建 frontend/src/pages/Home.tsx 首页",
+        "显示欢迎信息和产品介绍",
+        "添加「创建学习计划」按钮",
+        "添加「我的学习计划」按钮",
+        "创建 frontend/src/components/layout/Header.tsx 导航栏组件",
+        "顶部导航栏（登录状态、用户信息、登出按钮）",
+        "配置路由"
+      ],
+      "passes": false
+    },
+    {
+      "id": 22,
+      "title": "学习计划列表页 - UI 实现",
+      "description": "实现学习计划列表页面",
+      "steps": [
+        "创建 frontend/src/pages/Plans.tsx 学习计划列表页",
+        "创建 frontend/src/services/planService.ts API 调用服务",
+        "显示用户的所有学习计划（卡片形式）",
+        "每个卡片显示：标题、目标、难度、状态、进度、创建时间",
+        "点击卡片跳转到计划详情",
+        "添加「创建新计划」按钮",
+        "支持按状态筛选（进行中/已完成/已暂停）",
+        "支持分页加载"
+      ],
+      "passes": false
+    },
+    {
+      "id": 23,
+      "title": "创建学习计划页 - UI 实现",
+      "description": "实现创建学习计划页面",
+      "steps": [
+        "创建 frontend/src/pages/CreatePlan.tsx 创建学习计划页",
+        "创建 frontend/src/components/plan/CreatePlanForm.tsx 表单组件",
+        "学习目标输入框（多行文本）",
+        "用户背景输入框（当前水平、可用时间等）",
+        "学习时长选择器（总天数）",
+        "难度级别选择器（初学者/中级/高级）",
+        "提交按钮",
+        "提交后创建计划并跳转到详情页"
+      ],
+      "passes": false
+    },
+    {
+      "id": 24,
+      "title": "计划详情页 - 基础布局和状态指示器",
+      "description": "实现计划详情页基础布局",
+      "steps": [
+        "创建 frontend/src/pages/PlanDetail.tsx 计划详情页",
+        "使用 React Router 获取路由参数",
+        "显示计划标题、学习目标、用户背景、难度",
+        "创建 frontend/src/components/plan/StatusIndicator.tsx 状态指示器",
+        "显示当前状态: draft → analysis → planning → content → method → active → completed",
+        "高亮当前状态，已完成状态显示勾选",
+        "添加返回计划列表的链接",
+        "添加操作按钮区域（开始/暂停/完成）"
+      ],
+      "passes": false
+    },
+    {
+      "id": 25,
+      "title": "计划详情页 - 需求分析阶段",
+      "description": "实现需求分析的显示和操作",
+      "steps": [
+        "创建 frontend/src/components/analysis/AnalysisCard.tsx 需求分析卡片",
+        "显示分析结果（关键要点、推荐路径）",
+        "支持查看详细分析报告",
+        "显示「重新分析」按钮",
+        "显示「确认分析」按钮",
+        "确认后进入计划生成阶段"
+      ],
+      "passes": false
+    },
+    {
+      "id": 26,
+      "title": "计划详情页 - 学习计划阶段",
+      "description": "实现学习计划的显示和操作",
+      "steps": [
+        "创建 frontend/src/components/stage/StageCard.tsx 学习阶段卡片",
+        "显示阶段序号、名称、描述、时长、里程碑",
+        "支持编辑阶段信息",
+        "每个阶段显示「确认」按钮",
+        "创建 frontend/src/components/stage/StageList.tsx 阶段列表",
+        "显示时间线视图",
+        "底部显示「重新生成计划」按钮",
+        "底部显示「确认所有阶段」按钮",
+        "确认后进入内容推荐阶段"
+      ],
+      "passes": false
+    },
+    {
+      "id": 27,
+      "title": "计划详情页 - 学习资源阶段",
+      "description": "实现学习资源的显示和操作",
+      "steps": [
+        "创建 frontend/src/components/resource/ResourceCard.tsx 学习资源卡片",
+        "显示资源类型、标题、描述、链接、时长、难度、是否免费",
+        "每个资源显示「选择」/「取消选择」按钮",
+        "每个资源显示「替换」按钮",
+        "创建 frontend/src/components/resource/ResourceList.tsx 资源列表",
+        "按阶段分组显示资源",
+        "支持按资源类型筛选",
+        "底部显示「确认所有资源」按钮",
+        "确认后进入学习方式阶段"
+      ],
+      "passes": false
+    },
+    {
+      "id": 28,
+      "title": "计划详情页 - 学习方式阶段",
+      "description": "实现学习方式的显示和操作",
+      "steps": [
+        "创建 frontend/src/components/method/MethodCard.tsx 学习方式卡片",
+        "显示方法类型、标题、内容、时间安排",
+        "支持编辑方法内容",
+        "每个方法显示「确认」按钮",
+        "创建 frontend/src/components/method/MethodList.tsx 方法列表",
+        "按方法类型分组显示",
+        "底部显示「重新生成方式」按钮",
+        "底部显示「确认所有方式」按钮",
+        "确认后可以开始学习"
+      ],
+      "passes": false
+    },
+    {
+      "id": 29,
+      "title": "学习进度页 - UI 实现",
+      "description": "实现学习进度跟踪页面",
+      "steps": [
+        "创建 frontend/src/pages/Progress.tsx 学习进度页",
+        "创建 frontend/src/components/progress/CheckInCard.tsx 每日打卡卡片",
+        "显示打卡日历视图",
+        "支持每日打卡（记录学习时长、内容、反思、心情）",
+        "创建 frontend/src/components/progress/ProgressChart.tsx 进度图表",
+        "显示学习时长趋势图",
+        "显示完成度进度条",
+        "创建 frontend/src/components/progress/TimelineView.tsx 时间线视图",
+        "显示学习历史记录",
+        "创建 frontend/src/components/progress/NotesSection.tsx 学习笔记区",
+        "支持添加和查看学习笔记"
+      ],
+      "passes": false
+    },
+    {
+      "id": 30,
+      "title": "数据统计页 - UI 实现",
+      "description": "实现数据统计页面",
+      "steps": [
+        "创建 frontend/src/pages/Stats.tsx 数据统计页",
+        "创建 frontend/src/components/stats/OverviewCard.tsx 概览卡片",
+        "显示总学习时长、计划完成率、连续打卡天数",
+        "创建 frontend/src/components/stats/StageProgress.tsx 阶段进度组件",
+        "显示各阶段完成情况",
+        "创建 frontend/src/components/stats/ResourceUsage.tsx 资源使用情况",
+        "显示资源学习进度",
+        "创建 frontend/src/components/stats/LearningCurve.tsx 学习曲线图",
+        "显示学习效率趋势"
+      ],
+      "passes": false
+    },
+    {
+      "id": 31,
+      "title": "计划调整功能",
+      "description": "实现学习计划的动态调整",
+      "steps": [
+        "创建 frontend/src/components/plan/AdjustPlanModal.tsx 调整计划弹窗",
+        "支持调整学习时长",
+        "支持调整阶段顺序",
+        "支持添加/删除阶段",
+        "支持修改里程碑",
+        "保存调整后的计划",
+        "显示调整历史记录"
+      ],
+      "passes": false
+    },
+    {
+      "id": 32,
+      "title": "错误处理和边界情况",
+      "description": "完善错误处理",
+      "steps": [
+        "创建 frontend/src/components/ErrorBoundary.tsx 错误边界组件",
+        "创建 frontend/src/pages/NotFound.tsx 404 页面",
+        "创建 frontend/src/components/ui/Toast.tsx Toast 提示组件",
+        "后端 API 返回统一错误格式",
+        "前端显示友好的错误提示",
+        "生成失败时显示错误信息和重试按钮",
+        "处理网络超时和 API 限流",
+        "添加全局错误拦截器"
+      ],
+      "passes": false
+    },
+    {
+      "id": 33,
+      "title": "Loading 状态",
+      "description": "添加加载状态指示",
+      "steps": [
+        "创建 frontend/src/components/ui/Spinner.tsx 加载动画组件",
+        "创建 frontend/src/components/ui/Skeleton.tsx 骨架屏组件",
+        "创建 frontend/src/components/ui/LoadingOverlay.tsx 全局加载遮罩",
+        "在列表页使用骨架屏",
+        "在详情页使用加载状态",
+        "AI 生成过程中显示加载动画和进度提示",
+        "使用 React Suspense 处理异步组件加载"
+      ],
+      "passes": false
+    },
+    {
+      "id": 34,
+      "title": "响应式设计",
+      "description": "适配移动端",
+      "steps": [
+        "导航栏移动端适配（汉堡菜单）",
+        "计划卡片响应式布局",
+        "阶段卡片响应式布局",
+        "资源卡片响应式布局",
+        "表单响应式布局",
+        "状态指示器响应式布局",
+        "图表响应式适配",
+        "使用 Tailwind CSS 响应式工具类",
+        "测试不同屏幕尺寸（手机、平板、桌面）"
+      ],
+      "passes": false
+    },
+    {
+      "id": 35,
+      "title": "最终测试和优化",
+      "description": "完整流程测试和优化",
+      "steps": [
+        "后端：运行 pytest 测试所有 API 端点",
+        "后端：运行 black 和 flake8 检查代码规范",
+        "前端：运行 npm run lint 检查代码规范",
+        "前端：运行 npm run build 确保构建成功",
+        "测试完整用户流程：注册→登录→创建计划→需求分析→确认→生成计划→确认→推荐资源→确认→制定方式→确认→开始学习→打卡→完成",
+        "测试每一步的重新生成功能",
+        "测试计划调整功能",
+        "测试错误处理和边界情况",
+        "性能优化（数据库查询优化、前端懒加载、图表优化等）",
+        "测试 DeepSeek R1 API 调用的稳定性",
+        "配置 Docker Compose 用于部署",
+        "编写部署文档"
+      ],
+      "passes": false
+    }
+  ]
+}

@@ -22,3 +22,25 @@
 ### Notes:
 - 当前已完成任务 1，并将 `task.json` 中对应任务标记为 `passes: true`。
 - 下一步建议进入任务 2 或任务 3，优先补齐配置管理和数据库基础设施。
+## 2026-03-20 - Task: 数据库 Schema 设计
+
+### What was done:
+- 新增 SQLAlchemy 基础模型基座、统一命名约定和状态枚举。
+- 建立了 `import_batches`、`source_files`、`header_mappings`、`normalized_records`、`validation_issues`、`employee_master`、`match_results`、`export_jobs`、`export_artifacts` 9 张核心表。
+- 为关键关系补充了外键、索引、唯一约束和双模板导出唯一性约束。
+- 初始化 Alembic，新增 `backend/alembic.ini`、迁移环境和首个初始 migration。
+- 新增数据库层测试，验证 metadata 注册和 Alembic `upgrade head` 建表结果。
+
+### Testing:
+- `py -m compileall backend`
+- `.\.venv\Scripts\python.exe -c "from backend.app.models import Base; print(sorted(Base.metadata.tables.keys()))"`
+- `.\\.venv\\Scripts\\python.exe -m pytest backend\\tests -p no:cacheprovider`\r\n- `$env:DATABASE_URL='sqlite:///D:/execl_mix/.test_artifacts/manual_upgrade.db'; .\\.venv\\Scripts\\python.exe -m alembic -c backend\\alembic.ini upgrade head`
+
+### Risks / Open Questions:
+- 当前迁移验证使用的是 sqlite 测试库，用于保证 schema 和 Alembic 链路可运行；正式 PostgreSQL 连接与会话管理仍需在任务 3 中补齐。
+- `validation_issues.severity`、`export_jobs.status`、`export_artifacts.status` 目前保留为字符串，后续如果业务状态集收敛，可以再升级为明确枚举。
+- 真实业务流程还未接入这些表，后续导入、标准化、匹配和导出服务需要继续对齐字段使用方式。
+
+### Notes:
+- 当前已完成任务 2，并将 `task.json` 中对应任务标记为 `passes: true`。
+- 下一步建议进入任务 3，补齐配置管理、数据库连接与依赖注入。

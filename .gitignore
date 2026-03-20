@@ -1,6 +1,8 @@
 .venv/
 __pycache__/
 .pytest_cache/
+.pytest_tmp/
+.test_artifacts/
 .mypy_cache/
 .ruff_cache/
 node_modules/
@@ -16,6 +18,7 @@ build/
 .idea/workspace.xml
 
 pytest-cache-files-*
+tmp*/
 
 data/outputs/*
 !data/outputs/.gitkeep
