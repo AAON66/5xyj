@@ -50,7 +50,7 @@
                                     "为 DeepSeek API 配置可选项和降级开关",
                                     "创建应用初始化脚本或启动脚本"
                                 ],
-                      "passes":  false
+                      "passes":  true
                   },
                   {
                       "id":  4,

@@ -44,3 +44,26 @@
 ### Notes:
 - 当前已完成任务 2，并将 `task.json` 中对应任务标记为 `passes: true`。
 - 下一步建议进入任务 3，补齐配置管理、数据库连接与依赖注入。
+## 2026-03-20 - Task: 配置管理与基础依赖注入
+
+### What was done:
+- 新增 `backend/app/core/config.py`，统一管理应用、数据库、目录、DeepSeek 和日志配置。
+- 新增 `backend/app/core/database.py`，封装 SQLAlchemy engine、session factory 和基础数据库依赖。
+- 新增 `backend/app/dependencies.py`，提供 `get_settings` 与 `get_db` 依赖入口。
+- 新增 `backend/app/core/logging.py` 与 `backend/app/bootstrap.py`，用于日志初始化和运行时目录创建。
+- 新增 `backend/run.py` 作为后端启动脚本，并补充 `.env.example` 中的日志相关环境变量。
+- 新增运行时配置测试，验证目录解析、bootstrap、数据库 session 工厂和日志格式器。
+
+### Testing:
+- `py -m compileall backend`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests -p no:cacheprovider`
+- `.\.venv\Scripts\python.exe -c "from backend.app.bootstrap import bootstrap_application; settings=bootstrap_application(); print(settings.database_url); print(settings.upload_path); print(settings.log_format)"`
+
+### Risks / Open Questions:
+- 当前数据库连接层使用同步 SQLAlchemy session，后续如果导入和解析任务转为异步执行，需要再评估 async session 是否值得引入。
+- `SessionLocal` 在模块导入时基于当前环境变量创建，适合当前单体进程启动模式；若后续需要更灵活的多环境切换，可以再改成惰性 session factory。
+- `main.py` 还没有正式接入这些配置和依赖，下一步任务 4 会把应用初始化真正串起来。
+
+### Notes:
+- 当前已完成任务 3，并将 `task.json` 中对应任务标记为 `passes: true`。
+- 下一步建议进入任务 4，补齐 FastAPI 应用初始化、CORS、异常处理和统一响应格式。
