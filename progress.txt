@@ -245,3 +245,25 @@
 ### Notes:
 - 当前已完成任务 16，并已将 task.json 中对应任务标记为 passes: true。
 - 下一步最合适继续进入任务 17，把导入批次解析、标准化预览和结果查询 API 串起来。
+
+## 2026-03-20 - Task: Import And Parse API
+
+### What was done:
+- Extended `backend/app/api/v1/imports.py` with `POST /api/v1/imports/{batch_id}/parse` and `GET /api/v1/imports/{batch_id}/preview` so batch parsing and preview retrieval are available through the API layer.
+- Reworked `backend/app/services/import_service.py` to add `parse_import_batch` and `preview_import_batch`, wiring header extraction, rule mapping, normalization, and batch status transitions (`parsing -> normalized / failed`).
+- Expanded `backend/app/schemas/imports.py` with preview response models for header mappings, filtered rows, normalized records, and batch-level preview payloads.
+- Updated `backend/tests/test_import_batches_api.py` to keep upload/list/detail coverage and add a real Shenzhen sample flow that verifies sheet detection, non-detail row filtering, unmapped field exposure, and preview payload shape.
+
+### Testing:
+- `py -m compileall backend`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_import_batches_api.py -p no:cacheprovider`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests -p no:cacheprovider`
+
+### Risks / Open Questions:
+- Preview responses are currently recomputed on demand and are not persisted yet; tasks 18-20 can add storage or batch-level caching if the dashboard needs to reuse them across pages.
+- Task 17 now completes the backend path from upload to normalized preview, but task 6 is still open, so later matching APIs still need a clear way to handle missing employee master data.
+- The preview endpoint intentionally returns only the first 20 normalized records for fast inspection; pagination can be added later without changing the core parsing pipeline.
+
+### Notes:
+- Task 17 is complete and `task.json` has been updated to mark it as `passes: true`.
+- The next best step is task 18: expose batch-level validation and employee matching APIs.

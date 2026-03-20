@@ -15,13 +15,15 @@ from backend.app.services.import_service import (
     create_import_batch,
     get_import_batch,
     list_import_batches,
+    parse_import_batch,
+    preview_import_batch,
     serialize_import_batch,
 )
 
-router = APIRouter(prefix="/imports", tags=["imports"])
+router = APIRouter(prefix='/imports', tags=['imports'])
 
 
-@router.post("", status_code=status.HTTP_201_CREATED)
+@router.post('', status_code=status.HTTP_201_CREATED)
 async def create_import_batch_endpoint(
     request: Request,
     files: list[UploadFile] = File(...),
@@ -37,23 +39,23 @@ async def create_import_batch_endpoint(
             settings=settings,
             files=files,
             batch_name=batch_name,
-            regions=_parse_metadata_values(regions, "regions"),
-            company_names=_parse_metadata_values(company_names, "company_names"),
+            regions=_parse_metadata_values(regions, 'regions'),
+            company_names=_parse_metadata_values(company_names, 'company_names'),
         )
     except InvalidUploadError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     payload = serialize_import_batch(batch)
-    return success_response(payload.model_dump(mode="json"), message="Import batch created.", status_code=status.HTTP_201_CREATED)
+    return success_response(payload.model_dump(mode='json'), message='Import batch created.', status_code=status.HTTP_201_CREATED)
 
 
-@router.get("")
+@router.get('')
 def list_import_batches_endpoint(db: Session = Depends(get_db)):
     batches = list_import_batches(db)
-    return success_response([batch.model_dump(mode="json") for batch in batches], message="Import batches retrieved.")
+    return success_response([batch.model_dump(mode='json') for batch in batches], message='Import batches retrieved.')
 
 
-@router.get("/{batch_id}")
+@router.get('/{batch_id}')
 def get_import_batch_endpoint(batch_id: str, db: Session = Depends(get_db)):
     try:
         batch = get_import_batch(db, batch_id)
@@ -61,7 +63,27 @@ def get_import_batch_endpoint(batch_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
     payload = ImportBatchDetailRead.model_validate(serialize_import_batch(batch))
-    return success_response(payload.model_dump(mode="json"), message="Import batch retrieved.")
+    return success_response(payload.model_dump(mode='json'), message='Import batch retrieved.')
+
+
+@router.post('/{batch_id}/parse')
+def parse_import_batch_endpoint(batch_id: str, db: Session = Depends(get_db)):
+    try:
+        payload = parse_import_batch(db, batch_id)
+    except BatchNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    return success_response(payload.model_dump(mode='json'), message='Import batch parsed.')
+
+
+@router.get('/{batch_id}/preview')
+def preview_import_batch_endpoint(batch_id: str, db: Session = Depends(get_db)):
+    try:
+        payload = preview_import_batch(db, batch_id)
+    except BatchNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    return success_response(payload.model_dump(mode='json'), message='Import batch preview retrieved.')
 
 
 def _parse_metadata_values(raw_value: str | None, field_name: str) -> list[str] | None:
@@ -72,7 +94,7 @@ def _parse_metadata_values(raw_value: str | None, field_name: str) -> list[str] 
     if not stripped:
         return None
 
-    if not stripped.startswith("["):
+    if not stripped.startswith('['):
         return [stripped]
 
     try:
@@ -83,4 +105,4 @@ def _parse_metadata_values(raw_value: str | None, field_name: str) -> list[str] 
     if not isinstance(parsed, list) or not all(item is None or isinstance(item, str) for item in parsed):
         raise InvalidUploadError(f"Field '{field_name}' must be a JSON array of strings.")
 
-    return [item or "" for item in parsed]
+    return [item or '' for item in parsed]

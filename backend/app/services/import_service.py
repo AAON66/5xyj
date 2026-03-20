@@ -4,6 +4,7 @@ import hashlib
 import shutil
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
 from uuid import uuid4
 
@@ -13,9 +14,21 @@ from sqlalchemy.orm import Session
 from backend.app.core.config import Settings
 from backend.app.models import ImportBatch, SourceFile
 from backend.app.models.enums import BatchStatus
-from backend.app.schemas.imports import ImportBatchDetailRead, ImportBatchSummaryRead, SourceFileRead
+from backend.app.parsers import extract_header_structure
+from backend.app.schemas.imports import (
+    FilteredRowPreviewRead,
+    HeaderMappingPreviewRead,
+    ImportBatchDetailRead,
+    ImportBatchPreviewRead,
+    ImportBatchSummaryRead,
+    NormalizedPreviewRecordRead,
+    SourceFilePreviewRead,
+    SourceFileRead,
+)
+from backend.app.services.header_normalizer import normalize_header_extraction
+from backend.app.services.normalization_service import standardize_workbook
 
-ALLOWED_EXTENSIONS = {".xlsx", ".xls"}
+ALLOWED_EXTENSIONS = {'.xlsx', '.xls'}
 
 
 class ImportServiceError(Exception):
@@ -47,10 +60,10 @@ async def create_import_batch(
     company_names: list[str] | None = None,
 ) -> ImportBatch:
     if not files:
-        raise InvalidUploadError("At least one Excel file is required.")
+        raise InvalidUploadError('At least one Excel file is required.')
 
-    runtime_regions = _normalize_metadata_list(regions, len(files), "regions")
-    runtime_companies = _normalize_metadata_list(company_names, len(files), "company_names")
+    runtime_regions = _normalize_metadata_list(regions, len(files), 'regions')
+    runtime_companies = _normalize_metadata_list(company_names, len(files), 'company_names')
 
     batch = ImportBatch(batch_name=(batch_name or _build_batch_name()).strip(), status=BatchStatus.UPLOADED)
     db.add(batch)
@@ -100,6 +113,44 @@ def get_import_batch(db: Session, batch_id: str) -> ImportBatch:
     return batch
 
 
+def preview_import_batch(db: Session, batch_id: str) -> ImportBatchPreviewRead:
+    batch = get_import_batch(db, batch_id)
+    file_previews = [_build_source_file_preview(source_file) for source_file in batch.source_files]
+    return ImportBatchPreviewRead(
+        batch_id=batch.id,
+        batch_name=batch.batch_name,
+        status=batch.status.value,
+        source_files=file_previews,
+    )
+
+
+def parse_import_batch(db: Session, batch_id: str) -> ImportBatchPreviewRead:
+    batch = get_import_batch(db, batch_id)
+    batch.status = BatchStatus.PARSING
+    db.flush()
+
+    try:
+        file_previews = []
+        for source_file in batch.source_files:
+            file_preview = _build_source_file_preview(source_file)
+            file_previews.append(file_preview)
+            source_file.raw_sheet_name = file_preview.raw_sheet_name
+        batch.status = BatchStatus.NORMALIZED
+        db.commit()
+    except Exception:
+        batch.status = BatchStatus.FAILED
+        db.commit()
+        raise
+
+    db.refresh(batch)
+    return ImportBatchPreviewRead(
+        batch_id=batch.id,
+        batch_name=batch.batch_name,
+        status=batch.status.value,
+        source_files=file_previews,
+    )
+
+
 def serialize_import_batch(batch: ImportBatch) -> ImportBatchDetailRead:
     return ImportBatchDetailRead(
         id=batch.id,
@@ -120,6 +171,63 @@ def serialize_import_batch(batch: ImportBatch) -> ImportBatchDetailRead:
                 uploaded_at=source_file.uploaded_at,
             )
             for source_file in batch.source_files
+        ],
+    )
+
+
+def _build_source_file_preview(source_file: SourceFile) -> SourceFilePreviewRead:
+    workbook_path = Path(source_file.file_path)
+    extraction = extract_header_structure(workbook_path)
+    normalization = normalize_header_extraction(extraction, region=source_file.region)
+    standardized = standardize_workbook(
+        workbook_path,
+        region=source_file.region,
+        company_name=source_file.company_name,
+        source_file_name=source_file.file_name,
+    )
+
+    return SourceFilePreviewRead(
+        source_file_id=source_file.id,
+        file_name=source_file.file_name,
+        region=source_file.region,
+        company_name=source_file.company_name,
+        raw_sheet_name=standardized.sheet_name,
+        raw_header_signature=standardized.raw_header_signature,
+        normalized_record_count=len(standardized.records),
+        filtered_row_count=len(standardized.filtered_rows),
+        unmapped_headers=standardized.unmapped_headers,
+        header_mappings=[
+            HeaderMappingPreviewRead(
+                raw_header=decision.raw_header,
+                raw_header_signature=decision.raw_header_signature,
+                canonical_field=decision.canonical_field,
+                mapping_source=decision.mapping_source,
+                confidence=decision.confidence,
+                candidate_fields=decision.candidate_fields,
+                matched_rules=decision.matched_rules,
+                llm_attempted=decision.llm_attempted,
+                llm_status=decision.llm_status,
+                rule_overrode_llm=decision.rule_overrode_llm,
+            )
+            for decision in normalization.decisions
+        ],
+        filtered_rows=[
+            FilteredRowPreviewRead(
+                row_number=row.row_number,
+                reason=row.reason,
+                first_value=row.first_value,
+            )
+            for row in standardized.filtered_rows
+        ],
+        preview_records=[
+            NormalizedPreviewRecordRead(
+                source_row_number=record.source_row_number,
+                values=_json_safe_dict(record.values),
+                unmapped_values=_json_safe_dict(record.unmapped_values),
+                raw_values=_json_safe_dict(record.raw_values),
+                raw_payload=_json_safe_dict(record.raw_payload),
+            )
+            for record in standardized.records[:20]
         ],
     )
 
@@ -152,7 +260,7 @@ def _normalize_metadata_list(values: list[str] | None, file_count: int, field_na
 
 
 async def _store_upload(batch_dir: Path, upload: UploadFile) -> StoredUpload:
-    original_name = Path(upload.filename or "upload.xlsx").name
+    original_name = Path(upload.filename or 'upload.xlsx').name
     extension = Path(original_name).suffix.lower()
     if extension not in ALLOWED_EXTENSIONS:
         raise InvalidUploadError(f"Unsupported file type '{extension or 'unknown'}'. Only .xlsx and .xls are allowed.")
@@ -161,7 +269,7 @@ async def _store_upload(batch_dir: Path, upload: UploadFile) -> StoredUpload:
     if not payload:
         raise InvalidUploadError(f"File '{original_name}' is empty.")
 
-    stored_name = f"{uuid4().hex}{extension}"
+    stored_name = f'{uuid4().hex}{extension}'
     storage_path = batch_dir / stored_name
     storage_path.write_bytes(payload)
 
@@ -171,3 +279,15 @@ async def _store_upload(batch_dir: Path, upload: UploadFile) -> StoredUpload:
         file_size=len(payload),
         file_hash=hashlib.sha256(payload).hexdigest(),
     )
+
+
+def _json_safe_dict(values: dict[str, object | None]) -> dict[str, object | None]:
+    normalized: dict[str, object | None] = {}
+    for key, value in values.items():
+        if isinstance(value, Decimal):
+            normalized[key] = format(value, 'f')
+        elif isinstance(value, dict):
+            normalized[key] = _json_safe_dict(value)
+        else:
+            normalized[key] = value
+    return normalized
