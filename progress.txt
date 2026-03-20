@@ -1,12 +1,7 @@
-## 2026-03-20 - Task: 项目基础配置
+## 2026-03-20 - Task: 椤圭洰鍩虹閰嶇疆
 
 ### What was done:
-- 补齐了根目录 `architecture.md` 和 `task.json`，避免项目状态只存在于隐藏目录。
-- 创建了 `backend`、`frontend`、`data`、`tests` 的基础目录结构，并预留后续解析、映射、校验、匹配和导出模块目录。
-- 新增后端依赖清单、最小 FastAPI 入口和后端健康检查冒烟测试。
-- 新增前端 Vite + React + TypeScript 骨架、基础路由、导航布局和 API 客户端封装。
-- 新增 `.env.example`、`.gitignore` 和 `README.md` 作为启动说明与环境配置模板。
-
+- 琛ラ綈浜嗘牴鐩綍 `architecture.md` 鍜?`task.json`锛岄伩鍏嶉」鐩姸鎬佸彧瀛樺湪浜庨殣钘忕洰褰曘€?- 鍒涘缓浜?`backend`銆乣frontend`銆乣data`銆乣tests` 鐨勫熀纭€鐩綍缁撴瀯锛屽苟棰勭暀鍚庣画瑙ｆ瀽銆佹槧灏勩€佹牎楠屻€佸尮閰嶅拰瀵煎嚭妯″潡鐩綍銆?- 鏂板鍚庣渚濊禆娓呭崟銆佹渶灏?FastAPI 鍏ュ彛鍜屽悗绔仴搴锋鏌ュ啋鐑熸祴璇曘€?- 鏂板鍓嶇 Vite + React + TypeScript 楠ㄦ灦銆佸熀纭€璺敱銆佸鑸竷灞€鍜?API 瀹㈡埛绔皝瑁呫€?- 鏂板 `.env.example`銆乣.gitignore` 鍜?`README.md` 浣滀负鍚姩璇存槑涓庣幆澧冮厤缃ā鏉裤€?
 ### Testing:
 - `py -m compileall backend`
 - `.\.venv\Scripts\python.exe -c "from backend.app.main import app; print(app.title); print(app.version)"`
@@ -15,229 +10,155 @@
 - `.\.venv\Scripts\python.exe -m pytest backend\tests -o cache_dir=.pytest_cache`
 
 ### Risks / Open Questions:
-- 真实地区样例文件、双模板文件和员工主数据尚未进入工作区，核心链路暂时无法验证。
-- `pytest` 在当前机器上会尝试创建若干受限临时缓存目录，虽然测试已通过，但后续建议统一指定更干净的缓存目录或关闭缓存插件。
-- Python 运行环境当前为 3.13.7，后续需继续确认依赖与目标部署版本兼容性。
-
+- 鐪熷疄鍦板尯鏍蜂緥鏂囦欢銆佸弻妯℃澘鏂囦欢鍜屽憳宸ヤ富鏁版嵁灏氭湭杩涘叆宸ヤ綔鍖猴紝鏍稿績閾捐矾鏆傛椂鏃犳硶楠岃瘉銆?- `pytest` 鍦ㄥ綋鍓嶆満鍣ㄤ笂浼氬皾璇曞垱寤鸿嫢骞插彈闄愪复鏃剁紦瀛樼洰褰曪紝铏界劧娴嬭瘯宸查€氳繃锛屼絾鍚庣画寤鸿缁熶竴鎸囧畾鏇村共鍑€鐨勭紦瀛樼洰褰曟垨鍏抽棴缂撳瓨鎻掍欢銆?- Python 杩愯鐜褰撳墠涓?3.13.7锛屽悗缁渶缁х画纭渚濊禆涓庣洰鏍囬儴缃茬増鏈吋瀹规€с€?
 ### Notes:
-- 当前已完成任务 1，并将 `task.json` 中对应任务标记为 `passes: true`。
-- 下一步建议进入任务 2 或任务 3，优先补齐配置管理和数据库基础设施。
-## 2026-03-20 - Task: 数据库 Schema 设计
+- 褰撳墠宸插畬鎴愪换鍔?1锛屽苟灏?`task.json` 涓搴斾换鍔℃爣璁颁负 `passes: true`銆?- 涓嬩竴姝ュ缓璁繘鍏ヤ换鍔?2 鎴栦换鍔?3锛屼紭鍏堣ˉ榻愰厤缃鐞嗗拰鏁版嵁搴撳熀纭€璁炬柦銆?## 2026-03-20 - Task: 鏁版嵁搴?Schema 璁捐
 
 ### What was done:
-- 新增 SQLAlchemy 基础模型基座、统一命名约定和状态枚举。
-- 建立了 `import_batches`、`source_files`、`header_mappings`、`normalized_records`、`validation_issues`、`employee_master`、`match_results`、`export_jobs`、`export_artifacts` 9 张核心表。
-- 为关键关系补充了外键、索引、唯一约束和双模板导出唯一性约束。
-- 初始化 Alembic，新增 `backend/alembic.ini`、迁移环境和首个初始 migration。
-- 新增数据库层测试，验证 metadata 注册和 Alembic `upgrade head` 建表结果。
-
+- 鏂板 SQLAlchemy 鍩虹妯″瀷鍩哄骇銆佺粺涓€鍛藉悕绾﹀畾鍜岀姸鎬佹灇涓俱€?- 寤虹珛浜?`import_batches`銆乣source_files`銆乣header_mappings`銆乣normalized_records`銆乣validation_issues`銆乣employee_master`銆乣match_results`銆乣export_jobs`銆乣export_artifacts` 9 寮犳牳蹇冭〃銆?- 涓哄叧閿叧绯昏ˉ鍏呬簡澶栭敭銆佺储寮曘€佸敮涓€绾︽潫鍜屽弻妯℃澘瀵煎嚭鍞竴鎬х害鏉熴€?- 鍒濆鍖?Alembic锛屾柊澧?`backend/alembic.ini`銆佽縼绉荤幆澧冨拰棣栦釜鍒濆 migration銆?- 鏂板鏁版嵁搴撳眰娴嬭瘯锛岄獙璇?metadata 娉ㄥ唽鍜?Alembic `upgrade head` 寤鸿〃缁撴灉銆?
 ### Testing:
 - `py -m compileall backend`
 - `.\.venv\Scripts\python.exe -c "from backend.app.models import Base; print(sorted(Base.metadata.tables.keys()))"`
 - `.\\.venv\\Scripts\\python.exe -m pytest backend\\tests -p no:cacheprovider`\r\n- `$env:DATABASE_URL='sqlite:///D:/execl_mix/.test_artifacts/manual_upgrade.db'; .\\.venv\\Scripts\\python.exe -m alembic -c backend\\alembic.ini upgrade head`
 
 ### Risks / Open Questions:
-- 当前迁移验证使用的是 sqlite 测试库，用于保证 schema 和 Alembic 链路可运行；正式 PostgreSQL 连接与会话管理仍需在任务 3 中补齐。
-- `validation_issues.severity`、`export_jobs.status`、`export_artifacts.status` 目前保留为字符串，后续如果业务状态集收敛，可以再升级为明确枚举。
-- 真实业务流程还未接入这些表，后续导入、标准化、匹配和导出服务需要继续对齐字段使用方式。
-
+- 褰撳墠杩佺Щ楠岃瘉浣跨敤鐨勬槸 sqlite 娴嬭瘯搴擄紝鐢ㄤ簬淇濊瘉 schema 鍜?Alembic 閾捐矾鍙繍琛岋紱姝ｅ紡 PostgreSQL 杩炴帴涓庝細璇濈鐞嗕粛闇€鍦ㄤ换鍔?3 涓ˉ榻愩€?- `validation_issues.severity`銆乣export_jobs.status`銆乣export_artifacts.status` 鐩墠淇濈暀涓哄瓧绗︿覆锛屽悗缁鏋滀笟鍔＄姸鎬侀泦鏀舵暃锛屽彲浠ュ啀鍗囩骇涓烘槑纭灇涓俱€?- 鐪熷疄涓氬姟娴佺▼杩樻湭鎺ュ叆杩欎簺琛紝鍚庣画瀵煎叆銆佹爣鍑嗗寲銆佸尮閰嶅拰瀵煎嚭鏈嶅姟闇€瑕佺户缁榻愬瓧娈典娇鐢ㄦ柟寮忋€?
 ### Notes:
-- 当前已完成任务 2，并将 `task.json` 中对应任务标记为 `passes: true`。
-- 下一步建议进入任务 3，补齐配置管理、数据库连接与依赖注入。
-## 2026-03-20 - Task: 配置管理与基础依赖注入
+- 褰撳墠宸插畬鎴愪换鍔?2锛屽苟灏?`task.json` 涓搴斾换鍔℃爣璁颁负 `passes: true`銆?- 涓嬩竴姝ュ缓璁繘鍏ヤ换鍔?3锛岃ˉ榻愰厤缃鐞嗐€佹暟鎹簱杩炴帴涓庝緷璧栨敞鍏ャ€?## 2026-03-20 - Task: 閰嶇疆绠＄悊涓庡熀纭€渚濊禆娉ㄥ叆
 
 ### What was done:
-- 新增 `backend/app/core/config.py`，统一管理应用、数据库、目录、DeepSeek 和日志配置。
-- 新增 `backend/app/core/database.py`，封装 SQLAlchemy engine、session factory 和基础数据库依赖。
-- 新增 `backend/app/dependencies.py`，提供 `get_settings` 与 `get_db` 依赖入口。
-- 新增 `backend/app/core/logging.py` 与 `backend/app/bootstrap.py`，用于日志初始化和运行时目录创建。
-- 新增 `backend/run.py` 作为后端启动脚本，并补充 `.env.example` 中的日志相关环境变量。
-- 新增运行时配置测试，验证目录解析、bootstrap、数据库 session 工厂和日志格式器。
-
+- 鏂板 `backend/app/core/config.py`锛岀粺涓€绠＄悊搴旂敤銆佹暟鎹簱銆佺洰褰曘€丏eepSeek 鍜屾棩蹇楅厤缃€?- 鏂板 `backend/app/core/database.py`锛屽皝瑁?SQLAlchemy engine銆乻ession factory 鍜屽熀纭€鏁版嵁搴撲緷璧栥€?- 鏂板 `backend/app/dependencies.py`锛屾彁渚?`get_settings` 涓?`get_db` 渚濊禆鍏ュ彛銆?- 鏂板 `backend/app/core/logging.py` 涓?`backend/app/bootstrap.py`锛岀敤浜庢棩蹇楀垵濮嬪寲鍜岃繍琛屾椂鐩綍鍒涘缓銆?- 鏂板 `backend/run.py` 浣滀负鍚庣鍚姩鑴氭湰锛屽苟琛ュ厖 `.env.example` 涓殑鏃ュ織鐩稿叧鐜鍙橀噺銆?- 鏂板杩愯鏃堕厤缃祴璇曪紝楠岃瘉鐩綍瑙ｆ瀽銆乥ootstrap銆佹暟鎹簱 session 宸ュ巶鍜屾棩蹇楁牸寮忓櫒銆?
 ### Testing:
 - `py -m compileall backend`
 - `.\.venv\Scripts\python.exe -m pytest backend\tests -p no:cacheprovider`
 - `.\.venv\Scripts\python.exe -c "from backend.app.bootstrap import bootstrap_application; settings=bootstrap_application(); print(settings.database_url); print(settings.upload_path); print(settings.log_format)"`
 
 ### Risks / Open Questions:
-- 当前数据库连接层使用同步 SQLAlchemy session，后续如果导入和解析任务转为异步执行，需要再评估 async session 是否值得引入。
-- `SessionLocal` 在模块导入时基于当前环境变量创建，适合当前单体进程启动模式；若后续需要更灵活的多环境切换，可以再改成惰性 session factory。
-- `main.py` 还没有正式接入这些配置和依赖，下一步任务 4 会把应用初始化真正串起来。
-
+- 褰撳墠鏁版嵁搴撹繛鎺ュ眰浣跨敤鍚屾 SQLAlchemy session锛屽悗缁鏋滃鍏ュ拰瑙ｆ瀽浠诲姟杞负寮傛鎵ц锛岄渶瑕佸啀璇勪及 async session 鏄惁鍊煎緱寮曞叆銆?- `SessionLocal` 鍦ㄦā鍧楀鍏ユ椂鍩轰簬褰撳墠鐜鍙橀噺鍒涘缓锛岄€傚悎褰撳墠鍗曚綋杩涚▼鍚姩妯″紡锛涜嫢鍚庣画闇€瑕佹洿鐏垫椿鐨勫鐜鍒囨崲锛屽彲浠ュ啀鏀规垚鎯版€?session factory銆?- `main.py` 杩樻病鏈夋寮忔帴鍏ヨ繖浜涢厤缃拰渚濊禆锛屼笅涓€姝ヤ换鍔?4 浼氭妸搴旂敤鍒濆鍖栫湡姝ｄ覆璧锋潵銆?
 ### Notes:
-- 当前已完成任务 3，并将 `task.json` 中对应任务标记为 `passes: true`。
-- 下一步建议进入任务 4，补齐 FastAPI 应用初始化、CORS、异常处理和统一响应格式。
-## 2026-03-20 - Task: FastAPI 应用初始化
-
+- 褰撳墠宸插畬鎴愪换鍔?3锛屽苟灏?`task.json` 涓搴斾换鍔℃爣璁颁负 `passes: true`銆?- 涓嬩竴姝ュ缓璁繘鍏ヤ换鍔?4锛岃ˉ榻?FastAPI 搴旂敤鍒濆鍖栥€丆ORS銆佸紓甯稿鐞嗗拰缁熶竴鍝嶅簲鏍煎紡銆?
+## 2026-03-20 - Task: FastAPI 搴旂敤鍒濆鍖?
 ### What was done:
-- 重构 `backend/app/main.py`，通过应用工厂统一接入 Settings、lifespan bootstrap、CORS、上传保护中间件和 `/api/v1` 路由注册。
-- 新增统一响应封装 `backend/app/api/v1/responses.py`，统一成功与错误返回结构。
-- 新增 `backend/app/api/v1/router.py` 与 `backend/app/api/v1/system.py`，提供 `/api/v1/system/health` 和测试用回显接口。
-- 新增 `backend/app/core/upload_guard.py`，为 multipart 请求预留上传大小限制拦截。
-- 更新健康检查测试，并新增应用初始化测试，覆盖健康检查、CORS、404/422 错误包装和超大上传拦截。
-
+- 閲嶆瀯 `backend/app/main.py`锛岄€氳繃搴旂敤宸ュ巶缁熶竴鎺ュ叆 Settings銆乴ifespan bootstrap銆丆ORS銆佷笂浼犱繚鎶や腑闂翠欢鍜?`/api/v1` 璺敱娉ㄥ唽銆?- 鏂板缁熶竴鍝嶅簲灏佽 `backend/app/api/v1/responses.py`锛岀粺涓€鎴愬姛涓庨敊璇繑鍥炵粨鏋勩€?- 鏂板 `backend/app/api/v1/router.py` 涓?`backend/app/api/v1/system.py`锛屾彁渚?`/api/v1/system/health` 鍜屾祴璇曠敤鍥炴樉鎺ュ彛銆?- 鏂板 `backend/app/core/upload_guard.py`锛屼负 multipart 璇锋眰棰勭暀涓婁紶澶у皬闄愬埗鎷︽埅銆?- 鏇存柊鍋ュ悍妫€鏌ユ祴璇曪紝骞舵柊澧炲簲鐢ㄥ垵濮嬪寲娴嬭瘯锛岃鐩栧仴搴锋鏌ャ€丆ORS銆?04/422 閿欒鍖呰鍜岃秴澶т笂浼犳嫤鎴€?
 ### Testing:
 - `py -m compileall backend`
 - `.\.venv\Scripts\python.exe -m pytest backend\tests -p no:cacheprovider`
 
 ### Risks / Open Questions:
-- 当前上传保护基于 `content-length` 对 multipart 请求做前置拦截，后续接入真实上传接口时还需要补文件扩展名与 MIME 类型校验。
-- 统一错误格式已落地，但业务错误码体系还未展开，后续导入、解析、映射等 API 需要继续保持同一协议。
-- `/api/v1/system/echo/{value}` 当前主要用于验证异常包装，后续如果没有继续使用，可以在更完整的 system/status API 成型后移除或替换。
-
+- 褰撳墠涓婁紶淇濇姢鍩轰簬 `content-length` 瀵?multipart 璇锋眰鍋氬墠缃嫤鎴紝鍚庣画鎺ュ叆鐪熷疄涓婁紶鎺ュ彛鏃惰繕闇€瑕佽ˉ鏂囦欢鎵╁睍鍚嶄笌 MIME 绫诲瀷鏍￠獙銆?- 缁熶竴閿欒鏍煎紡宸茶惤鍦帮紝浣嗕笟鍔￠敊璇爜浣撶郴杩樻湭灞曞紑锛屽悗缁鍏ャ€佽В鏋愩€佹槧灏勭瓑 API 闇€瑕佺户缁繚鎸佸悓涓€鍗忚銆?- `/api/v1/system/echo/{value}` 褰撳墠涓昏鐢ㄤ簬楠岃瘉寮傚父鍖呰锛屽悗缁鏋滄病鏈夌户缁娇鐢紝鍙互鍦ㄦ洿瀹屾暣鐨?system/status API 鎴愬瀷鍚庣Щ闄ゆ垨鏇挎崲銆?
 ### Notes:
-- 当前已完成任务 4，并将 `task.json` 中对应任务标记为 `passes: true`。
-- 下一步建议进入任务 5，补齐 React 前端初始化、API 客户端错误拦截和基础页面容器。
+- 褰撳墠宸插畬鎴愪换鍔?4锛屽苟灏?`task.json` 涓搴斾换鍔℃爣璁颁负 `passes: true`銆?- 涓嬩竴姝ュ缓璁繘鍏ヤ换鍔?5锛岃ˉ榻?React 鍓嶇鍒濆鍖栥€丄PI 瀹㈡埛绔敊璇嫤鎴拰鍩虹椤甸潰瀹瑰櫒銆?
 
-## 2026-03-20 - Task: React 前端初始化
-
+## 2026-03-20 - Task: React 鍓嶇鍒濆鍖?
 ### What was done:
-- 升级前端基础结构，补齐 `AppShell`、页面容器、全局反馈条和 404 页面，让路由、导航和页面骨架具备后续扩展能力。
-- 重构 `frontend/src/services/api.ts`，加入环境变量读取、统一错误归一化和 axios 请求/响应拦截器。
-- 新增前端 API 反馈 Provider 与 hook，用于统一展示请求中状态和全局错误提示。
-- 新增系统健康检查服务 `frontend/src/services/system.ts`，让看板首页可直接验证后端 `/api/v1/system/health` 连通性。
-- 补充 ESLint 配置和 `npm run lint` 脚本，并更新页面样式与基础内容，使前端能以统一容器继续承接导入、员工主档等后续任务。
-
+- 鍗囩骇鍓嶇鍩虹缁撴瀯锛岃ˉ榻?`AppShell`銆侀〉闈㈠鍣ㄣ€佸叏灞€鍙嶉鏉″拰 404 椤甸潰锛岃璺敱銆佸鑸拰椤甸潰楠ㄦ灦鍏峰鍚庣画鎵╁睍鑳藉姏銆?- 閲嶆瀯 `frontend/src/services/api.ts`锛屽姞鍏ョ幆澧冨彉閲忚鍙栥€佺粺涓€閿欒褰掍竴鍖栧拰 axios 璇锋眰/鍝嶅簲鎷︽埅鍣ㄣ€?- 鏂板鍓嶇 API 鍙嶉 Provider 涓?hook锛岀敤浜庣粺涓€灞曠ず璇锋眰涓姸鎬佸拰鍏ㄥ眬閿欒鎻愮ず銆?- 鏂板绯荤粺鍋ュ悍妫€鏌ユ湇鍔?`frontend/src/services/system.ts`锛岃鐪嬫澘棣栭〉鍙洿鎺ラ獙璇佸悗绔?`/api/v1/system/health` 杩為€氭€с€?- 琛ュ厖 ESLint 閰嶇疆鍜?`npm run lint` 鑴氭湰锛屽苟鏇存柊椤甸潰鏍峰紡涓庡熀纭€鍐呭锛屼娇鍓嶇鑳戒互缁熶竴瀹瑰櫒缁х画鎵挎帴瀵煎叆銆佸憳宸ヤ富妗ｇ瓑鍚庣画浠诲姟銆?
 ### Testing:
 - `cmd /c npm.cmd install`
 - `cmd /c npm.cmd run lint`
 - `cmd /c npm.cmd run build`
 
 ### Risks / Open Questions:
-- 当前前端仍以占位页为主，上传、批次列表和员工主档接口还未真正接入，只完成了后续对接所需的壳层与反馈链路。
-- 健康检查依赖本地后端 `/api/v1/system/health`，如果后端未启动，页面会通过全局错误条显式提示。
-- 这次 lint 过程中遇到一次本地 sandbox 刷新异常，最终通过提升权限重跑完成验证；代码本身已 lint 通过。
-
+- 褰撳墠鍓嶇浠嶄互鍗犱綅椤典负涓伙紝涓婁紶銆佹壒娆″垪琛ㄥ拰鍛樺伐涓绘。鎺ュ彛杩樻湭鐪熸鎺ュ叆锛屽彧瀹屾垚浜嗗悗缁鎺ユ墍闇€鐨勫３灞備笌鍙嶉閾捐矾銆?- 鍋ュ悍妫€鏌ヤ緷璧栨湰鍦板悗绔?`/api/v1/system/health`锛屽鏋滃悗绔湭鍚姩锛岄〉闈細閫氳繃鍏ㄥ眬閿欒鏉℃樉寮忔彁绀恒€?- 杩欐 lint 杩囩▼涓亣鍒颁竴娆℃湰鍦?sandbox 鍒锋柊寮傚父锛屾渶缁堥€氳繃鎻愬崌鏉冮檺閲嶈窇瀹屾垚楠岃瘉锛涗唬鐮佹湰韬凡 lint 閫氳繃銆?
 ### Notes:
-- 当前已完成任务 5，并将 `task.json` 中对应任务标记为 `passes: true`。
-- 下一步建议进入任务 6 或任务 7，优先补员工主数据导入或文件上传与导入批次管理。
+- 褰撳墠宸插畬鎴愪换鍔?5锛屽苟灏?`task.json` 涓搴斾换鍔℃爣璁颁负 `passes: true`銆?- 涓嬩竴姝ュ缓璁繘鍏ヤ换鍔?6 鎴栦换鍔?7锛屼紭鍏堣ˉ鍛樺伐涓绘暟鎹鍏ユ垨鏂囦欢涓婁紶涓庡鍏ユ壒娆＄鐞嗐€?
 
-## 2026-03-20 - Task: 文件上传与导入批次管理
-
+## 2026-03-20 - Task: 鏂囦欢涓婁紶涓庡鍏ユ壒娆＄鐞?
 ### What was done:
-- 新增 `backend/app/services/import_service.py`，实现多文件上传校验、批次创建、文件落盘、SHA256 哈希计算和 `source_files` 元信息写库。
-- 新增 `backend/app/api/v1/imports.py`，提供 `POST /api/v1/imports`、`GET /api/v1/imports` 和 `GET /api/v1/imports/{id}` 基础接口。
-- 新增 `backend/app/schemas/imports.py`，统一导入批次列表、详情和源文件响应结构。
-- 为 `source_files` 模型补充 `file_size` 字段，并新增 Alembic migration `20260320_0002_source_file_size.py`，保证上传文件大小可追踪。
-- 更新路由注册和 schema 测试，并新增导入批次 API 测试，覆盖多文件上传、元数据映射、列表/详情查询、非法扩展名和元数据数量不匹配场景。
-
+- 鏂板 `backend/app/services/import_service.py`锛屽疄鐜板鏂囦欢涓婁紶鏍￠獙銆佹壒娆″垱寤恒€佹枃浠惰惤鐩樸€丼HA256 鍝堝笇璁＄畻鍜?`source_files` 鍏冧俊鎭啓搴撱€?- 鏂板 `backend/app/api/v1/imports.py`锛屾彁渚?`POST /api/v1/imports`銆乣GET /api/v1/imports` 鍜?`GET /api/v1/imports/{id}` 鍩虹鎺ュ彛銆?- 鏂板 `backend/app/schemas/imports.py`锛岀粺涓€瀵煎叆鎵规鍒楄〃銆佽鎯呭拰婧愭枃浠跺搷搴旂粨鏋勩€?- 涓?`source_files` 妯″瀷琛ュ厖 `file_size` 瀛楁锛屽苟鏂板 Alembic migration `20260320_0002_source_file_size.py`锛屼繚璇佷笂浼犳枃浠跺ぇ灏忓彲杩借釜銆?- 鏇存柊璺敱娉ㄥ唽鍜?schema 娴嬭瘯锛屽苟鏂板瀵煎叆鎵规 API 娴嬭瘯锛岃鐩栧鏂囦欢涓婁紶銆佸厓鏁版嵁鏄犲皠銆佸垪琛?璇︽儏鏌ヨ銆侀潪娉曟墿灞曞悕鍜屽厓鏁版嵁鏁伴噺涓嶅尮閰嶅満鏅€?
 ### Testing:
 - `py -m compileall backend`
 - `.\.venv\Scripts\python.exe -m pytest backend\tests -p no:cacheprovider`
 
 ### Risks / Open Questions:
-- 当前上传接口只完成扩展名校验，MIME 类型和更细粒度的内容校验还需要在后续解析链路里继续补强。
-- `regions` / `company_names` 当前支持单值字符串或 JSON 数组，已经够前端对接，但后续如果要支持按文件对象更复杂的元数据，建议再升级为显式结构体。
-- 批次状态目前在上传成功后固定写为 `uploaded`，后续接入解析、标准化和导出流程时还需要补完整状态流转。
-
+- 褰撳墠涓婁紶鎺ュ彛鍙畬鎴愭墿灞曞悕鏍￠獙锛孧IME 绫诲瀷鍜屾洿缁嗙矑搴︾殑鍐呭鏍￠獙杩橀渶瑕佸湪鍚庣画瑙ｆ瀽閾捐矾閲岀户缁ˉ寮恒€?- `regions` / `company_names` 褰撳墠鏀寔鍗曞€煎瓧绗︿覆鎴?JSON 鏁扮粍锛屽凡缁忓鍓嶇瀵规帴锛屼絾鍚庣画濡傛灉瑕佹敮鎸佹寜鏂囦欢瀵硅薄鏇村鏉傜殑鍏冩暟鎹紝寤鸿鍐嶅崌绾т负鏄惧紡缁撴瀯浣撱€?- 鎵规鐘舵€佺洰鍓嶅湪涓婁紶鎴愬姛鍚庡浐瀹氬啓涓?`uploaded`锛屽悗缁帴鍏ヨВ鏋愩€佹爣鍑嗗寲鍜屽鍑烘祦绋嬫椂杩橀渶瑕佽ˉ瀹屾暣鐘舵€佹祦杞€?
 ### Notes:
-- 当前已完成任务 7，并将 `task.json` 中对应任务标记为 `passes: true`。
-- 由于主链路优先，这一步先实现了导入批次管理；下一步建议进入任务 8，继续做 Workbook / Sheet 发现服务。
+- 褰撳墠宸插畬鎴愪换鍔?7锛屽苟灏?`task.json` 涓搴斾换鍔℃爣璁颁负 `passes: true`銆?- 鐢变簬涓婚摼璺紭鍏堬紝杩欎竴姝ュ厛瀹炵幇浜嗗鍏ユ壒娆＄鐞嗭紱涓嬩竴姝ュ缓璁繘鍏ヤ换鍔?8锛岀户缁仛 Workbook / Sheet 鍙戠幇鏈嶅姟銆?
 
-## 2026-03-20 - Task: Workbook / Sheet 发现服务
+## 2026-03-20 - Task: Workbook / Sheet 鍙戠幇鏈嶅姟
 
 ### What was done:
-- 新增 `backend/app/parsers/workbook_discovery.py`，实现工作簿扫描、sheet 打分、候选表头行识别、数据起始行检测和候选区域解释信息输出。
-- 更新 `backend/app/parsers/__init__.py`，导出 Workbook 发现服务的核心类型与入口函数。
-- 新增 `backend/tests/test_workbook_discovery.py`，通过广州样式和长沙样式的合成工作簿验证“标题/说明区 + 双层表头”与“有效 sheet 不是第一个”的发现逻辑。
-- 调整启发式规则，优先识别更宽的表头行、连续双层表头和更像明细区的起始行，避免把单位信息或所属期说明行误识别为表头。
-
+- 鏂板 `backend/app/parsers/workbook_discovery.py`锛屽疄鐜板伐浣滅翱鎵弿銆乻heet 鎵撳垎銆佸€欓€夎〃澶磋璇嗗埆銆佹暟鎹捣濮嬭妫€娴嬪拰鍊欓€夊尯鍩熻В閲婁俊鎭緭鍑恒€?- 鏇存柊 `backend/app/parsers/__init__.py`锛屽鍑?Workbook 鍙戠幇鏈嶅姟鐨勬牳蹇冪被鍨嬩笌鍏ュ彛鍑芥暟銆?- 鏂板 `backend/tests/test_workbook_discovery.py`锛岄€氳繃骞垮窞鏍峰紡鍜岄暱娌欐牱寮忕殑鍚堟垚宸ヤ綔绨块獙璇佲€滄爣棰?璇存槑鍖?+ 鍙屽眰琛ㄥご鈥濅笌鈥滄湁鏁?sheet 涓嶆槸绗竴涓€濈殑鍙戠幇閫昏緫銆?- 璋冩暣鍚彂寮忚鍒欙紝浼樺厛璇嗗埆鏇村鐨勮〃澶磋銆佽繛缁弻灞傝〃澶村拰鏇村儚鏄庣粏鍖虹殑璧峰琛岋紝閬垮厤鎶婂崟浣嶄俊鎭垨鎵€灞炴湡璇存槑琛岃璇嗗埆涓鸿〃澶淬€?
 ### Testing:
 - `py -m compileall backend`
 - `.\.venv\Scripts\python.exe -m pytest backend\tests\test_workbook_discovery.py -p no:cacheprovider`
 - `.\.venv\Scripts\python.exe -m pytest backend\tests -p no:cacheprovider`
 
 ### Risks / Open Questions:
-- `data/samples` 目录当前只有 `.gitkeep`，缺少广州、长沙等真实已确认样例文件；因此这一步虽然已有合成测试覆盖，但仍无法按项目要求完成真实地区样例验证。
-- 当前发现服务仍属于启发式识别，后续在接入真实样例后，可能需要继续补充对透视表、前置说明区更长、空行更复杂场景的打分规则。
-- 在真实样例缺失前，任务 8 不应标记为完成，也不应推进到假装“已验证通过”的状态。
-
+- `data/samples` 鐩綍褰撳墠鍙湁 `.gitkeep`锛岀己灏戝箍宸炪€侀暱娌欑瓑鐪熷疄宸茬‘璁ゆ牱渚嬫枃浠讹紱鍥犳杩欎竴姝ヨ櫧鐒跺凡鏈夊悎鎴愭祴璇曡鐩栵紝浣嗕粛鏃犳硶鎸夐」鐩姹傚畬鎴愮湡瀹炲湴鍖烘牱渚嬮獙璇併€?- 褰撳墠鍙戠幇鏈嶅姟浠嶅睘浜庡惎鍙戝紡璇嗗埆锛屽悗缁湪鎺ュ叆鐪熷疄鏍蜂緥鍚庯紝鍙兘闇€瑕佺户缁ˉ鍏呭閫忚琛ㄣ€佸墠缃鏄庡尯鏇撮暱銆佺┖琛屾洿澶嶆潅鍦烘櫙鐨勬墦鍒嗚鍒欍€?- 鍦ㄧ湡瀹炴牱渚嬬己澶卞墠锛屼换鍔?8 涓嶅簲鏍囪涓哄畬鎴愶紝涔熶笉搴旀帹杩涘埌鍋囪鈥滃凡楠岃瘉閫氳繃鈥濈殑鐘舵€併€?
 ### Notes:
-- 本轮先完成了 Workbook / Sheet 发现服务的可运行实现和自动化测试基础。
-- 需要补充真实地区样例后，才能决定是否将任务 8 在 `task.json` 中标记为 `passes: true`。
+- 鏈疆鍏堝畬鎴愪簡 Workbook / Sheet 鍙戠幇鏈嶅姟鐨勫彲杩愯瀹炵幇鍜岃嚜鍔ㄥ寲娴嬭瘯鍩虹銆?- 闇€瑕佽ˉ鍏呯湡瀹炲湴鍖烘牱渚嬪悗锛屾墠鑳藉喅瀹氭槸鍚﹀皢浠诲姟 8 鍦?`task.json` 涓爣璁颁负 `passes: true`銆?
 
-## 2026-03-20 - Task: Workbook / Sheet 发现服务 - Validation Completed
+## 2026-03-20 - Task: Workbook / Sheet 鍙戠幇鏈嶅姟 - Validation Completed
 
 ### What was done:
-- 使用真实地区样例补齐 Workbook 发现服务验证，确认广州样例可定位 `sheet1` 的表头区与数据起始行，长沙样例可识别 `Sheet4` 为有效工作表。
-- 调整发现服务评分策略，不再按整张表累加分值，而是更关注表头质量、透视/汇总提示和数据区起点，同时对 `征收项目 / 征收品目 / 人员编号 / 费率` 这类事务明细表标记做适度降权。
-- 将真实样例验证固化到 `backend/tests/test_workbook_discovery.py`，并在样例缺失时自动跳过，避免仓库代码强依赖本地样例文件存在。
-
+- 浣跨敤鐪熷疄鍦板尯鏍蜂緥琛ラ綈 Workbook 鍙戠幇鏈嶅姟楠岃瘉锛岀‘璁ゅ箍宸炴牱渚嬪彲瀹氫綅 `sheet1` 鐨勮〃澶村尯涓庢暟鎹捣濮嬭锛岄暱娌欐牱渚嬪彲璇嗗埆 `Sheet4` 涓烘湁鏁堝伐浣滆〃銆?- 璋冩暣鍙戠幇鏈嶅姟璇勫垎绛栫暐锛屼笉鍐嶆寜鏁村紶琛ㄧ疮鍔犲垎鍊硷紝鑰屾槸鏇村叧娉ㄨ〃澶磋川閲忋€侀€忚/姹囨€绘彁绀哄拰鏁版嵁鍖鸿捣鐐癸紝鍚屾椂瀵?`寰佹敹椤圭洰 / 寰佹敹鍝佺洰 / 浜哄憳缂栧彿 / 璐圭巼` 杩欑被浜嬪姟鏄庣粏琛ㄦ爣璁板仛閫傚害闄嶆潈銆?- 灏嗙湡瀹炴牱渚嬮獙璇佸浐鍖栧埌 `backend/tests/test_workbook_discovery.py`锛屽苟鍦ㄦ牱渚嬬己澶辨椂鑷姩璺宠繃锛岄伩鍏嶄粨搴撲唬鐮佸己渚濊禆鏈湴鏍蜂緥鏂囦欢瀛樺湪銆?
 ### Testing:
 - `py -m compileall backend`
 - `.\.venv\Scripts\python.exe -m pytest backend\tests\test_workbook_discovery.py -p no:cacheprovider`
 - `.\.venv\Scripts\python.exe -m pytest backend\tests -p no:cacheprovider`
 
 ### Risks / Open Questions:
-- 当前 Workbook 发现服务已经通过广州与长沙真实样例验证，但更多地区的细粒度发现差异还会在任务 9 的表头展开与后续解析任务中继续暴露，需要持续用真实样例回归。
-- 真实样例文件当前保留在本地工作区用于验证，自动化测试在样例缺失时会跳过对应断言，因此跨环境时仍需要单独准备样例才能获得同等验证强度。
-
+- 褰撳墠 Workbook 鍙戠幇鏈嶅姟宸茬粡閫氳繃骞垮窞涓庨暱娌欑湡瀹炴牱渚嬮獙璇侊紝浣嗘洿澶氬湴鍖虹殑缁嗙矑搴﹀彂鐜板樊寮傝繕浼氬湪浠诲姟 9 鐨勮〃澶村睍寮€涓庡悗缁В鏋愪换鍔′腑缁х画鏆撮湶锛岄渶瑕佹寔缁敤鐪熷疄鏍蜂緥鍥炲綊銆?- 鐪熷疄鏍蜂緥鏂囦欢褰撳墠淇濈暀鍦ㄦ湰鍦板伐浣滃尯鐢ㄤ簬楠岃瘉锛岃嚜鍔ㄥ寲娴嬭瘯鍦ㄦ牱渚嬬己澶辨椂浼氳烦杩囧搴旀柇瑷€锛屽洜姝よ法鐜鏃朵粛闇€瑕佸崟鐙噯澶囨牱渚嬫墠鑳借幏寰楀悓绛夐獙璇佸己搴︺€?
 ### Notes:
-- 当前已完成任务 8，并将 `task.json` 中对应任务标记为 `passes: true`。
-- 下一步建议进入任务 9，继续做表头识别与复合表头展开服务。
+- 褰撳墠宸插畬鎴愪换鍔?8锛屽苟灏?`task.json` 涓搴斾换鍔℃爣璁颁负 `passes: true`銆?- 涓嬩竴姝ュ缓璁繘鍏ヤ换鍔?9锛岀户缁仛琛ㄥご璇嗗埆涓庡鍚堣〃澶村睍寮€鏈嶅姟銆?
 
-## 2026-03-20 - Task: 表头识别与复合表头展开服务
+## 2026-03-20 - Task: 琛ㄥご璇嗗埆涓庡鍚堣〃澶村睍寮€鏈嶅姟
 
 ### What was done:
-- 新增 `backend/app/parsers/header_extraction.py`，基于 Workbook 发现结果实现表头行推断、父子表头合并、列签名展开和表头树生成。
-- 让解析器支持三类典型结构：广州式“当前行 + 下一行子表头”、深圳式“上一行父表头 + 当前行子表头”、厦门式显式双层表头。
-- 在展开结果中保留列序号、Excel 列字母、原始表头片段和拼接后的 `signature`，为后续字段映射与 `raw_header_signature` 打基础。
-- 新增 `backend/tests/test_header_extraction.py`，覆盖合成复合表头测试，以及广州、厦门、深圳、武汉真实样例的表头展开验证。
-
+- 鏂板 `backend/app/parsers/header_extraction.py`锛屽熀浜?Workbook 鍙戠幇缁撴灉瀹炵幇琛ㄥご琛屾帹鏂€佺埗瀛愯〃澶村悎骞躲€佸垪绛惧悕灞曞紑鍜岃〃澶存爲鐢熸垚銆?- 璁╄В鏋愬櫒鏀寔涓夌被鍏稿瀷缁撴瀯锛氬箍宸炲紡鈥滃綋鍓嶈 + 涓嬩竴琛屽瓙琛ㄥご鈥濄€佹繁鍦冲紡鈥滀笂涓€琛岀埗琛ㄥご + 褰撳墠琛屽瓙琛ㄥご鈥濄€佸帵闂ㄥ紡鏄惧紡鍙屽眰琛ㄥご銆?- 鍦ㄥ睍寮€缁撴灉涓繚鐣欏垪搴忓彿銆丒xcel 鍒楀瓧姣嶃€佸師濮嬭〃澶寸墖娈靛拰鎷兼帴鍚庣殑 `signature`锛屼负鍚庣画瀛楁鏄犲皠涓?`raw_header_signature` 鎵撳熀纭€銆?- 鏂板 `backend/tests/test_header_extraction.py`锛岃鐩栧悎鎴愬鍚堣〃澶存祴璇曪紝浠ュ強骞垮窞銆佸帵闂ㄣ€佹繁鍦炽€佹姹夌湡瀹炴牱渚嬬殑琛ㄥご灞曞紑楠岃瘉銆?
 ### Testing:
 - `py -m compileall backend`
 - `.\.venv\Scripts\python.exe -m pytest backend\tests\test_header_extraction.py -p no:cacheprovider`
 - `.\.venv\Scripts\python.exe -m pytest backend\tests -p no:cacheprovider`
 
 ### Risks / Open Questions:
-- 当前表头树结构已能支撑后续映射，但更复杂的三层透视表或跨多行说明区混入场景，仍可能需要在后续任务中继续扩展推断规则。
-- 武汉样例目前能完成表头签名提取，但后续标准字段映射时仍需要结合地区规则进一步区分“单位缴纳/个人缴纳”重复险种名。
-- 真实样例断言依旧采用“样例存在时验证、缺失时跳过”的策略，跨环境复现实测时需要确保样例目录完整。
-
+- 褰撳墠琛ㄥご鏍戠粨鏋勫凡鑳芥敮鎾戝悗缁槧灏勶紝浣嗘洿澶嶆潅鐨勪笁灞傞€忚琛ㄦ垨璺ㄥ琛岃鏄庡尯娣峰叆鍦烘櫙锛屼粛鍙兘闇€瑕佸湪鍚庣画浠诲姟涓户缁墿灞曟帹鏂鍒欍€?- 姝︽眽鏍蜂緥鐩墠鑳藉畬鎴愯〃澶寸鍚嶆彁鍙栵紝浣嗗悗缁爣鍑嗗瓧娈垫槧灏勬椂浠嶉渶瑕佺粨鍚堝湴鍖鸿鍒欒繘涓€姝ュ尯鍒嗏€滃崟浣嶇即绾?涓汉缂寸撼鈥濋噸澶嶉櫓绉嶅悕銆?- 鐪熷疄鏍蜂緥鏂█渚濇棫閲囩敤鈥滄牱渚嬪瓨鍦ㄦ椂楠岃瘉銆佺己澶辨椂璺宠繃鈥濈殑绛栫暐锛岃法鐜澶嶇幇瀹炴祴鏃堕渶瑕佺‘淇濇牱渚嬬洰褰曞畬鏁淬€?
 ### Notes:
-- 当前已完成任务 9，并将 `task.json` 中对应任务标记为 `passes: true`。
-- 下一步建议进入任务 10，开始做规则映射服务与别名规则库。
+- 褰撳墠宸插畬鎴愪换鍔?9锛屽苟灏?`task.json` 涓搴斾换鍔℃爣璁颁负 `passes: true`銆?- 涓嬩竴姝ュ缓璁繘鍏ヤ换鍔?10锛屽紑濮嬪仛瑙勫垯鏄犲皠鏈嶅姟涓庡埆鍚嶈鍒欏簱銆?
 
-## 2026-03-20 - Task: 规则映射服务与别名规则库
+## 2026-03-20 - Task: 瑙勫垯鏄犲皠鏈嶅姟涓庡埆鍚嶈鍒欏簱
 
 ### What was done:
-- 新增 `backend/app/mappings/manual_field_aliases.py`，建立标准字段集合、表头归一化逻辑和手工别名规则库，覆盖身份类、所属期、总金额、单位/个人总额、养老、医疗、失业、工伤、补充医疗、补充养老、大额医疗、滞纳金、利息等字段。
-- 新增 `backend/app/services/header_normalizer.py`，基于表头展开结果输出规则映射决策，保留原始表头、表头签名、候选字段、命中规则、置信度和未识别字段列表。
-- 更新映射模块与服务模块导出，使后续 API、LLM 兜底和人工修正规则可以直接复用这层结果。
-- 新增 `backend/tests/test_header_normalizer.py`，验证广州、厦门、深圳、武汉、长沙多地区真实样例的规则映射命中情况，并确认 `费率` 这类当前不应静默归一化的列会保持 `unmapped`。
-
+- 鏂板 `backend/app/mappings/manual_field_aliases.py`锛屽缓绔嬫爣鍑嗗瓧娈甸泦鍚堛€佽〃澶村綊涓€鍖栭€昏緫鍜屾墜宸ュ埆鍚嶈鍒欏簱锛岃鐩栬韩浠界被銆佹墍灞炴湡銆佹€婚噾棰濄€佸崟浣?涓汉鎬婚銆佸吇鑰併€佸尰鐤椼€佸け涓氥€佸伐浼ゃ€佽ˉ鍏呭尰鐤椼€佽ˉ鍏呭吇鑰併€佸ぇ棰濆尰鐤椼€佹粸绾抽噾銆佸埄鎭瓑瀛楁銆?- 鏂板 `backend/app/services/header_normalizer.py`锛屽熀浜庤〃澶村睍寮€缁撴灉杈撳嚭瑙勫垯鏄犲皠鍐崇瓥锛屼繚鐣欏師濮嬭〃澶淬€佽〃澶寸鍚嶃€佸€欓€夊瓧娈点€佸懡涓鍒欍€佺疆淇″害鍜屾湭璇嗗埆瀛楁鍒楄〃銆?- 鏇存柊鏄犲皠妯″潡涓庢湇鍔℃ā鍧楀鍑猴紝浣垮悗缁?API銆丩LM 鍏滃簳鍜屼汉宸ヤ慨姝ｈ鍒欏彲浠ョ洿鎺ュ鐢ㄨ繖灞傜粨鏋溿€?- 鏂板 `backend/tests/test_header_normalizer.py`锛岄獙璇佸箍宸炪€佸帵闂ㄣ€佹繁鍦炽€佹姹夈€侀暱娌欏鍦板尯鐪熷疄鏍蜂緥鐨勮鍒欐槧灏勫懡涓儏鍐碉紝骞剁‘璁?`璐圭巼` 杩欑被褰撳墠涓嶅簲闈欓粯褰掍竴鍖栫殑鍒椾細淇濇寔 `unmapped`銆?
 ### Testing:
 - `py -m compileall backend`
 - `.\.venv\Scripts\python.exe -m pytest backend\tests\test_header_normalizer.py -p no:cacheprovider`
 - `.\.venv\Scripts\python.exe -m pytest backend\tests -p no:cacheprovider`
 
 ### Risks / Open Questions:
-- 当前规则映射只覆盖了已确认样例中可稳定识别的一批别名；像杭州中的 `机关养老应缴费额`、`公务员补助应缴费额` 这类更细分险种，后续还需要继续扩充规则或在任务 11 中交给 LLM 低风险兜底。
-- `缴费基数` / `缴费工资` 目前统一映射到 `payment_base` / `payment_salary`，后续标准化聚合时仍需要结合上下文决定保留哪一列作为最终通用值。
-- 这一步只做规则命中，不会强行给低把握字段分配错误目标；未识别列仍需在后续流程中继续显式处理。
-
+- 褰撳墠瑙勫垯鏄犲皠鍙鐩栦簡宸茬‘璁ゆ牱渚嬩腑鍙ǔ瀹氳瘑鍒殑涓€鎵瑰埆鍚嶏紱鍍忔澀宸炰腑鐨?`鏈哄叧鍏昏€佸簲缂磋垂棰漙銆乣鍏姟鍛樿ˉ鍔╁簲缂磋垂棰漙 杩欑被鏇寸粏鍒嗛櫓绉嶏紝鍚庣画杩橀渶瑕佺户缁墿鍏呰鍒欐垨鍦ㄤ换鍔?11 涓氦缁?LLM 浣庨闄╁厹搴曘€?- `缂磋垂鍩烘暟` / `缂磋垂宸ヨ祫` 鐩墠缁熶竴鏄犲皠鍒?`payment_base` / `payment_salary`锛屽悗缁爣鍑嗗寲鑱氬悎鏃朵粛闇€瑕佺粨鍚堜笂涓嬫枃鍐冲畾淇濈暀鍝竴鍒椾綔涓烘渶缁堥€氱敤鍊笺€?- 杩欎竴姝ュ彧鍋氳鍒欏懡涓紝涓嶄細寮鸿缁欎綆鎶婃彙瀛楁鍒嗛厤閿欒鐩爣锛涙湭璇嗗埆鍒椾粛闇€鍦ㄥ悗缁祦绋嬩腑缁х画鏄惧紡澶勭悊銆?
 ### Notes:
-- 当前已完成任务 10，并将 `task.json` 中对应任务标记为 `passes: true`。
-- 下一步建议进入任务 11，补 DeepSeek 兜底映射服务和无 API Key 降级逻辑。
+- 褰撳墠宸插畬鎴愪换鍔?10锛屽苟灏?`task.json` 涓搴斾换鍔℃爣璁颁负 `passes: true`銆?- 涓嬩竴姝ュ缓璁繘鍏ヤ换鍔?11锛岃ˉ DeepSeek 鍏滃簳鏄犲皠鏈嶅姟鍜屾棤 API Key 闄嶇骇閫昏緫銆?
 
-## 2026-03-20 - Task: DeepSeek 兜底映射服务
+## 2026-03-20 - Task: DeepSeek 鍏滃簳鏄犲皠鏈嶅姟
 
 ### What was done:
-- 新增 `backend/app/services/llm_mapping_service.py`，封装 DeepSeek `chat/completions` 调用、JSON 响应解析、标准字段候选校验和错误降级逻辑。
-- 扩展 `backend/app/services/header_normalizer.py`，在规则未命中时提供 `normalize_header_column_with_fallback` 与批量 fallback 入口，确保规则优先、LLM 只在必要时介入。
-- 为映射决策补充 `llm_attempted`、`llm_status`、候选字段与置信度保留，便于后续审计和人工修正。
-- 更新服务导出，并新增 `backend/tests/test_llm_mapping_service.py`，覆盖规则命中不调用 LLM、无 API Key 自动降级、高置信度接收、低置信度拒绝、HTTP 异常处理和批量 fallback 行为。
-
+- 鏂板 `backend/app/services/llm_mapping_service.py`锛屽皝瑁?DeepSeek `chat/completions` 璋冪敤銆丣SON 鍝嶅簲瑙ｆ瀽銆佹爣鍑嗗瓧娈靛€欓€夋牎楠屽拰閿欒闄嶇骇閫昏緫銆?- 鎵╁睍 `backend/app/services/header_normalizer.py`锛屽湪瑙勫垯鏈懡涓椂鎻愪緵 `normalize_header_column_with_fallback` 涓庢壒閲?fallback 鍏ュ彛锛岀‘淇濊鍒欎紭鍏堛€丩LM 鍙湪蹇呰鏃朵粙鍏ャ€?- 涓烘槧灏勫喅绛栬ˉ鍏?`llm_attempted`銆乣llm_status`銆佸€欓€夊瓧娈典笌缃俊搴︿繚鐣欙紝渚夸簬鍚庣画瀹¤鍜屼汉宸ヤ慨姝ｃ€?- 鏇存柊鏈嶅姟瀵煎嚭锛屽苟鏂板 `backend/tests/test_llm_mapping_service.py`锛岃鐩栬鍒欏懡涓笉璋冪敤 LLM銆佹棤 API Key 鑷姩闄嶇骇銆侀珮缃俊搴︽帴鏀躲€佷綆缃俊搴︽嫆缁濄€丠TTP 寮傚父澶勭悊鍜屾壒閲?fallback 琛屼负銆?
 ### Testing:
 - `py -m compileall backend`
 - `.\.venv\Scripts\python.exe -m pytest backend\tests\test_llm_mapping_service.py -p no:cacheprovider`
 - `.\.venv\Scripts\python.exe -m pytest backend\tests -p no:cacheprovider`
 
 ### Risks / Open Questions:
-- 当前 DeepSeek 封装已具备可运行接口，但仍依赖用户后续提供有效 API Key；在未提供前会稳定降级为 `skipped_no_api_key`。
-- LLM 结果目前只在置信度超过阈值时接管，低置信度结果会保留候选字段但不会静默接受；后续如果需要人工确认流程，还需要继续向前后端透出这些候选信息。
-- 这一步只做字段语义兜底，不会让 LLM 参与金额计算、匹配或导出填充，后续也应继续保持这个边界。
-
+- 褰撳墠 DeepSeek 灏佽宸插叿澶囧彲杩愯鎺ュ彛锛屼絾浠嶄緷璧栫敤鎴峰悗缁彁渚涙湁鏁?API Key锛涘湪鏈彁渚涘墠浼氱ǔ瀹氶檷绾т负 `skipped_no_api_key`銆?- LLM 缁撴灉鐩墠鍙湪缃俊搴﹁秴杩囬槇鍊兼椂鎺ョ锛屼綆缃俊搴︾粨鏋滀細淇濈暀鍊欓€夊瓧娈典絾涓嶄細闈欓粯鎺ュ彈锛涘悗缁鏋滈渶瑕佷汉宸ョ‘璁ゆ祦绋嬶紝杩橀渶瑕佺户缁悜鍓嶅悗绔€忓嚭杩欎簺鍊欓€変俊鎭€?- 杩欎竴姝ュ彧鍋氬瓧娈佃涔夊厹搴曪紝涓嶄細璁?LLM 鍙備笌閲戦璁＄畻銆佸尮閰嶆垨瀵煎嚭濉厖锛屽悗缁篃搴旂户缁繚鎸佽繖涓竟鐣屻€?
 ### Notes:
-- 当前已完成任务 11，并将 `task.json` 中对应任务标记为 `passes: true`。
-- 下一步建议进入任务 12，开始做非明细行过滤服务。
+- 褰撳墠宸插畬鎴愪换鍔?11锛屽苟灏?`task.json` 涓搴斾换鍔℃爣璁颁负 `passes: true`銆?- 涓嬩竴姝ュ缓璁繘鍏ヤ换鍔?12锛屽紑濮嬪仛闈炴槑缁嗚杩囨护鏈嶅姟銆?
+
+## 2026-03-20 - Task: 闈炴槑缁嗚杩囨护鏈嶅姟
+
+### What was done:
+- 鏂板 `backend/app/validators/non_detail_row_filter.py`锛屽疄鐜伴潪鏄庣粏琛屽垎绫讳笌鎵归噺杩囨护锛屾敮鎸佽瘑鍒?`鍚堣`銆?`灏忚`銆?`鍦ㄨ亴浜哄憳`銆?`閫€浼戜汉鍛樸€?`瀹跺睘缁熺浜哄憳`銆佺┖鐧借锛屽苟淇濈暀杩囨护鍘熷洜鐢ㄤ簬瀹¤銆?
+- 鏂板 `backend/app/validators/__init__.py` 瀵煎嚭杩囨护鍣ㄥ叆鍙ｏ紝渚夸簬鍚庣画鏍囧噯鍖栬仛鍚堟湇鍔＄洿鎺ュ鐢ㄨ繖灞傝鍒欍€?
+- 鏂板 `backend/tests/test_non_detail_row_filter.py`锛岃鐩栨繁鍦崇湡瀹炴牱渚嬬殑鍒嗙粍鏍囬琛屻€佹姹変笌鍘﹂棬鐪熷疄鏍蜂緥鐨勫悎璁¤锛屼互鍙?`灏忚`銆?`閫€浼戜汉鍛樸€?`瀹跺睘缁熺浜哄憳`銆佺┖鐧借鍜岀█鐤忎絾鏈夋晥鏄庣粏琛岀瓑鍚堟垚鍦烘櫙銆?
+- 澧炲姞鎵归噺杩囨护缁撴灉鏂█锛岀‘璁よ繃婊ゅ櫒浼氫繚鐣欑湡姝ｇ殑浜哄憳鏄庣粏琛岋紝鍚屾椂鎶婇潪鏄庣粏琛屾寜鍘熷洜鍗曠嫭鏀堕泦銆?
+### Testing:
+- `py -m compileall backend`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_non_detail_row_filter.py -p no:cacheprovider`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests -p no:cacheprovider`
+
+### Risks / Open Questions:
+- 褰撳墠杩囨护瑙勫垯浼樺厛瑕嗙洊椤圭洰宸茬‘璁ょ殑闈炴槑缁嗚妯″紡锛涘悗缁鏋滄煇浜涘湴鍖哄嚭鐜扳€滅壒娈婇櫓绉嶉噾棰濊鏄庤鈥濅笖棣栧垪涓嶅惈鐜版湁鍒嗙粍鍏抽敭璇嶏紝杩橀渶瑕佺粨鍚堜换鍔?13 鐨勬爣鍑嗗寲涓婁笅鏂囩户缁ˉ渚嬪瑙勫垯銆?
+- 杩欎竴姝ュ彧瀹屾垚浜嗗垎绫讳笌杩囨护鏈嶅姟鏈韩锛屽悗缁粛闇€瑕佸湪鏍囧噯鍖栬仛鍚堥摼璺腑鏄惧紡鎺ュ叆锛岀‘淇?`normalized_records` 涓嶄細钀藉叆杩欎簺宸茶瘑鍒殑闈炴槑缁嗚銆?
+### Notes:
+- 褰撳墠宸插畬鎴愪换鍔?12锛屽苟宸插皢 `task.json` 涓搴斾换鍔℃爣璁颁负 `passes: true`銆?
+- 涓嬩竴姝ユ渶鍚堥€傜户缁繘鍏ヤ换鍔?13锛屽紑濮嬫妸鍙戠幇銆佽〃澶村睍寮€銆佽鍒欐槧灏勩€丩LM 鍏滃簳鍜岄潪鏄庣粏琛岃繃婊や覆鎴愭爣鍑嗗寲鑱氬悎鏈嶅姟銆?
