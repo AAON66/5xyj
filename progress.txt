@@ -175,3 +175,25 @@
 ### Notes:
 - 当前已完成任务 8，并将 `task.json` 中对应任务标记为 `passes: true`。
 - 下一步建议进入任务 9，继续做表头识别与复合表头展开服务。
+
+## 2026-03-20 - Task: 表头识别与复合表头展开服务
+
+### What was done:
+- 新增 `backend/app/parsers/header_extraction.py`，基于 Workbook 发现结果实现表头行推断、父子表头合并、列签名展开和表头树生成。
+- 让解析器支持三类典型结构：广州式“当前行 + 下一行子表头”、深圳式“上一行父表头 + 当前行子表头”、厦门式显式双层表头。
+- 在展开结果中保留列序号、Excel 列字母、原始表头片段和拼接后的 `signature`，为后续字段映射与 `raw_header_signature` 打基础。
+- 新增 `backend/tests/test_header_extraction.py`，覆盖合成复合表头测试，以及广州、厦门、深圳、武汉真实样例的表头展开验证。
+
+### Testing:
+- `py -m compileall backend`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_header_extraction.py -p no:cacheprovider`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests -p no:cacheprovider`
+
+### Risks / Open Questions:
+- 当前表头树结构已能支撑后续映射，但更复杂的三层透视表或跨多行说明区混入场景，仍可能需要在后续任务中继续扩展推断规则。
+- 武汉样例目前能完成表头签名提取，但后续标准字段映射时仍需要结合地区规则进一步区分“单位缴纳/个人缴纳”重复险种名。
+- 真实样例断言依旧采用“样例存在时验证、缺失时跳过”的策略，跨环境复现实测时需要确保样例目录完整。
+
+### Notes:
+- 当前已完成任务 9，并将 `task.json` 中对应任务标记为 `passes: true`。
+- 下一步建议进入任务 10，开始做规则映射服务与别名规则库。
