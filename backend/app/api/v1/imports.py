@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from backend.app.api.v1.responses import success_response
 from backend.app.dependencies import get_db
 from backend.app.schemas.imports import ImportBatchDetailRead
-from backend.app.services import get_batch_match, get_batch_validation, match_batch, validate_batch
+from backend.app.services import ExportBlockedError, export_batch, get_batch_export, get_batch_match, get_batch_validation, match_batch, validate_batch
 from backend.app.services.import_service import (
     BatchNotFoundError,
     InvalidUploadError,
@@ -125,6 +125,28 @@ def get_batch_match_endpoint(batch_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
     return success_response(payload.model_dump(mode='json'), message='Batch matching retrieved.')
+
+
+@router.post('/{batch_id}/export')
+def export_batch_endpoint(request: Request, batch_id: str, db: Session = Depends(get_db)):
+    try:
+        payload = export_batch(db, batch_id, request.app.state.settings)
+    except BatchNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except ExportBlockedError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+    return success_response(payload.model_dump(mode='json'), message='Batch export completed.')
+
+
+@router.get('/{batch_id}/export')
+def get_batch_export_endpoint(batch_id: str, db: Session = Depends(get_db)):
+    try:
+        payload = get_batch_export(db, batch_id)
+    except BatchNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    return success_response(payload.model_dump(mode='json'), message='Batch export retrieved.')
 
 
 def _parse_metadata_values(raw_value: str | None, field_name: str) -> list[str] | None:

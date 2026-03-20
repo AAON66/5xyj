@@ -141,3 +141,22 @@ class BatchMatchRead(BaseModel):
     duplicate_count: int
     low_confidence_count: int
     source_files: list[SourceFileMatchRead]
+
+
+class ExportArtifactRead(BaseModel):
+    template_type: str
+    status: str
+    file_path: str | None
+    error_message: str | None
+    row_count: int
+
+
+class BatchExportRead(BaseModel):
+    batch_id: str
+    batch_name: str
+    status: str
+    export_job_id: str | None
+    export_status: str | None
+    blocked_reason: str | None
+    artifacts: list[ExportArtifactRead]
+    completed_at: datetime | None

@@ -1,3 +1,8 @@
+from backend.app.services.batch_export_service import (
+    ExportBlockedError,
+    export_batch,
+    get_batch_export,
+)
 from backend.app.services.batch_runtime_service import (
     BatchRuntimeError,
     get_batch_match,
@@ -47,6 +52,7 @@ from backend.app.services.validation_service import (
 
 __all__ = [
     "BatchNotFoundError",
+    "ExportBlockedError",
     "BatchRuntimeError",
     "HeaderMappingDecision",
     "HeaderNormalizationResult",
@@ -60,11 +66,13 @@ __all__ = [
     "ValidationResult",
     "apply_match_results_to_normalized_records",
     "build_match_result_models",
+    "get_batch_export",
     "get_batch_match",
     "get_batch_validation",
     "build_normalized_models",
     "build_validation_issue_models",
     "create_import_batch",
+    "export_batch",
     "get_import_batch",
     "list_import_batches",
     "map_header_with_llm",

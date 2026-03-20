@@ -289,3 +289,25 @@
 ### Notes:
 - Task 18 is complete and `task.json` has been updated to mark it as `passes: true`.
 - The next best step is task 19: expose the dual-template export API on top of the validated and matched batch pipeline.
+
+## 2026-03-20 - Task: Export API
+
+### What was done:
+- Added `backend/app/services/batch_export_service.py` to orchestrate batch export jobs, persist export job and artifact records, enforce the "match before export" rule, and expose the latest export snapshot.
+- Extended `backend/app/api/v1/imports.py` with `POST /api/v1/imports/{batch_id}/export` and `GET /api/v1/imports/{batch_id}/export`, including `409` blocked responses when matching has not run yet.
+- Expanded `backend/app/schemas/imports.py` with export response models so the frontend can read job status, blocked reasons, artifact paths, error messages, and completion time directly.
+- Updated `backend/app/services/__init__.py` exports and added `backend/tests/test_export_api.py` to cover successful dual-template export, partial template failure, and blocked export before matching.
+
+### Testing:
+- `py -m compileall backend`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_export_api.py -p no:cacheprovider`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests -p no:cacheprovider`
+
+### Risks / Open Questions:
+- Export jobs currently create a fresh export record on each run and keep only the latest job in the GET snapshot; if the UI later needs export history, task 20 or a follow-up can expose the full job list.
+- Export still depends on the real template files being reachable through configured paths; if templates move across environments, deployment setup must provide valid template locations.
+- The export API only requires that matching has run, not that every row matched successfully; this keeps the pipeline usable today, but the UI may still want to highlight unmatched rows before users download outputs.
+
+### Notes:
+- Task 19 is complete and `task.json` has been updated to mark it as `passes: true`.
+- The next best step is task 20: add dashboard statistics APIs on top of batch, validation, match, and export states.
