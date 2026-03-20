@@ -197,3 +197,25 @@
 ### Notes:
 - 当前已完成任务 9，并将 `task.json` 中对应任务标记为 `passes: true`。
 - 下一步建议进入任务 10，开始做规则映射服务与别名规则库。
+
+## 2026-03-20 - Task: 规则映射服务与别名规则库
+
+### What was done:
+- 新增 `backend/app/mappings/manual_field_aliases.py`，建立标准字段集合、表头归一化逻辑和手工别名规则库，覆盖身份类、所属期、总金额、单位/个人总额、养老、医疗、失业、工伤、补充医疗、补充养老、大额医疗、滞纳金、利息等字段。
+- 新增 `backend/app/services/header_normalizer.py`，基于表头展开结果输出规则映射决策，保留原始表头、表头签名、候选字段、命中规则、置信度和未识别字段列表。
+- 更新映射模块与服务模块导出，使后续 API、LLM 兜底和人工修正规则可以直接复用这层结果。
+- 新增 `backend/tests/test_header_normalizer.py`，验证广州、厦门、深圳、武汉、长沙多地区真实样例的规则映射命中情况，并确认 `费率` 这类当前不应静默归一化的列会保持 `unmapped`。
+
+### Testing:
+- `py -m compileall backend`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_header_normalizer.py -p no:cacheprovider`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests -p no:cacheprovider`
+
+### Risks / Open Questions:
+- 当前规则映射只覆盖了已确认样例中可稳定识别的一批别名；像杭州中的 `机关养老应缴费额`、`公务员补助应缴费额` 这类更细分险种，后续还需要继续扩充规则或在任务 11 中交给 LLM 低风险兜底。
+- `缴费基数` / `缴费工资` 目前统一映射到 `payment_base` / `payment_salary`，后续标准化聚合时仍需要结合上下文决定保留哪一列作为最终通用值。
+- 这一步只做规则命中，不会强行给低把握字段分配错误目标；未识别列仍需在后续流程中继续显式处理。
+
+### Notes:
+- 当前已完成任务 10，并将 `task.json` 中对应任务标记为 `passes: true`。
+- 下一步建议进入任务 11，补 DeepSeek 兜底映射服务和无 API Key 降级逻辑。
