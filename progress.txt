@@ -88,3 +88,26 @@
 ### Notes:
 - 当前已完成任务 4，并将 `task.json` 中对应任务标记为 `passes: true`。
 - 下一步建议进入任务 5，补齐 React 前端初始化、API 客户端错误拦截和基础页面容器。
+
+## 2026-03-20 - Task: React 前端初始化
+
+### What was done:
+- 升级前端基础结构，补齐 `AppShell`、页面容器、全局反馈条和 404 页面，让路由、导航和页面骨架具备后续扩展能力。
+- 重构 `frontend/src/services/api.ts`，加入环境变量读取、统一错误归一化和 axios 请求/响应拦截器。
+- 新增前端 API 反馈 Provider 与 hook，用于统一展示请求中状态和全局错误提示。
+- 新增系统健康检查服务 `frontend/src/services/system.ts`，让看板首页可直接验证后端 `/api/v1/system/health` 连通性。
+- 补充 ESLint 配置和 `npm run lint` 脚本，并更新页面样式与基础内容，使前端能以统一容器继续承接导入、员工主档等后续任务。
+
+### Testing:
+- `cmd /c npm.cmd install`
+- `cmd /c npm.cmd run lint`
+- `cmd /c npm.cmd run build`
+
+### Risks / Open Questions:
+- 当前前端仍以占位页为主，上传、批次列表和员工主档接口还未真正接入，只完成了后续对接所需的壳层与反馈链路。
+- 健康检查依赖本地后端 `/api/v1/system/health`，如果后端未启动，页面会通过全局错误条显式提示。
+- 这次 lint 过程中遇到一次本地 sandbox 刷新异常，最终通过提升权限重跑完成验证；代码本身已 lint 通过。
+
+### Notes:
+- 当前已完成任务 5，并将 `task.json` 中对应任务标记为 `passes: true`。
+- 下一步建议进入任务 6 或任务 7，优先补员工主数据导入或文件上传与导入批次管理。
