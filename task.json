@@ -115,7 +115,7 @@
     {
       "id": 23,
       "title": "双模板导出页面",
-      "passes": false
+      "passes": true
     },
     {
       "id": 24,

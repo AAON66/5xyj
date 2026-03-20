@@ -1,14 +1,16 @@
-import { NavLink, useLocation } from "react-router-dom";
-import type { PropsWithChildren } from "react";
+﻿import { NavLink, useLocation } from 'react-router-dom';
+import type { PropsWithChildren } from 'react';
 
-import { getApiBaseUrl } from "../config/env";
-import { formatApiBaseUrl } from "../utils";
-import { GlobalFeedback } from "./GlobalFeedback";
+import { getApiBaseUrl } from '../config/env';
+import { formatApiBaseUrl } from '../utils';
+import { GlobalFeedback } from './GlobalFeedback';
 
 const navigationItems = [
-  { to: "/", label: "看板", hint: "系统总览与状态检查" },
-  { to: "/imports", label: "导入批次", hint: "上传入口与解析预览" },
-  { to: "/employees", label: "员工主档", hint: "工号匹配前置数据" },
+  { to: '/', label: '看板', hint: '系统总览与状态检查' },
+  { to: '/imports', label: '导入批次', hint: '上传入口与解析预览' },
+  { to: '/results', label: '校验与匹配', hint: '运行校验与工号匹配' },
+  { to: '/exports', label: '双模板导出', hint: '查看导出状态与产物路径' },
+  { to: '/employees', label: '员工主档', hint: '工号匹配前置数据' },
 ];
 
 export function AppShell({ children }: PropsWithChildren) {
@@ -30,7 +32,7 @@ export function AppShell({ children }: PropsWithChildren) {
               <NavLink
                 key={item.to}
                 to={item.to}
-                className={({ isActive }) => `app-nav__link${isActive ? " is-active" : ""}`}
+                className={({ isActive }) => `app-nav__link${isActive ? ' is-active' : ''}`}
               >
                 <strong>{item.label}</strong>
                 <span>{item.hint}</span>

@@ -375,3 +375,24 @@
 ### Notes:
 - Task 22 is complete and `task.json` has been updated to mark it as `passes: true`.
 - The next best step is task 23: connect the dual-template export page to the export APIs.
+
+## 2026-03-20 - Task: Dual Template Export Page
+
+### What was done:
+- Extended `frontend/src/services/runtime.ts` with typed dual-export models and `POST/GET /imports/{batch_id}/export` client helpers.
+- Added `frontend/src/pages/Exports.tsx` to support batch switching, export execution, blocked-state messaging, dual-template artifact status cards, output paths, row counts, and completion time display.
+- Updated `frontend/src/App.tsx`, `frontend/src/pages/index.ts`, and `frontend/src/components/AppShell.tsx` so the export page is routable and the navigation now exposes both results and exports entry points.
+- Extended `frontend/src/styles.css` with export artifact layouts, warning banners, and responsive behavior for the new page.
+
+### Testing:
+- `cmd /c npm.cmd run lint`
+- `cmd /c npm.cmd run build`
+
+### Risks / Open Questions:
+- The export page currently shows the latest persisted export snapshot only; if users later need full export history, the backend will need a dedicated history endpoint.
+- Artifact download is currently path-based display only; if browser-side direct download becomes necessary later, we should add a secured file download API instead of exposing filesystem assumptions.
+- The page surfaces blocked reasons from the backend, but it does not yet cross-link unmatched records; task 25 or 26 can tighten that workflow.
+
+### Notes:
+- Task 23 is complete and `task.json` has been updated to mark it as `passes: true`.
+- The next best step is task 24: improve the dashboard homepage UI now that the core import, runtime, and export pages are connected.

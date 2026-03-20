@@ -1,4 +1,4 @@
-import type { ApiSuccessResponse } from './api';
+﻿import type { ApiSuccessResponse } from './api';
 import { apiClient } from './api';
 import { fetchImportBatches, type ImportBatchSummary } from './imports';
 
@@ -63,6 +63,25 @@ export interface BatchMatch {
   source_files: SourceFileMatch[];
 }
 
+export interface ExportArtifact {
+  template_type: string;
+  status: string;
+  file_path: string | null;
+  error_message: string | null;
+  row_count: number;
+}
+
+export interface BatchExport {
+  batch_id: string;
+  batch_name: string;
+  status: string;
+  export_job_id: string | null;
+  export_status: string | null;
+  blocked_reason: string | null;
+  artifacts: ExportArtifact[];
+  completed_at: string | null;
+}
+
 export async function fetchRuntimeBatches(): Promise<ImportBatchSummary[]> {
   return fetchImportBatches();
 }
@@ -84,5 +103,15 @@ export async function matchBatch(batchId: string): Promise<BatchMatch> {
 
 export async function fetchBatchMatch(batchId: string): Promise<BatchMatch> {
   const response = await apiClient.get<ApiSuccessResponse<BatchMatch>>(`/imports/${batchId}/match`);
+  return response.data.data;
+}
+
+export async function exportBatch(batchId: string): Promise<BatchExport> {
+  const response = await apiClient.post<ApiSuccessResponse<BatchExport>>(`/imports/${batchId}/export`);
+  return response.data.data;
+}
+
+export async function fetchBatchExport(batchId: string): Promise<BatchExport> {
+  const response = await apiClient.get<ApiSuccessResponse<BatchExport>>(`/imports/${batchId}/export`);
   return response.data.data;
 }
