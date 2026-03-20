@@ -203,3 +203,24 @@
 ### Notes:
 - 当前已完成任务 14，并已将 task.json 中对应任务标记为 passes: true。
 - 下一步最合适继续进入任务 15，开始做工号匹配服务。
+
+## 2026-03-20 - Task: 工号匹配服务
+
+### What was done:
+- 新增 backend/app/services/matching_service.py，实现标准化记录到员工主数据的匹配服务，支持“身份证号精确匹配”优先、“姓名 + 公司”辅助匹配，以及“仅姓名”低置信度匹配。
+- 匹配服务会明确区分 matched、unmatched、duplicate、low_confidence 四类状态，并保留 match_basis、confidence 和 candidate_employee_ids，便于后续人工修正与审计。
+- 新增 apply_match_results_to_normalized_records，可将成功匹配的 employee_id 回写到 NormalizedRecord；同时新增 build_match_result_models，可把匹配结果转换为 MatchResult 模型对象。
+- 更新 backend/app/services/__init__.py，导出匹配服务入口。
+- 新增 backend/tests/test_matching_service.py，覆盖身份证精确命中、姓名公司辅助命中、仅姓名低置信度、无法匹配、重复匹配，以及匹配结果模型构建和 employee_id 回写。
+### Testing:
+- py -m compileall backend
+- .\.venv\Scripts\python.exe -m pytest backend\tests\test_matching_service.py -p no:cacheprovider
+- .\.venv\Scripts\python.exe -m pytest backend\tests -p no:cacheprovider
+
+### Risks / Open Questions:
+- 当前匹配服务依赖已存在的 employee_master 数据，但任务 6 的员工主数据导入接口还没落地；也就是说匹配链路本身已经可用，真正批量导入主数据还需要后续补齐。
+- “仅姓名”匹配当前会标记为 low_confidence，不会自动回写 employee_id；这样更安全，但后续如果业务希望允许人工确认后升级为 matched，需要在 API 和前端上补一层人工修正流转。
+- 目前没有做模糊匹配或同音字策略，避免过早引入误匹配；后续如果样例证明有必要，可以在保留可解释性的前提下单独扩展。
+### Notes:
+- 当前已完成任务 15，并已将 task.json 中对应任务标记为 passes: true。
+- 下一步最合适继续进入任务 16，开始做双模板导出服务。

@@ -1,0 +1,165 @@
+﻿from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Iterable
+
+from backend.app.models.employee_master import EmployeeMaster
+from backend.app.models.enums import MatchStatus
+from backend.app.models.match_result import MatchResult
+from backend.app.models.normalized_record import NormalizedRecord
+from backend.app.services.normalization_service import NormalizedPreviewRecord
+
+
+@dataclass(slots=True)
+class MatchPreviewResult:
+    source_row_number: int
+    match_status: str
+    employee_id: str | None
+    employee_master_id: str | None
+    match_basis: str | None
+    confidence: float | None
+    candidate_employee_ids: list[str]
+
+
+def match_preview_records(
+    records: Iterable[NormalizedPreviewRecord],
+    employee_masters: Iterable[EmployeeMaster],
+) -> list[MatchPreviewResult]:
+    employees = [employee for employee in employee_masters if employee.active]
+    return [_match_preview_record(record, employees) for record in records]
+
+
+def build_match_result_models(
+    results: Iterable[MatchPreviewResult],
+    *,
+    batch_id: str,
+    normalized_record_ids: dict[int, str],
+    employee_master_ids: dict[str, str] | None = None,
+) -> list[MatchResult]:
+    employee_master_ids = employee_master_ids or {}
+    models: list[MatchResult] = []
+    for result in results:
+        normalized_record_id = normalized_record_ids[result.source_row_number]
+        employee_master_id = result.employee_master_id
+        if employee_master_id is None and result.employee_id is not None:
+            employee_master_id = employee_master_ids.get(result.employee_id)
+        models.append(
+            MatchResult(
+                batch_id=batch_id,
+                normalized_record_id=normalized_record_id,
+                employee_master_id=employee_master_id,
+                match_status=MatchStatus(result.match_status),
+                match_basis=result.match_basis,
+                confidence=result.confidence,
+            )
+        )
+    return models
+
+
+def apply_match_results_to_normalized_records(
+    records: Iterable[NormalizedRecord],
+    results: Iterable[MatchPreviewResult],
+) -> None:
+    indexed_results = {result.source_row_number: result for result in results}
+    for record in records:
+        result = indexed_results.get(record.source_row_number)
+        if result is None:
+            continue
+        if result.match_status == MatchStatus.MATCHED.value and result.employee_id:
+            record.employee_id = result.employee_id
+
+
+def _match_preview_record(record: NormalizedPreviewRecord, employees: list[EmployeeMaster]) -> MatchPreviewResult:
+    values = record.values
+    id_number = _normalize(values.get('id_number'))
+    person_name = _normalize(values.get('person_name'))
+    company_name = _normalize(values.get('company_name'))
+
+    if id_number:
+        exact_matches = [employee for employee in employees if _normalize(employee.id_number) == id_number]
+        exact_result = _resolve_candidates(
+            record.source_row_number,
+            exact_matches,
+            match_status=MatchStatus.MATCHED.value,
+            match_basis='id_number_exact',
+            confidence=1.0,
+        )
+        if exact_result is not None:
+            return exact_result
+
+    if person_name and company_name:
+        company_matches = [
+            employee
+            for employee in employees
+            if _normalize(employee.person_name) == person_name and _normalize(employee.company_name) == company_name
+        ]
+        company_result = _resolve_candidates(
+            record.source_row_number,
+            company_matches,
+            match_status=MatchStatus.MATCHED.value,
+            match_basis='person_name_company_exact',
+            confidence=0.9,
+        )
+        if company_result is not None:
+            return company_result
+
+    if person_name:
+        name_matches = [employee for employee in employees if _normalize(employee.person_name) == person_name]
+        name_result = _resolve_candidates(
+            record.source_row_number,
+            name_matches,
+            match_status=MatchStatus.LOW_CONFIDENCE.value,
+            match_basis='person_name_exact',
+            confidence=0.6,
+        )
+        if name_result is not None:
+            return name_result
+
+    return MatchPreviewResult(
+        source_row_number=record.source_row_number,
+        match_status=MatchStatus.UNMATCHED.value,
+        employee_id=None,
+        employee_master_id=None,
+        match_basis=None,
+        confidence=None,
+        candidate_employee_ids=[],
+    )
+
+
+def _resolve_candidates(
+    source_row_number: int,
+    matches: list[EmployeeMaster],
+    *,
+    match_status: str,
+    match_basis: str,
+    confidence: float,
+) -> MatchPreviewResult | None:
+    if not matches:
+        return None
+    if len(matches) > 1:
+        return MatchPreviewResult(
+            source_row_number=source_row_number,
+            match_status=MatchStatus.DUPLICATE.value,
+            employee_id=None,
+            employee_master_id=None,
+            match_basis=f'{match_basis}_duplicate',
+            confidence=None,
+            candidate_employee_ids=[employee.employee_id for employee in matches],
+        )
+    matched_employee = matches[0]
+    return MatchPreviewResult(
+        source_row_number=source_row_number,
+        match_status=match_status,
+        employee_id=matched_employee.employee_id,
+        employee_master_id=matched_employee.id,
+        match_basis=match_basis,
+        confidence=confidence,
+        candidate_employee_ids=[matched_employee.employee_id],
+    )
+
+
+def _normalize(value: object) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None

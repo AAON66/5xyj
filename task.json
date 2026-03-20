@@ -75,7 +75,7 @@
     {
       "id": 15,
       "title": "工号匹配服务",
-      "passes": false
+      "passes": true
     },
     {
       "id": 16,

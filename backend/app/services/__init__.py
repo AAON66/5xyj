@@ -18,6 +18,12 @@ from backend.app.services.import_service import (
     serialize_import_batch,
 )
 from backend.app.services.llm_mapping_service import LLMMappingResult, map_header_with_llm
+from backend.app.services.matching_service import (
+    MatchPreviewResult,
+    apply_match_results_to_normalized_records,
+    build_match_result_models,
+    match_preview_records,
+)
 from backend.app.services.normalization_service import (
     NormalizedPreviewRecord,
     StandardizationResult,
@@ -39,16 +45,20 @@ __all__ = [
     "ImportServiceError",
     "InvalidUploadError",
     "LLMMappingResult",
+    "MatchPreviewResult",
     "NormalizedPreviewRecord",
     "StandardizationResult",
     "ValidationPreviewIssue",
     "ValidationResult",
+    "apply_match_results_to_normalized_records",
+    "build_match_result_models",
     "build_normalized_models",
     "build_validation_issue_models",
     "create_import_batch",
     "get_import_batch",
     "list_import_batches",
     "map_header_with_llm",
+    "match_preview_records",
     "normalize_header_column",
     "normalize_header_column_with_fallback",
     "normalize_header_extraction",
