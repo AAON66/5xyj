@@ -1,7 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import { PageContainer } from '../components';
+import { PageContainer, SectionState, SurfaceNotice } from '../components';
 import {
   createImportBatch,
   fetchImportBatches,
@@ -69,7 +69,8 @@ export function ImportsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [parsing, setParsing] = useState(false);
   const [refreshingPreview, setRefreshingPreview] = useState(false);
-  const [localMessage, setLocalMessage] = useState<string | null>(null);
+  const [localNotice, setLocalNotice] = useState<{ tone: 'success' | 'warning'; message: string } | null>(null);
+  const [pageError, setPageError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -81,8 +82,13 @@ export function ImportsPage() {
           return;
         }
         setBatches(result);
+        setPageError(null);
         if (result[0]) {
           setSelectedBatchId(result[0].id);
+        }
+      } catch {
+        if (active) {
+          setPageError('导入批次列表暂时加载失败，请稍后重试。');
         }
       } finally {
         if (active) {
@@ -112,6 +118,11 @@ export function ImportsPage() {
         }
         setSelectedBatch(detailResult);
         setPreview(previewResult);
+        setPageError(null);
+      } catch {
+        if (active) {
+          setPageError('当前批次详情加载失败，请重新选择批次或稍后重试。');
+        }
       } finally {
         if (active) {
           setRefreshingPreview(false);
@@ -151,12 +162,12 @@ export function ImportsPage() {
 
   async function handleCreateBatch() {
     if (files.length === 0) {
-      setLocalMessage('请至少选择一个 Excel 文件。');
+      setLocalNotice({ tone: 'warning', message: '请至少选择一个 Excel 文件。' });
       return;
     }
 
     setSubmitting(true);
-    setLocalMessage(null);
+    setLocalNotice(null);
     try {
       const created = await createImportBatch({
         files,
@@ -171,7 +182,7 @@ export function ImportsPage() {
       await reloadBatches(created.id);
       setFiles([]);
       setBatchName('');
-      setLocalMessage(`导入批次已创建：${created.batch_name}`);
+      setLocalNotice({ tone: 'success', message: `导入批次已创建：${created.batch_name}` });
     } finally {
       setSubmitting(false);
     }
@@ -179,14 +190,14 @@ export function ImportsPage() {
 
   async function handleParseBatch(batchId: string) {
     setParsing(true);
-    setLocalMessage(null);
+    setLocalNotice(null);
     try {
       const parsed = await parseImportBatch(batchId);
       setPreview(parsed);
       setSelectedBatchId(batchId);
       setSelectedBatch(await fetchImportBatch(batchId));
       await reloadBatches(batchId);
-      setLocalMessage('批次解析已刷新。');
+      setLocalNotice({ tone: 'success', message: '批次解析已刷新。' });
     } finally {
       setParsing(false);
     }
@@ -213,6 +224,9 @@ export function ImportsPage() {
         </div>
       }
     >
+      {localNotice ? <SurfaceNotice tone={localNotice.tone} message={localNotice.message} /> : null}
+      {pageError ? <SurfaceNotice tone="error" title="页面状态异常" message={pageError} /> : null}
+
       <div className="panel-grid panel-grid--two import-layout">
         <section className="panel-card import-uploader">
           <div>
@@ -241,12 +255,7 @@ export function ImportsPage() {
             </label>
           </div>
           <label className="upload-dropzone">
-            <input
-              type="file"
-              accept=".xlsx,.xls"
-              multiple
-              onChange={(event) => setFiles(Array.from(event.target.files ?? []))}
-            />
+            <input type="file" accept=".xlsx,.xls" multiple onChange={(event) => setFiles(Array.from(event.target.files ?? []))} />
             <strong>{files.length > 0 ? `已选择 ${files.length} 个文件` : '点击或拖拽上传 Excel 文件'}</strong>
             <span>支持 `.xlsx` / `.xls`，上传后会立即创建批次并进入解析预览。</span>
           </label>
@@ -259,7 +268,6 @@ export function ImportsPage() {
               ))}
             </div>
           ) : null}
-          {localMessage ? <div className="inline-status inline-status--success">{localMessage}</div> : null}
         </section>
 
         <section className="panel-card import-batch-list">
@@ -268,11 +276,13 @@ export function ImportsPage() {
             <strong>{pageLoading ? '加载中...' : `${batches.length} 个批次`}</strong>
             <p>选择批次查看快速预览，或直接进入详情页查看每个文件的解析上下文。</p>
           </div>
-          <div className="batch-list">
-            {batches.length === 0 ? (
-              <div className="status-item">当前还没有导入批次，请先上传文件。</div>
-            ) : (
-              batches.map((batch) => (
+          {pageLoading ? (
+            <SectionState title="正在加载批次" message="系统正在读取已有导入批次，请稍候。" />
+          ) : batches.length === 0 ? (
+            <SectionState title="还没有导入批次" message="上传第一批 Excel 后，这里会显示历史批次。" />
+          ) : (
+            <div className="batch-list">
+              {batches.map((batch) => (
                 <div key={batch.id} className={`batch-card batch-card--detail${selectedBatchId === batch.id ? ' is-active' : ''}`}>
                   <button type="button" className="batch-card__select" onClick={() => setSelectedBatchId(batch.id)}>
                     <strong>{batch.batch_name}</strong>
@@ -283,9 +293,9 @@ export function ImportsPage() {
                     查看详情
                   </Link>
                 </div>
-              ))
-            )}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
       </div>
 
@@ -330,7 +340,9 @@ export function ImportsPage() {
             ) : null}
           </div>
         </div>
-        {selectedSourceFile ? (
+        {!selectedSourceFile ? (
+          <SectionState title="暂无解析预览" message="当前批次还没有预览结果，你可以先刷新解析或进入详情页查看更完整状态。" />
+        ) : (
           <div className="source-file-grid">
             <div className="status-item">
               <strong>{selectedSourceFile.file_name}</strong>
@@ -347,8 +359,6 @@ export function ImportsPage() {
               <div>{selectedSourceFile.unmapped_headers.length > 0 ? selectedSourceFile.unmapped_headers.join(' / ') : '无'}</div>
             </div>
           </div>
-        ) : (
-          <div className="status-item">当前批次还没有预览结果。你可以先刷新解析或进入详情页查看更完整状态。</div>
         )}
       </div>
 
@@ -380,7 +390,7 @@ export function ImportsPage() {
               ))}
             </div>
           ) : (
-            <div className="status-item">当前还没有映射结果。</div>
+            <SectionState title="暂无映射结果" message="当前还没有表头映射结果。完成解析后，这里会展示规则或 LLM 的归一化命中。" />
           )}
         </section>
 
@@ -402,7 +412,7 @@ export function ImportsPage() {
               ))}
             </div>
           ) : (
-            <div className="status-item">当前没有检测到被过滤的非明细行。</div>
+            <SectionState title="没有过滤项" message="当前没有检测到需要剔除的合计、小计或分组标题行。" />
           )}
         </section>
       </div>
@@ -438,7 +448,7 @@ export function ImportsPage() {
             </table>
           </div>
         ) : (
-          <div className="status-item">当前没有可展示的标准化样本。</div>
+          <SectionState title="暂无标准化样本" message="当前没有可展示的标准化样本，先刷新解析结果后再查看。" />
         )}
       </div>
     </PageContainer>

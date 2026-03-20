@@ -224,6 +224,58 @@ button {
   border-color: rgba(198, 82, 61, 0.25);
 }
 
+
+.surface-notice,
+.section-state {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 18px;
+  border-radius: 18px;
+  border: 1px solid transparent;
+}
+
+.surface-notice div,
+.section-state {
+  display: grid;
+  gap: 6px;
+}
+
+.surface-notice strong,
+.section-state strong {
+  font-size: 0.96rem;
+}
+
+.surface-notice span,
+.section-state span {
+  color: #526078;
+  line-height: 1.65;
+}
+
+.surface-notice--info,
+.section-state--info {
+  background: rgba(238, 244, 252, 0.96);
+  border-color: rgba(67, 122, 181, 0.18);
+}
+
+.surface-notice--success {
+  background: rgba(229, 247, 236, 0.96);
+  border-color: rgba(51, 135, 76, 0.2);
+}
+
+.surface-notice--warning,
+.section-state--warning {
+  background: rgba(255, 241, 224, 0.96);
+  border-color: rgba(191, 95, 40, 0.24);
+}
+
+.surface-notice--error,
+.section-state--error {
+  background: rgba(255, 230, 228, 0.96);
+  border-color: rgba(198, 82, 61, 0.25);
+}
+
 .app-content {
   padding: 28px;
 }
@@ -403,7 +455,59 @@ button {
 }
 
 @media (max-width: 640px) {
-  .app-content {
+  
+.surface-notice,
+.section-state {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 14px 18px;
+  border-radius: 18px;
+  border: 1px solid transparent;
+}
+
+.surface-notice div,
+.section-state {
+  display: grid;
+  gap: 6px;
+}
+
+.surface-notice strong,
+.section-state strong {
+  font-size: 0.96rem;
+}
+
+.surface-notice span,
+.section-state span {
+  color: #526078;
+  line-height: 1.65;
+}
+
+.surface-notice--info,
+.section-state--info {
+  background: rgba(238, 244, 252, 0.96);
+  border-color: rgba(67, 122, 181, 0.18);
+}
+
+.surface-notice--success {
+  background: rgba(229, 247, 236, 0.96);
+  border-color: rgba(51, 135, 76, 0.2);
+}
+
+.surface-notice--warning,
+.section-state--warning {
+  background: rgba(255, 241, 224, 0.96);
+  border-color: rgba(191, 95, 40, 0.24);
+}
+
+.surface-notice--error,
+.section-state--error {
+  background: rgba(255, 230, 228, 0.96);
+  border-color: rgba(198, 82, 61, 0.25);
+}
+
+.app-content {
     padding: 18px;
   }
 

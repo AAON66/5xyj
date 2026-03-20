@@ -1,7 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
-import { PageContainer } from '../components';
+import { PageContainer, SectionState, SurfaceNotice } from '../components';
 import {
   fetchImportBatch,
   fetchImportBatchPreview,
@@ -51,7 +51,8 @@ export function ImportBatchDetailPage() {
   const [loading, setLoading] = useState(true);
   const [parsing, setParsing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [panelMessage, setPanelMessage] = useState<string | null>(null);
+  const [panelNotice, setPanelNotice] = useState<{ tone: 'success' | 'warning'; message: string } | null>(null);
+  const [pageError, setPageError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -72,8 +73,13 @@ export function ImportBatchDetailPage() {
         }
         setBatchDetail(detailResult);
         setPreview(previewResult);
+        setPageError(null);
         const firstSourceFileId = previewResult?.source_files[0]?.source_file_id ?? detailResult.source_files[0]?.id ?? null;
         setSelectedSourceFileId((current) => current ?? firstSourceFileId);
+      } catch {
+        if (active) {
+          setPageError('导入批次详情暂时加载失败，请稍后重试。');
+        }
       } finally {
         if (active) {
           setLoading(false);
@@ -110,6 +116,9 @@ export function ImportBatchDetailPage() {
       setPreview(previewResult);
       const firstSourceFileId = previewResult?.source_files[0]?.source_file_id ?? detailResult.source_files[0]?.id ?? null;
       setSelectedSourceFileId((current) => current ?? firstSourceFileId);
+      setPageError(null);
+    } catch {
+      setPageError('批次详情刷新失败，请稍后重试。');
     } finally {
       setRefreshing(false);
     }
@@ -120,13 +129,13 @@ export function ImportBatchDetailPage() {
       return;
     }
     setParsing(true);
-    setPanelMessage(null);
+    setPanelNotice(null);
     try {
       const parsed = await parseImportBatch(batchId);
       setPreview(parsed);
       setSelectedSourceFileId(parsed.source_files[0]?.source_file_id ?? null);
       await reloadBatchState(batchId);
-      setPanelMessage('批次解析已刷新，下面是最新预览结果。');
+      setPanelNotice({ tone: 'success', message: '批次解析已刷新，下面是最新预览结果。' });
     } finally {
       setParsing(false);
     }
@@ -142,12 +151,20 @@ export function ImportBatchDetailPage() {
           <Link to="/imports" className="button button--ghost">
             返回批次列表
           </Link>
+          {batchId ? (
+            <Link to={`/mappings?batchId=${batchId}${selectedSourceFileId ? `&sourceFileId=${selectedSourceFileId}` : ''}`} className="button button--ghost">
+              进入字段修正
+            </Link>
+          ) : null}
           <button type="button" className="button button--primary" onClick={() => void handleParseBatch()} disabled={!batchId || parsing}>
             {parsing ? '刷新解析中...' : '刷新解析结果'}
           </button>
         </div>
       }
     >
+      {panelNotice ? <SurfaceNotice tone={panelNotice.tone} message={panelNotice.message} /> : null}
+      {pageError ? <SurfaceNotice tone="error" title="页面状态异常" message={pageError} /> : null}
+
       <div className="panel-grid panel-grid--two batch-detail-hero-grid">
         <section className="panel-card panel-card--soft">
           <span className="panel-label">批次概况</span>
@@ -173,8 +190,7 @@ export function ImportBatchDetailPage() {
           <span className="panel-label">详情说明</span>
           <strong>先看文件，再看表头与样本</strong>
           <p>这个页面按单个批次聚合了上传文件、命中 sheet、表头签名、过滤行和标准化前 20 行，方便我们快速判断解析质量。</p>
-          {panelMessage ? <div className="inline-status inline-status--success">{panelMessage}</div> : null}
-          {refreshing ? <div className="inline-status inline-status--success">正在刷新批次详情...</div> : null}
+          {refreshing ? <SurfaceNotice tone="info" message="正在刷新批次详情，请稍候。" /> : null}
         </section>
       </div>
 
@@ -190,12 +206,7 @@ export function ImportBatchDetailPage() {
             {batchDetail.source_files.map((file) => {
               const isActive = selectedSourceFile?.source_file_id === file.id;
               return (
-                <button
-                  key={file.id}
-                  type="button"
-                  className={`source-file-summary-card${isActive ? ' is-active' : ''}`}
-                  onClick={() => setSelectedSourceFileId(file.id)}
-                >
+                <button key={file.id} type="button" className={`source-file-summary-card${isActive ? ' is-active' : ''}`} onClick={() => setSelectedSourceFileId(file.id)}>
                   <strong>{file.file_name}</strong>
                   <span>{file.region ?? '自动识别地区'}</span>
                   <small>{file.company_name ?? '未提供公司名'}</small>
@@ -205,7 +216,7 @@ export function ImportBatchDetailPage() {
             })}
           </div>
         ) : (
-          <div className="status-item">当前批次还没有源文件。</div>
+          <SectionState title="当前批次没有源文件" message="文件上传完成后，这里会列出批次内的所有原始文件。" />
         )}
       </section>
 
@@ -254,7 +265,7 @@ export function ImportBatchDetailPage() {
               ))}
             </div>
           ) : (
-            <div className="status-item">当前文件还没有映射结果。先执行解析后再查看。</div>
+            <SectionState title="暂无映射结果" message="当前文件还没有映射结果。先执行解析后再查看。" />
           )}
         </section>
 
@@ -276,7 +287,7 @@ export function ImportBatchDetailPage() {
               ))}
             </div>
           ) : (
-            <div className="status-item">当前文件没有检测到被过滤的非明细行。</div>
+            <SectionState title="没有过滤项" message="当前文件没有检测到被过滤的非明细行。" />
           )}
         </section>
       </div>
@@ -312,7 +323,7 @@ export function ImportBatchDetailPage() {
             </table>
           </div>
         ) : (
-          <div className="status-item">当前批次还没有标准化预览，先刷新解析结果后再查看。</div>
+          <SectionState title="暂无标准化样本" message="当前批次还没有标准化预览，先刷新解析结果后再查看。" />
         )}
       </section>
 
@@ -342,7 +353,7 @@ export function ImportBatchDetailPage() {
               ))}
           </div>
         ) : (
-          <div className="status-item">当前预览中没有残留未识别字段。</div>
+          <SectionState title="没有未识别字段" message="当前预览中没有残留未识别字段。" />
         )}
       </section>
     </PageContainer>

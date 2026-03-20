@@ -463,3 +463,24 @@
 ### Notes:
 - Task 26 is complete and `task.json` has been updated to mark it as `passes: true`.
 - The next best step is task 27: improve cross-page error handling, loading states, and user feedback consistency.
+
+## 2026-03-20 - Task: Error Handling And Loading States
+
+### What was done:
+- Added reusable feedback components `frontend/src/components/SurfaceNotice.tsx` and `frontend/src/components/SectionState.tsx`, then exported them through `frontend/src/components/index.ts`.
+- Updated `frontend/src/components/GlobalFeedback.tsx` and `frontend/src/styles.css` so global API banners and page-level notices now share a cleaner, consistent visual language.
+- Reworked `frontend/src/pages/Imports.tsx`, `frontend/src/pages/ImportBatchDetail.tsx`, `frontend/src/pages/Results.tsx`, `frontend/src/pages/Exports.tsx`, `frontend/src/pages/Mappings.tsx`, and `frontend/src/pages/Dashboard.tsx` to use unified success/warning/error notices and explicit loading/empty/error section states instead of ad-hoc inline text.
+- Removed several silent or opaque page states by giving each screen its own contextual fallback messaging while still keeping the global API interceptor banner as the cross-page safety net.
+
+### Testing:
+- `cmd /c npm.cmd run lint`
+- `cmd /c npm.cmd run build`
+
+### Risks / Open Questions:
+- Page-level error notices currently complement the global interceptor banner, so users may see both a global API error and a local contextual message for the same failure; this is intentional for clarity today, but later UX work may decide to deduplicate them.
+- This task standardized frontend feedback behavior only; if later backend endpoints add richer error codes or retry hints, the page notices can surface those details more explicitly.
+- Loading and empty-state wording is now consistent across key workflow pages, but task 28 can still tune spacing and mobile presentation further as part of the broader responsive pass.
+
+### Notes:
+- Task 27 is complete and `task.json` has been updated to mark it as `passes: true`.
+- The next best step is task 28: continue with the responsive adaptation pass now that the main pages share a common state and feedback system.

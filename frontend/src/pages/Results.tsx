@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 
-import { PageContainer } from '../components';
+import { PageContainer, SectionState, SurfaceNotice } from '../components';
 import {
   fetchBatchMatch,
   fetchBatchValidation,
@@ -27,11 +27,11 @@ function formatDateTime(value: string): string {
 function severityLabel(value: string): string {
   switch (value) {
     case 'error':
-      return '??';
+      return '错误';
     case 'warning':
-      return '??';
+      return '警告';
     case 'info':
-      return '??';
+      return '提示';
     default:
       return value;
   }
@@ -40,13 +40,13 @@ function severityLabel(value: string): string {
 function matchLabel(value: string): string {
   switch (value) {
     case 'matched':
-      return '???';
+      return '已匹配';
     case 'unmatched':
-      return '???';
+      return '未匹配';
     case 'duplicate':
-      return '????';
+      return '重复命中';
     case 'low_confidence':
-      return '????';
+      return '低置信度';
     default:
       return value;
   }
@@ -60,7 +60,8 @@ export function ResultsPage() {
   const [loading, setLoading] = useState(true);
   const [runningValidation, setRunningValidation] = useState(false);
   const [runningMatch, setRunningMatch] = useState(false);
-  const [panelMessage, setPanelMessage] = useState<string | null>(null);
+  const [panelNotice, setPanelNotice] = useState<{ tone: 'success' | 'warning'; message: string } | null>(null);
+  const [pageError, setPageError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -72,8 +73,13 @@ export function ResultsPage() {
           return;
         }
         setBatches(result);
+        setPageError(null);
         if (result[0]) {
           setSelectedBatchId(result[0].id);
+        }
+      } catch {
+        if (active) {
+          setPageError('运行结果页面暂时无法读取批次列表，请稍后重试。');
         }
       } finally {
         if (active) {
@@ -92,15 +98,21 @@ export function ResultsPage() {
     let active = true;
 
     async function loadRuntimeState(batchId: string) {
-      const [validationData, matchData] = await Promise.all([
-        fetchBatchValidation(batchId).catch(() => null),
-        fetchBatchMatch(batchId).catch(() => null),
-      ]);
-      if (!active) {
-        return;
+      try {
+        const [validationData, matchData] = await Promise.all([
+          fetchBatchValidation(batchId).catch(() => null),
+          fetchBatchMatch(batchId).catch(() => null),
+        ]);
+        if (!active) {
+          return;
+        }
+        setValidation(validationData);
+        setMatchResult(matchData);
+      } catch {
+        if (active) {
+          setPageError('当前批次的校验或匹配结果加载失败。');
+        }
       }
-      setValidation(validationData);
-      setMatchResult(matchData);
     }
 
     if (!selectedBatchId) {
@@ -115,13 +127,8 @@ export function ResultsPage() {
     };
   }, [selectedBatchId]);
 
-  const validationIssues = useMemo<ValidationIssue[]>(() => {
-    return validation?.source_files.flatMap((item) => item.issues) ?? [];
-  }, [validation]);
-
-  const matchRows = useMemo<MatchRecord[]>(() => {
-    return matchResult?.source_files.flatMap((item) => item.results) ?? [];
-  }, [matchResult]);
+  const validationIssues = useMemo<ValidationIssue[]>(() => validation?.source_files.flatMap((item) => item.issues) ?? [], [validation]);
+  const matchRows = useMemo<MatchRecord[]>(() => matchResult?.source_files.flatMap((item) => item.results) ?? [], [matchResult]);
 
   async function refreshBatches(keepId?: string) {
     const result = await fetchRuntimeBatches();
@@ -136,11 +143,11 @@ export function ResultsPage() {
       return;
     }
     setRunningValidation(true);
-    setPanelMessage(null);
+    setPanelNotice(null);
     try {
       const result = await validateBatch(selectedBatchId);
       setValidation(result);
-      setPanelMessage(`?? ${result.batch_name} ?????????`);
+      setPanelNotice({ tone: 'success', message: `${result.batch_name} 已完成校验。` });
       await refreshBatches(selectedBatchId);
     } finally {
       setRunningValidation(false);
@@ -152,11 +159,11 @@ export function ResultsPage() {
       return;
     }
     setRunningMatch(true);
-    setPanelMessage(null);
+    setPanelNotice(null);
     try {
       const result = await matchBatch(selectedBatchId);
       setMatchResult(result);
-      setPanelMessage(result.blocked_reason ?? `?? ${result.batch_name} ?????????`);
+      setPanelNotice({ tone: result.blocked_reason ? 'warning' : 'success', message: result.blocked_reason ?? `${result.batch_name} 已完成工号匹配。` });
       await refreshBatches(selectedBatchId);
     } finally {
       setRunningMatch(false);
@@ -166,74 +173,73 @@ export function ResultsPage() {
   return (
     <PageContainer
       eyebrow="Results"
-      title="???????"
-      description="????????????????????????????????????????"
+      title="校验与匹配结果"
+      description="按批次执行数据校验和工号匹配，并集中查看问题明细、候选工号和阻塞原因。"
       actions={
         <div className="button-row">
           <button type="button" className="button button--primary" onClick={() => void handleValidate()} disabled={!selectedBatchId || runningValidation}>
-            {runningValidation ? '???...' : '??????'}
+            {runningValidation ? '校验中...' : '执行数据校验'}
           </button>
           <button type="button" className="button button--ghost" onClick={() => void handleMatch()} disabled={!selectedBatchId || runningMatch}>
-            {runningMatch ? '???...' : '??????'}
+            {runningMatch ? '匹配中...' : '执行工号匹配'}
           </button>
         </div>
       }
     >
+      {panelNotice ? <SurfaceNotice tone={panelNotice.tone} message={panelNotice.message} /> : null}
+      {pageError ? <SurfaceNotice tone="error" title="页面状态异常" message={pageError} /> : null}
+
       <div className="panel-grid panel-grid--two runtime-layout">
         <section className="panel-card runtime-batch-list">
           <div>
-            <span className="panel-label">????</span>
-            <strong>{loading ? '???...' : `${batches.length} ??????`}</strong>
-            <p>??????????????????????????????????</p>
+            <span className="panel-label">批次选择</span>
+            <strong>{loading ? '加载中...' : `${batches.length} 个可用批次`}</strong>
+            <p>切换批次后，这里会展示该批次已经持久化的校验与匹配结果。</p>
           </div>
-          <div className="batch-list">
-            {batches.length === 0 ? (
-              <div className="status-item">?????????????????????????</div>
-            ) : (
-              batches.map((batch) => (
-                <button
-                  key={batch.id}
-                  type="button"
-                  className={`batch-card${selectedBatchId === batch.id ? ' is-active' : ''}`}
-                  onClick={() => setSelectedBatchId(batch.id)}
-                >
+          {loading ? (
+            <SectionState title="正在加载批次" message="系统正在同步运行结果页面需要的批次列表。" />
+          ) : batches.length === 0 ? (
+            <SectionState title="暂无可运行批次" message="先完成导入与解析，再回来执行校验和匹配。" />
+          ) : (
+            <div className="batch-list">
+              {batches.map((batch) => (
+                <button key={batch.id} type="button" className={`batch-card${selectedBatchId === batch.id ? ' is-active' : ''}`} onClick={() => setSelectedBatchId(batch.id)}>
                   <strong>{batch.batch_name}</strong>
                   <span>{batch.status}</span>
                   <small>{formatDateTime(batch.updated_at)}</small>
                 </button>
-              ))
-            )}
-          </div>
-          {panelMessage ? <div className="inline-status inline-status--success">{panelMessage}</div> : null}
+              ))}
+            </div>
+          )}
         </section>
 
         <section className="panel-card runtime-summary-grid">
           <div className="summary-grid">
             <article className="status-item">
               <strong>{validation?.total_issue_count ?? 0}</strong>
-              <div>????</div>
+              <div>校验问题</div>
             </article>
             <article className="status-item">
               <strong>{matchResult?.matched_count ?? 0}</strong>
-              <div>???</div>
+              <div>已匹配</div>
             </article>
             <article className="status-item">
               <strong>{matchResult?.unmatched_count ?? 0}</strong>
-              <div>???</div>
+              <div>未匹配</div>
             </article>
             <article className="status-item">
               <strong>{matchResult?.duplicate_count ?? 0}</strong>
-              <div>????</div>
+              <div>重复命中</div>
             </article>
           </div>
           <div className="status-item">
-            <strong>????</strong>
+            <strong>员工主档状态</strong>
             <div>
               {matchResult
                 ? matchResult.employee_master_available
-                  ? `???????? ${matchResult.employee_master_count} ??????`
-                  : matchResult.blocked_reason ?? '????????'
-                : '???????????????'}
+                  ? `当前可用员工主档 ${matchResult.employee_master_count} 条。`
+                  : matchResult.blocked_reason ?? '员工主档暂不可用。'
+                : '选择批次后，这里会显示匹配前置条件。'}
             </div>
           </div>
         </section>
@@ -243,8 +249,8 @@ export function ResultsPage() {
         <section className="panel-card">
           <div className="section-heading">
             <div>
-              <span className="panel-label">????</span>
-              <h2>??????</h2>
+              <span className="panel-label">校验问题</span>
+              <h2>问题明细</h2>
             </div>
           </div>
           {validationIssues.length > 0 ? (
@@ -252,27 +258,27 @@ export function ResultsPage() {
               {validationIssues.map((issue) => (
                 <article key={`${issue.normalized_record_id ?? 'none'}-${issue.source_row_number}-${issue.issue_type}`} className="issue-card">
                   <div className="issue-card__head">
-                    <strong>? {issue.source_row_number} ?</strong>
+                    <strong>第 {issue.source_row_number} 行</strong>
                     <span className={`severity-badge severity-badge--${issue.severity}`}>{severityLabel(issue.severity)}</span>
                   </div>
                   <div>{issue.message}</div>
                   <small>
-                    ?? {issue.issue_type}
-                    {issue.field_name ? ` ? ?? ${issue.field_name}` : ''}
+                    类型 {issue.issue_type}
+                    {issue.field_name ? ` · 字段 ${issue.field_name}` : ''}
                   </small>
                 </article>
               ))}
             </div>
           ) : (
-            <div className="status-item">????????????????????????????</div>
+            <SectionState title="暂无校验问题" message="执行校验后，如果发现缺失、格式或金额问题，这里会展示详细结果。" />
           )}
         </section>
 
         <section className="panel-card">
           <div className="section-heading">
             <div>
-              <span className="panel-label">????</span>
-              <h2>??????</h2>
+              <span className="panel-label">匹配结果</span>
+              <h2>工号命中明细</h2>
             </div>
           </div>
           {matchRows.length > 0 ? (
@@ -280,15 +286,15 @@ export function ResultsPage() {
               {matchRows.map((item) => (
                 <article key={`${item.normalized_record_id ?? 'none'}-${item.source_row_number}`} className="match-card">
                   <div className="match-card__head">
-                    <strong>{item.person_name ?? '?????'}</strong>
+                    <strong>{item.person_name ?? '未识别姓名'}</strong>
                     <span className={`match-badge match-badge--${item.match_status}`}>{matchLabel(item.match_status)}</span>
                   </div>
-                  <div>????? {item.source_row_number} ?</div>
-                  <div>????{item.id_number ?? '?'}</div>
-                  <div>???{item.employee_id ?? '?'}</div>
+                  <div>源数据第 {item.source_row_number} 行</div>
+                  <div>证件号：{item.id_number ?? '-'}</div>
+                  <div>工号：{item.employee_id ?? '-'}</div>
                   <small>
-                    {item.match_basis ? `?? ${item.match_basis}` : '??????'}
-                    {item.confidence !== null ? ` ? ??? ${item.confidence.toFixed(2)}` : ''}
+                    {item.match_basis ? `依据 ${item.match_basis}` : '尚未命中匹配依据'}
+                    {item.confidence !== null ? ` · 置信度 ${item.confidence.toFixed(2)}` : ''}
                   </small>
                   {item.candidate_employee_ids.length > 0 ? (
                     <div className="candidate-chip-list">
@@ -303,7 +309,7 @@ export function ResultsPage() {
               ))}
             </div>
           ) : (
-            <div className="status-item">????????????????????????????</div>
+            <SectionState title="暂无匹配结果" message="执行工号匹配后，这里会展示命中、未命中和低置信度候选。" />
           )}
         </section>
       </div>

@@ -1,7 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 
-import { PageContainer } from '../components';
+import { PageContainer, SectionState, SurfaceNotice } from '../components';
 import { fetchImportBatch, fetchImportBatches, type ImportBatchDetail, type ImportBatchSummary } from '../services/imports';
 import { fetchHeaderMappings, updateHeaderMapping, type HeaderMappingItem } from '../services/mappings';
 
@@ -31,7 +31,8 @@ export function MappingsPage() {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
-  const [panelMessage, setPanelMessage] = useState<string | null>(null);
+  const [panelNotice, setPanelNotice] = useState<{ tone: 'success' | 'warning'; message: string } | null>(null);
+  const [pageError, setPageError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -43,8 +44,13 @@ export function MappingsPage() {
           return;
         }
         setBatches(result);
+        setPageError(null);
         const initialBatchId = searchParams.get('batchId') ?? result[0]?.id ?? null;
         setSelectedBatchId((current) => current ?? initialBatchId);
+      } catch {
+        if (active) {
+          setPageError('字段映射页面暂时无法读取批次列表。');
+        }
       } finally {
         if (active) {
           setLoading(false);
@@ -62,24 +68,27 @@ export function MappingsPage() {
     let active = true;
 
     async function loadBatchContext(batchId: string) {
-      const [detail, mappingPayload] = await Promise.all([
-        fetchImportBatch(batchId),
-        fetchHeaderMappings(batchId, selectedSourceFileId ?? undefined),
-      ]);
-      if (!active) {
-        return;
-      }
+      try {
+        const [detail, mappingPayload] = await Promise.all([
+          fetchImportBatch(batchId),
+          fetchHeaderMappings(batchId, selectedSourceFileId ?? undefined),
+        ]);
+        if (!active) {
+          return;
+        }
 
-      setBatchDetail(detail);
-      setMappings(mappingPayload.items);
-      setAvailableFields(mappingPayload.available_canonical_fields);
-      const nextSourceFileId = selectedSourceFileId ?? mappingPayload.items[0]?.source_file_id ?? detail.source_files[0]?.id ?? null;
-      setSelectedSourceFileId(nextSourceFileId);
-      setDrafts(
-        Object.fromEntries(
-          mappingPayload.items.map((item) => [item.id, item.canonical_field ?? ''])
-        )
-      );
+        setBatchDetail(detail);
+        setMappings(mappingPayload.items);
+        setAvailableFields(mappingPayload.available_canonical_fields);
+        const nextSourceFileId = selectedSourceFileId ?? mappingPayload.items[0]?.source_file_id ?? detail.source_files[0]?.id ?? null;
+        setSelectedSourceFileId(nextSourceFileId);
+        setDrafts(Object.fromEntries(mappingPayload.items.map((item) => [item.id, item.canonical_field ?? ''])));
+        setPageError(null);
+      } catch {
+        if (active) {
+          setPageError('当前批次的映射记录加载失败，请稍后重试。');
+        }
+      }
     }
 
     if (!selectedBatchId) {
@@ -115,23 +124,24 @@ export function MappingsPage() {
     return mappings.filter((item) => item.source_file_id === selectedSourceFileId);
   }, [mappings, selectedSourceFileId]);
 
-  const summary = useMemo(() => {
-    return {
+  const summary = useMemo(
+    () => ({
       total: visibleMappings.length,
       manual: visibleMappings.filter((item) => item.mapping_source === 'manual' || item.manually_overridden).length,
       unmapped: visibleMappings.filter((item) => !item.canonical_field).length,
-    };
-  }, [visibleMappings]);
+    }),
+    [visibleMappings],
+  );
 
   async function handleSave(mapping: HeaderMappingItem) {
     const nextValue = drafts[mapping.id] || null;
     setSavingId(mapping.id);
-    setPanelMessage(null);
+    setPanelNotice(null);
     try {
       const updated = await updateHeaderMapping(mapping.id, nextValue);
       setMappings((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setDrafts((current) => ({ ...current, [mapping.id]: updated.canonical_field ?? '' }));
-      setPanelMessage(`已更新字段映射：${mapping.raw_header}`);
+      setPanelNotice({ tone: 'success', message: `已更新字段映射：${mapping.raw_header}` });
     } finally {
       setSavingId(null);
     }
@@ -152,6 +162,9 @@ export function MappingsPage() {
         </div>
       }
     >
+      {panelNotice ? <SurfaceNotice tone={panelNotice.tone} message={panelNotice.message} /> : null}
+      {pageError ? <SurfaceNotice tone="error" title="页面状态异常" message={pageError} /> : null}
+
       <div className="panel-grid panel-grid--two mapping-config-grid">
         <section className="panel-card">
           <div>
@@ -181,7 +194,6 @@ export function MappingsPage() {
               ))}
             </select>
           </label>
-          {panelMessage ? <div className="inline-status inline-status--success">{panelMessage}</div> : null}
         </section>
 
         <section className="panel-card mapping-summary-grid">
@@ -207,7 +219,9 @@ export function MappingsPage() {
             <h2>逐条检查并覆盖</h2>
           </div>
         </div>
-        {visibleMappings.length ? (
+        {loading ? (
+          <SectionState title="正在加载映射记录" message="系统正在同步当前批次的表头归一化结果。" />
+        ) : visibleMappings.length ? (
           <div className="mapping-editor-list">
             {visibleMappings.map((mapping) => (
               <article key={mapping.id} className="mapping-editor-card">
@@ -216,9 +230,7 @@ export function MappingsPage() {
                     <strong>{mapping.raw_header}</strong>
                     <p>{mapping.raw_header_signature}</p>
                   </div>
-                  <span className={`mapping-badge${mapping.canonical_field ? '' : ' mapping-badge--warn'}`}>
-                    {mapping.canonical_field ?? '未识别'}
-                  </span>
+                  <span className={`mapping-badge${mapping.canonical_field ? '' : ' mapping-badge--warn'}`}>{mapping.canonical_field ?? '未识别'}</span>
                 </div>
                 <div className="mapping-editor-meta">
                   <span>来源：{mappingLabel(mapping.mapping_source)}</span>
@@ -239,10 +251,7 @@ export function MappingsPage() {
                 <div className="mapping-editor-actions">
                   <label className="form-field">
                     <span>标准字段</span>
-                    <select
-                      value={drafts[mapping.id] ?? ''}
-                      onChange={(event) => setDrafts((current) => ({ ...current, [mapping.id]: event.target.value }))}
-                    >
+                    <select value={drafts[mapping.id] ?? ''} onChange={(event) => setDrafts((current) => ({ ...current, [mapping.id]: event.target.value }))}>
                       <option value="">保持未识别</option>
                       {availableFields.map((field) => (
                         <option key={field} value={field}>
@@ -251,12 +260,7 @@ export function MappingsPage() {
                       ))}
                     </select>
                   </label>
-                  <button
-                    type="button"
-                    className="button button--primary"
-                    onClick={() => void handleSave(mapping)}
-                    disabled={savingId === mapping.id}
-                  >
+                  <button type="button" className="button button--primary" onClick={() => void handleSave(mapping)} disabled={savingId === mapping.id}>
                     {savingId === mapping.id ? '保存中...' : '保存修正'}
                   </button>
                 </div>
@@ -264,7 +268,7 @@ export function MappingsPage() {
             ))}
           </div>
         ) : (
-          <div className="status-item">当前批次还没有可修正的映射记录。请先完成解析，或切换到有预览结果的文件。</div>
+          <SectionState title="暂无可修正映射" message="当前批次还没有可修正的映射记录。请先完成解析，或切换到有预览结果的文件。" />
         )}
       </section>
     </PageContainer>

@@ -1,6 +1,6 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 
-import { PageContainer } from '../components';
+import { PageContainer, SectionState, SurfaceNotice } from '../components';
 import {
   exportBatch,
   fetchBatchExport,
@@ -99,7 +99,8 @@ export function ExportsPage() {
   const [exportResult, setExportResult] = useState<BatchExport | null>(null);
   const [loading, setLoading] = useState(true);
   const [runningExport, setRunningExport] = useState(false);
-  const [panelMessage, setPanelMessage] = useState<string | null>(null);
+  const [panelNotice, setPanelNotice] = useState<{ tone: 'success' | 'warning'; message: string } | null>(null);
+  const [pageError, setPageError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -111,8 +112,13 @@ export function ExportsPage() {
           return;
         }
         setBatches(result);
+        setPageError(null);
         if (result[0]) {
           setSelectedBatchId((current) => current ?? result[0].id);
+        }
+      } catch {
+        if (active) {
+          setPageError('导出页面暂时无法读取批次列表。');
         }
       } finally {
         if (active) {
@@ -131,11 +137,17 @@ export function ExportsPage() {
     let active = true;
 
     async function loadExportState(batchId: string) {
-      const exportData = await fetchBatchExport(batchId).catch(() => null);
-      if (!active) {
-        return;
+      try {
+        const exportData = await fetchBatchExport(batchId).catch(() => null);
+        if (!active) {
+          return;
+        }
+        setExportResult(exportData);
+      } catch {
+        if (active) {
+          setPageError('当前批次的导出快照加载失败。');
+        }
       }
-      setExportResult(exportData);
     }
 
     if (!selectedBatchId) {
@@ -149,9 +161,7 @@ export function ExportsPage() {
     };
   }, [selectedBatchId]);
 
-  const artifacts = useMemo<ExportArtifact[]>(() => {
-    return sortArtifacts(exportResult?.artifacts ?? []);
-  }, [exportResult]);
+  const artifacts = useMemo<ExportArtifact[]>(() => sortArtifacts(exportResult?.artifacts ?? []), [exportResult]);
 
   async function refreshBatches(keepId?: string) {
     const result = await fetchRuntimeBatches();
@@ -167,11 +177,11 @@ export function ExportsPage() {
     }
 
     setRunningExport(true);
-    setPanelMessage(null);
+    setPanelNotice(null);
     try {
       const result = await exportBatch(selectedBatchId);
       setExportResult(result);
-      setPanelMessage(result.blocked_reason ?? `${result.batch_name} 的双模板导出已执行。`);
+      setPanelNotice({ tone: result.blocked_reason ? 'warning' : 'success', message: result.blocked_reason ?? `${result.batch_name} 的双模板导出已执行。` });
       await refreshBatches(selectedBatchId);
     } finally {
       setRunningExport(false);
@@ -185,17 +195,15 @@ export function ExportsPage() {
       description="按批次触发薪酬模板和工具表最终版模板导出，并展示阻塞原因、模板状态、生成路径与完成时间。"
       actions={
         <div className="button-row">
-          <button
-            type="button"
-            className="button button--primary"
-            onClick={() => void handleExport()}
-            disabled={!selectedBatchId || runningExport}
-          >
+          <button type="button" className="button button--primary" onClick={() => void handleExport()} disabled={!selectedBatchId || runningExport}>
             {runningExport ? '导出中...' : '执行双模板导出'}
           </button>
         </div>
       }
     >
+      {panelNotice ? <SurfaceNotice tone={panelNotice.tone} message={panelNotice.message} /> : null}
+      {pageError ? <SurfaceNotice tone="error" title="页面状态异常" message={pageError} /> : null}
+
       <div className="panel-grid panel-grid--two export-layout">
         <section className="panel-card export-batch-list">
           <div>
@@ -203,25 +211,21 @@ export function ExportsPage() {
             <strong>{loading ? '加载中...' : `${batches.length} 个可用批次`}</strong>
             <p>选择已完成解析、校验和匹配的批次，查看最新导出快照或重新触发双模板导出。</p>
           </div>
-          <div className="batch-list">
-            {batches.length === 0 ? (
-              <div className="status-item">当前还没有可导出的批次，请先完成上传与解析。</div>
-            ) : (
-              batches.map((batch) => (
-                <button
-                  key={batch.id}
-                  type="button"
-                  className={`batch-card${selectedBatchId === batch.id ? ' is-active' : ''}`}
-                  onClick={() => setSelectedBatchId(batch.id)}
-                >
+          {loading ? (
+            <SectionState title="正在加载批次" message="系统正在同步可执行导出的批次列表。" />
+          ) : batches.length === 0 ? (
+            <SectionState title="暂无可导出批次" message="先完成导入、解析和匹配，再回来执行双模板导出。" />
+          ) : (
+            <div className="batch-list">
+              {batches.map((batch) => (
+                <button key={batch.id} type="button" className={`batch-card${selectedBatchId === batch.id ? ' is-active' : ''}`} onClick={() => setSelectedBatchId(batch.id)}>
                   <strong>{batch.batch_name}</strong>
                   <span>{batch.status}</span>
                   <small>{formatDateTime(batch.updated_at)}</small>
                 </button>
-              ))
-            )}
-          </div>
-          {panelMessage ? <div className="inline-status inline-status--success">{panelMessage}</div> : null}
+              ))}
+            </div>
+          )}
         </section>
 
         <section className="panel-card export-summary-grid">
@@ -282,12 +286,12 @@ export function ExportsPage() {
                     <strong>{artifact.file_path ?? '尚未生成'}</strong>
                   </div>
                 </div>
-                {artifact.error_message ? <div className="inline-status inline-status--warn">{artifact.error_message}</div> : null}
+                {artifact.error_message ? <SurfaceNotice tone="warning" message={artifact.error_message} /> : null}
               </article>
             ))}
           </div>
         ) : (
-          <div className="status-item">当前批次还没有导出记录。完成匹配后即可在这里触发双模板导出。</div>
+          <SectionState title="暂无导出记录" message="当前批次还没有导出记录。完成匹配后即可在这里触发双模板导出。" />
         )}
       </section>
     </PageContainer>

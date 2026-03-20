@@ -1,7 +1,7 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import { PageContainer } from '../components';
+import { PageContainer, SurfaceNotice } from '../components';
 import { fetchDashboardOverview, type DashboardOverview } from '../services/dashboard';
 import { fetchSystemHealth, type SystemHealth } from '../services/system';
 
@@ -77,13 +77,7 @@ function statusTone(value: string): string {
   return 'dashboard-pill--ok';
 }
 
-function DistributionCard({
-  title,
-  items,
-}: {
-  title: string;
-  items: Record<string, number>;
-}) {
+function DistributionCard({ title, items }: { title: string; items: Record<string, number> }) {
   const entries = Object.entries(items);
 
   return (
@@ -114,6 +108,7 @@ export function DashboardPage() {
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pageError, setPageError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -129,6 +124,11 @@ export function DashboardPage() {
         }
         setHealth(healthResult);
         setOverview(overviewResult);
+        if (!healthResult && !overviewResult) {
+          setPageError('健康检查和看板概览都暂时不可用，请稍后重试。');
+        } else {
+          setPageError(null);
+        }
       } finally {
         if (active) {
           setLoading(false);
@@ -171,6 +171,7 @@ export function DashboardPage() {
         </div>
       }
     >
+      {pageError ? <SurfaceNotice tone="error" title="页面状态异常" message={pageError} /> : null}
       <div className="dashboard-hero-grid">
         <section className="panel-card panel-card--accent dashboard-health-card">
           <span className="panel-label">系统健康</span>

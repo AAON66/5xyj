@@ -1,4 +1,4 @@
-import { useApiFeedback } from "../hooks";
+﻿import { useApiFeedback } from '../hooks';
 
 export function GlobalFeedback() {
   const { clearError, lastError, pendingRequests } = useApiFeedback();
@@ -14,7 +14,7 @@ export function GlobalFeedback() {
       {lastError ? (
         <div className="feedback-banner feedback-banner--error" role="alert">
           <div>
-            <strong>{lastError.code ?? "request_error"}</strong>
+            <strong>{lastError.code ?? 'request_error'}</strong>
             <span>{lastError.message}</span>
           </div>
           <button type="button" onClick={clearError}>

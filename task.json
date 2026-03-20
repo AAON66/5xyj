@@ -135,7 +135,7 @@
     {
       "id": 27,
       "title": "错误处理与加载状态",
-      "passes": false
+      "passes": true
     },
     {
       "id": 28,
