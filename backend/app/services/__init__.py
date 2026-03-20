@@ -1,4 +1,11 @@
-﻿from backend.app.services.header_normalizer import (
+from backend.app.services.batch_runtime_service import (
+    BatchRuntimeError,
+    get_batch_match,
+    get_batch_validation,
+    match_batch,
+    validate_batch,
+)
+from backend.app.services.header_normalizer import (
     HeaderMappingDecision,
     HeaderNormalizationResult,
     normalize_header_column,
@@ -40,6 +47,7 @@ from backend.app.services.validation_service import (
 
 __all__ = [
     "BatchNotFoundError",
+    "BatchRuntimeError",
     "HeaderMappingDecision",
     "HeaderNormalizationResult",
     "ImportServiceError",
@@ -52,12 +60,15 @@ __all__ = [
     "ValidationResult",
     "apply_match_results_to_normalized_records",
     "build_match_result_models",
+    "get_batch_match",
+    "get_batch_validation",
     "build_normalized_models",
     "build_validation_issue_models",
     "create_import_batch",
     "get_import_batch",
     "list_import_batches",
     "map_header_with_llm",
+    "match_batch",
     "match_preview_records",
     "normalize_header_column",
     "normalize_header_column_with_fallback",
@@ -69,4 +80,5 @@ __all__ = [
     "standardize_workbook",
     "standardize_workbook_with_fallback",
     "validate_standardized_result",
+    "validate_batch",
 ]

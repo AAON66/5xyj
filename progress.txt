@@ -267,3 +267,25 @@
 ### Notes:
 - Task 17 is complete and `task.json` has been updated to mark it as `passes: true`.
 - The next best step is task 18: expose batch-level validation and employee matching APIs.
+
+## 2026-03-20 - Task: Validation And Matching API
+
+### What was done:
+- Added batch runtime orchestration in `backend/app/services/batch_runtime_service.py`, covering on-demand normalized record persistence, batch validation, batch matching, and the blocked fallback when employee master data is missing.
+- Extended `backend/app/api/v1/imports.py` with `POST /api/v1/imports/{batch_id}/validate`, `GET /api/v1/imports/{batch_id}/validation`, `POST /api/v1/imports/{batch_id}/match`, and `GET /api/v1/imports/{batch_id}/match`.
+- Expanded `backend/app/schemas/imports.py` with validation and matching response models so the frontend can consume issue lists, match results, aggregate counts, and blocked-state details directly.
+- Updated `backend/app/services/__init__.py` exports and added `backend/tests/test_validation_matching_api.py` to cover multi-region validation, blocked matching without employee master data, and matched / duplicate / unmatched batch matching outcomes.
+
+### Testing:
+- `py -m compileall backend`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_validation_matching_api.py -p no:cacheprovider`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests -p no:cacheprovider`
+
+### Risks / Open Questions:
+- Batch validation and matching now persist normalized records on demand, but parse preview and persisted normalized data still use separate entry paths; tasks 19-20 can decide whether to unify them behind a single batch execution pipeline.
+- The blocked matching response is now explicit when employee master data is missing, but task 6 is still required before the end-to-end matching workflow is operational for real users.
+- `GET /match` currently returns persisted match outcomes and aggregate counts, while duplicate candidate IDs are only preserved in the immediate `POST /match` response; if the UI needs those candidates later, we should persist them in a follow-up task.
+
+### Notes:
+- Task 18 is complete and `task.json` has been updated to mark it as `passes: true`.
+- The next best step is task 19: expose the dual-template export API on top of the validated and matched batch pipeline.

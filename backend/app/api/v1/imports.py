@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from backend.app.api.v1.responses import success_response
 from backend.app.dependencies import get_db
 from backend.app.schemas.imports import ImportBatchDetailRead
+from backend.app.services import get_batch_match, get_batch_validation, match_batch, validate_batch
 from backend.app.services.import_service import (
     BatchNotFoundError,
     InvalidUploadError,
@@ -84,6 +85,46 @@ def preview_import_batch_endpoint(batch_id: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
     return success_response(payload.model_dump(mode='json'), message='Import batch preview retrieved.')
+
+
+@router.post('/{batch_id}/validate')
+def validate_batch_endpoint(batch_id: str, db: Session = Depends(get_db)):
+    try:
+        payload = validate_batch(db, batch_id)
+    except BatchNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    return success_response(payload.model_dump(mode='json'), message='Batch validation completed.')
+
+
+@router.get('/{batch_id}/validation')
+def get_batch_validation_endpoint(batch_id: str, db: Session = Depends(get_db)):
+    try:
+        payload = get_batch_validation(db, batch_id)
+    except BatchNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    return success_response(payload.model_dump(mode='json'), message='Batch validation retrieved.')
+
+
+@router.post('/{batch_id}/match')
+def match_batch_endpoint(batch_id: str, db: Session = Depends(get_db)):
+    try:
+        payload = match_batch(db, batch_id)
+    except BatchNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    return success_response(payload.model_dump(mode='json'), message='Batch matching completed.')
+
+
+@router.get('/{batch_id}/match')
+def get_batch_match_endpoint(batch_id: str, db: Session = Depends(get_db)):
+    try:
+        payload = get_batch_match(db, batch_id)
+    except BatchNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    return success_response(payload.model_dump(mode='json'), message='Batch matching retrieved.')
 
 
 def _parse_metadata_values(raw_value: str | None, field_name: str) -> list[str] | None:
