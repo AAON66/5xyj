@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     samples_dir: str = "./data/samples"
     templates_dir: str = "./data/templates"
     outputs_dir: str = "./data/outputs"
+    max_upload_size_mb: int = 25
 
     deepseek_api_key: str = ""
     deepseek_api_base_url: str = "https://api.deepseek.com/v1"
@@ -65,6 +66,11 @@ class Settings(BaseSettings):
     @property
     def outputs_path(self) -> Path:
         return self._resolve_dir(self.outputs_dir)
+
+    @computed_field
+    @property
+    def max_upload_size_bytes(self) -> int:
+        return self.max_upload_size_mb * 1024 * 1024
 
     def _resolve_dir(self, value: str) -> Path:
         path = Path(value)

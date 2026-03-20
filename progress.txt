@@ -67,3 +67,24 @@
 ### Notes:
 - 当前已完成任务 3，并将 `task.json` 中对应任务标记为 `passes: true`。
 - 下一步建议进入任务 4，补齐 FastAPI 应用初始化、CORS、异常处理和统一响应格式。
+## 2026-03-20 - Task: FastAPI 应用初始化
+
+### What was done:
+- 重构 `backend/app/main.py`，通过应用工厂统一接入 Settings、lifespan bootstrap、CORS、上传保护中间件和 `/api/v1` 路由注册。
+- 新增统一响应封装 `backend/app/api/v1/responses.py`，统一成功与错误返回结构。
+- 新增 `backend/app/api/v1/router.py` 与 `backend/app/api/v1/system.py`，提供 `/api/v1/system/health` 和测试用回显接口。
+- 新增 `backend/app/core/upload_guard.py`，为 multipart 请求预留上传大小限制拦截。
+- 更新健康检查测试，并新增应用初始化测试，覆盖健康检查、CORS、404/422 错误包装和超大上传拦截。
+
+### Testing:
+- `py -m compileall backend`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests -p no:cacheprovider`
+
+### Risks / Open Questions:
+- 当前上传保护基于 `content-length` 对 multipart 请求做前置拦截，后续接入真实上传接口时还需要补文件扩展名与 MIME 类型校验。
+- 统一错误格式已落地，但业务错误码体系还未展开，后续导入、解析、映射等 API 需要继续保持同一协议。
+- `/api/v1/system/echo/{value}` 当前主要用于验证异常包装，后续如果没有继续使用，可以在更完整的 system/status API 成型后移除或替换。
+
+### Notes:
+- 当前已完成任务 4，并将 `task.json` 中对应任务标记为 `passes: true`。
+- 下一步建议进入任务 5，补齐 React 前端初始化、API 客户端错误拦截和基础页面容器。
