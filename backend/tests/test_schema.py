@@ -51,6 +51,9 @@ def test_alembic_upgrade_creates_expected_schema(monkeypatch) -> None:
         normalized_columns
     )
 
+    source_file_columns = {column["name"] for column in inspector.get_columns("source_files")}
+    assert {"file_name", "file_path", "file_size", "file_hash", "uploaded_at"}.issubset(source_file_columns)
+
     export_artifact_uniques = inspector.get_unique_constraints("export_artifacts")
     assert any(
         set(constraint["column_names"]) == {"export_job_id", "template_type"}

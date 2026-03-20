@@ -111,3 +111,25 @@
 ### Notes:
 - 当前已完成任务 5，并将 `task.json` 中对应任务标记为 `passes: true`。
 - 下一步建议进入任务 6 或任务 7，优先补员工主数据导入或文件上传与导入批次管理。
+
+## 2026-03-20 - Task: 文件上传与导入批次管理
+
+### What was done:
+- 新增 `backend/app/services/import_service.py`，实现多文件上传校验、批次创建、文件落盘、SHA256 哈希计算和 `source_files` 元信息写库。
+- 新增 `backend/app/api/v1/imports.py`，提供 `POST /api/v1/imports`、`GET /api/v1/imports` 和 `GET /api/v1/imports/{id}` 基础接口。
+- 新增 `backend/app/schemas/imports.py`，统一导入批次列表、详情和源文件响应结构。
+- 为 `source_files` 模型补充 `file_size` 字段，并新增 Alembic migration `20260320_0002_source_file_size.py`，保证上传文件大小可追踪。
+- 更新路由注册和 schema 测试，并新增导入批次 API 测试，覆盖多文件上传、元数据映射、列表/详情查询、非法扩展名和元数据数量不匹配场景。
+
+### Testing:
+- `py -m compileall backend`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests -p no:cacheprovider`
+
+### Risks / Open Questions:
+- 当前上传接口只完成扩展名校验，MIME 类型和更细粒度的内容校验还需要在后续解析链路里继续补强。
+- `regions` / `company_names` 当前支持单值字符串或 JSON 数组，已经够前端对接，但后续如果要支持按文件对象更复杂的元数据，建议再升级为显式结构体。
+- 批次状态目前在上传成功后固定写为 `uploaded`，后续接入解析、标准化和导出流程时还需要补完整状态流转。
+
+### Notes:
+- 当前已完成任务 7，并将 `task.json` 中对应任务标记为 `passes: true`。
+- 由于主链路优先，这一步先实现了导入批次管理；下一步建议进入任务 8，继续做 Workbook / Sheet 发现服务。
