@@ -145,7 +145,7 @@
     {
       "id": 29,
       "title": "地区样例解析自动化测试",
-      "passes": false
+      "passes": true
     },
     {
       "id": 30,

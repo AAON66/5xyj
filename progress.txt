@@ -503,3 +503,25 @@
 ### Notes:
 - Task 28 is complete and `task.json` has been updated to mark it as `passes: true`.
 - The next best step is task 29: automate cross-region sample parsing regression coverage.
+
+## 2026-03-20 - Task: Cross-Region Sample Parsing Regression Tests
+
+### What was done:
+- Added `backend/tests/test_region_sample_regression.py` to consolidate real-sample parsing coverage into a single regression suite.
+- Added one strong assertion case for each confirmed region sample family: Guangzhou, Hangzhou, Xiamen, Shenzhen, Wuhan, and Changsha.
+- Added a smoke-style parameterized pass across all currently known real sample files so `discover_workbook`, `extract_header_structure`, and `standardize_workbook` must continue to run without pipeline errors for the full local sample set.
+- Locked the regression assertions to current real-sample behavior, including Hangzhou selecting `Sheet1`, Changsha using the detected two-row header region, and Shenzhen preserving non-detail row filtering in the standardized result.
+
+### Testing:
+- `py -m compileall backend`
+- `./.venv/Scripts/python.exe -m pytest backend/tests/test_region_sample_regression.py -p no:cacheprovider`
+- `./.venv/Scripts/python.exe -m pytest backend/tests -p no:cacheprovider`
+
+### Risks / Open Questions:
+- These regression tests intentionally depend on local real sample files under `data/samples`, so environments without those files will skip coverage rather than fabricate fixtures.
+- The suite locks in current parser behavior for the known samples; if later parsing improvements legitimately change detected sheet names or header-row ranges, the regression expectations should be updated together with the parser change.
+- This task covers parsing automation only; it does not yet automate export-template regression or live DeepSeek integration behavior, which still belong to later tasks.
+
+### Notes:
+- Task 29 is complete and `task.json` has been updated to mark it as `passes: true`.
+- The next best step is task 30: automate dual-template export regression coverage.
