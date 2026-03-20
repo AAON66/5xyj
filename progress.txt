@@ -333,3 +333,24 @@
 ### Notes:
 - Task 20 is complete and `task.json` has been updated to mark it as `passes: true`.
 - The next best step is task 21: connect the upload and parse preview page to the backend APIs.
+
+## 2026-03-20 - Task: Upload And Parse Preview Page
+
+### What was done:
+- Added `frontend/src/services/imports.ts` to encapsulate import batch list, create, parse, detail, and preview API calls with typed response models reused by the page layer.
+- Reworked `frontend/src/pages/Imports.tsx` into a real upload and parse preview page with batch creation, batch selection, re-parse action, source file preview, header mapping cards, filtered row summaries, normalized preview rows, and unmapped field snapshots.
+- Extended `frontend/src/styles.css` with upload form, batch list, mapping card, preview table, and responsive layout styles so the page works on desktop and mobile without collapsing into a placeholder layout.
+- Kept the page aligned with the existing backend contract: upload creates a batch, then immediately triggers parse to show preview results in the same screen.
+
+### Testing:
+- `cmd /c npm.cmd run lint`
+- `cmd /c npm.cmd run build`
+
+### Risks / Open Questions:
+- The page currently applies a single optional region and company value to every uploaded file in the batch; if the workflow later needs per-file metadata in one batch, the form can be expanded without changing the backend service layer.
+- Batch preview currently focuses on the first source file in the parsed result; task 25 can extend this into a fuller batch detail experience with explicit source-file switching.
+- The page intentionally favors direct upload-and-preview flow over historical management features, so bulk actions and richer batch history filters are still left for later UI tasks.
+
+### Notes:
+- Task 21 is complete and `task.json` has been updated to mark it as `passes: true`.
+- The next best step is task 22: build the validation and matching result page on top of the APIs from tasks 18 and 19.
