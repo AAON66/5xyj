@@ -484,3 +484,22 @@
 ### Notes:
 - Task 27 is complete and `task.json` has been updated to mark it as `passes: true`.
 - The next best step is task 28: continue with the responsive adaptation pass now that the main pages share a common state and feedback system.
+
+## 2026-03-20 - Task: Responsive Adaptation
+
+### What was done:
+- Hardened `frontend/src/styles.css` for smaller viewports so the shell, navigation, cards, button rows, summary grids, and detail grids collapse more predictably on tablet and mobile widths.
+- Improved responsive handling for chip lists, table containers, metadata text, and page action areas so long labels and file paths wrap instead of forcing awkward overflow.
+- Cleaned up a duplicated mobile-style block in the stylesheet that had been left outside its intended media-query scope and broke production CSS bundling.
+
+### Testing:
+- `cmd /c npm.cmd run lint`
+- `cmd /c npm.cmd run build`
+
+### Risks / Open Questions:
+- This pass focuses on responsive layout stability and readability; if we later add denser data tables or larger action toolbars, we may still want page-specific interaction tweaks beyond CSS collapsing.
+- Wide preview tables still intentionally keep horizontal scrolling on smaller screens, because compressing every data column further would hurt legibility more than it helps.
+
+### Notes:
+- Task 28 is complete and `task.json` has been updated to mark it as `passes: true`.
+- The next best step is task 29: automate cross-region sample parsing regression coverage.

@@ -140,7 +140,7 @@
     {
       "id": 28,
       "title": "响应式适配",
-      "passes": false
+      "passes": true
     },
     {
       "id": 29,
