@@ -396,3 +396,24 @@
 ### Notes:
 - Task 23 is complete and `task.json` has been updated to mark it as `passes: true`.
 - The next best step is task 24: improve the dashboard homepage UI now that the core import, runtime, and export pages are connected.
+
+## 2026-03-20 - Task: Dashboard Homepage UI
+
+### What was done:
+- Added `frontend/src/services/dashboard.ts` to read the persisted dashboard overview payload from `GET /dashboard/overview`.
+- Reworked `frontend/src/pages/Dashboard.tsx` into a real operations dashboard that combines system health, aggregate pipeline metrics, batch/match/issue/export distributions, and recent batch activity.
+- Extended `frontend/src/styles.css` with dashboard-specific metric grids, distribution rows, activity cards, and responsive behavior so the homepage scales cleanly across desktop and mobile layouts.
+- Kept the dashboard focused on backend state that already exists today, without moving parsing or region-specific logic into the frontend.
+
+### Testing:
+- `cmd /c npm.cmd run lint`
+- `cmd /c npm.cmd run build`
+
+### Risks / Open Questions:
+- The homepage currently shows aggregate distributions only; if later workflows need time-series charts or per-region breakdowns, the backend overview endpoint will need to expose more dimensions.
+- Recent batch cards summarize counts but do not yet deep-link into batch details; task 25 is still the right place to add that drill-down flow.
+- Health and overview are loaded independently and fail open; this keeps the page resilient, but a future UX pass may want inline empty-state messaging per card group.
+
+### Notes:
+- Task 24 is complete and `task.json` has been updated to mark it as `passes: true`.
+- The next best step is task 25: build the import batch detail page and connect recent activity or import lists into that drill-down view.

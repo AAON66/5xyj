@@ -120,7 +120,7 @@
     {
       "id": 24,
       "title": "看板首页 UI",
-      "passes": false
+      "passes": true
     },
     {
       "id": 25,
