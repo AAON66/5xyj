@@ -388,3 +388,107 @@ def test_sync_llm_fallback_accepts_fenced_json_response(monkeypatch) -> None:
     assert result.canonical_field == "company_total_amount"
     assert result.candidate_fields == ["company_total_amount", "total_amount"]
     assert client.calls[0]["url"] == "/chat/completions"
+
+
+
+@pytest.mark.anyio
+async def test_llm_service_accepts_textual_high_confidence(monkeypatch) -> None:
+    payload = {
+        "choices": [
+            {
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "canonical_field": "company_total_amount",
+                            "confidence": "high",
+                            "candidate_fields": ["company_total_amount", "total_amount"],
+                            "reason": "text confidence from model",
+                        },
+                        ensure_ascii=False,
+                    )
+                }
+            }
+        ]
+    }
+    client = DummyAsyncClient(response_payload=payload)
+
+    monkeypatch.setattr(
+        llm_mapping_module,
+        "get_settings",
+        lambda: Settings(deepseek_api_key="test-key", deepseek_api_base_url="https://api.deepseek.test", enable_llm_fallback=True),
+    )
+    monkeypatch.setattr(llm_mapping_module.httpx, "AsyncClient", lambda **kwargs: client)
+
+    result = await map_header_with_llm("mystery company amount", region="guangzhou")
+
+    assert result.status == "success"
+    assert result.canonical_field == "company_total_amount"
+    assert result.confidence == pytest.approx(0.92)
+
+
+@pytest.mark.anyio
+async def test_llm_service_accepts_percentage_confidence(monkeypatch) -> None:
+    payload = {
+        "choices": [
+            {
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "canonical_field": "total_amount",
+                            "confidence": "87%",
+                            "candidate_fields": ["total_amount"],
+                            "reason": "percentage confidence from model",
+                        },
+                        ensure_ascii=False,
+                    )
+                }
+            }
+        ]
+    }
+    client = DummyAsyncClient(response_payload=payload)
+
+    monkeypatch.setattr(
+        llm_mapping_module,
+        "get_settings",
+        lambda: Settings(deepseek_api_key="test-key", deepseek_api_base_url="https://api.deepseek.test", enable_llm_fallback=True),
+    )
+    monkeypatch.setattr(llm_mapping_module.httpx, "AsyncClient", lambda **kwargs: client)
+
+    result = await map_header_with_llm("mystery total", region="guangzhou")
+
+    assert result.status == "success"
+    assert result.confidence == pytest.approx(0.87)
+
+
+@pytest.mark.anyio
+async def test_llm_service_tolerates_unparseable_confidence(monkeypatch) -> None:
+    payload = {
+        "choices": [
+            {
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "canonical_field": "total_amount",
+                            "confidence": "uncertain",
+                            "candidate_fields": ["total_amount"],
+                            "reason": "unparseable confidence",
+                        },
+                        ensure_ascii=False,
+                    )
+                }
+            }
+        ]
+    }
+    client = DummyAsyncClient(response_payload=payload)
+
+    monkeypatch.setattr(
+        llm_mapping_module,
+        "get_settings",
+        lambda: Settings(deepseek_api_key="test-key", deepseek_api_base_url="https://api.deepseek.test", enable_llm_fallback=True),
+    )
+    monkeypatch.setattr(llm_mapping_module.httpx, "AsyncClient", lambda **kwargs: client)
+
+    result = await map_header_with_llm("mystery total", region="guangzhou")
+
+    assert result.status == "success"
+    assert result.confidence is None

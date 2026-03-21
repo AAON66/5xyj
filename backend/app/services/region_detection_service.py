@@ -97,6 +97,48 @@ REGION_SHEET_HINTS = {
 PLACEHOLDER_TEXT = {"", "none", "null", "nan"}
 
 
+def _coerce_confidence(value: Any) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        numeric = float(value)
+        return _normalize_confidence(numeric)
+
+    candidate = str(value).strip().lower()
+    if not candidate:
+        return None
+
+    text_mappings = {
+        'very_high': 0.98,
+        'high': 0.92,
+        'medium': 0.75,
+        'low': 0.45,
+        'very_low': 0.2,
+    }
+    if candidate in text_mappings:
+        return text_mappings[candidate]
+
+    percent_candidate = candidate[:-1].strip() if candidate.endswith('%') else candidate
+    try:
+        numeric = float(percent_candidate)
+    except ValueError:
+        return None
+
+    if candidate.endswith('%') or numeric > 1.0:
+        numeric = numeric / 100.0
+    return _normalize_confidence(numeric)
+
+
+def _normalize_confidence(value: float) -> float | None:
+    if value < 0:
+        return 0.0
+    if value > 1.0:
+        return 1.0
+    return value
+
+
 @dataclass(slots=True)
 class RegionDetectionResult:
     region: str | None
@@ -309,7 +351,7 @@ def detect_region_with_llm_sync(workbook_context: WorkbookRegionContext) -> LLMR
 
     return LLMRegionResult(
         region=region,
-        confidence=float(confidence) if confidence is not None else None,
+        confidence=_coerce_confidence(confidence),
         candidate_regions=candidate_regions,
         status="success",
         reason=str(parsed.get("reason", "")),

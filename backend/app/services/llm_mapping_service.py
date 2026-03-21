@@ -15,6 +15,48 @@ DEEPSEEK_COMPLETIONS_PATH = "/chat/completions"
 DEFAULT_LLM_TIMEOUT = 45.0
 
 
+def _coerce_confidence(value: Any) -> float | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        numeric = float(value)
+        return _normalize_confidence(numeric)
+
+    candidate = str(value).strip().lower()
+    if not candidate:
+        return None
+
+    text_mappings = {
+        'very_high': 0.98,
+        'high': 0.92,
+        'medium': 0.75,
+        'low': 0.45,
+        'very_low': 0.2,
+    }
+    if candidate in text_mappings:
+        return text_mappings[candidate]
+
+    percent_candidate = candidate[:-1].strip() if candidate.endswith('%') else candidate
+    try:
+        numeric = float(percent_candidate)
+    except ValueError:
+        return None
+
+    if candidate.endswith('%') or numeric > 1.0:
+        numeric = numeric / 100.0
+    return _normalize_confidence(numeric)
+
+
+def _normalize_confidence(value: float) -> float | None:
+    if value < 0:
+        return 0.0
+    if value > 1.0:
+        return 1.0
+    return value
+
+
 @dataclass(slots=True)
 class LLMMappingResult:
     raw_header_signature: str
@@ -173,7 +215,7 @@ def _parse_llm_response(raw_header_signature: str, payload: dict[str, Any]) -> L
     return LLMMappingResult(
         raw_header_signature=raw_header_signature,
         canonical_field=canonical_field,
-        confidence=float(confidence) if confidence is not None else None,
+        confidence=_coerce_confidence(confidence),
         candidate_fields=candidate_fields,
         status="success",
         reason=str(parsed.get("reason", "")),

@@ -902,3 +902,21 @@ ormalization_service.py backendpp\services\import_service.py backendpp\service
 
 ### Notes:
 - The investigated Shenzhen housing-fund workbook is only about 10 KB, which confirms the apparent freeze was primarily progress timing rather than that specific file being expensive to save.
+
+## [2026-03-22] - Task: LLM confidence parsing hardening
+
+### What was done:
+- Hardened DeepSeek response parsing in both header mapping and region detection so `confidence` now accepts numeric values, numeric strings, percentages like `87%`, and textual levels like `high` instead of crashing on `float('high')`.
+- Normalized out-of-range confidence values into the safe `0.0-1.0` range and treated unparseable text as `None` rather than failing the whole aggregate run.
+- Added regression tests for textual and percentage confidence handling in both the mapping fallback service and the region-detection LLM fallback service.
+
+### Testing:
+- `py -m compileall backend`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_llm_mapping_service.py backend\tests\test_region_detection_service.py -p no:cacheprovider`
+
+### Risks / Open Questions:
+- This hardens the current DeepSeek response shape, but if the model starts returning confidence as nested objects in the future we would still need one more parser upgrade.
+- The system still treats unparseable confidence text as missing confidence, so low-quality LLM answers remain safely non-authoritative.
+
+### Notes:
+- The user-visible error `could not convert string to float: 'high'` should now be eliminated for both field-mapping fallback and LLM-assisted region detection.
