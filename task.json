@@ -155,7 +155,7 @@
     {
       "id": 31,
       "title": "DeepSeek 集成测试与降级验证",
-      "passes": false
+      "passes": true
     },
     {
       "id": 32,

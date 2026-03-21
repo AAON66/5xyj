@@ -548,3 +548,24 @@
 ### Notes:
 - Task 30 is complete and `task.json` has been updated to mark it as `passes: true`.
 - The next best step is task 31: DeepSeek integration tests and fallback verification.
+
+## 2026-03-21 - Task: DeepSeek Integration Tests And Fallback Verification
+
+### What was done:
+- Expanded `backend/tests/test_llm_mapping_service.py` to cover additional DeepSeek fallback edge cases instead of changing runtime logic.
+- Added verification for `enable_llm_fallback=False`, invalid non-JSON DeepSeek payloads, invalid canonical fields returned by the model, and candidate-field sanitization when the response mixes valid and invalid field names.
+- Added request-shape assertions to confirm the configured API key, model name, and JSON response format are forwarded into the DeepSeek request payload while still keeping the tests fully mocked and deterministic.
+
+### Testing:
+- `py -m compileall backend`
+- `./.venv/Scripts/python.exe -m pytest backend/tests/test_llm_mapping_service.py -p no:cacheprovider`
+- `./.venv/Scripts/python.exe -m pytest backend/tests/test_header_normalizer.py backend/tests/test_llm_mapping_service.py backend/tests/test_normalization_service.py -p no:cacheprovider`
+
+### Risks / Open Questions:
+- These tests validate the integration contract and fallback behavior through mocked HTTP clients; they do not perform a live DeepSeek network call from this environment.
+- The current service still treats transport and HTTP failures uniformly as `error`, which is acceptable for fallback safety today but may be worth splitting later if operators need more precise observability.
+- Real-world response latency and provider-side throttling are still outside the scope of this task; those would belong to a future live smoke test or deployment check.
+
+### Notes:
+- Task 31 is complete and `task.json` has been updated to mark it as `passes: true`.
+- The next best step is task 32: final integration pass and deployment documentation.

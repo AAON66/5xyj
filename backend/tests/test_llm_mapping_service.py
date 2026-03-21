@@ -218,3 +218,118 @@ async def test_normalize_header_extraction_with_fallback_preserves_rule_and_unma
     assert decisions["姓名"].mapping_source == "rule"
     assert decisions["神秘单位金额"].canonical_field == "company_total_amount"
     assert decisions["神秘单位金额"].mapping_source == "llm"
+
+@pytest.mark.anyio
+async def test_llm_service_respects_disabled_fallback(monkeypatch) -> None:
+    monkeypatch.setattr(
+        llm_mapping_module,
+        "get_settings",
+        lambda: Settings(deepseek_api_key="test-key", enable_llm_fallback=False),
+    )
+
+    result = await map_header_with_llm("???? / ??", region="guangzhou")
+
+    assert result.status == "disabled"
+    assert result.canonical_field is None
+    assert result.candidate_fields == []
+
+
+@pytest.mark.anyio
+async def test_llm_service_returns_invalid_response_when_payload_is_not_json(monkeypatch) -> None:
+    payload = {"choices": [{"message": {"content": "not-json"}}]}
+    client = DummyAsyncClient(response_payload=payload)
+
+    monkeypatch.setattr(
+        llm_mapping_module,
+        "get_settings",
+        lambda: Settings(deepseek_api_key="test-key", deepseek_api_base_url="https://api.deepseek.test", enable_llm_fallback=True),
+    )
+    monkeypatch.setattr(llm_mapping_module.httpx, "AsyncClient", lambda **kwargs: client)
+
+    result = await map_header_with_llm("???? / ??", region="guangzhou")
+
+    assert result.status == "invalid_response"
+    assert result.canonical_field is None
+    assert result.candidate_fields == []
+
+
+@pytest.mark.anyio
+async def test_llm_service_filters_invalid_candidates_and_preserves_model_and_auth(monkeypatch) -> None:
+    payload = {
+        "choices": [
+            {
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "canonical_field": "company_total_amount",
+                            "confidence": 0.88,
+                            "candidate_fields": ["company_total_amount", "not_a_field", "total_amount"],
+                            "reason": "valid canonical with noisy candidates",
+                        },
+                        ensure_ascii=False,
+                    )
+                }
+            }
+        ]
+    }
+    client = DummyAsyncClient(response_payload=payload)
+
+    monkeypatch.setattr(
+        llm_mapping_module,
+        "get_settings",
+        lambda: Settings(
+            deepseek_api_key="integration-key",
+            deepseek_api_base_url="https://api.deepseek.test/v1",
+            deepseek_model="deepseek-reasoner",
+            enable_llm_fallback=True,
+        ),
+    )
+    monkeypatch.setattr(llm_mapping_module.httpx, "AsyncClient", lambda **kwargs: client)
+
+    result = await map_header_with_llm("??????", region="guangzhou")
+
+    assert result.status == "success"
+    assert result.canonical_field == "company_total_amount"
+    assert result.candidate_fields == ["company_total_amount", "total_amount"]
+    assert client.calls[0]["headers"]["Authorization"] == "Bearer integration-key"
+    assert client.calls[0]["json"]["model"] == "deepseek-reasoner"
+    assert client.calls[0]["json"]["response_format"] == {"type": "json_object"}
+    assert client.calls[0]["json"]["messages"][1]["content"]
+
+
+@pytest.mark.anyio
+async def test_llm_service_keeps_unmapped_when_canonical_field_is_invalid(monkeypatch) -> None:
+    payload = {
+        "choices": [
+            {
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "canonical_field": "unknown_field",
+                            "confidence": 0.97,
+                            "candidate_fields": ["unknown_field", "total_amount"],
+                            "reason": "bad canonical field",
+                        },
+                        ensure_ascii=False,
+                    )
+                }
+            }
+        ]
+    }
+    client = DummyAsyncClient(response_payload=payload)
+
+    monkeypatch.setattr(
+        llm_mapping_module,
+        "get_settings",
+        lambda: Settings(deepseek_api_key="test-key", deepseek_api_base_url="https://api.deepseek.test", enable_llm_fallback=True),
+    )
+    monkeypatch.setattr(llm_mapping_module.httpx, "AsyncClient", lambda **kwargs: client)
+
+    column = HeaderColumn(11, "K", ["?????"], "?????")
+    decision = await normalize_header_column_with_fallback(column, region="guangzhou", confidence_threshold=0.8)
+
+    assert decision.canonical_field is None
+    assert decision.mapping_source == "unmapped"
+    assert decision.llm_attempted is True
+    assert decision.llm_status == "success"
+    assert decision.candidate_fields == ["total_amount"]
