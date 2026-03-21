@@ -167,3 +167,4 @@ export async function runSimpleAggregateWithProgress(input: {
   }
   return finalResult;
 }
+
