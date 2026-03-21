@@ -88,14 +88,14 @@ function fileKey(file: File): string {
   return `${file.name}_${file.size}_${file.lastModified}`;
 }
 
-function mergeFiles(existing: File[], incoming: FileList | null): File[] {
-  if (!incoming?.length) {
+function mergeFiles(existing: File[], incoming: File[]): File[] {
+  if (!incoming.length) {
     return existing;
   }
 
   const merged = [...existing];
   const known = new Set(existing.map((file) => fileKey(file)));
-  Array.from(incoming).forEach((file) => {
+  incoming.forEach((file) => {
     const key = fileKey(file);
     if (!known.has(key)) {
       known.add(key);
@@ -224,18 +224,21 @@ export function SimpleAggregatePage() {
   );
 
   function handleSocialFilesSelected(event: ChangeEvent<HTMLInputElement>) {
-    setSocialFiles((current) => mergeFiles(current, event.target.files));
+    const selectedFiles = Array.from(event.target.files ?? []);
     event.target.value = '';
+    setSocialFiles((current) => mergeFiles(current, selectedFiles));
   }
 
   function handleHousingFilesSelected(event: ChangeEvent<HTMLInputElement>) {
-    setHousingFundFiles((current) => mergeFiles(current, event.target.files));
+    const selectedFiles = Array.from(event.target.files ?? []);
     event.target.value = '';
+    setHousingFundFiles((current) => mergeFiles(current, selectedFiles));
   }
 
   function handleEmployeeMasterSelected(event: ChangeEvent<HTMLInputElement>) {
-    setEmployeeMasterFile(event.target.files?.[0] ?? null);
+    const selectedFile = event.target.files?.[0] ?? null;
     event.target.value = '';
+    setEmployeeMasterFile(selectedFile);
   }
 
   function removeSocialFile(target: File) {

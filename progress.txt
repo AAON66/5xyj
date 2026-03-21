@@ -745,3 +745,20 @@ ormalization_service.py backendpp\services\import_service.py backendpp\service
 
 ### Notes:
 - This is a frontend usability enhancement on top of the existing quick aggregate flow; backend behavior and aggregate semantics remain unchanged.
+
+## [2026-03-21] - Task: Quick aggregate first-pick file selection bug fix
+
+### What was done:
+- Fixed the quick aggregate file picker so the first file selection is now added immediately instead of only appearing after a second selection.
+- Updated the selection handlers to snapshot the chosen files before clearing the native input value, which prevents the first selection from being lost.
+- Applied the same safer pattern to social security files, housing fund files, and the optional employee master picker.
+
+### Testing:
+- `cmd /c npm.cmd run lint`
+- `cmd /c npm.cmd run build`
+
+### Risks / Open Questions:
+- This fix addresses the front-end picker race; if we later add drag-and-drop, that path should reuse the same snapshot-based merge helper.
+
+### Notes:
+- Backend aggregate behavior is unchanged; this is a UI-side reliability fix for file selection.
