@@ -1424,3 +1424,105 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+.progress-card,
+.progress-step-list {
+  display: grid;
+  gap: 14px;
+}
+
+.progress-card__summary {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+}
+
+.progress-card__summary strong {
+  font-size: 2rem;
+  line-height: 1;
+  color: #a74f1c;
+}
+
+.progress-card__summary span {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #7c8aa1;
+}
+
+.progress-card__summary p {
+  margin: 6px 0 0;
+  color: #526078;
+  line-height: 1.7;
+}
+
+.progress-bar__track {
+  overflow: hidden;
+  height: 12px;
+  border-radius: 999px;
+  background: rgba(31, 42, 61, 0.08);
+}
+
+.progress-bar__fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(135deg, #d6802a, #c04d36);
+  transition: width 220ms ease;
+}
+
+.progress-step {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(31, 42, 61, 0.08);
+  background: rgba(248, 250, 254, 0.96);
+}
+
+.progress-step strong {
+  font-size: 0.98rem;
+}
+
+.progress-step span {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.progress-step--done {
+  border-color: rgba(51, 135, 76, 0.2);
+  background: rgba(229, 247, 236, 0.96);
+}
+
+.progress-step--done span {
+  color: #245333;
+}
+
+.progress-step--active {
+  border-color: rgba(191, 95, 40, 0.24);
+  background: rgba(255, 241, 224, 0.96);
+}
+
+.progress-step--active span {
+  color: #9a4a1b;
+}
+
+.progress-step--pending span {
+  color: #66758b;
+}
+
+@media (max-width: 640px) {
+  .progress-card__summary,
+  .progress-step {
+    grid-template-columns: 1fr;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .progress-card__summary strong {
+    font-size: 1.6rem;
+  }
+}

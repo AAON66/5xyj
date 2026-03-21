@@ -1,5 +1,6 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
+import json
 import shutil
 from pathlib import Path
 
@@ -176,3 +177,51 @@ def test_aggregate_endpoint_imports_employee_master_and_matches_records() -> Non
     assert len(payload['artifacts']) == 2
     assert all(item['status'] == 'completed' for item in payload['artifacts'])
     assert all(Path(item['file_path']).exists() for item in payload['artifacts'])
+
+
+
+def test_aggregate_stream_endpoint_emits_progress_events() -> None:
+    salary_template = find_template('\u85aa\u916c')
+    tool_template = find_template('\u6700\u7ec8\u7248')
+    sample_path = find_sample(SAMPLE_KEYWORD)
+    client, _settings, _session_factory = build_test_context(
+        'aggregate_stream',
+        salary_template=salary_template,
+        final_tool_template=tool_template,
+    )
+
+    with client, client.stream(
+        'POST',
+        '/api/v1/aggregate/stream',
+        data={'batch_name': 'quick-aggregate-stream'},
+        files=[
+            (
+                'files',
+                (
+                    sample_path.name,
+                    sample_path.read_bytes(),
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                ),
+            )
+        ],
+    ) as response:
+        assert response.status_code == 200
+        events = []
+        for line in response.iter_lines():
+            if not line:
+                continue
+            if isinstance(line, bytes):
+                line = line.decode('utf-8')
+            events.append(json.loads(line))
+
+    progress_stages = [event['stage'] for event in events if event['event'] == 'progress']
+    assert progress_stages[:3] == ['employee_import', 'employee_import', 'batch_upload']
+    assert 'parse' in progress_stages
+    assert 'validate' in progress_stages
+    assert 'match' in progress_stages
+    assert 'export' in progress_stages
+
+    result_event = next(event for event in events if event['event'] == 'result')
+    assert result_event['data']['batch_name'] == 'quick-aggregate-stream'
+    assert result_event['data']['export_status'] == 'completed'
+    assert len(result_event['data']['artifacts']) == 2

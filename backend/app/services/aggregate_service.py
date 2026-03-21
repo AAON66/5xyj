@@ -1,6 +1,8 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
+import inspect
 import re
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 
 from fastapi import UploadFile
@@ -49,6 +51,7 @@ FILENAME_NOISE = (
 )
 
 DATE_PATTERN = re.compile(r'(20\d{2}\u5e74\d{1,2}\u6708|20\d{4}|\d{6})')
+ProgressCallback = Callable[[dict[str, object]], Awaitable[None] | None]
 
 
 async def run_simple_aggregate(
@@ -60,9 +63,25 @@ async def run_simple_aggregate(
     batch_name: str | None = None,
     regions: list[str] | None = None,
     company_names: list[str] | None = None,
+    progress_callback: ProgressCallback | None = None,
 ) -> AggregateRunRead:
+    await _emit_progress(
+        progress_callback,
+        stage='employee_import',
+        label='\u51c6\u5907\u5f00\u59cb',
+        message='\u6b63\u5728\u51c6\u5907\u5feb\u901f\u805a\u5408\u4efb\u52a1\u3002',
+        percent=5,
+    )
+
     employee_summary: AggregateEmployeeImportRead | None = None
     if employee_master_file is not None and (employee_master_file.filename or '').strip():
+        await _emit_progress(
+            progress_callback,
+            stage='employee_import',
+            label='\u5bfc\u5165\u5458\u5de5\u4e3b\u6863',
+            message='\u6b63\u5728\u5bfc\u5165\u5458\u5de5\u4e3b\u6863\u6587\u4ef6\u3002',
+            percent=12,
+        )
         employee_import = await import_employee_master_file(db, employee_master_file)
         employee_summary = AggregateEmployeeImportRead(
             file_name=employee_import.file_name,
@@ -70,10 +89,32 @@ async def run_simple_aggregate(
             created_count=employee_import.created_count,
             updated_count=employee_import.updated_count,
         )
+        await _emit_progress(
+            progress_callback,
+            stage='employee_import',
+            label='\u5458\u5de5\u4e3b\u6863\u5df2\u540c\u6b65',
+            message=f"\u5df2\u5bfc\u5165 {employee_import.imported_count} \u6761\u5458\u5de5\u4e3b\u6863\u8bb0\u5f55\u3002",
+            percent=18,
+        )
+    else:
+        await _emit_progress(
+            progress_callback,
+            stage='employee_import',
+            label='\u8df3\u8fc7\u5458\u5de5\u4e3b\u6863',
+            message='\u672c\u6b21\u672a\u4e0a\u4f20\u5458\u5de5\u4e3b\u6863\uff0c\u5c06\u7ee7\u7eed\u805a\u5408\u5e76\u4fdd\u7559\u7a7a\u5de5\u53f7\u3002',
+            percent=18,
+        )
 
     resolved_regions = _resolve_metadata_values(files, regions, kind='region')
     resolved_companies = _resolve_metadata_values(files, company_names, kind='company')
 
+    await _emit_progress(
+        progress_callback,
+        stage='batch_upload',
+        label='\u4e0a\u4f20\u6279\u6b21',
+        message='\u6b63\u5728\u521b\u5efa\u5bfc\u5165\u6279\u6b21\u5e76\u4fdd\u5b58\u6e90\u6587\u4ef6\u3002',
+        percent=28,
+    )
     batch = await create_import_batch(
         db=db,
         settings=settings,
@@ -82,13 +123,88 @@ async def run_simple_aggregate(
         regions=resolved_regions,
         company_names=resolved_companies,
     )
+    await _emit_progress(
+        progress_callback,
+        stage='batch_upload',
+        label='\u6279\u6b21\u5df2\u521b\u5efa',
+        message=f"\u6279\u6b21 {batch.batch_name} \u5df2\u521b\u5efa\uff0c\u5171 {len(batch.source_files)} \u4e2a\u6587\u4ef6\u3002",
+        percent=36,
+        batch_id=batch.id,
+        batch_name=batch.batch_name,
+    )
 
+    await _emit_progress(
+        progress_callback,
+        stage='parse',
+        label='\u89e3\u6790\u8bc6\u522b',
+        message='\u6b63\u5728\u8bc6\u522b\u5de5\u4f5c\u8868\u3001\u8868\u5934\u548c\u6807\u51c6\u5b57\u6bb5\u3002',
+        percent=48,
+        batch_id=batch.id,
+        batch_name=batch.batch_name,
+    )
     preview = parse_import_batch(db, batch.id)
+    await _emit_progress(
+        progress_callback,
+        stage='parse',
+        label='\u89e3\u6790\u5b8c\u6210',
+        message=f"\u5df2\u5b8c\u6210 {len(preview.source_files)} \u4e2a\u6587\u4ef6\u7684\u89e3\u6790\u3002",
+        percent=60,
+        batch_id=batch.id,
+        batch_name=batch.batch_name,
+    )
+
+    await _emit_progress(
+        progress_callback,
+        stage='validate',
+        label='\u6570\u636e\u6821\u9a8c',
+        message='\u6b63\u5728\u6267\u884c\u7f3a\u5931\u3001\u91cd\u590d\u4e0e\u91d1\u989d\u6821\u9a8c\u3002',
+        percent=68,
+        batch_id=batch.id,
+        batch_name=batch.batch_name,
+    )
     validation = validate_batch(db, batch.id)
+    await _emit_progress(
+        progress_callback,
+        stage='validate',
+        label='\u6821\u9a8c\u5b8c\u6210',
+        message=f"\u5171\u53d1\u73b0 {validation.total_issue_count} \u6761\u6821\u9a8c\u95ee\u9898\u3002",
+        percent=76,
+        batch_id=batch.id,
+        batch_name=batch.batch_name,
+    )
+
+    await _emit_progress(
+        progress_callback,
+        stage='match',
+        label='\u5de5\u53f7\u5339\u914d',
+        message='\u6b63\u5728\u6839\u636e\u5458\u5de5\u4e3b\u6863\u6267\u884c\u5de5\u53f7\u5339\u914d\u3002',
+        percent=84,
+        batch_id=batch.id,
+        batch_name=batch.batch_name,
+    )
     match = _match_for_simple_aggregate(db, batch.id)
+    await _emit_progress(
+        progress_callback,
+        stage='match',
+        label='\u5339\u914d\u5b8c\u6210',
+        message=f"\u5df2\u5339\u914d {match.matched_count} \u6761\uff0c\u672a\u5339\u914d {match.unmatched_count} \u6761\u3002",
+        percent=90,
+        batch_id=batch.id,
+        batch_name=batch.batch_name,
+    )
+
+    await _emit_progress(
+        progress_callback,
+        stage='export',
+        label='\u5bfc\u51fa\u53cc\u6a21\u677f',
+        message='\u6b63\u5728\u751f\u6210\u85aa\u916c\u6a21\u677f\u548c\u5de5\u5177\u8868\u6700\u7ec8\u7248\u3002',
+        percent=96,
+        batch_id=batch.id,
+        batch_name=batch.batch_name,
+    )
     export = export_batch(db, batch.id, settings)
 
-    return AggregateRunRead(
+    result = AggregateRunRead(
         batch_id=batch.id,
         batch_name=batch.batch_name,
         status=export.status,
@@ -122,6 +238,16 @@ async def run_simple_aggregate(
             for item in export.artifacts
         ],
     )
+    await _emit_progress(
+        progress_callback,
+        stage='export',
+        label='\u5bfc\u51fa\u5b8c\u6210',
+        message='\u53cc\u6a21\u677f\u5bfc\u51fa\u6d41\u7a0b\u5df2\u7ed3\u675f\u3002',
+        percent=100,
+        batch_id=batch.id,
+        batch_name=batch.batch_name,
+    )
+    return result
 
 
 def _match_for_simple_aggregate(db: Session, batch_id: str):
@@ -247,3 +373,32 @@ def infer_company_name_from_filename(filename: str, region: str | None) -> str |
         cleaned = cleaned.replace(REGION_LABELS.get(region, ''), '')
     cleaned = re.sub(r'[()\uff08\uff09_\-\s]+', '', cleaned)
     return cleaned or (REGION_LABELS.get(region) if region else None)
+
+
+async def _emit_progress(
+    progress_callback: ProgressCallback | None,
+    *,
+    stage: str,
+    label: str,
+    message: str,
+    percent: int,
+    batch_id: str | None = None,
+    batch_name: str | None = None,
+) -> None:
+    if progress_callback is None:
+        return
+
+    payload: dict[str, object] = {
+        'stage': stage,
+        'label': label,
+        'message': message,
+        'percent': percent,
+    }
+    if batch_id is not None:
+        payload['batch_id'] = batch_id
+    if batch_name is not None:
+        payload['batch_name'] = batch_name
+
+    result = progress_callback(payload)
+    if inspect.isawaitable(result):
+        await result

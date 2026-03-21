@@ -663,3 +663,25 @@
 ### Notes:
 - The simplified flow still preserves the confirmed requirement to output both fixed templates in the same run.
 - When no employee master file is provided, the quick aggregate flow still exports successfully and leaves unmatched employee IDs blank instead of blocking export.
+
+## [2026-03-21] - Task: Quick aggregate progress display
+
+### What was done:
+- Added streaming progress events for the quick aggregate backend flow so the frontend can display real stage updates during processing.
+- Updated the quick aggregate page to show a progress bar, current stage message, batch identifier, and per-step status for employee import, batch upload, parse, validation, matching, and export.
+- Kept the original non-stream aggregate endpoint intact as a synchronous fallback.
+- Added a streaming API test to verify progress events are emitted before the final result.
+
+### Testing:
+- `py -m py_compile backend\app\api\v1\aggregate.py backend\app\services\aggregate_service.py backend\tests\test_aggregate_api.py`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_aggregate_api.py -p no:cacheprovider`
+- `cmd /c npm.cmd run lint`
+- `cmd /c npm.cmd run build`
+- Verified local backend `openapi.json` now includes `/api/v1/aggregate/stream`
+
+### Risks / Open Questions:
+- The progress bar is stage-based, not row-level, so it reflects actual pipeline phases rather than exact worksheet row completion.
+- The local backend must be restarted after backend code updates, otherwise the frontend may still hit an old process without the streaming route.
+
+### Notes:
+- The quick aggregate UI now surfaces processing state without requiring users to open the advanced batch pages.
