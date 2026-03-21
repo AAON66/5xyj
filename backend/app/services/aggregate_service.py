@@ -118,14 +118,29 @@ async def run_simple_aggregate(
         current = int(payload.get('current', 0) or 0)
         total = max(1, int(payload.get('total', 1) or 1))
         file_name = str(payload.get('file_name', ''))
+        phase = str(payload.get('phase') or 'uploading_saved')
         batch_id = str(payload.get('batch_id') or '') or None
         batch_name_value = str(payload.get('batch_name') or '') or None
+
+        if phase == 'uploading_started':
+            message = f'\u6b63\u5728\u4fdd\u5b58\u6587\u4ef6 {current}/{total}\uff1a{file_name}'
+            progress_value = max(0.0, current - 1 + 0.35)
+        elif phase == 'uploading_saved':
+            message = f'\u6587\u4ef6 {current}/{total} \u5df2\u4fdd\u5b58\uff1a{file_name}'
+            progress_value = max(0.0, current - 1 + 0.78)
+        elif phase == 'region_detection':
+            message = f'\u6b63\u5728\u8bc6\u522b\u6587\u4ef6 {current}/{total} \u7684\u5730\u533a\u4fe1\u606f\uff1a{file_name}'
+            progress_value = max(0.0, current - 1 + 0.94)
+        else:
+            message = f'\u6b63\u5728\u5904\u7406\u6587\u4ef6 {current}/{total}\uff1a{file_name}'
+            progress_value = float(current)
+
         await _emit_progress(
             progress_callback,
             stage='batch_upload',
             label='\u4e0a\u4f20\u6279\u6b21',
-            message=f'\u6b63\u5728\u4fdd\u5b58\u6587\u4ef6 {current}/{total}\uff1a{file_name}',
-            percent=_interpolate_percent(22, 36, current, total),
+            message=message,
+            percent=_interpolate_percent_fraction(22, 36, progress_value, total),
             batch_id=batch_id,
             batch_name=batch_name_value,
         )
@@ -293,6 +308,13 @@ def _interpolate_percent(start: int, end: int, current: int, total: int) -> int:
         return end
     bounded_current = min(max(current, 0), total)
     return min(end, max(start, round(start + ((end - start) * bounded_current / total))))
+
+
+def _interpolate_percent_fraction(start: int, end: int, progress_value: float, total: int) -> int:
+    if total <= 0:
+        return end
+    bounded_progress = min(max(progress_value, 0.0), float(total))
+    return min(end, max(start, round(start + ((end - start) * bounded_progress / total))))
 
 
 def _match_for_simple_aggregate(db: Session, batch_id: str):

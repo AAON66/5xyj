@@ -416,11 +416,52 @@ def test_aggregate_stream_endpoint_reports_intermediate_upload_and_parse_progres
     upload_events = [event for event in events if event['event'] == 'progress' and event['stage'] == 'batch_upload']
     parse_events = [event for event in events if event['event'] == 'progress' and event['stage'] == 'parse']
 
-    assert len(upload_events) >= 3
-    assert any('1/2' in event['message'] for event in upload_events)
-    assert any('2/2' in event['message'] for event in upload_events)
+    assert len(upload_events) >= 5
+    assert any('\u6b63\u5728\u4fdd\u5b58\u6587\u4ef6 1/2' in event['message'] for event in upload_events)
+    assert any('\u6587\u4ef6 1/2 \u5df2\u4fdd\u5b58' in event['message'] for event in upload_events)
+    assert any('\u6b63\u5728\u4fdd\u5b58\u6587\u4ef6 2/2' in event['message'] for event in upload_events)
+    assert any('\u6587\u4ef6 2/2 \u5df2\u4fdd\u5b58' in event['message'] for event in upload_events)
     assert len(parse_events) >= 3
     assert any('1/2' in event['message'] for event in parse_events)
     assert any('2/2' in event['message'] for event in parse_events)
     assert upload_events[-1]['percent'] >= upload_events[0]['percent']
     assert parse_events[-1]['percent'] >= parse_events[0]['percent']
+
+
+
+def test_aggregate_stream_endpoint_reports_region_detection_for_generic_filename() -> None:
+    salary_template = find_template('\u85aa\u916c')
+    tool_template = find_template('\u6700\u7ec8\u7248')
+    sample_path = find_sample(SAMPLE_KEYWORD)
+    client, _settings, _session_factory = build_test_context(
+        'aggregate_stream_region_detection_progress',
+        salary_template=salary_template,
+        final_tool_template=tool_template,
+    )
+
+    with client, client.stream(
+        'POST',
+        '/api/v1/aggregate/stream',
+        data={'batch_name': 'quick-aggregate-stream-region-detection'},
+        files=[
+            (
+                'files',
+                (
+                    'generic.xlsx',
+                    sample_path.read_bytes(),
+                    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                ),
+            )
+        ],
+    ) as response:
+        assert response.status_code == 200
+        events = []
+        for line in response.iter_lines():
+            if not line:
+                continue
+            if isinstance(line, bytes):
+                line = line.decode('utf-8')
+            events.append(json.loads(line))
+
+    upload_events = [event for event in events if event['event'] == 'progress' and event['stage'] == 'batch_upload']
+    assert any('\u6b63\u5728\u8bc6\u522b\u6587\u4ef6 1/1 \u7684\u5730\u533a\u4fe1\u606f' in event['message'] for event in upload_events)

@@ -882,3 +882,23 @@ ormalization_service.py backendpp\services\import_service.py backendpp\service
 
 ### Notes:
 - This change focuses on preserving data integrity while removing unnecessary workbook opens during upload; parse, normalization, and export behavior are unchanged.
+
+## [2026-03-22] - Task: Upload progress accuracy and chunked save optimization
+
+### What was done:
+- Changed aggregate upload progress to emit distinct `uploading_started`, `uploading_saved`, and `region_detection` phases so the quick aggregate page shows the real current file instead of appearing stuck on the previous one.
+- Switched file persistence to chunked writes with incremental SHA256 hashing, which avoids one-shot full-file reads and is safer for larger or more complex workbooks while preserving file integrity.
+- Added aggregate-stream regression coverage for upload start/save messages and for generic filenames that intentionally fall back to workbook-based region detection.
+- Stored the new upload-stage messages in escaped Unicode form in backend code so terminal encoding glitches do not reintroduce `????` text into the UI.
+
+### Testing:
+- `py -m compileall backend`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_import_batches_api.py -p no:cacheprovider`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_aggregate_api.py -k "aggregate_stream_endpoint_emits_progress_events or aggregate_stream_endpoint_reports_intermediate_upload_and_parse_progress or aggregate_stream_endpoint_reports_region_detection_for_generic_filename" -p no:cacheprovider`
+
+### Risks / Open Questions:
+- This fixes the misleading `31/32` display and reduces upload-side blocking, but genuinely slow generic filenames can still spend visible time in the `region_detection` phase because they require workbook inspection.
+- If operators keep uploading many very large files at once, the next step would be per-file byte-level progress reporting instead of stage-level progress only.
+
+### Notes:
+- The investigated Shenzhen housing-fund workbook is only about 10 KB, which confirms the apparent freeze was primarily progress timing rather than that specific file being expensive to save.

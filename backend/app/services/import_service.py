@@ -40,6 +40,7 @@ from backend.app.services.region_detection_service import detect_region_for_work
 ALLOWED_EXTENSIONS = {'.xlsx', '.xls'}
 ALLOWED_SOURCE_KINDS = {item.value for item in SourceFileKind}
 LLM_FALLBACK_CONFIDENCE_THRESHOLD = 0.72
+UPLOAD_CHUNK_SIZE = 1024 * 1024
 DATE_PATTERN = re.compile(r'(20\d{2}\u5e74\d{1,2}\u6708|20\d{4}|\d{6})')
 FILENAME_NOISE = (
     '\u793e\u4f1a\u4fdd\u9669\u8d39\u7533\u62a5\u4e2a\u4eba\u660e\u7ec6\u8868',
@@ -125,12 +126,24 @@ async def create_import_batch(
     pending_source_files: list[SourceFile] = []
     try:
         for index, upload in enumerate(files, start=1):
+            file_name = Path(upload.filename or 'upload.xlsx').name
+            await _notify_progress(
+                progress_callback,
+                {
+                    'phase': 'uploading_started',
+                    'current': index,
+                    'total': len(files),
+                    'file_name': file_name,
+                    'batch_id': batch.id,
+                    'batch_name': batch.batch_name,
+                },
+            )
             stored = await _store_upload(batch_dir, upload)
             stored_paths.append(stored.storage_path)
             await _notify_progress(
                 progress_callback,
                 {
-                    'phase': 'uploading',
+                    'phase': 'uploading_saved',
                     'current': index,
                     'total': len(files),
                     'file_name': stored.original_name,
@@ -541,19 +554,35 @@ async def _store_upload(batch_dir: Path, upload: UploadFile) -> StoredUpload:
     if extension not in ALLOWED_EXTENSIONS:
         raise InvalidUploadError(f"Unsupported file type '{extension or 'unknown'}'. Only .xlsx and .xls are allowed.")
 
-    payload = await upload.read()
-    if not payload:
-        raise InvalidUploadError(f"File '{original_name}' is empty.")
-
     stored_name = f'{uuid4().hex}{extension}'
     storage_path = batch_dir / stored_name
-    storage_path.write_bytes(payload)
+    file_size = 0
+    hasher = hashlib.sha256()
+
+    try:
+        with storage_path.open('wb') as handle:
+            while True:
+                chunk = await upload.read(UPLOAD_CHUNK_SIZE)
+                if not chunk:
+                    break
+                handle.write(chunk)
+                hasher.update(chunk)
+                file_size += len(chunk)
+    except Exception:
+        if storage_path.exists():
+            storage_path.unlink()
+        raise
+
+    if file_size == 0:
+        if storage_path.exists():
+            storage_path.unlink()
+        raise InvalidUploadError(f"File '{original_name}' is empty.")
 
     return StoredUpload(
         original_name=original_name,
         storage_path=storage_path.resolve(),
-        file_size=len(payload),
-        file_hash=hashlib.sha256(payload).hexdigest(),
+        file_size=file_size,
+        file_hash=hasher.hexdigest(),
     )
 
 
