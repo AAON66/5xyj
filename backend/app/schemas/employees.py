@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class EmployeeMasterRead(BaseModel):
@@ -14,6 +14,7 @@ class EmployeeMasterRead(BaseModel):
     department: str | None
     active: bool
     created_at: datetime
+    updated_at: datetime
 
 
 class EmployeeMasterListRead(BaseModel):
@@ -30,3 +31,31 @@ class EmployeeImportRead(BaseModel):
     skipped_count: int
     errors: list[str]
     items: list[EmployeeMasterRead]
+
+
+class EmployeeMasterUpdateInput(BaseModel):
+    person_name: str = Field(min_length=1, max_length=255)
+    id_number: str | None = Field(default=None, max_length=100)
+    company_name: str | None = Field(default=None, max_length=255)
+    department: str | None = Field(default=None, max_length=255)
+    active: bool = True
+
+
+class EmployeeMasterStatusInput(BaseModel):
+    active: bool
+    note: str | None = Field(default=None, max_length=255)
+
+
+class EmployeeMasterAuditRead(BaseModel):
+    id: str
+    employee_master_id: str | None
+    employee_id_snapshot: str
+    action: str
+    note: str | None
+    snapshot: dict[str, object] | None
+    created_at: datetime
+
+
+class EmployeeMasterAuditListRead(BaseModel):
+    total: int
+    items: list[EmployeeMasterAuditRead]

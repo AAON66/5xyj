@@ -1307,3 +1307,78 @@ button {
 .employee-toolbar__toggle {
   min-width: 0;
 }
+
+
+.employee-management-grid,
+.employee-side-panels,
+.employee-form-grid,
+.employee-audit-list,
+.employee-audit-item,
+.employee-table-actions {
+  display: grid;
+  gap: 16px;
+}
+
+.employee-management-grid {
+  grid-template-columns: minmax(0, 1.6fr) minmax(320px, 0.95fr);
+  align-items: start;
+}
+
+.employee-side-panels {
+  align-content: start;
+}
+
+.employee-editor-card,
+.employee-audit-card {
+  gap: 18px;
+}
+
+.employee-editor-meta {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.employee-form-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.employee-status-note textarea {
+  resize: vertical;
+  min-height: 96px;
+}
+
+.employee-editor-actions {
+  justify-content: flex-start;
+}
+
+.employee-delete-button {
+  color: #8f2d2d;
+}
+
+.employee-table-row--active {
+  background: rgba(197, 160, 82, 0.12);
+}
+
+.employee-audit-list {
+  align-content: start;
+}
+
+.employee-audit-item {
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid rgba(117, 133, 157, 0.2);
+  background: rgba(248, 246, 238, 0.75);
+}
+
+.employee-audit-item__head,
+.employee-audit-item__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.employee-audit-item__head span,
+.employee-audit-item__meta {
+  color: #5c697d;
+  font-size: 0.94rem;
+}

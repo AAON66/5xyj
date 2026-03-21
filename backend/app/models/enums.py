@@ -1,4 +1,4 @@
-from enum import Enum
+﻿from enum import Enum
 
 
 class BatchStatus(str, Enum):
@@ -30,3 +30,11 @@ class MatchStatus(str, Enum):
 class TemplateType(str, Enum):
     SALARY = "salary"
     FINAL_TOOL = "final_tool"
+
+
+class EmployeeAuditAction(str, Enum):
+    IMPORT_CREATE = "import_create"
+    IMPORT_UPDATE = "import_update"
+    MANUAL_UPDATE = "manual_update"
+    STATUS_CHANGE = "status_change"
+    DELETE = "delete"

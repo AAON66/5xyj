@@ -101,20 +101,24 @@ def create_batch(client: TestClient, sample_path: Path) -> str:
     return response.json()['data']['id']
 
 
+def import_default_master(client: TestClient):
+    response = client.post(
+        '/api/v1/employees/import',
+        files=[('file', ('employee_master.csv', make_csv_bytes(), 'text/csv'))],
+    )
+    assert response.status_code == 201
+    return response.json()['data']
+
+
 def test_import_employee_master_csv_and_list_records() -> None:
     client, _settings, _session_factory = build_test_context('csv_import')
 
     with client:
-        import_response = client.post(
-            '/api/v1/employees/import',
-            files=[('file', ('employee_master.csv', make_csv_bytes(), 'text/csv'))],
-        )
+        payload = import_default_master(client)
         list_all_response = client.get('/api/v1/employees', params={'active_only': 'false'})
         list_active_response = client.get('/api/v1/employees', params={'active_only': 'true'})
         search_response = client.get('/api/v1/employees', params={'query': '张三', 'active_only': 'false'})
 
-    assert import_response.status_code == 201
-    payload = import_response.json()['data']
     assert payload['file_name'] == 'employee_master.csv'
     assert payload['total_rows'] == 2
     assert payload['imported_count'] == 2
@@ -135,21 +139,19 @@ def test_import_employee_master_csv_and_list_records() -> None:
     assert search_items['items'][0]['person_name'] == '张三'
 
 
-def test_import_employee_master_xlsx_updates_existing_record() -> None:
+def test_import_employee_master_xlsx_updates_existing_record_and_writes_audit() -> None:
     client, _settings, _session_factory = build_test_context('xlsx_update')
 
     with client:
-        first_import = client.post(
-            '/api/v1/employees/import',
-            files=[('file', ('employee_master.csv', make_csv_bytes(), 'text/csv'))],
-        )
+        import_default_master(client)
         second_import = client.post(
             '/api/v1/employees/import',
             files=[('file', ('employee_master.xlsx', make_update_workbook_bytes(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))],
         )
         list_response = client.get('/api/v1/employees', params={'query': 'E1001', 'active_only': 'false'})
+        employee_id = list_response.json()['data']['items'][0]['id']
+        audits_response = client.get(f'/api/v1/employees/{employee_id}/audits')
 
-    assert first_import.status_code == 201
     assert second_import.status_code == 201
     second_payload = second_import.json()['data']
     assert second_payload['total_rows'] == 1
@@ -160,6 +162,84 @@ def test_import_employee_master_xlsx_updates_existing_record() -> None:
     assert employee['employee_id'] == 'E1001'
     assert employee['department'] == '平台运营'
     assert employee['active'] is True
+
+    audits = audits_response.json()['data']['items']
+    assert audits[0]['action'] == 'import_update'
+    assert audits[-1]['action'] == 'import_create'
+
+
+def test_update_and_status_endpoints_change_employee_and_write_audit() -> None:
+    client, _settings, _session_factory = build_test_context('update_status')
+
+    with client:
+        import_default_master(client)
+        employee = client.get('/api/v1/employees', params={'query': 'E1001', 'active_only': 'false'}).json()['data']['items'][0]
+        update_response = client.patch(
+            f"/api/v1/employees/{employee['id']}",
+            json={
+                'person_name': '张三丰',
+                'id_number': employee['id_number'],
+                'company_name': '广分示例',
+                'department': '平台运营中心',
+                'active': True,
+            },
+        )
+        status_response = client.post(
+            f"/api/v1/employees/{employee['id']}/status",
+            json={'active': False, 'note': '手动停用测试'},
+        )
+        audits_response = client.get(f"/api/v1/employees/{employee['id']}/audits")
+
+    assert update_response.status_code == 200
+    assert update_response.json()['data']['person_name'] == '张三丰'
+    assert update_response.json()['data']['department'] == '平台运营中心'
+
+    assert status_response.status_code == 200
+    assert status_response.json()['data']['active'] is False
+
+    audits = audits_response.json()['data']['items']
+    assert audits[0]['action'] == 'status_change'
+    assert audits[0]['note'] == '手动停用测试'
+    assert audits[1]['action'] == 'manual_update'
+
+
+def test_delete_employee_master_removes_record_when_no_match_history() -> None:
+    client, _settings, _session_factory = build_test_context('delete_employee')
+
+    with client:
+        import_default_master(client)
+        employee = client.get('/api/v1/employees', params={'query': 'E1002', 'active_only': 'false'}).json()['data']['items'][0]
+        delete_response = client.delete(f"/api/v1/employees/{employee['id']}")
+        list_response = client.get('/api/v1/employees', params={'active_only': 'false'})
+
+    assert delete_response.status_code == 204
+    remaining = list_response.json()['data']['items']
+    assert [item['employee_id'] for item in remaining] == ['E1001']
+
+
+def test_delete_employee_master_is_blocked_when_match_history_exists() -> None:
+    client, _settings, _session_factory = build_test_context('delete_blocked')
+    sample_path = find_sample(GUANGZHOU_KEYWORD)
+    standardized = standardize_workbook(sample_path, region='guangzhou', company_name=GUANGZHOU_COMPANY)
+    first = standardized.records[0]
+    employee_csv = (
+        '工号,姓名,身份证号,公司名称,部门,是否在职\n'
+        f"E9001,{first.values['person_name']},{first.values['id_number']},{GUANGZHOU_COMPANY},运营,是\n"
+    ).encode('utf-8-sig')
+
+    with client:
+        import_response = client.post('/api/v1/employees/import', files=[('file', ('matching_master.csv', employee_csv, 'text/csv'))])
+        employee_id = import_response.json()['data']['items'][0]['id']
+        batch_id = create_batch(client, sample_path)
+        match_response = client.post(f'/api/v1/imports/{batch_id}/match')
+        delete_response = client.delete(f'/api/v1/employees/{employee_id}')
+        audits_response = client.get(f'/api/v1/employees/{employee_id}/audits')
+
+    assert match_response.status_code == 200
+    assert delete_response.status_code == 409
+    assert 'match history' in delete_response.json()['error']['message'].lower()
+    audits = audits_response.json()['data']['items']
+    assert audits[0]['action'] in {'import_create', 'import_update'}
 
 
 def test_imported_employee_master_records_are_used_by_match_endpoint() -> None:
@@ -205,7 +285,7 @@ def test_imported_employee_master_records_are_used_by_match_endpoint() -> None:
     ],
 )
 def test_employee_import_endpoint_rejects_invalid_files(filename: str, content_type: str, payload: bytes) -> None:
-    client, _settings, _session_factory = build_test_context(f'invalid_{filename.replace('.', '_')}')
+    client, _settings, _session_factory = build_test_context(f"invalid_{filename.replace('.', '_')}")
 
     with client:
         response = client.post('/api/v1/employees/import', files=[('file', (filename, payload, content_type))])

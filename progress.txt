@@ -614,3 +614,27 @@
 ### Notes:
 - Task 6 is complete and `task.json` has been updated to mark it as `passes: true`.
 - All tasks in the repository task list are now marked complete.
+
+## 2026-03-21 - Task: Employee Master Management And Audit
+
+### What was done:
+- Extended employee master backend management with update, status-change, delete, and audit-history support through backend/app/services/employee_service.py and backend/app/api/v1/employees.py.
+- Added EmployeeMasterAudit persistence, audit action enums, migration 20260321_0003_employee_master_audits.py, and response schemas so every import/update/status operation is traceable.
+- Stabilized audit ordering by writing microsecond-resolution timestamps and ordering audits by created_at plus id, preventing same-second records from appearing in the wrong sequence.
+- Upgraded the /employees frontend page into a real management workspace with edit form, enable/disable actions, guarded delete action, and audit timeline backed by frontend/src/services/employees.ts and frontend/src/pages/Employees.tsx.
+- Added employee-management layout and responsive styles in frontend/src/styles.css so list, editor, and audit panel remain usable on desktop and narrow screens.
+
+### Testing:
+- py -m compileall backend
+- ./.venv/Scripts/python.exe -m pytest backend/tests/test_employee_master_api.py backend/tests/test_matching_service.py backend/tests/test_validation_matching_api.py -p no:cacheprovider
+- cmd /c npm.cmd run lint
+- cmd /c npm.cmd run build
+
+### Risks / Open Questions:
+- Delete audit records are now persisted at the database layer, but the current UI only exposes audits for existing employee records; if operators need to review deleted entries later, we should add a cross-employee audit query view.
+- Delete protection currently keys off existing match history, which is the right default for safety, but future operations may also want soft-delete or archive semantics instead of hard delete.
+- Manual editing is field-level and immediate; if later we need approval or dual-review, the audit foundation is ready but the workflow is not yet implemented.
+
+### Notes:
+- This is a post-task-list enhancement on top of completed task 6, not a change to the original repository task checklist.
+- Existing unrelated .claude/*, .idea/*, .codex/, AGENTS.md, and local data/samples/*.xlsx changes were intentionally left untouched.

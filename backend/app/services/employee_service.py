@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from io import BytesIO
 from typing import Any
 
@@ -9,8 +10,17 @@ from fastapi import UploadFile
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
-from backend.app.models import EmployeeMaster
-from backend.app.schemas.employees import EmployeeImportRead, EmployeeMasterListRead, EmployeeMasterRead
+from backend.app.models import EmployeeMaster, EmployeeMasterAudit
+from backend.app.models.enums import EmployeeAuditAction
+from backend.app.schemas.employees import (
+    EmployeeImportRead,
+    EmployeeMasterAuditListRead,
+    EmployeeMasterAuditRead,
+    EmployeeMasterListRead,
+    EmployeeMasterRead,
+    EmployeeMasterStatusInput,
+    EmployeeMasterUpdateInput,
+)
 
 
 HEADER_ALIASES = {
@@ -41,6 +51,14 @@ class EmployeeImportError(Exception):
     """Raised when employee master import input is invalid."""
 
 
+class EmployeeMasterNotFoundError(Exception):
+    """Raised when an employee master record cannot be found."""
+
+
+class EmployeeDeleteBlockedError(Exception):
+    """Raised when an employee master record cannot be deleted safely."""
+
+
 async def import_employee_master_file(db: Session, upload_file: UploadFile) -> EmployeeImportRead:
     file_name = upload_file.filename or "employee-master"
     raw_bytes = await upload_file.read()
@@ -60,6 +78,7 @@ async def import_employee_master_file(db: Session, upload_file: UploadFile) -> E
     created_count = 0
     updated_count = 0
     imported_items: list[EmployeeMaster] = []
+    audit_entries: list[EmployeeMasterAudit] = []
     for row in rows:
         existing = existing_records.get(row.employee_id)
         if existing is None:
@@ -72,8 +91,11 @@ async def import_employee_master_file(db: Session, upload_file: UploadFile) -> E
                 active=row.active,
             )
             db.add(existing)
+            db.flush()
             existing_records[row.employee_id] = existing
             created_count += 1
+            action = EmployeeAuditAction.IMPORT_CREATE
+            note = f"Imported from {file_name}."
         else:
             existing.person_name = row.person_name
             existing.id_number = row.id_number
@@ -81,8 +103,13 @@ async def import_employee_master_file(db: Session, upload_file: UploadFile) -> E
             existing.department = row.department
             existing.active = row.active
             updated_count += 1
+            action = EmployeeAuditAction.IMPORT_UPDATE
+            note = f"Updated from {file_name}."
+
+        audit_entries.append(_build_audit(existing, action=action, note=note))
         imported_items.append(existing)
 
+    db.add_all(audit_entries)
     db.commit()
     for item in imported_items:
         db.refresh(item)
@@ -122,6 +149,51 @@ def list_employee_masters(
     return EmployeeMasterListRead(total=len(items), items=[_to_employee_read(item) for item in items])
 
 
+def update_employee_master(db: Session, employee_id: str, payload: EmployeeMasterUpdateInput) -> EmployeeMasterRead:
+    employee = _get_employee_or_raise(db, employee_id)
+    employee.person_name = payload.person_name.strip()
+    employee.id_number = _nullable_text(payload.id_number)
+    employee.company_name = _nullable_text(payload.company_name)
+    employee.department = _nullable_text(payload.department)
+    employee.active = payload.active
+    db.add(_build_audit(employee, action=EmployeeAuditAction.MANUAL_UPDATE, note="Updated from employee master management page."))
+    db.commit()
+    db.refresh(employee)
+    return _to_employee_read(employee)
+
+
+def update_employee_master_status(db: Session, employee_id: str, payload: EmployeeMasterStatusInput) -> EmployeeMasterRead:
+    employee = _get_employee_or_raise(db, employee_id)
+    employee.active = payload.active
+    note = payload.note or ("Activated employee master record." if payload.active else "Disabled employee master record.")
+    db.add(_build_audit(employee, action=EmployeeAuditAction.STATUS_CHANGE, note=note))
+    db.commit()
+    db.refresh(employee)
+    return _to_employee_read(employee)
+
+
+def delete_employee_master(db: Session, employee_id: str) -> None:
+    employee = _get_employee_or_raise(db, employee_id)
+    if employee.match_results:
+        raise EmployeeDeleteBlockedError("Employee master record cannot be deleted because it already has match history.")
+
+    db.add(_build_audit(employee, action=EmployeeAuditAction.DELETE, note="Deleted from employee master management page."))
+    db.flush()
+    db.delete(employee)
+    db.commit()
+
+
+def list_employee_master_audits(db: Session, employee_id: str) -> EmployeeMasterAuditListRead:
+    employee = _get_employee_or_raise(db, employee_id)
+    items = (
+        db.query(EmployeeMasterAudit)
+        .filter(EmployeeMasterAudit.employee_master_id == employee.id)
+        .order_by(EmployeeMasterAudit.created_at.desc(), EmployeeMasterAudit.id.desc())
+        .all()
+    )
+    return EmployeeMasterAuditListRead(total=len(items), items=[_to_audit_read(item) for item in items])
+
+
 def _parse_employee_rows(file_name: str, raw_bytes: bytes) -> list[_EmployeeImportRow]:
     dataframe = _load_tabular_file(file_name, raw_bytes)
     if dataframe.empty:
@@ -130,7 +202,6 @@ def _parse_employee_rows(file_name: str, raw_bytes: bytes) -> list[_EmployeeImpo
     dataframe = dataframe.where(pd.notnull(dataframe), None)
     column_map = _resolve_column_map(list(dataframe.columns))
     rows: list[_EmployeeImportRow] = []
-    errors: list[str] = []
 
     for offset, row in enumerate(dataframe.to_dict(orient="records"), start=2):
         parsed = _parse_employee_row(row, column_map, row_number=offset)
@@ -138,8 +209,6 @@ def _parse_employee_rows(file_name: str, raw_bytes: bytes) -> list[_EmployeeImpo
             continue
         rows.append(parsed)
 
-    if errors:
-        raise EmployeeImportError("; ".join(errors))
     return rows
 
 
@@ -225,6 +294,38 @@ def _clean_text(value: object) -> str | None:
     return text
 
 
+def _nullable_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    stripped = value.strip()
+    return stripped or None
+
+
+def _get_employee_or_raise(db: Session, employee_id: str) -> EmployeeMaster:
+    employee = db.query(EmployeeMaster).filter(EmployeeMaster.id == employee_id).one_or_none()
+    if employee is None:
+        raise EmployeeMasterNotFoundError(f"Employee master record was not found: {employee_id}")
+    return employee
+
+
+def _build_audit(employee: EmployeeMaster, *, action: EmployeeAuditAction, note: str | None) -> EmployeeMasterAudit:
+    return EmployeeMasterAudit(
+        employee_master_id=employee.id,
+        employee_id_snapshot=employee.employee_id,
+        action=action,
+        note=note,
+        snapshot={
+            "employee_id": employee.employee_id,
+            "person_name": employee.person_name,
+            "id_number": employee.id_number,
+            "company_name": employee.company_name,
+            "department": employee.department,
+            "active": employee.active,
+        },
+        created_at=datetime.now(UTC),
+    )
+
+
 def _to_employee_read(item: EmployeeMaster) -> EmployeeMasterRead:
     return EmployeeMasterRead(
         id=item.id,
@@ -234,5 +335,18 @@ def _to_employee_read(item: EmployeeMaster) -> EmployeeMasterRead:
         company_name=item.company_name,
         department=item.department,
         active=item.active,
+        created_at=item.created_at,
+        updated_at=item.updated_at,
+    )
+
+
+def _to_audit_read(item: EmployeeMasterAudit) -> EmployeeMasterAuditRead:
+    return EmployeeMasterAuditRead(
+        id=item.id,
+        employee_master_id=item.employee_master_id,
+        employee_id_snapshot=item.employee_id_snapshot,
+        action=item.action.value,
+        note=item.note,
+        snapshot=item.snapshot,
         created_at=item.created_at,
     )
