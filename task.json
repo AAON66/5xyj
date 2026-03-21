@@ -30,7 +30,7 @@
     {
       "id": 6,
       "title": "员工主数据与工号主档导入",
-      "passes": false
+      "passes": true
     },
     {
       "id": 7,

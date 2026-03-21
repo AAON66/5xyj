@@ -591,3 +591,26 @@
 ### Notes:
 - Task 32 is complete and `task.json` has been updated to mark it as `passes: true`.
 - The repository task list is now complete except for task 6, which remains intentionally unfinished.
+
+## 2026-03-21 - Task: Employee Master Import And Employee ID Baseline
+
+### What was done:
+- Added employee master backend support through `backend/app/services/employee_service.py`, `backend/app/api/v1/employees.py`, and `backend/app/schemas/employees.py`.
+- Implemented `POST /api/v1/employees/import` and `GET /api/v1/employees`, supporting CSV / XLSX import, header alias mapping, employee-ID upsert, active-state parsing, and searchable list retrieval.
+- Replaced the placeholder `/employees` page with a real import-and-browse UI backed by `frontend/src/services/employees.ts` and the updated `frontend/src/pages/Employees.tsx`.
+- Updated project docs so `README.md` and `DEPLOYMENT.md` now reflect that employee master import is available, while also clarifying that richer employee-master administration is still a future enhancement.
+
+### Testing:
+- `py -m compileall backend`
+- `./.venv/Scripts/python.exe -m pytest backend/tests/test_employee_master_api.py backend/tests/test_matching_service.py backend/tests/test_validation_matching_api.py -p no:cacheprovider`
+- `cmd /c npm.cmd run lint`
+- `cmd /c npm.cmd run build`
+
+### Risks / Open Questions:
+- Employee master import currently focuses on bulk upsert and list retrieval; row-level edit, delete, disable-history, and audit workflows are not yet implemented.
+- Import validation requires `employee_id` and `person_name`; if future source files use more variant headers, we may want to extend the alias set further.
+- Matching now has an in-app way to receive master data, but operators still need process guidance for when to re-import refreshed HR data.
+
+### Notes:
+- Task 6 is complete and `task.json` has been updated to mark it as `passes: true`.
+- All tasks in the repository task list are now marked complete.

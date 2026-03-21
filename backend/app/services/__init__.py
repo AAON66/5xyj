@@ -10,6 +10,11 @@ from backend.app.services.batch_runtime_service import (
     match_batch,
     validate_batch,
 )
+from backend.app.services.employee_service import (
+    EmployeeImportError,
+    import_employee_master_file,
+    list_employee_masters,
+)
 from backend.app.services.header_normalizer import (
     HeaderMappingDecision,
     HeaderNormalizationResult,
@@ -60,6 +65,7 @@ __all__ = [
     'BatchNotFoundError',
     'ExportBlockedError',
     'BatchRuntimeError',
+    'EmployeeImportError',
     'HeaderMappingDecision',
     'HeaderMappingNotFoundError',
     'HeaderNormalizationResult',
@@ -82,6 +88,8 @@ __all__ = [
     'create_import_batch',
     'export_batch',
     'get_import_batch',
+    'import_employee_master_file',
+    'list_employee_masters',
     'list_import_batches',
     'list_header_mappings',
     'map_header_with_llm',

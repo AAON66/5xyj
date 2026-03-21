@@ -15,8 +15,8 @@ Current completed areas:
 - dashboard and operator-facing frontend pages
 - regression coverage for regional parsing, dual-template export, and DeepSeek fallback behavior
 
-Current incomplete area:
-- employee master import and management workflow is not fully implemented yet
+Current remaining limitation area:
+- employee master workflow now supports import and listing, but not fine-grained edit/delete administration yet
 
 ## 2. Runtime Prerequisites
 
@@ -54,6 +54,7 @@ Notes:
 - If `DEEPSEEK_API_KEY` is empty, the backend will keep the rule-based chain working and skip live fallback calls.
 - If either template path is missing, export will fail by design.
 - If employee master data is missing, matching can become blocked by design.
+- Employee master import now supports CSV/XLSX upsert by employee ID.
 
 ## 4. Local Startup
 
@@ -129,12 +130,11 @@ These areas now have dedicated automated coverage:
 ## 8. Deployment Risks And Known Gaps
 
 ### Still open
-- Task 6 is still incomplete. Employee master import and management is not production-ready yet.
-- The `/employees` frontend page is currently informational, not a finished data-management screen.
+- Employee master import is now available, but the `/employees` page currently focuses on import and search rather than full CRUD administration.
 - Live DeepSeek connectivity has not been included in automated regression because network availability and provider response times are unstable in this environment.
 
 ### Operational implications
-- Matching depends on employee master data already existing in the database.
+- Matching depends on employee master data already existing in the database or being imported through `/api/v1/employees/import`.
 - Export depends on successful matching and both template files being reachable.
 - Real-sample regression depends on local sample files being present under `data/samples`.
 
@@ -147,11 +147,11 @@ Reasonably ready now for:
 - export-template verification against real sample files
 
 Not fully ready yet for:
-- hands-off production rollout where operators must maintain employee master data entirely inside this app
+- teams that need a richer employee master administration console with edit, disable, audit, and delete operations
 
 ## 10. Recommended Next Work
 
-1. Finish task 6 and add real employee master import APIs and UI.
+1. Add employee master edit, disable, and audit operations on top of the new import/list foundation.
 2. Add a short seeded demo dataset path for local end-to-end demos.
 3. Add deployment packaging if Docker or service supervision becomes mandatory.
 4. Add one optional live DeepSeek smoke check outside the default CI-style suite.

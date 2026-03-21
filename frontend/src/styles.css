@@ -1282,3 +1282,28 @@ button {
   opacity: 0.88;
 }
 
+
+
+.employee-page-grid,
+.employee-summary-grid,
+.employee-upload-card,
+.employee-list-card,
+.employee-toolbar {
+  display: grid;
+  gap: 16px;
+}
+
+.employee-summary-grid {
+  align-content: start;
+}
+
+.employee-toolbar {
+  grid-template-columns: minmax(0, 1.6fr) minmax(220px, 0.8fr) auto;
+  align-items: end;
+  margin-bottom: 18px;
+}
+
+.employee-toolbar__search,
+.employee-toolbar__toggle {
+  min-width: 0;
+}
