@@ -150,7 +150,7 @@
     {
       "id": 30,
       "title": "双模板导出自动化测试",
-      "passes": false
+      "passes": true
     },
     {
       "id": 31,

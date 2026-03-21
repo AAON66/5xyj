@@ -525,3 +525,26 @@
 ### Notes:
 - Task 29 is complete and `task.json` has been updated to mark it as `passes: true`.
 - The next best step is task 30: automate dual-template export regression coverage.
+
+## 2026-03-21 - Task: Dual-Template Export Regression Tests
+
+### What was done:
+- Added `backend/tests/test_template_exporter_regression.py` to validate dual-template export against real standardized records from Guangzhou, Hangzhou, Xiamen, Shenzhen, Wuhan, and Changsha samples.
+- Built a parameterized export regression matrix that standardizes each regional sample, assigns deterministic employee IDs, writes both template outputs, and then inspects the generated workbooks directly.
+- Verified that both salary and final-tool artifacts are produced together for each region, preserve the expected identity fields, and keep row counts aligned across the two output targets.
+
+### Testing:
+- `py -m compileall backend`
+- `./.venv/Scripts/python.exe -m pytest backend/tests/test_template_exporter_regression.py -p no:cacheprovider`
+- `./.venv/Scripts/python.exe -m pytest backend/tests/test_validation_matching_api.py backend/tests/test_validation_service.py backend/tests/test_workbook_discovery.py -p no:cacheprovider`
+- `./.venv/Scripts/python.exe -m pytest backend/tests -p no:cacheprovider`
+  - This full-suite run repeatedly reached the new export regression segment and earlier suites successfully in the current terminal session, but the desktop shell timed it out before completion. The new export regression file and the remaining tail suites were therefore re-run separately to complete validation.
+
+### Risks / Open Questions:
+- These regression tests rely on locally available real templates and real sample files, so environments missing either input will skip rather than simulate template behavior.
+- The new coverage focuses on successful dual-template generation across regions; failure-path coverage for missing templates still lives in the existing exporter and export API tests.
+- The current desktop shell reports unusually long wall-clock timings for the new export regression file, so future agents should prefer running the heavy export regression file separately when they only need exporter confidence.
+
+### Notes:
+- Task 30 is complete and `task.json` has been updated to mark it as `passes: true`.
+- The next best step is task 31: DeepSeek integration tests and fallback verification.
