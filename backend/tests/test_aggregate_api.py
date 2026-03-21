@@ -347,6 +347,6 @@ def test_aggregate_stream_endpoint_emits_progress_events() -> None:
 
 
 def test_infer_region_from_filename_prefers_explicit_shenzhen_label() -> None:
-    assert infer_region_from_filename('??????202602????.xlsx') == 'shenzhen'
-    assert infer_region_from_filename('202602???????????????????.xlsx') == 'shenzhen'
-    assert infer_region_from_filename('????202602?????.xlsx') == 'shenzhen'
+    assert infer_region_from_filename('\u6df1\u5733\u96f6\u4e00\u88c2\u53d8202602\u793e\u4fdd\u660e\u7ec6.xlsx') == 'shenzhen'
+    assert infer_region_from_filename('202602\u6708\u96f6\u4e00\u88c2\u53d8\uff08\u6df1\u5733\uff09\u79d1\u6280\u6709\u9650\u516c\u53f8\u793e\u4fdd\u8d26\u5355.xlsx') == 'shenzhen'
+    assert infer_region_from_filename('\u6df1\u5733\u88c2\u53d8202602\u516c\u79ef\u91d1\u8d26\u5355.xlsx') == 'shenzhen'

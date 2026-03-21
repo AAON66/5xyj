@@ -83,10 +83,10 @@ def make_update_workbook_bytes() -> bytes:
 def make_offset_alias_workbook_bytes() -> bytes:
     workbook = Workbook()
     sheet = workbook.active
-    sheet.title = '???'
-    sheet.append(['2026?2??????'])
-    sheet.append(['????', '????', '????(???)', '??????', '????', '????'])
-    sheet.append(['E2001', '??', '440101199303030033', '????', '????', '??'])
+    sheet.title = '\u82b1\u540d\u518c'
+    sheet.append(['2026\u5e742\u6708\u5458\u5de5\u82b1\u540d\u518c'])
+    sheet.append(['\u5458\u5de5\u7f16\u53f7', '\u5458\u5de5\u59d3\u540d', '\u8bc1\u4ef6\u53f7\u7801(\u8eab\u4efd\u8bc1)', '\u6240\u5c5e\u6cd5\u4eba\u516c\u53f8', '\u7ec4\u7ec7\u67b6\u6784', '\u4efb\u804c\u72b6\u6001'])
+    sheet.append(['E2001', '\u738b\u4e94', '440101199303030033', '\u96f6\u4e00\u88c2\u53d8', '\u589e\u957f\u4e2d\u5fc3', '\u5728\u804c'])
     buffer = io.BytesIO()
     workbook.save(buffer)
     workbook.close()
@@ -187,7 +187,7 @@ def test_import_employee_master_detects_offset_header_and_alias_columns() -> Non
     with client:
         response = client.post(
             '/api/v1/employees/import',
-            files=[('file', ('???.xlsx', make_offset_alias_workbook_bytes(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))],
+            files=[('file', ('\u82b1\u540d\u518c.xlsx', make_offset_alias_workbook_bytes(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))],
         )
         list_response = client.get('/api/v1/employees', params={'query': 'E2001', 'active_only': 'false'})
 
@@ -196,10 +196,10 @@ def test_import_employee_master_detects_offset_header_and_alias_columns() -> Non
     assert payload['created_count'] == 1
     employee = list_response.json()['data']['items'][0]
     assert employee['employee_id'] == 'E2001'
-    assert employee['person_name'] == '??'
+    assert employee['person_name'] == '\u738b\u4e94'
     assert employee['id_number'] == '440101199303030033'
-    assert employee['company_name'] == '????'
-    assert employee['department'] == '????'
+    assert employee['company_name'] == '\u96f6\u4e00\u88c2\u53d8'
+    assert employee['department'] == '\u589e\u957f\u4e2d\u5fc3'
     assert employee['active'] is True
 
 

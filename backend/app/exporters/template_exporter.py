@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Iterable
 
 from openpyxl import Workbook, load_workbook
+from openpyxl.cell.cell import MergedCell
 from openpyxl.formula.translate import Translator
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
@@ -143,12 +144,38 @@ def _rewrite_sheet_in_place(
 ) -> None:
     row_values = [value_builder(record) for record in records]
     template_snapshot = _snapshot_row(sheet, template_row)
-    target_last_row = max(sheet.max_row, template_row + len(records) - 1)
+    existing_last_row = _detect_existing_data_last_row(sheet, template_row, probe_columns=len(template_snapshot['cells']))
+    target_last_row = max(existing_last_row, template_row + len(records) - 1)
 
     for target_row in range(template_row, target_last_row + 1):
         _apply_row_snapshot(sheet, template_snapshot, source_row=template_row, target_row=target_row)
         values = row_values[target_row - template_row] if target_row - template_row < len(row_values) else None
         _populate_output_row(sheet, template_snapshot, target_row=target_row, values=values)
+
+
+def _detect_existing_data_last_row(sheet: Worksheet, start_row: int, *, probe_columns: int) -> int:
+    last_populated = start_row
+    consecutive_empty_rows = 0
+    upper_bound = min(sheet.max_row, start_row + 2000)
+
+    for row_number in range(start_row, upper_bound + 1):
+        has_value = False
+        for column_index in range(1, probe_columns + 1):
+            cell = sheet.cell(row=row_number, column=column_index)
+            if isinstance(cell, MergedCell):
+                continue
+            if cell.value not in (None, ''):
+                has_value = True
+                break
+        if has_value:
+            last_populated = row_number
+            consecutive_empty_rows = 0
+        else:
+            consecutive_empty_rows += 1
+            if consecutive_empty_rows >= 25:
+                break
+
+    return last_populated
 
 
 def _snapshot_row(sheet: Worksheet, row_number: int) -> dict[str, object]:
@@ -186,6 +213,8 @@ def _apply_row_snapshot(
     for cell_snapshot in snapshot['cells']:
         column_index = cell_snapshot['column_index']
         target_cell = sheet.cell(row=target_row, column=column_index)
+        if isinstance(target_cell, MergedCell):
+            continue
         value = cell_snapshot['value']
         if isinstance(value, str) and value.startswith('=') and target_row != source_row:
             origin = f"{get_column_letter(column_index)}{source_row}"
@@ -216,6 +245,8 @@ def _populate_output_row(
         is_formula = isinstance(template_value, str) and template_value.startswith('=')
         uses_external_reference = is_formula and '[' in template_value
         target_cell = sheet.cell(row=target_row, column=column_index)
+        if isinstance(target_cell, MergedCell):
+            continue
 
         if values is None:
             if not (is_formula and not uses_external_reference):

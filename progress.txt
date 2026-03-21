@@ -762,3 +762,22 @@ ormalization_service.py backendpp\services\import_service.py backendpp\service
 
 ### Notes:
 - Backend aggregate behavior is unchanged; this is a UI-side reliability fix for file selection.
+
+## [2026-03-21] - Task: Aggregate export reliability and intelligent parsing verification
+
+### What was done:
+- Reworked the dual-template exporter to rewrite the original workbook sheet in place instead of replacing the sheet, which keeps the final-tool workbook structure stable and preserves editable internal formulas.
+- Added protection for merged-cell regions in the final-tool template and limited row cleanup to the real data area so the exporter no longer scans or rewrites a million-row merged range.
+- Added regression coverage for offset-header employee master imports, Guangzhou housing fund footer-row filtering, explicit Shenzhen filename region inference, and formula-preserving final-tool export output.
+- Revalidated that the aggregate flow now uses the current intelligent normalization path together with employee master matching and housing fund merge in the targeted API suite.
+
+### Testing:
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_employee_master_api.py backend\tests\test_housing_fund_service.py backend\tests\test_template_exporter.py backend\tests\test_aggregate_api.py backend\tests\test_llm_mapping_service.py -p no:cacheprovider`
+
+### Risks / Open Questions:
+- Existing batches and previously imported malformed employee master records in `data/app.db` will not heal automatically; they need to be re-imported or re-run through aggregate after these fixes.
+- Real DeepSeek quality still depends on the provided API key and network availability; this round verified the LLM fallback path and response handling, not a live external call.
+
+### Notes:
+- The final-tool workbook now keeps template formulas in internal validation columns while replacing unsupported external-link formulas with concrete exported values.
+- If a previous aggregate result was generated before this fix, regenerate the batch to get corrected employee IDs and workbook structure.
