@@ -72,6 +72,7 @@ from backend.app.services.normalization_service import (
     standardize_workbook,
     standardize_workbook_with_fallback,
 )
+from backend.app.services.region_detection_service import RegionDetectionResult, detect_region_for_workbook
 from backend.app.services.validation_service import (
     ValidationPreviewIssue,
     ValidationResult,
@@ -97,6 +98,7 @@ __all__ = [
     'MatchPreviewResult',
     'MERGE_VALUE_FIELDS',
     'NormalizedPreviewRecord',
+    'RegionDetectionResult',
     'SourceRecordBundle',
     'StandardizationResult',
     'ValidationPreviewIssue',
@@ -110,6 +112,7 @@ __all__ = [
     'build_validation_issue_models',
     'create_import_batch',
     'delete_employee_master',
+    'detect_region_for_workbook',
     'export_batch',
     'get_import_batch',
     'run_simple_aggregate',

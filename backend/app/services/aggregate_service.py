@@ -19,24 +19,7 @@ from backend.app.services.employee_service import import_employee_master_file
 from backend.app.services.import_service import InvalidUploadError, create_import_batch, get_import_batch, parse_import_batch
 from backend.app.services.matching_service import apply_match_results_to_normalized_records, build_match_result_models, match_preview_records
 from backend.app.services.normalization_service import NormalizedPreviewRecord
-
-REGION_KEYWORDS = {
-    'guangzhou': ('\u5e7f\u5dde', '\u5e7f\u5206', '\u89c6\u64ad'),
-    'hangzhou': ('\u676d\u5dde', '\u805a\u53d8', '\u88c2\u53d8'),
-    'xiamen': ('\u53a6\u95e8',),
-    'shenzhen': ('\u6df1\u5733', '\u5218\u8273\u73b2'),
-    'wuhan': ('\u6b66\u6c49',),
-    'changsha': ('\u957f\u6c99',),
-}
-
-REGION_LABELS = {
-    'guangzhou': '\u5e7f\u5dde',
-    'hangzhou': '\u676d\u5dde',
-    'xiamen': '\u53a6\u95e8',
-    'shenzhen': '\u6df1\u5733',
-    'wuhan': '\u6b66\u6c49',
-    'changsha': '\u957f\u6c99',
-}
+from backend.app.services.region_detection_service import REGION_LABELS, detect_region_from_filename as detect_region_from_filename_by_rules
 
 FILENAME_NOISE = (
     '\u793e\u4f1a\u4fdd\u9669\u8d39\u7533\u62a5\u4e2a\u4eba\u660e\u7ec6\u8868',
@@ -358,32 +341,19 @@ def _resolve_metadata_values(files: list[UploadFile], values: list[str] | None, 
         if len(cleaned) == len(files):
             return cleaned
 
+    if kind == 'region':
+        return [None] * len(files)
+
     inferred: list[str | None] = []
     for upload in files:
         filename = Path(upload.filename or 'upload.xlsx').name
         region = infer_region_from_filename(filename)
-        if kind == 'region':
-            inferred.append(region)
-        else:
-            inferred.append(infer_company_name_from_filename(filename, region))
+        inferred.append(infer_company_name_from_filename(filename, region))
     return inferred
 
 
 def infer_region_from_filename(filename: str) -> str | None:
-    explicit_matches = [region for region, label in REGION_LABELS.items() if label in filename]
-    if len(explicit_matches) == 1:
-        return explicit_matches[0]
-    if len(explicit_matches) > 1:
-        return max(explicit_matches, key=lambda item: len(REGION_LABELS[item]))
-
-    best_region: str | None = None
-    best_score = -1
-    for region, keywords in REGION_KEYWORDS.items():
-        keyword_score = max((len(keyword) for keyword in keywords if keyword in filename), default=-1)
-        if keyword_score > best_score:
-            best_region = region
-            best_score = keyword_score
-    return best_region if best_score > 0 else None
+    return detect_region_from_filename_by_rules(filename)
 
 
 def infer_company_name_from_filename(filename: str, region: str | None) -> str | None:

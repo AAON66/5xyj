@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from pathlib import Path
+import re
 from uuid import uuid4
 
 from fastapi import UploadFile
@@ -32,10 +33,37 @@ from backend.app.services.header_normalizer import (
 )
 from backend.app.services.housing_fund_service import analyze_housing_fund_workbook
 from backend.app.services.normalization_service import StandardizationResult, standardize_workbook
+from backend.app.services.region_detection_service import detect_region_for_workbook
 
 ALLOWED_EXTENSIONS = {'.xlsx', '.xls'}
 ALLOWED_SOURCE_KINDS = {item.value for item in SourceFileKind}
 LLM_FALLBACK_CONFIDENCE_THRESHOLD = 0.72
+DATE_PATTERN = re.compile(r'(20\d{2}\u5e74\d{1,2}\u6708|20\d{4}|\d{6})')
+FILENAME_NOISE = (
+    '\u793e\u4f1a\u4fdd\u9669\u8d39\u7533\u62a5\u4e2a\u4eba\u660e\u7ec6\u8868',
+    '\u793e\u4fdd\u7f34\u8d39\u660e\u7ec6',
+    '\u793e\u4fdd\u660e\u7ec6',
+    '\u793e\u4fdd\u8d26\u5355',
+    '\u793e\u4fdd\u53f0\u8d26',
+    '\u516c\u79ef\u91d1\u8d26\u5355',
+    '\u516c\u79ef\u91d1\u6c47\u7f34\u660e\u7ec6',
+    '\u516c\u79ef\u91d1',
+    '\u4f4f\u623f\u516c\u79ef\u91d1\u5355\u4f4d\u6c47\u7f34\u660e\u7ec6',
+    '\u5355\u7b14\u7f34\u5b58\u6e05\u5355',
+    '\u8d26\u5355',
+    '\u660e\u7ec6',
+    '\u53f0\u8d26',
+    '\u8865\u7f34',
+)
+REGION_LABELS = {
+    'guangzhou': '\u5e7f\u5dde',
+    'hangzhou': '\u676d\u5dde',
+    'xiamen': '\u53a6\u95e8',
+    'shenzhen': '\u6df1\u5733',
+    'wuhan': '\u6b66\u6c49',
+    'changsha': '\u957f\u6c99',
+}
+
 
 
 class ImportServiceError(Exception):
@@ -92,14 +120,22 @@ async def create_import_batch(
         for index, upload in enumerate(files):
             stored = await _store_upload(batch_dir, upload)
             stored_paths.append(stored.storage_path)
+            detected_region = runtime_regions[index]
+            if detected_region is None:
+                detection = detect_region_for_workbook(
+                    stored.storage_path,
+                    filename=stored.original_name,
+                    source_kind=runtime_file_kinds[index],
+                )
+                detected_region = detection.region
             source_file = SourceFile(
                 batch_id=batch.id,
                 file_name=stored.original_name,
                 file_path=str(stored.storage_path),
                 file_size=stored.file_size,
                 source_kind=runtime_file_kinds[index],
-                region=runtime_regions[index],
-                company_name=runtime_companies[index],
+                region=detected_region,
+                company_name=runtime_companies[index] or _infer_company_name_from_filename(stored.original_name, detected_region),
                 file_hash=stored.file_hash,
             )
             db.add(source_file)

@@ -154,6 +154,38 @@ def test_aggregate_endpoint_exports_both_templates_without_employee_master() -> 
     assert all(Path(item['file_path']).exists() for item in payload['artifacts'])
 
 
+def test_aggregate_endpoint_detects_region_from_workbook_when_filename_is_generic() -> None:
+    salary_template = find_template('\u85aa\u916c')
+    tool_template = find_template('\u6700\u7ec8\u7248')
+    sample_path = find_sample(SAMPLE_KEYWORD)
+    client, _settings, _session_factory = build_test_context(
+        'aggregate_region_from_workbook',
+        salary_template=salary_template,
+        final_tool_template=tool_template,
+    )
+
+    with client:
+        response = client.post(
+            '/api/v1/aggregate',
+            data={'batch_name': 'quick-aggregate-region-from-workbook'},
+            files=[
+                (
+                    'files',
+                    (
+                        'generic.xlsx',
+                        sample_path.read_bytes(),
+                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    ),
+                )
+            ],
+        )
+
+    assert response.status_code == 201
+    payload = response.json()['data']
+    assert payload['source_files'][0]['region'] == 'shenzhen'
+    assert payload['source_files'][0]['normalized_record_count'] >= 1
+
+
 def test_aggregate_endpoint_imports_employee_master_and_matches_records() -> None:
     salary_template = find_template('\u85aa\u916c')
     tool_template = find_template('\u6700\u7ec8\u7248')

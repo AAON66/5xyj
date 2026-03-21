@@ -798,3 +798,22 @@ ormalization_service.py backendpp\services\import_service.py backendpp\service
 
 ### Notes:
 - This is a UI containment change only; aggregate behavior and file handling logic are unchanged.
+
+## [2026-03-21] - Task: Multi-signal region detection for aggregate imports
+
+### What was done:
+- Added a dedicated region detection service that combines filename clues, workbook sheet names, and workbook header/title text to infer the source region.
+- Implemented a hybrid decision strategy for region inference: strong local evidence wins immediately, otherwise the system can call DeepSeek for ambiguous files and merge rule + LLM decisions when both agree.
+- Wired the new detector into import batch creation so missing `region` metadata is now filled after the Excel file is stored, which means both quick aggregate and normal import flows benefit from workbook-aware region detection.
+- Added regression coverage for Guangzhou and Xiamen workbook-content detection, rule/LLM decision precedence, and a full aggregate API path where a Shenzhen sample is uploaded under a generic filename but still resolves to the correct region.
+
+### Testing:
+- `.\.venv\Scripts\python.exe -m pytest backend	ests	est_import_batches_api.py -p no:cacheprovider`
+- `.\.venv\Scripts\python.exe -m pytest backend	ests	est_aggregate_api.py backend	ests	est_region_detection_service.py -p no:cacheprovider`
+
+### Risks / Open Questions:
+- Region inference is now much stronger on workbook content, but company-name inference still primarily depends on filename cleanup; if we later need better company extraction from workbook headers, that should be added as a separate pass.
+- Live LLM-assisted region detection still depends on the configured DeepSeek key and network health; local workbook rules remain the default path for strong-signal files.
+
+### Notes:
+- Users no longer need the city name in the uploaded filename for the system to infer region correctly when the workbook title or header already reveals it.
