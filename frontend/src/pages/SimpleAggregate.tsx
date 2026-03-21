@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { PageContainer, SectionState, SurfaceNotice } from '../components';
 import { normalizeApiError } from '../services/api';
 import {
+  getAggregateArtifactDownloadUrl,
   runSimpleAggregateWithProgress,
   type AggregateArtifact,
   type AggregateProgressEvent,
@@ -337,6 +338,18 @@ export function SimpleAggregatePage() {
                     tone={artifactTone(artifact)}
                     title={artifactLabel(artifact.template_type)}
                     message={formatArtifactMessage(artifact)}
+                    action={
+                      artifact.status === 'completed' && result.batch_id ? (
+                        <a
+                          className="button button--ghost button--download"
+                          href={getAggregateArtifactDownloadUrl(result.batch_id, artifact.template_type)}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          下载文件
+                        </a>
+                      ) : null
+                    }
                   />
                 ))}
               </div>

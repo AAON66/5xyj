@@ -1,13 +1,17 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from json import JSONDecodeError
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from backend.app.api.v1.responses import success_response
 from backend.app.dependencies import get_db
+from backend.app.models.enums import TemplateType
 from backend.app.schemas.imports import ImportBatchDetailRead
 from backend.app.services import ExportBlockedError, export_batch, get_batch_export, get_batch_match, get_batch_validation, match_batch, validate_batch
 from backend.app.services.import_service import (
@@ -149,6 +153,22 @@ def get_batch_export_endpoint(batch_id: str, db: Session = Depends(get_db)):
     return success_response(payload.model_dump(mode='json'), message='Batch export retrieved.')
 
 
+@router.get('/{batch_id}/export/{template_type}/download')
+def download_batch_export_artifact_endpoint(request: Request, batch_id: str, template_type: str, db: Session = Depends(get_db)):
+    try:
+        batch = get_import_batch(db, batch_id)
+    except BatchNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+
+    artifact = _resolve_downloadable_artifact(batch, template_type)
+    artifact_path = _resolve_downloadable_artifact_path(request.app.state.settings.outputs_path, artifact.file_path)
+    return FileResponse(
+        path=artifact_path,
+        filename=artifact_path.name,
+        media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+
+
 def _parse_metadata_values(raw_value: str | None, field_name: str) -> list[str] | None:
     if raw_value is None:
         return None
@@ -169,3 +189,38 @@ def _parse_metadata_values(raw_value: str | None, field_name: str) -> list[str] 
         raise InvalidUploadError(f"Field '{field_name}' must be a JSON array of strings.")
 
     return [item or '' for item in parsed]
+
+
+def _resolve_downloadable_artifact(batch, raw_template_type: str):
+    try:
+        template_type = TemplateType(raw_template_type)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"Unknown template type: {raw_template_type}.") from exc
+
+    if not batch.export_jobs:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='No export artifact is available for this batch yet.')
+
+    latest_job = max(
+        batch.export_jobs,
+        key=lambda item: (item.completed_at or item.created_at or datetime.min.replace(tzinfo=timezone.utc), item.created_at),
+    )
+    artifact = next((item for item in latest_job.artifacts if item.template_type == template_type), None)
+    if artifact is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='The requested export artifact was not found.')
+    if artifact.status != 'completed' or not artifact.file_path:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail='The requested export artifact is not ready for download.')
+    return artifact
+
+
+def _resolve_downloadable_artifact_path(outputs_root: Path, raw_path: str | None) -> Path:
+    if not raw_path:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='The requested export artifact does not have a file path.')
+
+    candidate = Path(raw_path)
+    resolved = candidate.resolve() if candidate.is_absolute() else (outputs_root / candidate).resolve()
+    allowed_root = outputs_root.resolve()
+    if resolved != allowed_root and allowed_root not in resolved.parents:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='The requested export artifact path is invalid.')
+    if not resolved.exists():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='The requested export artifact file no longer exists.')
+    return resolved

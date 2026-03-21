@@ -1418,6 +1418,10 @@ button {
   background: rgba(248, 250, 254, 0.96);
 }
 
+.button--download {
+  white-space: nowrap;
+}
+
 @media (max-width: 980px) {
   .status-grid,
   .simple-result-summary {

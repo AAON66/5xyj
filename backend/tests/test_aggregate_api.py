@@ -198,6 +198,50 @@ def test_aggregate_endpoint_imports_employee_master_and_matches_records() -> Non
     assert all(Path(item['file_path']).exists() for item in payload['artifacts'])
 
 
+
+
+def test_aggregate_download_endpoint_returns_generated_artifacts() -> None:
+    salary_template = find_template('\u85aa\u916c')
+    tool_template = find_template('\u6700\u7ec8\u7248')
+    sample_path = find_sample(SAMPLE_KEYWORD)
+    client, _settings, _session_factory = build_test_context(
+        'aggregate_downloads',
+        salary_template=salary_template,
+        final_tool_template=tool_template,
+    )
+
+    with client:
+        aggregate_response = client.post(
+            '/api/v1/aggregate',
+            data={'batch_name': 'quick-aggregate-downloads'},
+            files=[
+                (
+                    'files',
+                    (
+                        sample_path.name,
+                        sample_path.read_bytes(),
+                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    ),
+                )
+            ],
+        )
+        assert aggregate_response.status_code == 201
+        batch_id = aggregate_response.json()['data']['batch_id']
+
+        salary_download = client.get(f'/api/v1/imports/{batch_id}/export/salary/download')
+        assert salary_download.status_code == 200
+        assert 'attachment;' in salary_download.headers.get('content-disposition', '')
+        assert salary_download.headers['content-type'].startswith(
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        assert salary_download.content
+
+        tool_download = client.get(f'/api/v1/imports/{batch_id}/export/final_tool/download')
+        assert tool_download.status_code == 200
+        assert 'attachment;' in tool_download.headers.get('content-disposition', '')
+        assert tool_download.content
+
+
 def test_aggregate_endpoint_merges_housing_fund_into_dual_exports() -> None:
     salary_template = find_template('\u85aa\u916c')
     tool_template = find_template('\u6700\u7ec8\u7248')

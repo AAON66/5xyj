@@ -164,3 +164,7 @@ export async function runSimpleAggregateWithProgress(input: AggregateInput & {
   }
   return finalResult;
 }
+
+export function getAggregateArtifactDownloadUrl(batchId: string, templateType: string): string {
+  return `${getApiBaseUrl()}/imports/${encodeURIComponent(batchId)}/export/${encodeURIComponent(templateType)}/download`;
+}

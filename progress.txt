@@ -709,3 +709,21 @@ ormalization_service.py backendpp\services\import_service.py backendpp\service
 ### Notes:
 - Quick aggregate mode now supports three inputs in one run: social security files, housing fund files, and optional employee master data.
 - Exported salary and final-tool templates now write real housing fund columns whenever matching housing fund data is available.
+
+## [2026-03-21] - Task: Quick aggregate artifact download button
+
+### What was done:
+- Added a backend download route for completed export artifacts so quick aggregate results can return the actual generated files instead of only showing local file paths.
+- Updated the quick aggregate frontend result cards to show a direct download button for each completed template artifact.
+- Added a targeted aggregate API regression test that downloads both generated templates after a successful aggregate run.
+
+### Testing:
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_aggregate_api.py -p no:cacheprovider`
+- `cmd /c npm.cmd run lint`
+- `cmd /c npm.cmd run build`
+
+### Risks / Open Questions:
+- Downloads are currently exposed from the latest export job for a batch, which matches the quick aggregate flow but may need finer job selection later if batches support multiple user-visible export histories.
+
+### Notes:
+- The quick aggregate page now lets users download both fixed output templates directly after the run succeeds, without opening the advanced export page.
