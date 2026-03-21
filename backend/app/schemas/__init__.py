@@ -1,4 +1,5 @@
-﻿from backend.app.schemas.dashboard import DashboardOverviewRead, DashboardRecentBatchRead, DashboardTotalsRead
+from backend.app.schemas.aggregate import AggregateEmployeeImportRead, AggregateRunRead, AggregateSourceFileRead
+from backend.app.schemas.dashboard import DashboardOverviewRead, DashboardRecentBatchRead, DashboardTotalsRead
 from backend.app.schemas.employees import (
     EmployeeImportRead,
     EmployeeMasterAuditListRead,
@@ -11,6 +12,9 @@ from backend.app.schemas.employees import (
 from backend.app.schemas.imports import ImportBatchDetailRead, ImportBatchSummaryRead, SourceFileRead
 
 __all__ = [
+    "AggregateEmployeeImportRead",
+    "AggregateRunRead",
+    "AggregateSourceFileRead",
     "DashboardOverviewRead",
     "DashboardRecentBatchRead",
     "DashboardTotalsRead",

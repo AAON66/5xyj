@@ -1,4 +1,5 @@
-﻿export * from './Dashboard';
+export * from './SimpleAggregate';
+export * from './Dashboard';
 export * from './Employees';
 export * from './Exports';
 export * from './ImportBatchDetail';

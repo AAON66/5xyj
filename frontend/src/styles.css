@@ -1382,3 +1382,45 @@ button {
   color: #5c697d;
   font-size: 0.94rem;
 }
+
+.status-grid,
+.simple-file-list,
+.simple-result-summary,
+.simple-artifact-list,
+.simple-source-list {
+  display: grid;
+  gap: 14px;
+}
+
+.status-grid,
+.simple-result-summary {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.simple-aggregate-grid,
+.simple-result-stack {
+  align-items: start;
+}
+
+.simple-aggregate-card {
+  min-height: 100%;
+}
+
+.simple-file-list .status-item,
+.simple-source-list .status-item,
+.simple-result-summary .status-item {
+  min-height: 100%;
+}
+
+.simple-artifact-list .surface-notice,
+.simple-source-list .status-item,
+.simple-file-list .status-item {
+  background: rgba(248, 250, 254, 0.96);
+}
+
+@media (max-width: 980px) {
+  .status-grid,
+  .simple-result-summary {
+    grid-template-columns: 1fr;
+  }
+}

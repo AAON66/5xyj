@@ -1,13 +1,14 @@
-﻿import { Route, Routes } from "react-router-dom";
+import { Route, Routes } from "react-router-dom";
 
 import { AppShell } from "./components";
-import { DashboardPage, EmployeesPage, ExportsPage, ImportBatchDetailPage, ImportsPage, MappingsPage, NotFoundPage, ResultsPage } from "./pages";
+import { DashboardPage, EmployeesPage, ExportsPage, ImportBatchDetailPage, ImportsPage, MappingsPage, NotFoundPage, ResultsPage, SimpleAggregatePage } from "./pages";
 
 export default function App() {
   return (
     <AppShell>
       <Routes>
-        <Route path="/" element={<DashboardPage />} />
+        <Route path="/" element={<SimpleAggregatePage />} />
+        <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/imports" element={<ImportsPage />} />
         <Route path="/imports/:batchId" element={<ImportBatchDetailPage />} />
         <Route path="/mappings" element={<MappingsPage />} />

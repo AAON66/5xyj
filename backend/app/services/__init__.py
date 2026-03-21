@@ -1,4 +1,5 @@
-﻿from backend.app.services.batch_export_service import (
+from backend.app.services.aggregate_service import infer_company_name_from_filename, infer_region_from_filename, run_simple_aggregate
+from backend.app.services.batch_export_service import (
     ExportBlockedError,
     export_batch,
     get_batch_export,
@@ -97,7 +98,10 @@ __all__ = [
     'delete_employee_master',
     'export_batch',
     'get_import_batch',
+    'run_simple_aggregate',
     'import_employee_master_file',
+    'infer_company_name_from_filename',
+    'infer_region_from_filename',
     'list_employee_master_audits',
     'list_employee_masters',
     'list_import_batches',

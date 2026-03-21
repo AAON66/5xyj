@@ -638,3 +638,28 @@
 ### Notes:
 - This is a post-task-list enhancement on top of completed task 6, not a change to the original repository task checklist.
 - Existing unrelated .claude/*, .idea/*, .codex/, AGENTS.md, and local data/samples/*.xlsx changes were intentionally left untouched.
+
+## [2026-03-21] - Task: Quick aggregate mode with dual-template output
+
+### What was done:
+- Added a new backend endpoint `/api/v1/aggregate` to run upload, parse, validation, matching, and dual-template export in one request.
+- Added aggregate runtime schemas and service orchestration, including filename-based region/company inference and optional employee master import before matching.
+- Added a simplified frontend entry page as the default route so the main flow is now upload -> aggregate -> get two output files.
+- Reworked the main navigation copy to keep advanced pages available without making them the default workflow.
+- Added dedicated styles for the simple aggregate surface and cleaned a stale BOM issue in `frontend/src/pages/index.ts`.
+- Added API tests covering quick aggregate runs with and without employee master input.
+
+### Testing:
+- `py -m py_compile backend\app\api\v1\aggregate.py backend\app\services\aggregate_service.py backend\app\schemas\aggregate.py backend\tests\test_aggregate_api.py`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_aggregate_api.py -p no:cacheprovider`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_export_api.py -p no:cacheprovider`
+- `cmd /c npm.cmd run lint`
+- `cmd /c npm.cmd run build`
+
+### Risks / Open Questions:
+- Quick aggregate mode intentionally keeps advanced troubleshooting pages as secondary tools, so manual mapping and batch drill-down remain available but are no longer the primary path.
+- Filename-based region/company inference is best-effort; if future file names become less descriptive, users may still need the advanced import flow.
+
+### Notes:
+- The simplified flow still preserves the confirmed requirement to output both fixed templates in the same run.
+- When no employee master file is provided, the quick aggregate flow still exports successfully and leaves unmatched employee IDs blank instead of blocking export.
