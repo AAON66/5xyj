@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Iterable
 
 from openpyxl import Workbook, load_workbook
+from openpyxl.formula.translate import Translator
+from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
 from backend.app.core.config import get_settings
@@ -113,35 +115,118 @@ def _export_template_variant(
 
 
 def _rewrite_salary_sheet(workbook: Workbook, records: list[NormalizedRecord]) -> None:
-    template_sheet = workbook[workbook.sheetnames[0]]
-    new_sheet = workbook.create_sheet(title=f'{template_sheet.title}_export', index=0)
-    _copy_sheet_settings(template_sheet, new_sheet, preserve_rows_up_to=SALARY_DATA_START_ROW + 1)
-    _copy_header_rows(template_sheet, new_sheet, SALARY_SHEET_HEADER_ROW)
-
-    for offset, record in enumerate(records):
-        target_row = SALARY_DATA_START_ROW + offset
-        _copy_row_style(template_sheet, new_sheet, SALARY_DATA_START_ROW, target_row, len(SALARY_HEADERS))
-        for column_index, value in enumerate(_salary_row_values(record), start=1):
-            new_sheet.cell(row=target_row, column=column_index, value=value)
-
-    workbook.remove(template_sheet)
-    new_sheet.title = template_sheet.title
+    sheet = workbook[workbook.sheetnames[0]]
+    _rewrite_sheet_in_place(
+        sheet,
+        template_row=SALARY_DATA_START_ROW,
+        records=records,
+        value_builder=_salary_row_values,
+    )
 
 
 def _rewrite_tool_sheet(workbook: Workbook, records: list[NormalizedRecord]) -> None:
-    template_sheet = workbook[workbook.sheetnames[0]]
-    new_sheet = workbook.create_sheet(title=f'{template_sheet.title}_export', index=0)
-    _copy_sheet_settings(template_sheet, new_sheet, preserve_rows_up_to=TOOL_DATA_START_ROW + 1)
-    _copy_header_rows(template_sheet, new_sheet, TOOL_SHEET_HEADER_ROW)
+    sheet = workbook[workbook.sheetnames[0]]
+    _rewrite_sheet_in_place(
+        sheet,
+        template_row=TOOL_DATA_START_ROW,
+        records=records,
+        value_builder=_tool_row_values,
+    )
 
-    for offset, record in enumerate(records):
-        target_row = TOOL_DATA_START_ROW + offset
-        _copy_row_style(template_sheet, new_sheet, TOOL_DATA_START_ROW, target_row, len(TOOL_HEADERS))
-        for column_index, value in enumerate(_tool_row_values(record), start=1):
-            new_sheet.cell(row=target_row, column=column_index, value=value)
 
-    workbook.remove(template_sheet)
-    new_sheet.title = template_sheet.title
+def _rewrite_sheet_in_place(
+    sheet: Worksheet,
+    *,
+    template_row: int,
+    records: list[NormalizedRecord],
+    value_builder,
+) -> None:
+    row_values = [value_builder(record) for record in records]
+    template_snapshot = _snapshot_row(sheet, template_row)
+    target_last_row = max(sheet.max_row, template_row + len(records) - 1)
+
+    for target_row in range(template_row, target_last_row + 1):
+        _apply_row_snapshot(sheet, template_snapshot, source_row=template_row, target_row=target_row)
+        values = row_values[target_row - template_row] if target_row - template_row < len(row_values) else None
+        _populate_output_row(sheet, template_snapshot, target_row=target_row, values=values)
+
+
+def _snapshot_row(sheet: Worksheet, row_number: int) -> dict[str, object]:
+    row_dimension = copy(sheet.row_dimensions[row_number]) if row_number in sheet.row_dimensions else None
+    cells = []
+    for column_index in range(1, sheet.max_column + 1):
+        cell = sheet.cell(row=row_number, column=column_index)
+        cells.append(
+            {
+                'column_index': column_index,
+                'value': cell.value,
+                'style': copy(cell._style) if cell.has_style else None,
+                'font': copy(cell.font),
+                'fill': copy(cell.fill),
+                'border': copy(cell.border),
+                'alignment': copy(cell.alignment),
+                'number_format': cell.number_format,
+                'protection': copy(cell.protection),
+            }
+        )
+    return {'row_dimension': row_dimension, 'cells': cells}
+
+
+def _apply_row_snapshot(
+    sheet: Worksheet,
+    snapshot: dict[str, object],
+    *,
+    source_row: int,
+    target_row: int,
+) -> None:
+    row_dimension = snapshot['row_dimension']
+    if row_dimension is not None:
+        sheet.row_dimensions[target_row] = copy(row_dimension)
+
+    for cell_snapshot in snapshot['cells']:
+        column_index = cell_snapshot['column_index']
+        target_cell = sheet.cell(row=target_row, column=column_index)
+        value = cell_snapshot['value']
+        if isinstance(value, str) and value.startswith('=') and target_row != source_row:
+            origin = f"{get_column_letter(column_index)}{source_row}"
+            destination = f"{get_column_letter(column_index)}{target_row}"
+            value = Translator(value, origin=origin).translate_formula(destination)
+        target_cell.value = value
+        target_cell.font = copy(cell_snapshot['font'])
+        target_cell.fill = copy(cell_snapshot['fill'])
+        target_cell.border = copy(cell_snapshot['border'])
+        target_cell.alignment = copy(cell_snapshot['alignment'])
+        target_cell.number_format = cell_snapshot['number_format']
+        target_cell.protection = copy(cell_snapshot['protection'])
+        if cell_snapshot['style'] is not None:
+            target_cell._style = copy(cell_snapshot['style'])
+
+
+def _populate_output_row(
+    sheet: Worksheet,
+    snapshot: dict[str, object],
+    *,
+    target_row: int,
+    values: list[object] | None,
+) -> None:
+    cell_snapshots = snapshot['cells']
+    for cell_snapshot in cell_snapshots:
+        column_index = cell_snapshot['column_index']
+        template_value = cell_snapshot['value']
+        is_formula = isinstance(template_value, str) and template_value.startswith('=')
+        uses_external_reference = is_formula and '[' in template_value
+        target_cell = sheet.cell(row=target_row, column=column_index)
+
+        if values is None:
+            if not (is_formula and not uses_external_reference):
+                target_cell.value = None
+            continue
+
+        if column_index > len(values):
+            continue
+        if is_formula and not uses_external_reference:
+            continue
+        target_cell.value = values[column_index - 1]
 
 
 def _salary_row_values(record: NormalizedRecord) -> list[object]:
@@ -260,56 +345,6 @@ def _resolve_template_path(template_path: str | Path | None, template_type: Temp
     if matches:
         return matches[0]
     raise ExportServiceError(f'No template could be resolved for {template_type.value}.')
-
-
-def _copy_sheet_settings(source: Worksheet, target: Worksheet, *, preserve_rows_up_to: int) -> None:
-    target.freeze_panes = source.freeze_panes
-    target.sheet_state = source.sheet_state
-    target.sheet_format.defaultColWidth = source.sheet_format.defaultColWidth
-    target.sheet_format.defaultRowHeight = source.sheet_format.defaultRowHeight
-    target.sheet_view.zoomScale = source.sheet_view.zoomScale
-    target.page_margins = copy(source.page_margins)
-    target.page_setup = copy(source.page_setup)
-    target.print_options = copy(source.print_options)
-    target.sheet_properties = copy(source.sheet_properties)
-    for key, dimension in source.column_dimensions.items():
-        target.column_dimensions[key] = copy(dimension)
-    for key, dimension in source.row_dimensions.items():
-        if key <= preserve_rows_up_to:
-            target.row_dimensions[key] = copy(dimension)
-
-
-def _copy_header_rows(source: Worksheet, target: Worksheet, header_row: int) -> None:
-    max_column = source.max_column
-    for row_number in range(1, header_row + 1):
-        _copy_row_style(source, target, row_number, row_number, max_column)
-        for column_index in range(1, max_column + 1):
-            source_cell = source.cell(row=row_number, column=column_index)
-            target_cell = target.cell(row=row_number, column=column_index, value=source_cell.value)
-            _copy_cell_style(source_cell, target_cell)
-    for merged_range in source.merged_cells.ranges:
-        if merged_range.max_row <= header_row:
-            target.merge_cells(str(merged_range))
-
-
-def _copy_row_style(source: Worksheet, target: Worksheet, source_row: int, target_row: int, max_column: int) -> None:
-    if source_row in source.row_dimensions:
-        target.row_dimensions[target_row] = copy(source.row_dimensions[source_row])
-    for column_index in range(1, max_column + 1):
-        source_cell = source.cell(row=source_row, column=column_index)
-        target_cell = target.cell(row=target_row, column=column_index)
-        _copy_cell_style(source_cell, target_cell)
-
-
-def _copy_cell_style(source_cell, target_cell) -> None:
-    target_cell.font = copy(source_cell.font)
-    target_cell.fill = copy(source_cell.fill)
-    target_cell.border = copy(source_cell.border)
-    target_cell.alignment = copy(source_cell.alignment)
-    target_cell.number_format = source_cell.number_format
-    target_cell.protection = copy(source_cell.protection)
-    if source_cell.has_style:
-        target_cell._style = copy(source_cell._style)
 
 
 def _amount(value: Decimal | None) -> Decimal:

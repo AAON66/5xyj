@@ -370,10 +370,20 @@ def _resolve_metadata_values(files: list[UploadFile], values: list[str] | None, 
 
 
 def infer_region_from_filename(filename: str) -> str | None:
+    explicit_matches = [region for region, label in REGION_LABELS.items() if label in filename]
+    if len(explicit_matches) == 1:
+        return explicit_matches[0]
+    if len(explicit_matches) > 1:
+        return max(explicit_matches, key=lambda item: len(REGION_LABELS[item]))
+
+    best_region: str | None = None
+    best_score = -1
     for region, keywords in REGION_KEYWORDS.items():
-        if any(keyword in filename for keyword in keywords):
-            return region
-    return None
+        keyword_score = max((len(keyword) for keyword in keywords if keyword in filename), default=-1)
+        if keyword_score > best_score:
+            best_region = region
+            best_score = keyword_score
+    return best_region if best_score > 0 else None
 
 
 def infer_company_name_from_filename(filename: str, region: str | None) -> str | None:

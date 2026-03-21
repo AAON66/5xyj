@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+﻿import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 
 interface PageContainerProps {
@@ -22,7 +22,7 @@ export function PageContainer({ eyebrow, title, description, actions, children }
       </header>
       {children}
       <footer className="page-footer-note">
-        <span>当前界面只承载基础链路，后续会逐步接入真实导入、解析、匹配与导出能力。</span>
+        <span>当前页面已经接入真实导入、解析、校验、匹配和导出链路；如果你要看批次级明细和人工修正，再进入高级页面。</span>
         <Link to="/imports">进入导入批次</Link>
       </footer>
     </section>

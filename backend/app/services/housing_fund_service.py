@@ -27,6 +27,7 @@ RATE_PATTERNS: dict[str, tuple[str, ...]] = {
     "personal_rate": ("\u4e2a\u4eba\u7f34\u5b58\u6bd4\u4f8b",),
 }
 PLACEHOLDER_STRINGS = {"", "-", "--", "\u2014\u2014", "none", "null", "(\u7a7a\u767d)"}
+NON_DETAIL_NAME_PATTERNS = ("经办网点", "打印日期", "管理中心", "制表人", "说明", "备注", "汇总", "合计")
 
 
 @dataclass(slots=True)
@@ -200,6 +201,8 @@ def _build_preview_record(
     id_number = _find_first_value(raw_values, HEADER_PATTERNS["id_number"])
     if not person_name and not id_number:
         return None
+    if _looks_like_non_detail_record(person_name, id_number):
+        return None
 
     billing_period = _normalize_period(_find_first_value(raw_values, HEADER_PATTERNS["billing_period"]))
     period_start, period_end = _derive_period_bounds(_find_first_value(raw_values, HEADER_PATTERNS["billing_period"]))
@@ -255,6 +258,16 @@ def _build_preview_record(
         raw_values=raw_values,
         raw_payload=raw_payload,
     )
+
+
+def _looks_like_non_detail_record(person_name: str | None, id_number: str | None) -> bool:
+    normalized_name = (person_name or '').replace(' ', '')
+    normalized_id = (id_number or '').strip()
+    if any(pattern in normalized_name for pattern in NON_DETAIL_NAME_PATTERNS):
+        return True
+    if normalized_name and len(normalized_name) > 20 and not normalized_id:
+        return True
+    return False
 
 
 def _resolve_housing_amounts(

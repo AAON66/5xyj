@@ -90,14 +90,10 @@ def test_export_dual_templates_writes_both_template_outputs() -> None:
     assert float(tool_sheet['N7'].value) == float(records[0].housing_fund_personal)
     assert float(tool_sheet['V7'].value) == float(records[0].housing_fund_company)
     assert float(tool_sheet['W7'].value) == float(records[0].personal_total_amount)
-    assert float(tool_sheet['AG7'].value) == float(
-        (records[0].pension_company + records[0].supplementary_pension_company)
-        + (records[0].medical_company or 0)
-        + (records[0].unemployment_company or 0)
-        + (records[0].injury_company or 0)
-        + (records[0].maternity_amount or 0)
-        + (records[0].supplementary_medical_company or 0)
-    )
+    assert tool_sheet['AA7'].data_type == 'f'
+    assert str(tool_sheet['AA7'].value).startswith('=')
+    assert tool_sheet['AO7'].data_type == 'f'
+    assert str(tool_sheet['AO7'].value).startswith('=')
     tool_wb.close()
 
 

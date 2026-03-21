@@ -24,12 +24,12 @@ from backend.app.schemas.employees import (
 
 
 HEADER_ALIASES = {
-    "employee_id": {"employee_id", "工号", "员工工号", "职工工号", "人员工号"},
-    "person_name": {"person_name", "姓名", "员工姓名", "职工姓名"},
-    "id_number": {"id_number", "证件号码", "身份证号", "身份证号码", "证件号"},
-    "company_name": {"company_name", "公司", "公司名称", "所属公司", "主体"},
-    "department": {"department", "部门", "部门名称", "所属部门"},
-    "active": {"active", "是否在职", "在职状态", "启用状态", "状态"},
+    "employee_id": {"employee_id", "工号", "员工工号", "职工工号", "人员工号", "员工编号", "职员编号", "员工编码", "编号", "erp工号"},
+    "person_name": {"person_name", "姓名", "员工姓名", "职工姓名", "人员姓名", "姓名name"},
+    "id_number": {"id_number", "证件号码", "身份证号", "身份证号码", "证件号", "身份证", "身份证件号码", "身份证件号", "证件号码(身份证)"},
+    "company_name": {"company_name", "公司", "公司名称", "所属公司", "主体", "主体公司", "法人公司", "所属法人公司", "归属公司", "用工主体", "法人主体"},
+    "department": {"department", "部门", "部门名称", "所属部门", "组织", "组织架构", "一级部门", "二级部门", "部门/组别", "组别"},
+    "active": {"active", "是否在职", "在职状态", "启用状态", "状态", "任职状态", "人员状态", "在离职状态"},
 }
 
 TRUE_VALUES = {"1", "true", "yes", "y", "是", "在职", "启用", "active"}
@@ -195,7 +195,8 @@ def list_employee_master_audits(db: Session, employee_id: str) -> EmployeeMaster
 
 
 def _parse_employee_rows(file_name: str, raw_bytes: bytes) -> list[_EmployeeImportRow]:
-    dataframe = _load_tabular_file(file_name, raw_bytes)
+    raw_dataframe = _load_tabular_file(file_name, raw_bytes)
+    dataframe = _prepare_employee_dataframe(raw_dataframe)
     if dataframe.empty:
         return []
 
@@ -219,13 +220,59 @@ def _load_tabular_file(file_name: str, raw_bytes: bytes) -> pd.DataFrame:
         for encoding in ("utf-8-sig", "utf-8", "gbk"):
             buffer.seek(0)
             try:
-                return pd.read_csv(buffer, dtype=object, encoding=encoding)
+                return pd.read_csv(buffer, dtype=object, encoding=encoding, header=None)
             except UnicodeDecodeError:
                 continue
         raise EmployeeImportError("Employee master CSV could not be decoded with utf-8 or gbk.")
     if lower_name.endswith(".xlsx") or lower_name.endswith(".xlsm"):
-        return pd.read_excel(buffer, dtype=object)
+        return pd.read_excel(buffer, dtype=object, header=None)
     raise EmployeeImportError("Employee master import only supports CSV or XLSX files.")
+
+
+def _prepare_employee_dataframe(raw_dataframe: pd.DataFrame) -> pd.DataFrame:
+    if raw_dataframe.empty:
+        return raw_dataframe
+
+    header_row_index = _detect_employee_header_row(raw_dataframe)
+    headers = [_normalize_header_cell(value, index) for index, value in enumerate(raw_dataframe.iloc[header_row_index].tolist(), start=1)]
+    dataframe = raw_dataframe.iloc[header_row_index + 1 :].copy()
+    dataframe.columns = headers
+    dataframe = dataframe.reset_index(drop=True)
+    return dataframe
+
+
+def _detect_employee_header_row(dataframe: pd.DataFrame) -> int:
+    max_rows = min(len(dataframe.index), 8)
+    best_index = 0
+    best_score = -1
+    for row_index in range(max_rows):
+        row_values = [_clean_text(value) for value in dataframe.iloc[row_index].tolist()]
+        score = _score_employee_header_row(row_values)
+        if score > best_score:
+            best_score = score
+            best_index = row_index
+    return best_index
+
+
+def _score_employee_header_row(values: list[str | None]) -> int:
+    normalized = [_normalize_header(value or "") for value in values]
+    score = 0
+    for field_name, aliases in HEADER_ALIASES.items():
+        alias_hits = sum(1 for alias in aliases if _normalize_header(alias) in normalized)
+        if not alias_hits:
+            continue
+        if field_name in {"employee_id", "person_name"}:
+            score += 6
+        elif field_name in {"id_number", "company_name"}:
+            score += 4
+        else:
+            score += 2
+    return score
+
+
+def _normalize_header_cell(value: object, index: int) -> str:
+    cleaned = _clean_text(value)
+    return cleaned or f"column_{index}"
 
 
 def _resolve_column_map(columns: list[object]) -> dict[str, str]:
@@ -282,7 +329,18 @@ def _parse_active_value(value: object) -> bool:
 
 
 def _normalize_header(value: str) -> str:
-    return "".join(value.strip().lower().replace("（", "(").replace("）", ")").split())
+    return (
+        "".join(
+            value.strip()
+            .lower()
+            .replace("（", "(")
+            .replace("）", ")")
+            .replace("：", "")
+            .replace(":", "")
+            .replace("_", "")
+            .split()
+        )
+    )
 
 
 def _clean_text(value: object) -> str | None:

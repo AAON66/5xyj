@@ -27,10 +27,13 @@ from backend.app.services.header_normalizer import (
     HeaderNormalizationResult,
     normalize_header_column,
     normalize_header_column_with_fallback,
+    normalize_header_column_with_sync_fallback,
     normalize_header_extraction,
     normalize_header_extraction_with_fallback,
+    normalize_header_extraction_with_sync_fallback,
     normalize_headers,
     normalize_headers_with_fallback,
+    normalize_headers_with_sync_fallback,
 )
 from backend.app.services.housing_fund_service import (
     HousingFundWorkbookAnalysis,
@@ -46,7 +49,7 @@ from backend.app.services.import_service import (
     list_import_batches,
     serialize_import_batch,
 )
-from backend.app.services.llm_mapping_service import LLMMappingResult, map_header_with_llm
+from backend.app.services.llm_mapping_service import LLMMappingResult, map_header_with_llm, map_header_with_llm_sync
 from backend.app.services.mapping_service import (
     HeaderMappingNotFoundError,
     InvalidCanonicalFieldError,
@@ -118,16 +121,20 @@ __all__ = [
     'list_import_batches',
     'list_header_mappings',
     'map_header_with_llm',
+    'map_header_with_llm_sync',
     'merge_batch_standardized_records',
     'match_batch',
     'match_preview_records',
     'normalize_header_column',
     'normalize_header_column_with_fallback',
+    'normalize_header_column_with_sync_fallback',
     'normalize_header_extraction',
     'normalize_header_extraction_with_fallback',
+    'normalize_header_extraction_with_sync_fallback',
     'analyze_housing_fund_workbook',
     'normalize_headers',
     'normalize_headers_with_fallback',
+    'normalize_headers_with_sync_fallback',
     'serialize_import_batch',
     'standardize_housing_fund_workbook',
     'standardize_workbook',

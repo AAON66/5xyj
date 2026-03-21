@@ -5,7 +5,11 @@ from pathlib import Path
 
 from backend.app.mappings.manual_field_aliases import AliasRule, MANUAL_ALIAS_RULES
 from backend.app.parsers import HeaderExtraction, HeaderColumn, extract_header_structure
-from backend.app.services.llm_mapping_service import LLMMappingResult, map_header_with_llm
+from backend.app.services.llm_mapping_service import (
+    LLMMappingResult,
+    map_header_with_llm,
+    map_header_with_llm_sync,
+)
 
 
 @dataclass(slots=True)
@@ -76,6 +80,35 @@ async def normalize_header_extraction_with_fallback(
     )
 
 
+def normalize_header_extraction_with_sync_fallback(
+    extraction: HeaderExtraction,
+    region: str | None = None,
+    *,
+    confidence_threshold: float = 0.8,
+) -> HeaderNormalizationResult:
+    decisions = []
+    for column in extraction.columns:
+        decision = normalize_header_column(column, region=region)
+        if decision.canonical_field is not None:
+            decisions.append(decision)
+            continue
+        decisions.append(
+            normalize_header_column_with_sync_fallback(
+                column,
+                region=region,
+                confidence_threshold=confidence_threshold,
+            )
+        )
+
+    return HeaderNormalizationResult(
+        source_file=extraction.source_file,
+        sheet_name=extraction.sheet_name,
+        raw_header_signature=extraction.raw_header_signature,
+        decisions=decisions,
+        unmapped_headers=[decision.raw_header_signature for decision in decisions if decision.canonical_field is None],
+    )
+
+
 async def normalize_headers_with_fallback(
     path: str | Path,
     region: str | None = None,
@@ -84,6 +117,20 @@ async def normalize_headers_with_fallback(
 ) -> HeaderNormalizationResult:
     extraction = extract_header_structure(path)
     return await normalize_header_extraction_with_fallback(
+        extraction,
+        region=region,
+        confidence_threshold=confidence_threshold,
+    )
+
+
+def normalize_headers_with_sync_fallback(
+    path: str | Path,
+    region: str | None = None,
+    *,
+    confidence_threshold: float = 0.8,
+) -> HeaderNormalizationResult:
+    extraction = extract_header_structure(path)
+    return normalize_header_extraction_with_sync_fallback(
         extraction,
         region=region,
         confidence_threshold=confidence_threshold,
@@ -124,6 +171,20 @@ async def normalize_header_column_with_fallback(
         return decision
 
     llm_result = await map_header_with_llm(column.signature, region=region)
+    return _merge_llm_result(decision, llm_result, confidence_threshold=confidence_threshold)
+
+
+def normalize_header_column_with_sync_fallback(
+    column: HeaderColumn,
+    region: str | None = None,
+    *,
+    confidence_threshold: float = 0.8,
+) -> HeaderMappingDecision:
+    decision = normalize_header_column(column, region=region)
+    if decision.canonical_field is not None:
+        return decision
+
+    llm_result = map_header_with_llm_sync(column.signature, region=region)
     return _merge_llm_result(decision, llm_result, confidence_threshold=confidence_threshold)
 
 

@@ -25,12 +25,17 @@ from backend.app.schemas.imports import (
     SourceFilePreviewRead,
     SourceFileRead,
 )
-from backend.app.services.header_normalizer import HeaderMappingDecision, HeaderNormalizationResult, normalize_header_extraction
+from backend.app.services.header_normalizer import (
+    HeaderMappingDecision,
+    HeaderNormalizationResult,
+    normalize_header_extraction_with_sync_fallback,
+)
 from backend.app.services.housing_fund_service import analyze_housing_fund_workbook
 from backend.app.services.normalization_service import StandardizationResult, standardize_workbook
 
 ALLOWED_EXTENSIONS = {'.xlsx', '.xls'}
 ALLOWED_SOURCE_KINDS = {item.value for item in SourceFileKind}
+LLM_FALLBACK_CONFIDENCE_THRESHOLD = 0.72
 
 
 class ImportServiceError(Exception):
@@ -204,7 +209,11 @@ def analyze_source_file(source_file: SourceFile) -> AnalyzedSourceFile:
         )
 
     extraction = extract_header_structure(workbook_path)
-    base_normalization = normalize_header_extraction(extraction, region=source_file.region)
+    base_normalization = normalize_header_extraction_with_sync_fallback(
+        extraction,
+        region=source_file.region,
+        confidence_threshold=LLM_FALLBACK_CONFIDENCE_THRESHOLD,
+    )
     normalization = _apply_manual_mapping_overrides(base_normalization, source_file.header_mappings)
     standardized = standardize_workbook(
         workbook_path,

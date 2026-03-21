@@ -53,6 +53,26 @@ class DummyAsyncClient:
         return DummyResponse(self.response_payload or {}, status_code=self.status_code)
 
 
+class DummyClient:
+    def __init__(self, response_payload: dict | None = None, status_code: int = 200, error: Exception | None = None, **_: object):
+        self.response_payload = response_payload
+        self.status_code = status_code
+        self.error = error
+        self.calls: list[dict] = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return False
+
+    def post(self, url: str, *, headers: dict, json: dict):
+        self.calls.append({"url": url, "headers": headers, "json": json})
+        if self.error is not None:
+            raise self.error
+        return DummyResponse(self.response_payload or {}, status_code=self.status_code)
+
+
 @pytest.mark.anyio
 async def test_rule_match_does_not_call_llm(monkeypatch) -> None:
     called = {"value": False}
@@ -333,3 +353,38 @@ async def test_llm_service_keeps_unmapped_when_canonical_field_is_invalid(monkey
     assert decision.llm_attempted is True
     assert decision.llm_status == "success"
     assert decision.candidate_fields == ["total_amount"]
+
+
+def test_sync_llm_fallback_accepts_fenced_json_response(monkeypatch) -> None:
+    payload = {
+        "choices": [
+            {
+                "message": {
+                    "content": "```json\n" + json.dumps(
+                        {
+                            "canonical_field": "company_total_amount",
+                            "confidence": 0.91,
+                            "candidate_fields": ["company_total_amount", "total_amount"],
+                            "reason": "fenced json response",
+                        },
+                        ensure_ascii=False,
+                    ) + "\n```"
+                }
+            }
+        ]
+    }
+    client = DummyClient(response_payload=payload)
+
+    monkeypatch.setattr(
+        llm_mapping_module,
+        "get_settings",
+        lambda: Settings(deepseek_api_key="sync-key", deepseek_api_base_url="https://api.deepseek.test", enable_llm_fallback=True),
+    )
+    monkeypatch.setattr(llm_mapping_module.httpx, "Client", lambda **kwargs: client)
+
+    result = llm_mapping_module.map_header_with_llm_sync("??????", region="guangzhou")
+
+    assert result.status == "success"
+    assert result.canonical_field == "company_total_amount"
+    assert result.candidate_fields == ["company_total_amount", "total_amount"]
+    assert client.calls[0]["url"] == "/chat/completions"

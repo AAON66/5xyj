@@ -80,6 +80,19 @@ def make_update_workbook_bytes() -> bytes:
     return buffer.getvalue()
 
 
+def make_offset_alias_workbook_bytes() -> bytes:
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = '???'
+    sheet.append(['2026?2??????'])
+    sheet.append(['????', '????', '????(???)', '??????', '????', '????'])
+    sheet.append(['E2001', '??', '440101199303030033', '????', '????', '??'])
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    workbook.close()
+    return buffer.getvalue()
+
+
 def find_sample(keyword: str) -> Path:
     for path in sorted(SAMPLES_DIR.glob('*.xlsx')):
         if keyword in path.name:
@@ -166,6 +179,28 @@ def test_import_employee_master_xlsx_updates_existing_record_and_writes_audit() 
     audits = audits_response.json()['data']['items']
     assert audits[0]['action'] == 'import_update'
     assert audits[-1]['action'] == 'import_create'
+
+
+def test_import_employee_master_detects_offset_header_and_alias_columns() -> None:
+    client, _settings, _session_factory = build_test_context('offset_alias_import')
+
+    with client:
+        response = client.post(
+            '/api/v1/employees/import',
+            files=[('file', ('???.xlsx', make_offset_alias_workbook_bytes(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))],
+        )
+        list_response = client.get('/api/v1/employees', params={'query': 'E2001', 'active_only': 'false'})
+
+    assert response.status_code == 201
+    payload = response.json()['data']
+    assert payload['created_count'] == 1
+    employee = list_response.json()['data']['items'][0]
+    assert employee['employee_id'] == 'E2001'
+    assert employee['person_name'] == '??'
+    assert employee['id_number'] == '440101199303030033'
+    assert employee['company_name'] == '????'
+    assert employee['department'] == '????'
+    assert employee['active'] is True
 
 
 def test_update_and_status_endpoints_change_employee_and_write_audit() -> None:

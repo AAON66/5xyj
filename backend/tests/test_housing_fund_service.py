@@ -56,6 +56,18 @@ def test_standardize_housing_fund_workbook_guangzhou_reads_account_and_company_n
     assert first.values['housing_fund_company'] is not None
 
 
+def test_standardize_housing_fund_workbook_guangzhou_filters_footer_rows() -> None:
+    sample = find_sample('??')
+    result = standardize_housing_fund_workbook(sample, region='guangzhou')
+
+    footer_tokens = ('????', '????', '????', '???')
+    assert result.records
+    assert all(
+        not any(token in str(record.values.get('person_name', '')) for token in footer_tokens)
+        for record in result.records
+    )
+
+
 def test_standardize_housing_fund_workbook_changsha_reads_total_and_period() -> None:
     sample = find_sample('\u957f\u6c99')
     result = standardize_housing_fund_workbook(sample, region='changsha', company_name='\u957f\u6c99\u793a\u4f8b\u516c\u53f8')

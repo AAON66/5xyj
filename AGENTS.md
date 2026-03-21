@@ -410,7 +410,7 @@ Every new agent session MUST follow this workflow:
 
 ### Step 1: Understand the Current Project State
 
-- 阅读 `CLAUDE.md`、`architecture.md`、`task.json`
+- 阅读 `AGENTS.md`、`architecture.md`、`task.json`
 - 确认当前任务属于以下主线之一：
   - 文件导入
   - 表头识别
@@ -546,7 +546,7 @@ Blocked 时：
 
 ```text
 /
-├── CLAUDE.md
+├── AGENTS.md
 ├── task.json
 ├── progress.txt
 ├── architecture.md

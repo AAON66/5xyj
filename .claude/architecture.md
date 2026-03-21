@@ -1,8 +1,20 @@
-# 智能学习计划系统 - 架构设计文档
+# 社保表格聚合工具 - 架构设计文档
 
 ## 项目概述
 
-用户输入学习目标 + 个人情况 → LLM分析需求 → 生成学习计划 → 推荐学习内容 → 制定学习方式 → 跟踪学习进度
+系统目标是将来自广州、杭州、厦门、深圳、武汉、长沙等地区的社保 Excel 文件统一导入、识别、解析、标准化、校验、工号匹配，并最终同时导出两份固定模板结果。
+
+核心业务链路：
+
+多地区 Excel 上传 -> 有效 Sheet 识别 -> 表头识别与复合表头展开 -> 标准字段映射 -> 非明细行过滤 -> 标准化聚合 -> 数据校验 -> 工号匹配 -> 双模板导出 -> 看板统计
+
+关键设计原则：
+
+- 规则优先，DeepSeek 兜底
+- 不依赖固定 sheet、固定行、固定列
+- 所有标准化结果都必须可追溯到源文件和原始行
+- 合计、小计、分组标题绝不能误判为人员明细
+- 当前版本必须同时支持“薪酬模板”和“工具表最终版模板”两份导出
 
 ---
 
@@ -10,14 +22,15 @@
 
 | 层级 | 技术选型 |
 |-----|---------|
-| 前端 | React + TypeScript + Tailwind CSS |
+| 前端 | React + TypeScript |
 | 后端 | FastAPI (Python 3.11+) |
+| 数据处理 | pandas + openpyxl |
 | 数据库 | PostgreSQL |
-| 认证 | JWT + OAuth2 |
-| 文件存储 | MinIO / AWS S3 |
-| LLM | DeepSeek R1 |
-| 内容推荐 | 基于向量相似度的推荐算法 (scikit-learn) |
-| 进度跟踪 | 自定义打卡系统 |
+| ORM / 迁移 | SQLAlchemy + Alembic |
+| 文件上传 | python-multipart |
+| LLM 兜底 | DeepSeek |
+| 看板图表 | React 图表库 |
+| 部署 | Docker Compose |
 
 ---
 
@@ -26,130 +39,123 @@
 ```mermaid
 graph TB
     subgraph Frontend["前端 (React)"]
-        UI[用户界面]
-        Pages[页面路由]
-        Components[组件库]
+        UploadUI[上传与批次管理]
+        PreviewUI[解析预览]
+        ValidationUI[校验结果]
+        MatchingUI[工号匹配结果]
+        ExportUI[双模板导出]
+        DashboardUI[看板统计]
+        MappingUI[字段映射修正]
     end
 
     subgraph Backend["后端 (FastAPI)"]
         API[REST API]
-        Services[业务服务层]
-        Auth[认证中间件]
+        BatchService[导入批次服务]
+        WorkbookService[Workbook / Sheet 发现]
+        HeaderService[表头识别与复合表头展开]
+        MappingService[规则映射服务]
+        LLMService[DeepSeek 兜底映射服务]
+        FilterService[非明细行过滤]
+        NormalizeService[标准化聚合服务]
+        ValidationService[数据校验服务]
+        MatchingService[工号匹配服务]
+        ExportService[双模板导出服务]
+        DashboardService[统计服务]
     end
 
-    subgraph Database["数据层"]
+    subgraph Data["数据层"]
         DB[(PostgreSQL)]
-        Storage[对象存储<br/>MinIO/S3]
+        Samples[data/samples]
+        Templates[data/templates]
+        Outputs[data/outputs]
     end
 
-    subgraph External["外部AI服务"]
-        DeepSeek[DeepSeek R1<br/>需求分析+计划生成]
+    subgraph External["外部能力"]
+        DeepSeek[DeepSeek API]
+        EmployeeSource[员工主数据源]
     end
 
-    subgraph Analytics["数据分析"]
-        Progress[进度统计]
-        Recommend[内容推荐引擎<br/>scikit-learn]
-    end
+    UploadUI --> API
+    PreviewUI --> API
+    ValidationUI --> API
+    MatchingUI --> API
+    ExportUI --> API
+    DashboardUI --> API
+    MappingUI --> API
 
-    UI --> Pages
-    Pages --> Components
-    UI --> API
-    API --> Auth
-    API --> Services
-    Services --> DB
-    Services --> Storage
-    Services --> DeepSeek
-    Services --> Progress
-    Services --> Recommend
+    API --> BatchService
+    API --> DashboardService
+    BatchService --> WorkbookService
+    WorkbookService --> HeaderService
+    HeaderService --> MappingService
+    MappingService --> LLMService
+    MappingService --> FilterService
+    FilterService --> NormalizeService
+    NormalizeService --> ValidationService
+    ValidationService --> MatchingService
+    MatchingService --> ExportService
+
+    BatchService --> DB
+    HeaderService --> DB
+    NormalizeService --> DB
+    ValidationService --> DB
+    MatchingService --> DB
+    ExportService --> DB
+    DashboardService --> DB
+
+    BatchService --> Samples
+    ExportService --> Templates
+    ExportService --> Outputs
+    LLMService --> DeepSeek
+    MatchingService --> EmployeeSource
 ```
 
 ---
 
 ## 2. 核心业务流程图
 
-> **关键特性**: 每一步都需要用户确认，不满意可重新生成或调整
+> 关键特性：同一批次需要经过“解析、校验、匹配、导出”多个阶段，并且导出必须同时生成两份模板结果。
 
 ```mermaid
 flowchart TD
-    Start([用户开始]) --> Auth{已登录?}
-    Auth -->|否| Login[登录/注册]
-    Auth -->|是| Input[输入学习目标 + 个人情况]
-    Login --> Input
-
-    Input --> CreatePlan[创建学习计划项目]
-
-    %% 阶段1: 需求分析
-    CreatePlan --> GenAnalysis[点击"分析需求"]
-    GenAnalysis --> LLMAnalysis[调用DeepSeek R1分析]
-    LLMAnalysis --> ShowAnalysis[显示需求分析报告]
-    ShowAnalysis --> ConfirmAnalysis{用户确认?}
-    ConfirmAnalysis -->|不满意| RegenerateAnalysis[重新分析]
-    RegenerateAnalysis --> LLMAnalysis
-    ConfirmAnalysis -->|满意| ConfirmAnalysisYes[确认分析]
-
-    %% 阶段2: 生成学习计划
-    ConfirmAnalysisYes --> GenPlan[点击"生成学习计划"]
-    GenPlan --> LLMPlan[LLM生成学习路线图]
-    LLMPlan --> ShowPlan[显示学习计划<br/>阶段+里程碑+时间线]
-    ShowPlan --> ReviewPlan{用户确认?}
-    ReviewPlan -->|不满意| AdjustPlan[调整计划参数]
-    AdjustPlan --> LLMPlan
-    ReviewPlan -->|满意| ConfirmPlan[确认学习计划]
-
-    %% 阶段3: 推荐学习内容
-    ConfirmPlan --> GenContent[点击"推荐学习内容"]
-    GenContent --> RecommendLoop[为每个阶段推荐资源]
-    RecommendLoop --> ShowContent[显示学习资源列表<br/>课程/书籍/视频/文章]
-    ShowContent --> ReviewContent{逐个确认资源}
-    ReviewContent -->|某个不满意| ReplaceContent[替换该资源]
-    ReplaceContent --> ShowContent
-    ReviewContent -->|全部满意| ConfirmContent[确认所有资源]
-
-    %% 阶段4: 制定学习方式
-    ConfirmContent --> GenMethod[点击"制定学习方式"]
-    GenMethod --> LLMMethod[LLM生成学习方法建议]
-    LLMMethod --> ShowMethod[显示学习方式<br/>时间安排/学习技巧/复习策略]
-    ShowMethod --> ReviewMethod{用户确认?}
-    ReviewMethod -->|不满意| AdjustMethod[调整学习方式]
-    AdjustMethod --> LLMMethod
-    ReviewMethod -->|满意| StartLearning[开始学习]
-
-    %% 阶段5: 学习跟踪
-    StartLearning --> Learning[执行学习计划]
-    Learning --> CheckIn[每日打卡]
-    CheckIn --> UpdateProgress[更新进度]
-    UpdateProgress --> ViewStats[查看统计数据]
-    ViewStats --> Adjust{需要调整?}
-    Adjust -->|是| AdjustPlanMid[调整计划]
-    AdjustPlanMid --> Learning
-    Adjust -->|否| Continue{继续学习?}
-    Continue -->|是| Learning
-    Continue -->|否| Complete[计划完成]
-
-    Complete --> End([结束])
+    Start([开始]) --> Upload[上传多个地区 Excel 文件]
+    Upload --> Batch[创建导入批次]
+    Batch --> Discover[发现有效 Sheet 与候选数据区域]
+    Discover --> Header[识别表头与复合表头]
+    Header --> MapRule[规则映射标准字段]
+    MapRule --> NeedLLM{规则是否能确定?}
+    NeedLLM -->|是| FilterRows[过滤合计/小计/分组标题]
+    NeedLLM -->|否| DeepSeekMap[调用 DeepSeek 做语义归一化]
+    DeepSeekMap --> FilterRows
+    FilterRows --> Normalize[写入标准化记录]
+    Normalize --> Validate[执行数据校验]
+    Validate --> Match[执行工号匹配]
+    Match --> Ready{是否满足导出条件?}
+    Ready -->|否| Fix[人工修正映射/匹配/数据]
+    Fix --> Validate
+    Ready -->|是| ExportA[导出薪酬模板]
+    ExportA --> ExportB[导出工具表最终版模板]
+    ExportB --> Dashboard[刷新看板统计]
+    Dashboard --> End([结束])
 ```
 
-### 用户交互流程
+### 批次状态流转
 
 ```mermaid
 stateDiagram-v2
-    [*] --> 计划创建
-    计划创建 --> 需求分析中: 点击分析需求
-    需求分析中 --> 需求待确认: AI分析完成
-    需求待确认 --> 需求待确认: 重新分析
-    需求待确认 --> 计划生成中: 确认分析
-    计划生成中 --> 计划待确认: 计划生成完成
-    计划待确认 --> 计划待确认: 调整计划
-    计划待确认 --> 内容推荐中: 确认计划
-    内容推荐中 --> 内容待确认: 推荐完成
-    内容待确认 --> 内容待确认: 替换资源
-    内容待确认 --> 方式制定中: 确认内容
-    方式制定中 --> 方式待确认: 方式生成完成
-    方式待确认 --> 方式待确认: 调整方式
-    方式待确认 --> 学习进行中: 开始学习
-    学习进行中 --> 学习进行中: 每日打卡
-    学习进行中 --> 计划完成: 完成所有阶段
-    计划完成 --> [*]
+    [*] --> uploaded
+    uploaded --> parsing
+    parsing --> normalized
+    normalized --> validated
+    validated --> matched
+    matched --> export_ready
+    export_ready --> exported
+    parsing --> failed
+    normalized --> blocked
+    validated --> blocked
+    matched --> blocked
+    blocked --> normalized: 修正后重跑
+    exported --> [*]
 ```
 
 ---
@@ -158,130 +164,150 @@ stateDiagram-v2
 
 ```mermaid
 erDiagram
-    auth_users ||--o{ learning_plans : creates
-    learning_plans ||--o{ need_analysis : has
-    learning_plans ||--o{ plan_stages : contains
-    plan_stages ||--o{ learning_resources : has
-    plan_stages ||--o{ learning_methods : has
-    learning_plans ||--o{ progress_records : tracks
-    learning_plans ||--o{ check_ins : has
+    import_batches ||--o{ source_files : contains
+    import_batches ||--o{ normalized_records : aggregates
+    import_batches ||--o{ validation_issues : produces
+    import_batches ||--o{ match_results : produces
+    import_batches ||--o{ export_jobs : triggers
 
-    auth_users {
-        uuid id PK
-        string email
-        string encrypted_password
-        datetime created_at
-    }
+    source_files ||--o{ header_mappings : owns
+    source_files ||--o{ normalized_records : contributes
 
-    learning_plans {
+    employee_master ||--o{ match_results : matches
+    export_jobs ||--o{ export_artifacts : generates
+
+    import_batches {
         uuid id PK
-        uuid user_id FK
-        string title "学习计划标题"
-        text goal "学习目标"
-        text user_background "用户背景信息"
-        int total_duration_days "总学习时长(天)"
-        string difficulty_level "难度: beginner/intermediate/advanced"
-        string status "状态: draft/analysis/planning/content/method/active/completed/paused"
-        datetime start_date "开始日期"
-        datetime target_end_date "目标结束日期"
+        string batch_name
+        string status "uploaded/parsing/normalized/validated/matched/export_ready/exported/failed/blocked"
         datetime created_at
         datetime updated_at
     }
 
-    need_analysis {
+    source_files {
         uuid id PK
-        uuid plan_id FK
-        text analysis_result "需求分析结果"
-        json key_points "关键要点JSON"
-        json recommended_path "推荐学习路径JSON"
-        boolean confirmed "是否已确认"
-        int version "版本号"
+        uuid batch_id FK
+        string file_name
+        string file_path
+        string region
+        string company_name
+        string raw_sheet_name
+        string file_hash
+        datetime uploaded_at
+    }
+
+    header_mappings {
+        uuid id PK
+        uuid source_file_id FK
+        string raw_header
+        string raw_header_signature
+        string canonical_field
+        string mapping_source "rule/llm/manual"
+        float confidence
+        boolean manually_overridden
         datetime created_at
     }
 
-    plan_stages {
+    normalized_records {
         uuid id PK
-        uuid plan_id FK
-        int order_index "阶段顺序"
-        string stage_name "阶段名称"
-        text description "阶段描述"
-        int duration_days "阶段时长(天)"
-        json milestones "里程碑JSON数组"
-        string status "状态: pending/in_progress/completed"
-        boolean confirmed "是否已确认"
+        uuid batch_id FK
+        uuid source_file_id FK
+        int source_row_number
+        string person_name
+        string id_type
+        string id_number
+        string employee_id
+        string social_security_number
+        string billing_period
+        string period_start
+        string period_end
+        decimal total_amount
+        decimal company_total_amount
+        decimal personal_total_amount
+        decimal pension_company
+        decimal pension_personal
+        decimal medical_company
+        decimal medical_personal
+        decimal unemployment_company
+        decimal unemployment_personal
+        decimal injury_company
+        json raw_payload
         datetime created_at
     }
 
-    learning_resources {
+    validation_issues {
         uuid id PK
-        uuid stage_id FK
-        string resource_type "资源类型: course/book/video/article/practice"
-        string title "资源标题"
-        text description "资源描述"
-        string url "资源链接"
-        string provider "提供方"
-        int estimated_hours "预计学习时长(小时)"
-        string difficulty "难度"
-        boolean is_free "是否免费"
-        int order_index "推荐顺序"
-        boolean user_selected "用户是否选择"
+        uuid batch_id FK
+        uuid normalized_record_id FK
+        string issue_type
+        string severity
+        string field_name
+        text message
+        boolean resolved
         datetime created_at
     }
 
-    learning_methods {
+    employee_master {
         uuid id PK
-        uuid stage_id FK
-        string method_type "方法类型: time_management/study_technique/review_strategy"
-        string title "方法标题"
-        text content "方法内容"
-        json schedule "时间安排JSON"
-        int order_index "顺序"
-        boolean confirmed "是否已确认"
+        string employee_id
+        string person_name
+        string id_number
+        string company_name
+        string department
+        boolean active
         datetime created_at
     }
 
-    progress_records {
+    match_results {
         uuid id PK
-        uuid plan_id FK
-        uuid stage_id FK "可选"
-        date record_date "记录日期"
-        int study_minutes "学习时长(分钟)"
-        text content_studied "学习内容"
-        int completion_percentage "完成百分比"
-        text notes "学习笔记"
+        uuid batch_id FK
+        uuid normalized_record_id FK
+        uuid employee_master_id FK
+        string match_status "matched/unmatched/duplicate/low_confidence/manual"
+        string match_basis
+        float confidence
         datetime created_at
     }
 
-    check_ins {
+    export_jobs {
         uuid id PK
-        uuid plan_id FK
-        date check_in_date "打卡日期"
-        boolean completed "是否完成"
-        int study_minutes "学习时长(分钟)"
-        text reflection "学习反思"
-        int mood_score "心情评分 1-5"
+        uuid batch_id FK
+        string status
+        datetime created_at
+        datetime completed_at
+    }
+
+    export_artifacts {
+        uuid id PK
+        uuid export_job_id FK
+        string template_type "salary/final_tool"
+        string file_path
+        string status
+        text error_message
         datetime created_at
     }
 ```
 
-### 状态流转说明
+### 关键状态字段说明
 
-| 字段 | 可能值 | 说明 |
+| 字段 | 可选值 | 说明 |
 |-----|-------|------|
-| learning_plans.status | draft | 刚创建，还没开始 |
-| | analysis | 需求分析阶段 |
-| | planning | 计划生成阶段 |
-| | content | 内容推荐阶段 |
-| | method | 方式制定阶段 |
-| | active | 学习进行中 |
-| | completed | 已完成 |
-| | paused | 已暂停 |
-| plan_stages.status | pending | 等待开始 |
-| | in_progress | 进行中 |
-| | completed | 已完成 |
-| learning_plans.difficulty_level | beginner | 初学者 |
-| | intermediate | 中级 |
-| | advanced | 高级 |
+| import_batches.status | uploaded | 文件已上传 |
+| | parsing | 正在识别 sheet、表头和数据区 |
+| | normalized | 已生成标准化结果 |
+| | validated | 已完成校验 |
+| | matched | 已完成工号匹配 |
+| | export_ready | 满足导出条件 |
+| | exported | 双模板导出成功 |
+| | blocked | 因缺模板、缺主数据、低置信度字段等阻塞 |
+| | failed | 流程失败 |
+| match_results.match_status | matched | 精确或可接受匹配 |
+| | unmatched | 无匹配结果 |
+| | duplicate | 匹配到多个员工 |
+| | low_confidence | 匹配置信度不足 |
+| | manual | 人工修正后确认 |
+| export_artifacts.template_type | salary | 薪酬模板 |
+| | final_tool | 工具表最终版模板 |
 
 ---
 
@@ -289,185 +315,137 @@ erDiagram
 
 ```mermaid
 graph TB
-    subgraph Auth["认证页面"]
-        LoginPage[登录页 /login]
-        RegisterPage[注册页 /register]
-    end
-
     subgraph Main["主要页面"]
-        HomePage[首页 /]
-        PlansPage[我的学习计划 /plans]
-        CreatePage[创建计划 /create]
-        DetailPage[计划详情 /plans/:id]
-        ProgressPage[学习进度 /plans/:id/progress]
-        StatsPage[数据统计 /plans/:id/stats]
+        Dashboard[看板首页 /]
+        Imports[导入批次列表 /imports]
+        ImportDetail[导入批次详情 /imports/:id]
+        Validation[校验结果 /imports/:id/validation]
+        Matching[匹配结果 /imports/:id/matching]
+        Exports[导出结果 /imports/:id/exports]
+        Mappings[字段映射 /mappings]
+        Employees[员工主数据 /employees]
     end
 
-    subgraph DetailFeatures["计划详情页功能"]
-        GoalSection[目标展示区]
-        AnalysisSection[需求分析区]
-        StagesList[学习阶段列表]
-        ResourcesList[学习资源列表]
-        MethodsSection[学习方式区]
-        Actions[操作按钮<br/>重新生成/调整/开始学习]
+    subgraph ImportDetailSections["批次详情功能"]
+        RawFiles[原始文件列表]
+        HeaderPreview[表头识别预览]
+        NormalizePreview[标准化结果预览]
+        IssueSummary[问题汇总]
+        MatchSummary[匹配汇总]
+        ExportSummary[导出汇总]
     end
 
-    subgraph ProgressFeatures["进度页面功能"]
-        CheckInCard[每日打卡卡片]
-        ProgressChart[进度图表]
-        TimelineView[时间线视图]
-        NotesSection[学习笔记区]
-    end
+    Dashboard --> Imports
+    Imports --> ImportDetail
+    ImportDetail --> Validation
+    ImportDetail --> Matching
+    ImportDetail --> Exports
+    Dashboard --> Mappings
+    Dashboard --> Employees
 
-    HomePage --> CreatePage
-    HomePage --> PlansPage
-    LoginPage --> HomePage
-    RegisterPage --> LoginPage
-    PlansPage --> DetailPage
-    CreatePage --> DetailPage
-    DetailPage --> ProgressPage
-    DetailPage --> StatsPage
-
-    DetailPage --> GoalSection
-    DetailPage --> AnalysisSection
-    DetailPage --> StagesList
-    DetailPage --> ResourcesList
-    DetailPage --> MethodsSection
-    DetailPage --> Actions
-
-    ProgressPage --> CheckInCard
-    ProgressPage --> ProgressChart
-    ProgressPage --> TimelineView
-    ProgressPage --> NotesSection
+    ImportDetail --> RawFiles
+    ImportDetail --> HeaderPreview
+    ImportDetail --> NormalizePreview
+    ImportDetail --> IssueSummary
+    ImportDetail --> MatchSummary
+    ImportDetail --> ExportSummary
 ```
 
 ---
 
 ## 5. API 设计
 
-### 学习计划 API
+### 导入与解析 API
 
 | 方法 | 路径 | 描述 |
 |-----|------|-----|
-| POST | /api/v1/plans | 创建学习计划 |
-| GET | /api/v1/plans | 获取学习计划列表 |
-| GET | /api/v1/plans/{id} | 获取计划详情（包含所有阶段、资源、方法） |
-| PATCH | /api/v1/plans/{id} | 更新计划（标题、目标、背景） |
-| DELETE | /api/v1/plans/{id} | 删除计划 |
-| POST | /api/v1/plans/{id}/start | 开始执行计划 |
-| POST | /api/v1/plans/{id}/pause | 暂停计划 |
-| POST | /api/v1/plans/{id}/complete | 完成计划 |
+| POST | /api/v1/imports | 创建导入批次并上传文件 |
+| GET | /api/v1/imports | 获取导入批次列表 |
+| GET | /api/v1/imports/{id} | 获取导入批次详情 |
+| POST | /api/v1/imports/{id}/parse | 触发解析和标准化 |
+| GET | /api/v1/imports/{id}/preview | 查看解析预览 |
 
-### 需求分析 API
+### 校验与匹配 API
 
 | 方法 | 路径 | 描述 |
 |-----|------|-----|
-| POST | /api/v1/analysis/generate | LLM分析用户需求 |
-| POST | /api/v1/analysis/regenerate | 重新分析需求 |
-| POST | /api/v1/analysis/{id}/confirm | 确认需求分析 |
+| POST | /api/v1/imports/{id}/validate | 执行数据校验 |
+| GET | /api/v1/imports/{id}/validation-issues | 获取校验问题列表 |
+| POST | /api/v1/imports/{id}/match | 执行工号匹配 |
+| GET | /api/v1/imports/{id}/match-results | 获取匹配结果 |
+| PATCH | /api/v1/match-results/{id} | 人工修正匹配结果 |
 
-### 学习阶段 API
-
-| 方法 | 路径 | 描述 |
-|-----|------|-----|
-| GET | /api/v1/plans/{id}/stages | 获取阶段列表 |
-| POST | /api/v1/stages/generate | LLM生成学习阶段 |
-| POST | /api/v1/stages/regenerate | 重新生成阶段 |
-| PATCH | /api/v1/stages/{id} | 修改阶段信息 |
-| POST | /api/v1/stages/{id}/confirm | 确认阶段 |
-| POST | /api/v1/stages/confirm-all | 确认所有阶段 |
-
-### 学习资源 API
+### 导出 API
 
 | 方法 | 路径 | 描述 |
 |-----|------|-----|
-| POST | /api/v1/resources/recommend | 为阶段推荐学习资源 |
-| GET | /api/v1/stages/{id}/resources | 获取阶段的资源列表 |
-| POST | /api/v1/resources/{id}/select | 用户选择资源 |
-| POST | /api/v1/resources/{id}/replace | 替换资源 |
-| DELETE | /api/v1/resources/{id} | 删除资源 |
+| POST | /api/v1/imports/{id}/export | 同时触发两份模板导出 |
+| GET | /api/v1/imports/{id}/exports | 获取导出任务状态 |
+| GET | /api/v1/exports/{id}/files | 获取导出产物列表 |
+| GET | /api/v1/export-files/{id}/download | 下载导出文件 |
 
-### 学习方式 API
-
-| 方法 | 路径 | 描述 |
-|-----|------|-----|
-| POST | /api/v1/methods/generate | LLM生成学习方式建议 |
-| POST | /api/v1/methods/regenerate | 重新生成学习方式 |
-| PATCH | /api/v1/methods/{id} | 修改学习方式 |
-| POST | /api/v1/methods/{id}/confirm | 确认学习方式 |
-
-### 进度跟踪 API
+### 配置与看板 API
 
 | 方法 | 路径 | 描述 |
 |-----|------|-----|
-| POST | /api/v1/progress/record | 记录学习进度 |
-| GET | /api/v1/plans/{id}/progress | 获取计划的进度记录 |
-| GET | /api/v1/plans/{id}/stats | 获取统计数据 |
-| POST | /api/v1/check-in | 每日打卡 |
-| GET | /api/v1/plans/{id}/check-ins | 获取打卡记录 |
+| GET | /api/v1/dashboard/overview | 获取看板概览数据 |
+| GET | /api/v1/dashboard/regions | 获取按地区汇总数据 |
+| GET | /api/v1/mappings | 获取字段映射记录 |
+| PATCH | /api/v1/mappings/{id} | 人工修正字段映射 |
+| POST | /api/v1/employees/import | 导入员工主数据 |
+| GET | /api/v1/employees | 获取员工主数据列表 |
 
 ---
 
 ## 6. 外部 API 集成
 
-### 6.1 DeepSeek R1 (需求分析 + 计划生成)
+### 6.1 DeepSeek（表头语义归一化兜底）
 
 ```python
-# 使用 httpx 或 requests 库调用
-端点: https://api.deepseek.com/v1/chat/completions
-认证: Bearer Token
-模型: deepseek-reasoner
+# endpoint: https://api.deepseek.com/v1/chat/completions
+# auth: Bearer Token
+# model: deepseek-chat 或 deepseek-reasoner
 ```
 
-#### 需求分析请求示例 (Python):
+#### 典型调用场景
+
+1. 原始表头无法通过规则映射到标准字段
+2. 同一个表头可能表示“单位金额”或“总金额”，需要结合上下文判断
+3. 透视表或复合表头结构不标准，需要语义辅助拆解
+
+#### 调用约束
+
+- 规则优先，只有低置信度字段才走 DeepSeek
+- DeepSeek 只返回字段归类建议、候选字段和置信度
+- DeepSeek 不能直接参与金额汇总、工号匹配和导出写值
+
+#### 字段归一化请求示例
+
 ```python
 import httpx
 
-async def analyze_learning_needs(goal: str, background: str, api_key: str):
+async def map_headers_with_deepseek(raw_headers: list[str], context: dict, api_key: str):
     async with httpx.AsyncClient() as client:
         response = await client.post(
             "https://api.deepseek.com/v1/chat/completions",
             headers={"Authorization": f"Bearer {api_key}"},
             json={
-                "model": "deepseek-reasoner",
+                "model": "deepseek-chat",
                 "messages": [
                     {
                         "role": "system",
-                        "content": "你是一个专业的学习规划师，擅长分析用户的学习需求并提供个性化建议..."
+                        "content": (
+                            "你是社保表格字段归一化助手。"
+                            "你只能把原始表头映射为给定标准字段集合中的候选项，"
+                            "并返回置信度与理由。"
+                        )
                     },
                     {
                         "role": "user",
-                        "content": f"学习目标: {goal}\n用户背景: {background}\n可用时间: [时间信息]"
+                        "content": f"原始表头: {raw_headers}\\n上下文: {context}"
                     }
                 ],
-                "temperature": 0.7,
-                "max_tokens": 4000
-            }
-        )
-        return response.json()
-```
-
-#### 学习计划生成请求示例 (Python):
-```python
-async def generate_learning_plan(analysis_result: str, api_key: str):
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            "https://api.deepseek.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {api_key}"},
-            json={
-                "model": "deepseek-reasoner",
-                "messages": [
-                    {
-                        "role": "system",
-                        "content": "你是一个专业的学习规划师，根据需求分析结果制定详细的学习计划..."
-                    },
-                    {
-                        "role": "user",
-                        "content": f"需求分析: {analysis_result}\n生成包含阶段、里程碑、时间线的学习计划"
-                    }
-                ],
-                "temperature": 0.7,
-                "max_tokens": 4000
+                "temperature": 0.1
             }
         )
         return response.json()
@@ -475,141 +453,139 @@ async def generate_learning_plan(analysis_result: str, api_key: str):
 
 ---
 
-## 7. 学习资源类型
+## 7. 标准字段体系
 
-| 类型ID | 类型名称 | 描述 |
-|-------|---------|-----|
-| course | 在线课程 | Coursera、Udemy等平台课程 |
-| book | 书籍 | 纸质书或电子书 |
-| video | 视频教程 | YouTube、B站等视频资源 |
-| article | 文章/博客 | 技术文章、教程博客 |
-| practice | 实践项目 | 动手项目、练习题 |
-| documentation | 官方文档 | 技术官方文档 |
-| community | 社区资源 | 论坛、问答社区 |
+系统内部建议统一维护以下标准字段：
+
+| 标准字段 | 含义 |
+|-----|-----|
+| person_name | 姓名 |
+| id_type | 证件类型 |
+| id_number | 证件号码 |
+| employee_id | 工号 |
+| social_security_number | 个人社保号 |
+| company_name | 公司名称 |
+| region | 地区 |
+| billing_period | 所属期 |
+| period_start | 所属期起 |
+| period_end | 所属期止 |
+| payment_salary | 缴费工资 |
+| payment_base | 缴费基数 |
+| total_amount | 总金额 |
+| company_total_amount | 单位总金额 |
+| personal_total_amount | 个人总金额 |
+| pension_company | 养老单位金额 |
+| pension_personal | 养老个人金额 |
+| medical_company | 医疗单位金额 |
+| medical_personal | 医疗个人金额 |
+| unemployment_company | 失业单位金额 |
+| unemployment_personal | 失业个人金额 |
+| injury_company | 工伤单位金额 |
+| supplementary_medical_company | 补充医疗单位金额 |
+| supplementary_pension_company | 补充养老单位金额 |
+| large_medical_personal | 大额医疗个人金额 |
+| late_fee | 滞纳金 |
+| interest | 利息 |
 
 ---
 
-## 8. 学习方式类型
+## 8. Header 同义词策略
 
-| 方式ID | 方式名称 | 描述 |
-|-------|---------|-----|
-| time_management | 时间管理 | 番茄工作法、时间块等 |
-| study_technique | 学习技巧 | 费曼学习法、思维导图等 |
-| review_strategy | 复习策略 | 间隔重复、主动回忆等 |
-| note_taking | 笔记方法 | 康奈尔笔记法、卡片笔记等 |
-| practice_method | 练习方法 | 刻意练习、项目驱动等 |
+以下同义关系应优先由规则处理：
+
+### 身份类字段
+
+- `姓名` -> `person_name`
+- `证件号码` -> `id_number`
+- `证件类型` -> `id_type`
+- `个人社保号` -> `social_security_number`
+
+### 时间类字段
+
+- `费款所属期`
+- `费款所属期起`
+- `费款所属期止`
+- `建账年月`
+
+### 汇总金额类字段
+
+- `应缴金额合计`
+- `总金额`
+- `应收金额`
+- `合计`
+- `总计`
+
+### 单位 / 个人总额字段
+
+- `单位部分合计`
+- `单位缴费总金额`
+- `单位社保合计`
+
+- `个人部分合计`
+- `个人缴费总金额`
+- `个人社保合计`
+
+### 典型险种字段
+
+- 养老：`基本养老保险(单位缴纳)`、`基本养老保险（单位）`、`职工基本养老保险(单位缴纳)`、`基本养老应缴费额`
+- 医疗：`基本医疗保险（含生育）(单位缴纳)`、`职工基本医疗保险费`、`基本医疗应缴费额`
+- 失业：`失业保险(单位缴纳)`、`失业保险费`、`失业应缴费额`
+- 工伤：`工伤保险`、`工伤保险费`、`工伤应缴费额`
 
 ---
 
 ## 9. Python 项目结构
 
-```
-learning-system/
-├── backend/                    # FastAPI 后端
+```text
+social-security-aggregator/
+├── backend/
 │   ├── app/
-│   │   ├── __init__.py
-│   │   ├── main.py            # FastAPI 应用入口
-│   │   ├── config.py          # 配置管理
-│   │   ├── dependencies.py    # 依赖注入
-│   │   ├── api/               # API 路由
-│   │   │   ├── __init__.py
-│   │   │   ├── v1/
-│   │   │   │   ├── __init__.py
-│   │   │   │   ├── plans.py
-│   │   │   │   ├── analysis.py
-│   │   │   │   ├── stages.py
-│   │   │   │   ├── resources.py
-│   │   │   │   ├── methods.py
-│   │   │   │   └── progress.py
-│   │   ├── models/            # SQLAlchemy 模型
-│   │   │   ├── __init__.py
-│   │   │   ├── user.py
-│   │   │   ├── plan.py
-│   │   │   ├── stage.py
-│   │   │   └── progress.py
-│   │   ├── schemas/           # Pydantic 模式
-│   │   │   ├── __init__.py
-│   │   │   ├── plan.py
-│   │   │   ├── analysis.py
-│   │   │   └── progress.py
-│   │   ├── services/          # 业务逻辑层
-│   │   │   ├── __init__.py
-│   │   │   ├── llm_service.py
-│   │   │   ├── plan_service.py
-│   │   │   ├── recommendation_service.py
-│   │   │   └── progress_service.py
-│   │   ├── core/              # 核心功能
-│   │   │   ├── __init__.py
-│   │   │   ├── security.py    # JWT 认证
-│   │   │   ├── database.py    # 数据库连接
-│   │   │   └── storage.py     # 文件存储
-│   │   └── utils/             # 工具函数
-│   │       ├── __init__.py
-│   │       └── helpers.py
-│   ├── tests/                 # 测试
-│   │   ├── __init__.py
-│   │   ├── test_api/
-│   │   └── test_services/
-│   ├── alembic/               # 数据库迁移
-│   │   ├── versions/
-│   │   └── env.py
-│   ├── requirements.txt       # 依赖列表
-│   ├── pyproject.toml         # 项目配置
-│   └── .env.example           # 环境变量示例
-├── frontend/                  # React 前端
+│   │   ├── api/
+│   │   │   └── v1/
+│   │   ├── core/
+│   │   ├── models/
+│   │   ├── schemas/
+│   │   ├── services/
+│   │   ├── parsers/
+│   │   ├── mappings/
+│   │   ├── validators/
+│   │   ├── matchers/
+│   │   └── exporters/
+│   ├── tests/
+│   ├── alembic/
+│   ├── requirements.txt
+│   └── .env.example
+├── frontend/
 │   ├── src/
-│   │   ├── components/
 │   │   ├── pages/
-│   │   ├── services/          # API 调用
+│   │   ├── components/
+│   │   ├── services/
 │   │   ├── hooks/
 │   │   └── utils/
 │   ├── package.json
 │   └── vite.config.ts
-└── docker-compose.yml         # Docker 编排
+├── data/
+│   ├── samples/
+│   ├── templates/
+│   └── outputs/
+└── docker-compose.yml
 ```
 
-### Python 依赖 (requirements.txt)
+### Python 依赖建议
 
 ```txt
-# Web 框架
 fastapi==0.115.0
 uvicorn[standard]==0.32.0
 python-multipart==0.0.12
-
-# 数据库
 sqlalchemy==2.0.36
 alembic==1.14.0
 psycopg2-binary==2.9.10
 asyncpg==0.30.0
-
-# 认证
-python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
-python-multipart==0.0.12
-
-# HTTP 客户端
-httpx==0.28.1
-aiohttp==3.11.10
-
-# 数据验证
 pydantic==2.10.3
 pydantic-settings==2.6.1
-email-validator==2.2.0
-
-# 机器学习/推荐
-scikit-learn==1.6.0
-numpy==2.2.1
+httpx==0.28.1
 pandas==2.2.3
-
-# 对象存储
-minio==7.2.11
-boto3==1.35.90  # 如果使用 AWS S3
-
-# 缓存 (可选)
-redis==5.2.1
-hiredis==3.1.0
-
-# 工具
+openpyxl==3.1.5
 python-dotenv==1.0.1
 loguru==0.7.3
 ```
@@ -619,37 +595,30 @@ loguru==0.7.3
 ## 10. 环境变量
 
 ```env
-# 数据库配置
-DATABASE_URL=postgresql://user:password@localhost:5432/learning_system
+# 数据库
+DATABASE_URL=postgresql://user:password@localhost:5432/social_security_aggregator
 DATABASE_POOL_SIZE=10
 DATABASE_MAX_OVERFLOW=20
 
-# JWT 认证
-JWT_SECRET_KEY=your_jwt_secret_key
-JWT_ALGORITHM=HS256
-JWT_ACCESS_TOKEN_EXPIRE_MINUTES=30
-JWT_REFRESH_TOKEN_EXPIRE_DAYS=7
-
-# 对象存储 (MinIO/S3)
-STORAGE_ENDPOINT=http://localhost:9000
-STORAGE_ACCESS_KEY=your_access_key
-STORAGE_SECRET_KEY=your_secret_key
-STORAGE_BUCKET_NAME=learning-resources
-
-# DeepSeek API
-DEEPSEEK_API_KEY=your_deepseek_api_key
-DEEPSEEK_API_BASE_URL=https://api.deepseek.com/v1
-
-# 应用配置
-APP_NAME=智能学习计划系统
+# 应用
+APP_NAME=社保表格聚合工具
 APP_VERSION=1.0.0
 API_V1_PREFIX=/api/v1
-BACKEND_CORS_ORIGINS=["http://localhost:3000", "http://localhost:5173"]
+BACKEND_CORS_ORIGINS=["http://localhost:5173", "http://localhost:3000"]
 
-# Redis (可选 - 用于缓存和会话)
-REDIS_URL=redis://localhost:6379/0
+# 目录
+UPLOAD_DIR=./data/uploads
+SAMPLES_DIR=./data/samples
+TEMPLATES_DIR=./data/templates
+OUTPUTS_DIR=./data/outputs
 
-# 日志配置
+# DeepSeek
+DEEPSEEK_API_KEY=
+DEEPSEEK_API_BASE_URL=https://api.deepseek.com/v1
+DEEPSEEK_MODEL=deepseek-chat
+ENABLE_LLM_FALLBACK=true
+
+# 日志
 LOG_LEVEL=INFO
 LOG_FORMAT=json
 ```
@@ -658,89 +627,184 @@ LOG_FORMAT=json
 
 ## 11. 核心功能特性
 
-### 10.1 智能需求分析
-- 基于用户输入的学习目标和背景信息
-- LLM深度分析用户的学习需求
-- 识别知识盲点和学习路径
-- 评估学习难度和所需时间
+### 11.1 多地区 Excel 解析
 
-### 10.2 个性化学习计划
-- 根据用户可用时间自动规划
-- 分阶段、分里程碑的学习路线
-- 灵活调整计划参数
-- 支持多种学习节奏（快速/标准/慢速）
+- 支持广州、杭州、厦门、深圳、武汉、长沙等地区格式
+- 支持复合表头、透视表样式、非固定 sheet、非固定表头起始行
+- 支持保留源文件和原始行号
 
-### 10.3 智能内容推荐
-- 基于学习阶段推荐合适资源
-- 多种资源类型（课程/书籍/视频/文章）
-- 考虑资源质量、难度、时长
-- 支持用户自定义替换资源
+### 11.2 标准字段归一化
 
-### 10.4 学习方式指导
-- 提供科学的学习方法建议
-- 时间管理和学习技巧
-- 复习策略和记忆方法
-- 个性化的学习节奏建议
+- 通过规则库优先映射字段
+- 通过地区规则处理差异
+- 对低置信度字段使用 DeepSeek 做兜底建议
 
-### 10.5 进度跟踪与统计
-- 每日打卡系统
-- 学习时长统计
-- 完成度可视化
-- 学习曲线分析
-- 学习笔记记录
+### 11.3 非明细行过滤
 
-### 10.6 动态调整机制
-- 根据学习进度调整计划
-- 识别学习瓶颈
-- 提供改进建议
-- 支持暂停和恢复
+- 过滤 `合计`
+- 过滤 `小计`
+- 过滤 `在职人员`
+- 过滤 `退休人员`
+- 过滤 `家属统筹人员`
+
+### 11.4 数据校验
+
+- 必填字段校验
+- 身份证号格式校验
+- 金额合法性校验
+- 同人同期开票重复校验
+- 汇总逻辑校验
+
+### 11.5 工号匹配
+
+- 身份证号优先匹配
+- 姓名 + 公司辅助匹配
+- 支持人工纠正
+- 记录匹配依据和置信度
+
+### 11.6 双模板导出
+
+- 同时导出“薪酬模板”和“工具表最终版模板”
+- 保留模板结构和关键样式
+- 任一模板导出失败都视为任务未完成
+
+### 11.7 看板统计
+
+- 批次总览
+- 地区分布
+- 未识别字段统计
+- 校验问题统计
+- 工号匹配统计
+- 双模板导出统计
 
 ---
 
 ## 12. 数据统计指标
 
-### 用户维度
-- 总学习时长
-- 计划完成率
-- 连续打卡天数
-- 学习效率趋势
+### 批次维度
 
-### 计划维度
-- 阶段完成进度
-- 资源学习进度
-- 里程碑达成情况
-- 预计完成时间
+- 导入批次数
+- 文件总数
+- 标准化记录总数
+- 地区覆盖数
 
-### 资源维度
-- 资源使用率
-- 资源完成度
-- 资源评价反馈
+### 解析维度
+
+- 有效 sheet 识别成功率
+- 表头识别成功率
+- 未识别字段数
+- 低置信度字段数
+
+### 校验维度
+
+- 缺失字段数
+- 异常金额数
+- 重复记录数
+- 结构错误数
+
+### 匹配维度
+
+- 工号匹配成功率
+- 未匹配数量
+- 重复匹配数量
+- 人工修正数量
+
+### 导出维度
+
+- 薪酬模板导出成功率
+- 工具表最终版模板导出成功率
+- 双模板同时成功率
 
 ---
 
 ## 13. 未来扩展方向
 
-1. **社区功能**
-   - 学习小组
-   - 经验分享
-   - 互助答疑
+1. **地区规则可视化配置**
+   - 后台直接维护字段别名和解析规则
+   - 发布新规则无需改代码
 
-2. **AI助教**
-   - 智能答疑
-   - 知识点测试
-   - 学习建议
+2. **人工校正闭环**
+   - 将人工修正映射沉淀为长期规则
+   - 将人工修正匹配沉淀为长期员工映射
 
-3. **成就系统**
-   - 学习徽章
-   - 等级系统
-   - 排行榜
+3. **批量月度处理**
+   - 支持按月份批量运行
+   - 支持历史批次对比
 
-4. **多平台同步**
-   - 移动端APP
-   - 浏览器插件
-   - 桌面应用
+4. **公积金扩展**
+   - 在现有社保聚合能力上扩展公积金字段和模板
 
-5. **数据分析**
-   - 学习行为分析
-   - 效果评估
-   - 个性化优化
+5. **更强的智能识别**
+   - DeepSeek 辅助解析复杂透视表
+   - 字段解释、异常原因自动总结
+
+---
+
+## 14. 任务对齐矩阵
+
+以下矩阵用于把 `task.json` 的任务编号和本架构文档中的模块直接对齐，后续开发默认按这个映射推进。
+
+### A. 基础设施层
+
+| 任务ID | 任务标题 | 对应架构模块 / 章节 |
+|-----|-----|-----|
+| 1 | 项目基础配置 | 技术栈、项目结构、环境变量 |
+| 2 | 数据库 Schema 设计 | 数据模型图 |
+| 3 | 配置管理与基础依赖注入 | 后端核心配置、环境变量 |
+| 4 | FastAPI 应用初始化 | 系统架构图、API 设计 |
+| 5 | React 前端初始化 | 页面结构图 |
+| 6 | 员工主数据与工号主档导入 | 数据模型图、工号匹配服务 |
+
+### B. 核心解析与数据处理链路
+
+| 任务ID | 任务标题 | 对应架构模块 / 章节 |
+|-----|-----|-----|
+| 7 | 文件上传与导入批次管理 | 核心业务流程图、import_batches/source_files |
+| 8 | Workbook / Sheet 发现服务 | 系统架构图中的 WorkbookService |
+| 9 | 表头识别与复合表头展开服务 | 系统架构图中的 HeaderService |
+| 10 | 规则映射服务与别名规则库 | Header 同义词策略、MappingService |
+| 11 | DeepSeek 兜底映射服务 | 外部 API 集成、LLMService |
+| 12 | 非明细行过滤服务 | 核心功能特性 11.3、FilterService |
+| 13 | 标准化聚合服务 | 标准字段体系、NormalizeService |
+| 14 | 数据校验服务 | 核心功能特性 11.4、ValidationService |
+| 15 | 工号匹配服务 | 核心功能特性 11.5、MatchingService |
+| 16 | 双模板导出服务 | 核心功能特性 11.6、ExportService |
+
+### C. 后端 API 层
+
+| 任务ID | 任务标题 | 对应架构模块 / 章节 |
+|-----|-----|-----|
+| 17 | 导入与解析 API | API 设计中的导入与解析 API |
+| 18 | 校验与匹配 API | API 设计中的校验与匹配 API |
+| 19 | 导出 API | API 设计中的导出 API |
+| 20 | 看板统计 API | API 设计中的配置与看板 API |
+
+### D. 前端页面层
+
+| 任务ID | 任务标题 | 对应架构模块 / 章节 |
+|-----|-----|-----|
+| 21 | 上传与解析预览页面 | 页面结构图中的 Imports / ImportDetail |
+| 22 | 校验与匹配结果页面 | 页面结构图中的 Validation / Matching |
+| 23 | 双模板导出页面 | 页面结构图中的 Exports |
+| 24 | 看板首页 UI | 页面结构图中的 Dashboard |
+| 25 | 导入批次详情页面 | 页面结构图中的 ImportDetail |
+| 26 | 字段映射配置与人工修正页面 | 页面结构图中的 Mappings |
+| 27 | 错误处理与加载状态 | 所有前端页面的横切能力 |
+| 28 | 响应式适配 | 所有前端页面的横切能力 |
+
+### E. 测试与交付层
+
+| 任务ID | 任务标题 | 对应架构模块 / 章节 |
+|-----|-----|-----|
+| 29 | 地区样例解析自动化测试 | 广州/杭州/厦门/深圳/武汉/长沙输入样例 |
+| 30 | 双模板导出自动化测试 | 双模板导出服务、导出 API |
+| 31 | DeepSeek 集成测试与降级验证 | 外部 API 集成、规则优先策略 |
+| 32 | 最终联调与部署文档 | 全链路验收、部署与环境变量 |
+
+### 推荐开发顺序
+
+1. 先完成 1-5，建立基础设施
+2. 再完成 6-16，打通核心数据链路
+3. 然后完成 17-20，暴露可调用 API
+4. 再完成 21-28，补齐前端操作和看板
+5. 最后完成 29-32，做自动化验证和最终交付

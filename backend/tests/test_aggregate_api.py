@@ -14,7 +14,7 @@ from backend.app.core.database import create_database_engine, create_session_fac
 from backend.app.dependencies import get_db
 from backend.app.main import create_app
 from backend.app.models import Base
-from backend.app.services import standardize_housing_fund_workbook, standardize_workbook
+from backend.app.services import infer_region_from_filename, standardize_housing_fund_workbook, standardize_workbook
 
 ARTIFACTS_ROOT = ROOT_DIR / '.test_artifacts' / 'aggregate_api'
 SAMPLES_DIR = ROOT_DIR / 'data' / 'samples'
@@ -344,3 +344,9 @@ def test_aggregate_stream_endpoint_emits_progress_events() -> None:
     assert result_event['data']['batch_name'] == 'quick-aggregate-stream'
     assert result_event['data']['export_status'] == 'completed'
     assert len(result_event['data']['artifacts']) == 2
+
+
+def test_infer_region_from_filename_prefers_explicit_shenzhen_label() -> None:
+    assert infer_region_from_filename('??????202602????.xlsx') == 'shenzhen'
+    assert infer_region_from_filename('202602???????????????????.xlsx') == 'shenzhen'
+    assert infer_region_from_filename('????202602?????.xlsx') == 'shenzhen'
