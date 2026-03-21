@@ -1,5 +1,5 @@
-﻿import type { ApiSuccessResponse } from './api';
-import { apiClient } from './api';
+import type { ApiSuccessResponse } from './api';
+import { LONG_RUNNING_REQUEST_TIMEOUT_MS, apiClient } from './api';
 
 export interface EmployeeMasterItem {
   id: string;
@@ -72,6 +72,7 @@ export async function importEmployeeMaster(file: File): Promise<EmployeeImportRe
   formData.append('file', file);
   const response = await apiClient.post<ApiSuccessResponse<EmployeeImportResult>>('/employees/import', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: LONG_RUNNING_REQUEST_TIMEOUT_MS,
   });
   return response.data.data;
 }

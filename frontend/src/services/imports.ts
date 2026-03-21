@@ -1,5 +1,5 @@
 import type { ApiSuccessResponse } from './api';
-import { apiClient } from './api';
+import { LONG_RUNNING_REQUEST_TIMEOUT_MS, apiClient } from './api';
 
 export interface ImportSourceFile {
   id: string;
@@ -110,16 +110,21 @@ export async function createImportBatch(input: CreateImportBatchInput): Promise<
     headers: {
       'Content-Type': 'multipart/form-data',
     },
+    timeout: LONG_RUNNING_REQUEST_TIMEOUT_MS,
   });
   return response.data.data;
 }
 
 export async function parseImportBatch(batchId: string): Promise<ImportBatchPreview> {
-  const response = await apiClient.post<ApiSuccessResponse<ImportBatchPreview>>(`/imports/${batchId}/parse`);
+  const response = await apiClient.post<ApiSuccessResponse<ImportBatchPreview>>(`/imports/${batchId}/parse`, undefined, {
+    timeout: LONG_RUNNING_REQUEST_TIMEOUT_MS,
+  });
   return response.data.data;
 }
 
 export async function fetchImportBatchPreview(batchId: string): Promise<ImportBatchPreview> {
-  const response = await apiClient.get<ApiSuccessResponse<ImportBatchPreview>>(`/imports/${batchId}/preview`);
+  const response = await apiClient.get<ApiSuccessResponse<ImportBatchPreview>>(`/imports/${batchId}/preview`, {
+    timeout: LONG_RUNNING_REQUEST_TIMEOUT_MS,
+  });
   return response.data.data;
 }

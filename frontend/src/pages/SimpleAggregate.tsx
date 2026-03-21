@@ -335,7 +335,7 @@ export function SimpleAggregatePage() {
         />
       ) : null}
       {result && result.blocked_reason ? (
-        <SurfaceNotice tone="warning" title="链路已继续但需关注" message={result.blocked_reason} />
+        <SurfaceNotice tone="warning" title="链路已继续但需要关注" message={result.blocked_reason} />
       ) : null}
 
       <div className="panel-grid panel-grid--two simple-aggregate-grid">
@@ -416,7 +416,7 @@ export function SimpleAggregatePage() {
                 <input
                   value={batchName}
                   onChange={(event) => setBatchName(event.target.value)}
-                  placeholder="例：2026-02 社保公积金聚合"
+                  placeholder="例如：2026-02 社保公积金聚合"
                 />
               </label>
               <div className="upload-meta-tip">
@@ -520,7 +520,10 @@ export function SimpleAggregatePage() {
               </div>
             </div>
           ) : (
-            <SectionState title="等你开始聚合" message="上传社保、公积金文件后，这里会直接给你两份导出文件的生成结果和路径。" />
+            <SectionState
+              title="等你开始聚合"
+              message="上传社保、公积金文件后，这里会直接给你两份导出文件的生成结果和路径。"
+            />
           )}
         </section>
       </div>

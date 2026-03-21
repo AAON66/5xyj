@@ -817,3 +817,23 @@ ormalization_service.py backendpp\services\import_service.py backendpp\service
 
 ### Notes:
 - Users no longer need the city name in the uploaded filename for the system to infer region correctly when the workbook title or header already reveals it.
+
+## [2026-03-21] - Task: Frontend timeout hardening for aggregate and runtime flows
+
+### What was done:
+- Raised the shared frontend API timeout from 15 seconds to 3 minutes and normalized timeout errors to a clearer user-facing message.
+- Added 5-minute request timeouts for long-running upload, parse, validation, match, export, and employee-master import requests so large aggregate runs are not aborted by the client too early.
+- Rewrote the quick aggregate page text to clean UTF-8 Chinese copy so the main upload-and-export experience no longer shows garbled labels while troubleshooting long-running requests.
+
+### Testing:
+- `cmd /c npm.cmd run lint`
+- `cmd /c npm.cmd run build`
+- `Invoke-WebRequest http://127.0.0.1:8000/health`
+- `Invoke-WebRequest http://127.0.0.1:5173`
+
+### Risks / Open Questions:
+- Very large batches can still exceed these client-side limits if the operator uploads an unusually large set of files in one run; if that happens again, the next step should be moving more of the advanced pages to streaming progress as well.
+- Existing browser tabs may still hold the old bundle until the page is refreshed.
+
+### Notes:
+- Only frontend request behavior and quick aggregate copy were updated; backend parsing, matching, and export logic are unchanged.

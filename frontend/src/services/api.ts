@@ -2,6 +2,9 @@ import axios, { AxiosError } from "axios";
 
 import { getApiBaseUrl } from "../config/env";
 
+export const DEFAULT_REQUEST_TIMEOUT_MS = 180000;
+export const LONG_RUNNING_REQUEST_TIMEOUT_MS = 300000;
+
 export interface ApiSuccessResponse<T> {
   success: true;
   message: string;
@@ -41,7 +44,7 @@ export interface ApiInterceptorCallbacks {
 
 export const apiClient = axios.create({
   baseURL: getApiBaseUrl(),
-  timeout: 15000,
+  timeout: DEFAULT_REQUEST_TIMEOUT_MS,
 });
 
 export function normalizeApiError(error: unknown): ApiClientError {
@@ -52,7 +55,8 @@ export function normalizeApiError(error: unknown): ApiClientError {
   if (axios.isAxiosError(error)) {
     const axiosError = error as AxiosError<ApiFailureResponse>;
     const payload = axiosError.response?.data;
-    const fallbackMessage = axiosError.message || "Request failed.";
+    const isTimeout = axiosError.code === "ECONNABORTED" || /timeout/i.test(axiosError.message || "");
+    const fallbackMessage = isTimeout ? "请求超时，请稍后重试，或减少单次处理文件数量。" : axiosError.message || "Request failed.";
 
     return new ApiClientError(payload?.error.message ?? fallbackMessage, {
       statusCode: axiosError.response?.status,

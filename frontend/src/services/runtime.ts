@@ -1,5 +1,5 @@
-﻿import type { ApiSuccessResponse } from './api';
-import { apiClient } from './api';
+import type { ApiSuccessResponse } from './api';
+import { LONG_RUNNING_REQUEST_TIMEOUT_MS, apiClient } from './api';
 import { fetchImportBatches, type ImportBatchSummary } from './imports';
 
 export interface ValidationIssue {
@@ -87,31 +87,43 @@ export async function fetchRuntimeBatches(): Promise<ImportBatchSummary[]> {
 }
 
 export async function validateBatch(batchId: string): Promise<BatchValidation> {
-  const response = await apiClient.post<ApiSuccessResponse<BatchValidation>>(`/imports/${batchId}/validate`);
+  const response = await apiClient.post<ApiSuccessResponse<BatchValidation>>(`/imports/${batchId}/validate`, undefined, {
+    timeout: LONG_RUNNING_REQUEST_TIMEOUT_MS,
+  });
   return response.data.data;
 }
 
 export async function fetchBatchValidation(batchId: string): Promise<BatchValidation> {
-  const response = await apiClient.get<ApiSuccessResponse<BatchValidation>>(`/imports/${batchId}/validation`);
+  const response = await apiClient.get<ApiSuccessResponse<BatchValidation>>(`/imports/${batchId}/validation`, {
+    timeout: LONG_RUNNING_REQUEST_TIMEOUT_MS,
+  });
   return response.data.data;
 }
 
 export async function matchBatch(batchId: string): Promise<BatchMatch> {
-  const response = await apiClient.post<ApiSuccessResponse<BatchMatch>>(`/imports/${batchId}/match`);
+  const response = await apiClient.post<ApiSuccessResponse<BatchMatch>>(`/imports/${batchId}/match`, undefined, {
+    timeout: LONG_RUNNING_REQUEST_TIMEOUT_MS,
+  });
   return response.data.data;
 }
 
 export async function fetchBatchMatch(batchId: string): Promise<BatchMatch> {
-  const response = await apiClient.get<ApiSuccessResponse<BatchMatch>>(`/imports/${batchId}/match`);
+  const response = await apiClient.get<ApiSuccessResponse<BatchMatch>>(`/imports/${batchId}/match`, {
+    timeout: LONG_RUNNING_REQUEST_TIMEOUT_MS,
+  });
   return response.data.data;
 }
 
 export async function exportBatch(batchId: string): Promise<BatchExport> {
-  const response = await apiClient.post<ApiSuccessResponse<BatchExport>>(`/imports/${batchId}/export`);
+  const response = await apiClient.post<ApiSuccessResponse<BatchExport>>(`/imports/${batchId}/export`, undefined, {
+    timeout: LONG_RUNNING_REQUEST_TIMEOUT_MS,
+  });
   return response.data.data;
 }
 
 export async function fetchBatchExport(batchId: string): Promise<BatchExport> {
-  const response = await apiClient.get<ApiSuccessResponse<BatchExport>>(`/imports/${batchId}/export`);
+  const response = await apiClient.get<ApiSuccessResponse<BatchExport>>(`/imports/${batchId}/export`, {
+    timeout: LONG_RUNNING_REQUEST_TIMEOUT_MS,
+  });
   return response.data.data;
 }
