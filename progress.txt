@@ -920,3 +920,23 @@ ormalization_service.py backendpp\services\import_service.py backendpp\service
 
 ### Notes:
 - The user-visible error `could not convert string to float: 'high'` should now be eliminated for both field-mapping fallback and LLM-assisted region detection.
+
+## [2026-03-22] - Task: Parse-stage progress unblocking for large aggregate runs
+
+### What was done:
+- Traced the apparent `32/32` upload freeze to the synchronous parse stage: detailed parse progress callbacks were queued on the event loop but could not run until the entire batch finished parsing.
+- Moved batch parsing in quick aggregate onto a worker thread with its own SQLAlchemy session and forwarded per-file parse progress back to the main event loop via `run_coroutine_threadsafe`, so parse events now stream in real time.
+- Added a regression assertion that detailed parse events appear before the final `????` event, which protects against the old buffering behavior returning.
+- Reproduced the user's desktop-style batch locally and confirmed the investigated Changsha housing-fund workbook saves in about 1 ms; the previous apparent stall was progress delivery, not file persistence cost.
+
+### Testing:
+- `py -m compileall backend`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_aggregate_api.py -k "aggregate_stream_endpoint_reports_intermediate_upload_and_parse_progress or aggregate_stream_endpoint_reports_region_detection_for_generic_filename or aggregate_stream_endpoint_emits_progress_events" -p no:cacheprovider`
+- Local reproduction with 29 desktop-style social-security + housing-fund files confirmed `?????? 1/29` appears immediately after upload completion.
+
+### Risks / Open Questions:
+- Parsing is now non-blocking for UI progress delivery, but the total parse time for a full mixed-region batch is still substantial; further speed work would need to target the parsers themselves rather than the event stream.
+- Worker-thread parsing currently opens a dedicated session off the same engine, which is safe with the current SQLite settings (`check_same_thread=False`, WAL), but should still be revisited if the runtime later moves to a job queue architecture.
+
+### Notes:
+- The investigated `??202602?????.xlsx` workbook is valid and parses in under one second through the housing-fund parser, so it was not the real bottleneck.

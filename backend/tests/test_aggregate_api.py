@@ -424,6 +424,9 @@ def test_aggregate_stream_endpoint_reports_intermediate_upload_and_parse_progres
     assert len(parse_events) >= 3
     assert any('1/2' in event['message'] for event in parse_events)
     assert any('2/2' in event['message'] for event in parse_events)
+    detail_index = next(index for index, event in enumerate(events) if event['event'] == 'progress' and event['stage'] == 'parse' and '1/2' in event['message'])
+    completion_index = next(index for index, event in enumerate(events) if event['event'] == 'progress' and event['stage'] == 'parse' and '\u5df2\u5b8c\u6210 2 \u4e2a\u6587\u4ef6\u7684\u89e3\u6790' in event['message'])
+    assert detail_index < completion_index
     assert upload_events[-1]['percent'] >= upload_events[0]['percent']
     assert parse_events[-1]['percent'] >= parse_events[0]['percent']
 

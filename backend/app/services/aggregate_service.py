@@ -175,26 +175,36 @@ async def run_simple_aggregate(
         batch_name=batch.batch_name,
     )
 
+    event_loop = asyncio.get_running_loop()
+
     def emit_parse_progress(payload: dict[str, object]) -> None:
         current = int(payload.get('current', 0) or 0)
         total = max(1, int(payload.get('total', 1) or 1))
         file_name = str(payload.get('file_name', ''))
         if progress_callback is None:
             return
-        result = progress_callback(
-            {
-                'stage': 'parse',
-                'label': '\u89e3\u6790\u8bc6\u522b',
-                'message': f'\u6b63\u5728\u89e3\u6790\u6587\u4ef6 {current}/{total}\uff1a{file_name}',
-                'percent': _interpolate_percent(42, 60, current, total),
-                'batch_id': str(payload.get('batch_id') or batch.id),
-                'batch_name': str(payload.get('batch_name') or batch.batch_name),
-            }
-        )
-        if inspect.isawaitable(result):
-            asyncio.get_running_loop().create_task(result)
 
-    preview = parse_import_batch(db, batch.id, progress_callback=emit_parse_progress)
+        progress_event = {
+            'stage': 'parse',
+            'label': '解析识别',
+            'message': f'正在解析文件 {current}/{total}：{file_name}',
+            'percent': _interpolate_percent(42, 60, current, total),
+            'batch_id': str(payload.get('batch_id') or batch.id),
+            'batch_name': str(payload.get('batch_name') or batch.batch_name),
+        }
+        future = asyncio.run_coroutine_threadsafe(_emit_progress(progress_callback, **progress_event), event_loop)
+        future.result()
+
+    def run_parse_in_worker_session():
+        worker_db = Session(bind=db.get_bind(), autoflush=False, autocommit=False, future=True)
+        try:
+            return parse_import_batch(worker_db, batch.id, progress_callback=emit_parse_progress)
+        finally:
+            worker_db.close()
+
+    preview = await asyncio.to_thread(run_parse_in_worker_session)
+    db.expire_all()
+
     await _emit_progress(
         progress_callback,
         stage='parse',
