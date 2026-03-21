@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import inspect
 import re
 from collections.abc import Awaitable, Callable
@@ -63,7 +64,7 @@ async def run_simple_aggregate(
         stage='employee_import',
         label='\u51c6\u5907\u5f00\u59cb',
         message='\u6b63\u5728\u51c6\u5907\u5feb\u901f\u805a\u5408\u4efb\u52a1\u3002',
-        percent=5,
+        percent=4,
     )
 
     employee_summary: AggregateEmployeeImportRead | None = None
@@ -73,7 +74,7 @@ async def run_simple_aggregate(
             stage='employee_import',
             label='\u5bfc\u5165\u5458\u5de5\u4e3b\u6863',
             message='\u6b63\u5728\u5bfc\u5165\u5458\u5de5\u4e3b\u6863\u6587\u4ef6\u3002',
-            percent=12,
+            percent=10,
         )
         employee_import = await import_employee_master_file(db, employee_master_file)
         employee_summary = AggregateEmployeeImportRead(
@@ -109,9 +110,26 @@ async def run_simple_aggregate(
         progress_callback,
         stage='batch_upload',
         label='\u4e0a\u4f20\u6279\u6b21',
-        message='\u6b63\u5728\u521b\u5efa\u5bfc\u5165\u6279\u6b21\u5e76\u4fdd\u5b58\u793e\u4fdd\u3001\u516c\u79ef\u91d1\u6e90\u6587\u4ef6\u3002',
-        percent=28,
+        message='\u6b63\u5728\u521b\u5efa\u5bfc\u5165\u6279\u6b21\u5e76\u51c6\u5907\u4fdd\u5b58\u6587\u4ef6\u3002',
+        percent=22,
     )
+
+    async def emit_upload_progress(payload: dict[str, object]) -> None:
+        current = int(payload.get('current', 0) or 0)
+        total = max(1, int(payload.get('total', 1) or 1))
+        file_name = str(payload.get('file_name', ''))
+        batch_id = str(payload.get('batch_id') or '') or None
+        batch_name_value = str(payload.get('batch_name') or '') or None
+        await _emit_progress(
+            progress_callback,
+            stage='batch_upload',
+            label='\u4e0a\u4f20\u6279\u6b21',
+            message=f'\u6b63\u5728\u4fdd\u5b58\u6587\u4ef6 {current}/{total}\uff1a{file_name}',
+            percent=_interpolate_percent(22, 36, current, total),
+            batch_id=batch_id,
+            batch_name=batch_name_value,
+        )
+
     batch = await create_import_batch(
         db=db,
         settings=settings,
@@ -120,6 +138,7 @@ async def run_simple_aggregate(
         regions=resolved_regions,
         company_names=resolved_companies,
         file_kinds=file_kinds,
+        progress_callback=emit_upload_progress,
     )
     await _emit_progress(
         progress_callback,
@@ -136,11 +155,31 @@ async def run_simple_aggregate(
         stage='parse',
         label='\u89e3\u6790\u8bc6\u522b',
         message='\u6b63\u5728\u8bc6\u522b\u793e\u4fdd\u4e0e\u516c\u79ef\u91d1\u5de5\u4f5c\u8868\u3001\u8868\u5934\u548c\u6807\u51c6\u5b57\u6bb5\u3002',
-        percent=48,
+        percent=42,
         batch_id=batch.id,
         batch_name=batch.batch_name,
     )
-    preview = parse_import_batch(db, batch.id)
+
+    def emit_parse_progress(payload: dict[str, object]) -> None:
+        current = int(payload.get('current', 0) or 0)
+        total = max(1, int(payload.get('total', 1) or 1))
+        file_name = str(payload.get('file_name', ''))
+        if progress_callback is None:
+            return
+        result = progress_callback(
+            {
+                'stage': 'parse',
+                'label': '\u89e3\u6790\u8bc6\u522b',
+                'message': f'\u6b63\u5728\u89e3\u6790\u6587\u4ef6 {current}/{total}\uff1a{file_name}',
+                'percent': _interpolate_percent(42, 60, current, total),
+                'batch_id': str(payload.get('batch_id') or batch.id),
+                'batch_name': str(payload.get('batch_name') or batch.batch_name),
+            }
+        )
+        if inspect.isawaitable(result):
+            asyncio.get_running_loop().create_task(result)
+
+    preview = parse_import_batch(db, batch.id, progress_callback=emit_parse_progress)
     await _emit_progress(
         progress_callback,
         stage='parse',
@@ -156,7 +195,7 @@ async def run_simple_aggregate(
         stage='validate',
         label='\u6570\u636e\u6821\u9a8c',
         message='\u6b63\u5728\u6267\u884c\u7f3a\u5931\u3001\u91cd\u590d\u4e0e\u91d1\u989d\u6821\u9a8c\u3002',
-        percent=68,
+        percent=72,
         batch_id=batch.id,
         batch_name=batch.batch_name,
     )
@@ -166,7 +205,7 @@ async def run_simple_aggregate(
         stage='validate',
         label='\u6821\u9a8c\u5b8c\u6210',
         message=f'\u5171\u53d1\u73b0 {validation.total_issue_count} \u6761\u6821\u9a8c\u95ee\u9898\u3002',
-        percent=76,
+        percent=80,
         batch_id=batch.id,
         batch_name=batch.batch_name,
     )
@@ -176,7 +215,7 @@ async def run_simple_aggregate(
         stage='match',
         label='\u5de5\u53f7\u5339\u914d',
         message='\u6b63\u5728\u6839\u636e\u5458\u5de5\u4e3b\u6863\u6267\u884c\u5de5\u53f7\u5339\u914d\u3002',
-        percent=84,
+        percent=86,
         batch_id=batch.id,
         batch_name=batch.batch_name,
     )
@@ -186,7 +225,7 @@ async def run_simple_aggregate(
         stage='match',
         label='\u5339\u914d\u5b8c\u6210',
         message=f'\u5df2\u5339\u914d {match.matched_count} \u6761\uff0c\u672a\u5339\u914d {match.unmatched_count} \u6761\u3002',
-        percent=90,
+        percent=92,
         batch_id=batch.id,
         batch_name=batch.batch_name,
     )
@@ -247,6 +286,13 @@ async def run_simple_aggregate(
         batch_name=batch.batch_name,
     )
     return result
+
+
+def _interpolate_percent(start: int, end: int, current: int, total: int) -> int:
+    if total <= 0:
+        return end
+    bounded_current = min(max(current, 0), total)
+    return min(end, max(start, round(start + ((end - start) * bounded_current / total))))
 
 
 def _match_for_simple_aggregate(db: Session, batch_id: str):

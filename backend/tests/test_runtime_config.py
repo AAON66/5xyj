@@ -83,3 +83,20 @@ def test_dependency_get_settings_returns_settings_instance() -> None:
     settings = get_settings()
 
     assert isinstance(settings, Settings)
+
+
+def test_create_database_engine_applies_sqlite_pragmas() -> None:
+    database_path = ARTIFACTS_DIR / "runtime-pragmas.db"
+    database_path.parent.mkdir(parents=True, exist_ok=True)
+    if database_path.exists():
+        database_path.unlink()
+
+    settings = Settings(database_url=f"sqlite:///{database_path.as_posix()}")
+    session_factory = create_session_factory(settings)
+
+    with session_factory() as session:
+        journal_mode = session.execute(text("PRAGMA journal_mode")).scalar_one()
+        busy_timeout = session.execute(text("PRAGMA busy_timeout")).scalar_one()
+
+    assert str(journal_mode).lower() == "wal"
+    assert int(busy_timeout) >= 120000

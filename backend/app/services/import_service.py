@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import shutil
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -55,6 +57,8 @@ FILENAME_NOISE = (
     '\u53f0\u8d26',
     '\u8865\u7f34',
 )
+ImportProgressCallback = Callable[[dict[str, object]], Awaitable[None] | None]
+
 REGION_LABELS = {
     'guangzhou': '\u5e7f\u5dde',
     'hangzhou': '\u676d\u5dde',
@@ -100,6 +104,7 @@ async def create_import_batch(
     regions: list[str] | None = None,
     company_names: list[str] | None = None,
     file_kinds: list[str] | None = None,
+    progress_callback: ImportProgressCallback | None = None,
 ) -> ImportBatch:
     if not files:
         raise InvalidUploadError('At least one Excel file is required.')
@@ -110,44 +115,63 @@ async def create_import_batch(
 
     batch = ImportBatch(batch_name=(batch_name or _build_batch_name()).strip(), status=BatchStatus.UPLOADED)
     db.add(batch)
-    db.flush()
+    db.commit()
+    db.refresh(batch)
 
     batch_dir = settings.upload_path / batch.id
     batch_dir.mkdir(parents=True, exist_ok=True)
 
     stored_paths: list[Path] = []
+    pending_source_files: list[SourceFile] = []
     try:
-        for index, upload in enumerate(files):
+        for index, upload in enumerate(files, start=1):
             stored = await _store_upload(batch_dir, upload)
             stored_paths.append(stored.storage_path)
-            detected_region = runtime_regions[index]
+            detected_region = runtime_regions[index - 1]
             if detected_region is None:
                 detection = detect_region_for_workbook(
                     stored.storage_path,
                     filename=stored.original_name,
-                    source_kind=runtime_file_kinds[index],
+                    source_kind=runtime_file_kinds[index - 1],
                 )
                 detected_region = detection.region
-            source_file = SourceFile(
-                batch_id=batch.id,
-                file_name=stored.original_name,
-                file_path=str(stored.storage_path),
-                file_size=stored.file_size,
-                source_kind=runtime_file_kinds[index],
-                region=detected_region,
-                company_name=runtime_companies[index] or _infer_company_name_from_filename(stored.original_name, detected_region),
-                file_hash=stored.file_hash,
+            pending_source_files.append(
+                SourceFile(
+                    batch_id=batch.id,
+                    file_name=stored.original_name,
+                    file_path=str(stored.storage_path),
+                    file_size=stored.file_size,
+                    source_kind=runtime_file_kinds[index - 1],
+                    region=detected_region,
+                    company_name=runtime_companies[index - 1] or _infer_company_name_from_filename(stored.original_name, detected_region),
+                    file_hash=stored.file_hash,
+                )
             )
-            db.add(source_file)
+            await _notify_progress(
+                progress_callback,
+                {
+                    'phase': 'uploading',
+                    'current': index,
+                    'total': len(files),
+                    'file_name': stored.original_name,
+                    'batch_id': batch.id,
+                    'batch_name': batch.batch_name,
+                },
+            )
 
+        db.add_all(pending_source_files)
         db.commit()
     except Exception:
         db.rollback()
-        for path in stored_paths:
-            if path.exists():
-                path.unlink()
+        for stored_path in stored_paths:
+            if stored_path.exists():
+                stored_path.unlink()
         if batch_dir.exists() and not any(batch_dir.iterdir()):
             shutil.rmtree(batch_dir)
+        persisted_batch = db.query(ImportBatch).filter(ImportBatch.id == batch.id).first()
+        if persisted_batch is not None:
+            db.delete(persisted_batch)
+            db.commit()
         raise
 
     return get_import_batch(db, batch.id)
@@ -176,27 +200,49 @@ def preview_import_batch(db: Session, batch_id: str) -> ImportBatchPreviewRead:
     )
 
 
-def parse_import_batch(db: Session, batch_id: str) -> ImportBatchPreviewRead:
+def parse_import_batch(
+    db: Session,
+    batch_id: str,
+    progress_callback: ImportProgressCallback | None = None,
+) -> ImportBatchPreviewRead:
     batch = get_import_batch(db, batch_id)
     batch.status = BatchStatus.PARSING
-    db.flush()
+    db.commit()
+    db.refresh(batch)
 
     try:
         file_previews = []
-        for source_file in batch.source_files:
+        source_files = list(batch.source_files)
+        total_files = len(source_files)
+        for index, source_file in enumerate(source_files, start=1):
+            _run_progress_callback(
+                progress_callback,
+                {
+                    'phase': 'parsing',
+                    'current': index,
+                    'total': total_files,
+                    'file_name': source_file.file_name,
+                    'batch_id': batch.id,
+                    'batch_name': batch.batch_name,
+                },
+            )
             analyzed = analyze_source_file(source_file)
             _persist_source_file_mappings(db, source_file, analyzed.normalization.decisions)
             file_preview = _build_source_file_preview_from_analysis(source_file, analyzed)
             file_previews.append(file_preview)
             source_file.raw_sheet_name = analyzed.standardized.sheet_name
+            db.commit()
+        batch = get_import_batch(db, batch_id)
         batch.status = BatchStatus.NORMALIZED
         db.commit()
     except Exception:
-        batch.status = BatchStatus.FAILED
+        db.rollback()
+        failed_batch = get_import_batch(db, batch_id)
+        failed_batch.status = BatchStatus.FAILED
         db.commit()
         raise
 
-    db.refresh(batch)
+    batch = get_import_batch(db, batch.id)
     return ImportBatchPreviewRead(
         batch_id=batch.id,
         batch_name=batch.batch_name,
@@ -406,6 +452,28 @@ def _to_summary_schema(batch: ImportBatch) -> ImportBatchSummaryRead:
         updated_at=batch.updated_at,
         file_count=len(batch.source_files),
     )
+
+
+async def _notify_progress(
+    progress_callback: ImportProgressCallback | None,
+    payload: dict[str, object],
+) -> None:
+    if progress_callback is None:
+        return
+    result = progress_callback(payload)
+    if inspect.isawaitable(result):
+        await result
+
+
+def _run_progress_callback(
+    progress_callback: ImportProgressCallback | None,
+    payload: dict[str, object],
+) -> None:
+    if progress_callback is None:
+        return
+    result = progress_callback(payload)
+    if inspect.isawaitable(result):
+        raise RuntimeError('Synchronous parse progress callback cannot be awaitable.')
 
 
 def _build_batch_name() -> str:

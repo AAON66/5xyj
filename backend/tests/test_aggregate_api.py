@@ -382,3 +382,45 @@ def test_infer_region_from_filename_prefers_explicit_shenzhen_label() -> None:
     assert infer_region_from_filename('\u6df1\u5733\u96f6\u4e00\u88c2\u53d8202602\u793e\u4fdd\u660e\u7ec6.xlsx') == 'shenzhen'
     assert infer_region_from_filename('202602\u6708\u96f6\u4e00\u88c2\u53d8\uff08\u6df1\u5733\uff09\u79d1\u6280\u6709\u9650\u516c\u53f8\u793e\u4fdd\u8d26\u5355.xlsx') == 'shenzhen'
     assert infer_region_from_filename('\u6df1\u5733\u88c2\u53d8202602\u516c\u79ef\u91d1\u8d26\u5355.xlsx') == 'shenzhen'
+
+
+
+def test_aggregate_stream_endpoint_reports_intermediate_upload_and_parse_progress() -> None:
+    salary_template = find_template('薪酬')
+    tool_template = find_template('最终版')
+    sample_path = find_sample(SAMPLE_KEYWORD)
+    client, _settings, _session_factory = build_test_context(
+        'aggregate_stream_granular_progress',
+        salary_template=salary_template,
+        final_tool_template=tool_template,
+    )
+
+    with client, client.stream(
+        'POST',
+        '/api/v1/aggregate/stream',
+        data={'batch_name': 'quick-aggregate-stream-granular'},
+        files=[
+            ('files', ('sample-a.xlsx', sample_path.read_bytes(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')),
+            ('files', ('sample-b.xlsx', sample_path.read_bytes(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')),
+        ],
+    ) as response:
+        assert response.status_code == 200
+        events = []
+        for line in response.iter_lines():
+            if not line:
+                continue
+            if isinstance(line, bytes):
+                line = line.decode('utf-8')
+            events.append(json.loads(line))
+
+    upload_events = [event for event in events if event['event'] == 'progress' and event['stage'] == 'batch_upload']
+    parse_events = [event for event in events if event['event'] == 'progress' and event['stage'] == 'parse']
+
+    assert len(upload_events) >= 3
+    assert any('1/2' in event['message'] for event in upload_events)
+    assert any('2/2' in event['message'] for event in upload_events)
+    assert len(parse_events) >= 3
+    assert any('1/2' in event['message'] for event in parse_events)
+    assert any('2/2' in event['message'] for event in parse_events)
+    assert upload_events[-1]['percent'] >= upload_events[0]['percent']
+    assert parse_events[-1]['percent'] >= parse_events[0]['percent']

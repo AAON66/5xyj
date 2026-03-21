@@ -87,8 +87,8 @@ async def run_simple_aggregate_stream_endpoint(
     async def event_stream():
         queue: asyncio.Queue[dict[str, object] | None] = asyncio.Queue()
 
-        async def emit_progress(payload: dict[str, object]) -> None:
-            await queue.put({'event': 'progress', **payload})
+        def emit_progress(payload: dict[str, object]) -> None:
+            queue.put_nowait({'event': 'progress', **payload})
 
         async def run_task() -> None:
             runtime_files = [

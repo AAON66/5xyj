@@ -71,7 +71,7 @@ type AggregateStreamEnvelope =
   | AggregateStreamResultEnvelope
   | AggregateStreamErrorEnvelope;
 
-interface AggregateInput {
+export interface AggregateInput {
   files: File[];
   housingFundFiles?: File[];
   employeeMasterFile?: File | null;
@@ -94,17 +94,21 @@ function buildAggregateFormData(input: AggregateInput): FormData {
 export async function runSimpleAggregate(input: AggregateInput): Promise<AggregateRunResult> {
   const response = await apiClient.post<ApiSuccessResponse<AggregateRunResult>>('/aggregate', buildAggregateFormData(input), {
     headers: { 'Content-Type': 'multipart/form-data' },
-    timeout: 180000,
+    timeout: 300000,
   });
   return response.data.data;
 }
 
-export async function runSimpleAggregateWithProgress(input: AggregateInput & {
-  onProgress?: (event: AggregateProgressEvent) => void;
-}): Promise<AggregateRunResult> {
+export async function runSimpleAggregateWithProgress(
+  input: AggregateInput & {
+    onProgress?: (event: AggregateProgressEvent) => void;
+    signal?: AbortSignal;
+  },
+): Promise<AggregateRunResult> {
   const response = await fetch(`${getApiBaseUrl()}/aggregate/stream`, {
     method: 'POST',
     body: buildAggregateFormData(input),
+    signal: input.signal,
   });
 
   if (!response.ok) {

@@ -837,3 +837,27 @@ ormalization_service.py backendpp\services\import_service.py backendpp\service
 
 ### Notes:
 - Only frontend request behavior and quick aggregate copy were updated; backend parsing, matching, and export logic are unchanged.
+
+## [2026-03-22] - Task: Aggregate progress persistence, concurrency hardening, and quick-page UX cleanup
+
+### What was done:
+- Broke quick aggregate progress into finer-grained upload and parse updates so the workflow no longer appears frozen at 28% while files are being stored and analyzed.
+- Added a global aggregate session store on the frontend so an in-flight quick aggregate keeps running when the user switches pages, can be resumed from the quick page, and can be explicitly cancelled or cleared.
+- Surfaced aggregate status in the global feedback banner so operators can continue using other pages while still seeing the active aggregate stage and returning to it when needed.
+- Simplified and aligned the quick aggregate file panels by removing extra descriptive copy, normalizing header height, and keeping the action rows visually aligned.
+- Added animated loading affordances to the quick aggregate action button and progress card, and turned the progress bar into a flowing striped bar while the task is active.
+- Hardened SQLite local-runtime concurrency by enabling WAL mode and a longer busy timeout, and shortened write-lock windows during batch creation and parse persistence to reduce cross-page timeout issues while aggregation is running.
+
+### Testing:
+- `cmd /c npm.cmd run lint`
+- `cmd /c npm.cmd run build`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_runtime_config.py backend\tests\test_import_batches_api.py -p no:cacheprovider`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_aggregate_api.py -k "aggregate_stream_endpoint_reports_intermediate_upload_and_parse_progress or aggregate_stream_endpoint_emits_progress_events" -p no:cacheprovider`
+- `py -m compileall backend`
+
+### Risks / Open Questions:
+- The persisted quick aggregate record currently survives page navigation within the app and stays in session storage for the current browser session, but a full browser refresh cannot resume the underlying live upload stream; in that case the UI marks the prior run as interrupted and requires a restart.
+- SQLite local runtime is now much more tolerant for concurrent page usage, but very large real-world batches may still benefit from moving the aggregate orchestration onto a dedicated background job queue in a future step.
+
+### Notes:
+- Quick aggregate now keeps one active run at a time by design, which avoids overlapping uploads from stomping on the same local operator session.
