@@ -569,3 +569,25 @@
 ### Notes:
 - Task 31 is complete and `task.json` has been updated to mark it as `passes: true`.
 - The next best step is task 32: final integration pass and deployment documentation.
+
+## 2026-03-21 - Task: Final Integration Pass And Deployment Documentation
+
+### What was done:
+- Rewrote the root `README.md` so it reflects the current runnable state of the project instead of the original scaffold-stage summary.
+- Added `DEPLOYMENT.md` with local setup, environment variables, startup steps, recommended operator flow, verification commands, release-readiness notes, and known gaps.
+- Explicitly documented that task 6 is still unfinished, the `/employees` page is still placeholder-only, and production matching still depends on externally populated employee master data.
+
+### Testing:
+- `py -m compileall backend`
+- `./.venv/Scripts/python.exe -m pytest backend/tests/test_region_sample_regression.py backend/tests/test_template_exporter_regression.py backend/tests/test_llm_mapping_service.py -p no:cacheprovider`
+- `cmd /c npm.cmd run lint`
+- `cmd /c npm.cmd run build`
+
+### Risks / Open Questions:
+- This task completes the integration documentation layer, but it does not remove the remaining product gap around employee master import and management.
+- The deployment guide intentionally documents local or operator-managed rollout; it does not yet provide Docker, Windows service, or CI/CD packaging.
+- Very long full backend pytest runs can still be interrupted by desktop-shell timeout, so the guide recommends running the heaviest suites independently when needed.
+
+### Notes:
+- Task 32 is complete and `task.json` has been updated to mark it as `passes: true`.
+- The repository task list is now complete except for task 6, which remains intentionally unfinished.

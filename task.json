@@ -160,7 +160,7 @@
     {
       "id": 32,
       "title": "最终联调与部署文档",
-      "passes": false
+      "passes": true
     }
   ]
 }
