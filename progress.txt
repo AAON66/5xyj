@@ -781,3 +781,20 @@ ormalization_service.py backendpp\services\import_service.py backendpp\service
 ### Notes:
 - The final-tool workbook now keeps template formulas in internal validation columns while replacing unsupported external-link formulas with concrete exported values.
 - If a previous aggregate result was generated before this fix, regenerate the batch to get corrected employee IDs and workbook structure.
+
+## [2026-03-21] - Task: Quick aggregate upload list overflow handling
+
+### What was done:
+- Adjusted the quick aggregate upload panels so large file selections no longer stretch the whole page and distort the layout.
+- Constrained the social security and housing fund file lists to a fixed visual height with internal scrolling, while keeping the add/remove controls visible and stable.
+- Tightened the upload panel layout so long filenames wrap safely and the empty state, summary area, and action buttons stay aligned on both desktop and mobile.
+
+### Testing:
+- `cmd /c npm.cmd run lint`
+- `cmd /c npm.cmd run build`
+
+### Risks / Open Questions:
+- If operators start uploading extremely large batches regularly, we may still want a future compact mode with collapsing groups or search inside the file list.
+
+### Notes:
+- This is a UI containment change only; aggregate behavior and file handling logic are unchanged.

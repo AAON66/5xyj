@@ -1406,6 +1406,7 @@ button {
 
 .simple-aggregate-card {
   min-height: 100%;
+  align-content: start;
 }
 
 .simple-file-list .status-item,
@@ -1428,6 +1429,8 @@ button {
 
 .upload-board {
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: minmax(0, 1fr);
+  align-items: start;
 }
 
 .upload-support-grid {
@@ -1441,6 +1444,8 @@ button {
   border-radius: 24px;
   border: 1px solid rgba(31, 42, 61, 0.08);
   background: rgba(248, 250, 254, 0.94);
+  min-height: 0;
+  align-content: start;
 }
 
 .upload-panel--social {
@@ -1465,6 +1470,10 @@ button {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+}
+
+.upload-panel__header > div:first-child {
+  min-width: 0;
 }
 
 .upload-panel__header h3 {
@@ -1502,7 +1511,10 @@ button {
 }
 
 .upload-panel__empty {
+  display: flex;
+  align-items: center;
   padding: 18px;
+  min-height: 132px;
   border-radius: 18px;
   border: 1px dashed rgba(31, 42, 61, 0.16);
   background: rgba(255, 255, 255, 0.75);
@@ -1513,6 +1525,28 @@ button {
 .upload-file-list {
   display: grid;
   gap: 12px;
+  max-height: clamp(220px, 34vh, 320px);
+  min-height: 0;
+  overflow: auto;
+  padding-right: 6px;
+  align-content: start;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.upload-file-list::-webkit-scrollbar {
+  width: 10px;
+}
+
+.upload-file-list::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: rgba(91, 112, 142, 0.28);
+  background-clip: padding-box;
+}
+
+.upload-file-list::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .upload-file-chip {
@@ -1548,6 +1582,7 @@ button {
 
 .upload-file-chip__remove {
   min-width: 84px;
+  flex-shrink: 0;
 }
 
 .form-field--compact {
@@ -1679,5 +1714,10 @@ button {
 
   .progress-card__summary strong {
     font-size: 1.6rem;
+  }
+
+  .upload-file-list {
+    max-height: 260px;
+    padding-right: 0;
   }
 }
