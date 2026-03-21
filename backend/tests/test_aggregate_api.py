@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import json
 import shutil
@@ -6,6 +6,7 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
+from openpyxl import load_workbook
 from sqlalchemy.orm import Session
 
 from backend.app.core.config import ROOT_DIR, Settings, get_settings
@@ -13,23 +14,24 @@ from backend.app.core.database import create_database_engine, create_session_fac
 from backend.app.dependencies import get_db
 from backend.app.main import create_app
 from backend.app.models import Base
-from backend.app.services import standardize_workbook
-
+from backend.app.services import standardize_housing_fund_workbook, standardize_workbook
 
 ARTIFACTS_ROOT = ROOT_DIR / '.test_artifacts' / 'aggregate_api'
 SAMPLES_DIR = ROOT_DIR / 'data' / 'samples'
-DESKTOP_ROOT = Path.home() / 'Desktop' / '202602\u793e\u4fdd\u516c\u79ef\u91d1\u53f0\u8d26' / '202602\u793e\u4fdd\u516c\u79ef\u91d1\u6c47\u603b'
+HOUSING_SAMPLES_DIR = ROOT_DIR / 'data' / 'samples' / '\u516c\u79ef\u91d1'
+DESKTOP_ROOT = Path.home() / 'Desktop' / '\u0032\u0030\u0032\u0036\u0030\u0032\u793e\u4fdd\u516c\u79ef\u91d1\u53f0\u8d26' / '\u0032\u0030\u0032\u0036\u0030\u0032\u793e\u4fdd\u516c\u79ef\u91d1\u6c47\u603b'
 
 SAMPLE_KEYWORD = '\u6df1\u5733\u521b\u9020\u6b22\u4e50'
 COMPANY_NAME = '\u521b\u9020\u6b22\u4e50'
 APP_NAME = '\u5feb\u901f\u805a\u5408\u6d4b\u8bd5'
 
 
-def find_sample(keyword: str) -> Path:
-    for path in sorted(SAMPLES_DIR.glob('*.xlsx')):
+def find_sample(keyword: str, *, housing: bool = False) -> Path:
+    sample_root = HOUSING_SAMPLES_DIR if housing else SAMPLES_DIR
+    for path in sorted(sample_root.glob('*.xlsx')):
         if keyword in path.name:
             return path
-    pytest.skip(f'Sample containing {keyword!r} was not found in {SAMPLES_DIR}.')
+    pytest.skip(f'Sample containing {keyword!r} was not found in {sample_root}.')
 
 
 def find_template(keyword: str) -> Path:
@@ -91,6 +93,22 @@ def make_employee_master_csv(sample_path: Path) -> bytes:
     ).encode('utf-8-sig')
 
 
+def make_employee_master_csv_for_merged_files(social_sample: Path, housing_sample: Path) -> tuple[bytes, str]:
+    social = standardize_workbook(social_sample, region='shenzhen', company_name=COMPANY_NAME)
+    housing = standardize_housing_fund_workbook(housing_sample, region='shenzhen', company_name=COMPANY_NAME)
+    social_by_id = {record.values.get('id_number'): record for record in social.records}
+    for housing_record in housing.records:
+        id_number = housing_record.values.get('id_number')
+        if id_number in social_by_id:
+            social_record = social_by_id[id_number]
+            csv = (
+                '\u5de5\u53f7,\u59d3\u540d,\u8eab\u4efd\u8bc1\u53f7,\u516c\u53f8\u540d\u79f0,\u90e8\u95e8,\u662f\u5426\u5728\u804c\n'
+                f"E9001,{social_record.values['person_name']},{id_number},{COMPANY_NAME},\u8fd0\u8425,\u662f\n"
+            ).encode('utf-8-sig')
+            return csv, str(id_number)
+    pytest.skip('Could not find a common employee between the Shenzhen social and housing fund samples.')
+
+
 def test_aggregate_endpoint_exports_both_templates_without_employee_master() -> None:
     salary_template = find_template('\u85aa\u916c')
     tool_template = find_template('\u6700\u7ec8\u7248')
@@ -127,13 +145,13 @@ def test_aggregate_endpoint_exports_both_templates_without_employee_master() -> 
     assert payload['matched_count'] == 0
     assert payload['unmatched_count'] >= 1
     assert len(payload['source_files']) == 1
+    assert payload['source_files'][0]['source_kind'] == 'social_security'
     assert payload['source_files'][0]['region'] == 'shenzhen'
     assert payload['source_files'][0]['company_name'] == COMPANY_NAME
     assert payload['source_files'][0]['normalized_record_count'] >= 1
     assert len(payload['artifacts']) == 2
     assert all(item['status'] == 'completed' for item in payload['artifacts'])
     assert all(Path(item['file_path']).exists() for item in payload['artifacts'])
-
 
 
 def test_aggregate_endpoint_imports_employee_master_and_matches_records() -> None:
@@ -172,12 +190,69 @@ def test_aggregate_endpoint_imports_employee_master_and_matches_records() -> Non
     assert payload['employee_master'] is not None
     assert payload['employee_master']['created_count'] == 1
     assert payload['matched_count'] >= 1
+    assert payload['source_files'][0]['source_kind'] == 'social_security'
     assert payload['source_files'][0]['region'] == 'shenzhen'
     assert payload['source_files'][0]['company_name'] == COMPANY_NAME
     assert len(payload['artifacts']) == 2
     assert all(item['status'] == 'completed' for item in payload['artifacts'])
     assert all(Path(item['file_path']).exists() for item in payload['artifacts'])
 
+
+def test_aggregate_endpoint_merges_housing_fund_into_dual_exports() -> None:
+    salary_template = find_template('\u85aa\u916c')
+    tool_template = find_template('\u6700\u7ec8\u7248')
+    social_sample = find_sample(SAMPLE_KEYWORD)
+    housing_sample = find_sample(SAMPLE_KEYWORD, housing=True)
+    employee_csv, matched_id_number = make_employee_master_csv_for_merged_files(social_sample, housing_sample)
+    client, _settings, _session_factory = build_test_context(
+        'aggregate_with_housing_fund',
+        salary_template=salary_template,
+        final_tool_template=tool_template,
+    )
+
+    with client:
+        response = client.post(
+            '/api/v1/aggregate',
+            data={'batch_name': 'quick-aggregate-with-housing'},
+            files=[
+                ('files', (social_sample.name, social_sample.read_bytes(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')),
+                ('housing_fund_files', (housing_sample.name, housing_sample.read_bytes(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')),
+                ('employee_master_file', ('employee_master.csv', employee_csv, 'text/csv')),
+            ],
+        )
+
+    assert response.status_code == 201
+    payload = response.json()['data']
+    assert payload['export_status'] == 'completed'
+    assert len(payload['source_files']) == 2
+    assert sorted(item['source_kind'] for item in payload['source_files']) == ['housing_fund', 'social_security']
+
+    salary_artifact = next(item for item in payload['artifacts'] if item['template_type'] == 'salary')
+    tool_artifact = next(item for item in payload['artifacts'] if item['template_type'] == 'final_tool')
+    salary_wb = load_workbook(salary_artifact['file_path'], data_only=False)
+    salary_sheet = salary_wb[salary_wb.sheetnames[0]]
+    target_row = None
+    for row in range(2, salary_sheet.max_row + 1):
+        if salary_sheet[f'B{row}'].value == 'E9001':
+            target_row = row
+            break
+    assert target_row is not None
+    assert float(salary_sheet[f'H{target_row}'].value) > 0
+    assert float(salary_sheet[f'P{target_row}'].value) > 0
+    assert float(salary_sheet[f'R{target_row}'].value) > 0
+    salary_wb.close()
+
+    tool_wb = load_workbook(tool_artifact['file_path'], data_only=False)
+    tool_sheet = tool_wb[tool_wb.sheetnames[0]]
+    tool_row = None
+    for row in range(7, tool_sheet.max_row + 1):
+        if tool_sheet[f'D{row}'].value == matched_id_number and tool_sheet[f'E{row}'].value == 'E9001':
+            tool_row = row
+            break
+    assert tool_row is not None
+    assert float(tool_sheet[f'N{tool_row}'].value) > 0
+    assert float(tool_sheet[f'V{tool_row}'].value) > 0
+    tool_wb.close()
 
 
 def test_aggregate_stream_endpoint_emits_progress_events() -> None:

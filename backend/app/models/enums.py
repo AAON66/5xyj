@@ -1,4 +1,4 @@
-﻿from enum import Enum
+from enum import Enum
 
 
 class BatchStatus(str, Enum):
@@ -30,6 +30,11 @@ class MatchStatus(str, Enum):
 class TemplateType(str, Enum):
     SALARY = "salary"
     FINAL_TOOL = "final_tool"
+
+
+class SourceFileKind(str, Enum):
+    SOCIAL_SECURITY = "social_security"
+    HOUSING_FUND = "housing_fund"
 
 
 class EmployeeAuditAction(str, Enum):

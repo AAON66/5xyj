@@ -685,3 +685,27 @@
 
 ### Notes:
 - The quick aggregate UI now surfaces processing state without requiring users to open the advanced batch pages.
+
+## [2026-03-21] - Task: Social security + housing fund dual-template aggregate
+
+### What was done:
+- Added housing fund canonical fields and source file kind support so the backend can distinguish social security and housing fund workbooks inside the same aggregate batch.
+- Implemented a dedicated housing fund standardizer for Guangzhou, Hangzhou, Shenzhen, and Changsha style files, including rate-based derivation when only total housing fund amount is present.
+- Merged housing fund records into the batch normalization pipeline before validation, matching, and export so both template outputs now receive real housing fund values instead of zeros.
+- Extended the quick aggregate API and frontend page to accept separate housing fund uploads while keeping the original dual-template export flow intact.
+- Added Alembic migration and targeted regression tests for housing fund parsing, aggregate API orchestration, and template export output columns.
+
+### Testing:
+- `py -m py_compile backendpp\services\housing_fund_service.py backendpp\services
+ormalization_service.py backendpp\services\import_service.py backendpp\servicesatch_runtime_service.py backendpp\servicesggregate_service.py backendpppi1ggregate.py backendpp\exporters	emplate_exporter.py backend	ests	est_housing_fund_service.py backend	ests	est_aggregate_api.py`
+- `\.venv\Scripts\python.exe -m pytest backend	ests	est_housing_fund_service.py backend	ests	est_template_exporter.py backend	ests	est_aggregate_api.py backend	ests	est_import_batches_api.py -p no:cacheprovider`
+- `cmd /c npm.cmd run lint`
+- `cmd /c npm.cmd run build`
+
+### Risks / Open Questions:
+- Xiamen housing fund samples currently expose only a total amount column, so the parser falls back to an equal split when company/personal housing fund cannot be distinguished from the workbook itself.
+- The advanced import page still defaults uploaded files to social security unless a future UI update exposes source kind selection there as well.
+
+### Notes:
+- Quick aggregate mode now supports three inputs in one run: social security files, housing fund files, and optional employee master data.
+- Exported salary and final-tool templates now write real housing fund columns whenever matching housing fund data is available.

@@ -48,6 +48,9 @@ def test_export_dual_templates_writes_both_template_outputs() -> None:
     records = build_normalized_models(trimmed, batch_id='batch-1', source_file_id='source-1')
     records[0].employee_id = '01620'
     records[1].employee_id = '01831'
+    records[0].housing_fund_personal = records[0].housing_fund_personal or records[0].personal_total_amount
+    records[0].housing_fund_company = records[0].housing_fund_company or records[0].personal_total_amount
+    records[0].housing_fund_total = records[0].housing_fund_personal + records[0].housing_fund_company
 
     output_dir = ARTIFACTS_ROOT / 'successful_export'
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -72,6 +75,8 @@ def test_export_dual_templates_writes_both_template_outputs() -> None:
     assert salary_sheet['B2'].value == '01620'
     assert float(salary_sheet['C2'].value) == float(records[0].medical_personal)
     assert float(salary_sheet['I2'].value) == float(records[0].pension_company + records[0].supplementary_pension_company)
+    assert float(salary_sheet['H2'].value) == float(records[0].housing_fund_personal)
+    assert float(salary_sheet['P2'].value) == float(records[0].housing_fund_company)
     assert float(salary_sheet['Q2'].value) == float(records[0].personal_total_amount)
     salary_wb.close()
 
@@ -82,6 +87,8 @@ def test_export_dual_templates_writes_both_template_outputs() -> None:
     assert tool_sheet['D7'].value == records[0].id_number
     assert tool_sheet['E7'].value == '01620'
     assert float(tool_sheet['O7'].value) == float(records[0].pension_company + records[0].supplementary_pension_company)
+    assert float(tool_sheet['N7'].value) == float(records[0].housing_fund_personal)
+    assert float(tool_sheet['V7'].value) == float(records[0].housing_fund_company)
     assert float(tool_sheet['W7'].value) == float(records[0].personal_total_amount)
     assert float(tool_sheet['AG7'].value) == float(
         (records[0].pension_company + records[0].supplementary_pension_company)

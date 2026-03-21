@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import inspect
 import re
@@ -10,13 +10,13 @@ from sqlalchemy.orm import Session
 
 from backend.app.core.config import Settings
 from backend.app.models import EmployeeMaster, MatchResult
-from backend.app.models.enums import BatchStatus
+from backend.app.models.enums import BatchStatus, SourceFileKind
 from backend.app.schemas.aggregate import AggregateEmployeeImportRead, AggregateRunRead, AggregateSourceFileRead
 from backend.app.schemas.imports import ExportArtifactRead
 from backend.app.services.batch_export_service import export_batch
 from backend.app.services.batch_runtime_service import match_batch, validate_batch
 from backend.app.services.employee_service import import_employee_master_file
-from backend.app.services.import_service import create_import_batch, get_import_batch, parse_import_batch
+from backend.app.services.import_service import InvalidUploadError, create_import_batch, get_import_batch, parse_import_batch
 from backend.app.services.matching_service import apply_match_results_to_normalized_records, build_match_result_models, match_preview_records
 from backend.app.services.normalization_service import NormalizedPreviewRecord
 
@@ -44,6 +44,11 @@ FILENAME_NOISE = (
     '\u793e\u4fdd\u660e\u7ec6',
     '\u793e\u4fdd\u8d26\u5355',
     '\u793e\u4fdd\u53f0\u8d26',
+    '\u516c\u79ef\u91d1\u8d26\u5355',
+    '\u516c\u79ef\u91d1\u6c47\u7f34\u660e\u7ec6',
+    '\u516c\u79ef\u91d1',
+    '\u4f4f\u623f\u516c\u79ef\u91d1\u5355\u4f4d\u6c47\u7f34\u660e\u7ec6',
+    '\u5355\u7b14\u7f34\u5b58\u6e05\u5355',
     '\u8d26\u5355',
     '\u660e\u7ec6',
     '\u53f0\u8d26',
@@ -59,12 +64,17 @@ async def run_simple_aggregate(
     settings: Settings,
     *,
     files: list[UploadFile],
+    housing_fund_files: list[UploadFile] | None = None,
     employee_master_file: UploadFile | None = None,
     batch_name: str | None = None,
     regions: list[str] | None = None,
     company_names: list[str] | None = None,
     progress_callback: ProgressCallback | None = None,
 ) -> AggregateRunRead:
+    all_files = [*files, *(housing_fund_files or [])]
+    if not all_files:
+        raise InvalidUploadError('At least one social security or housing fund file is required.')
+
     await _emit_progress(
         progress_callback,
         stage='employee_import',
@@ -93,7 +103,7 @@ async def run_simple_aggregate(
             progress_callback,
             stage='employee_import',
             label='\u5458\u5de5\u4e3b\u6863\u5df2\u540c\u6b65',
-            message=f"\u5df2\u5bfc\u5165 {employee_import.imported_count} \u6761\u5458\u5de5\u4e3b\u6863\u8bb0\u5f55\u3002",
+            message=f'\u5df2\u5bfc\u5165 {employee_import.imported_count} \u6761\u5458\u5de5\u4e3b\u6863\u8bb0\u5f55\u3002',
             percent=18,
         )
     else:
@@ -105,29 +115,34 @@ async def run_simple_aggregate(
             percent=18,
         )
 
-    resolved_regions = _resolve_metadata_values(files, regions, kind='region')
-    resolved_companies = _resolve_metadata_values(files, company_names, kind='company')
+    resolved_regions = _resolve_metadata_values(all_files, regions, kind='region')
+    resolved_companies = _resolve_metadata_values(all_files, company_names, kind='company')
+    file_kinds = [
+        *([SourceFileKind.SOCIAL_SECURITY.value] * len(files)),
+        *([SourceFileKind.HOUSING_FUND.value] * len(housing_fund_files or [])),
+    ]
 
     await _emit_progress(
         progress_callback,
         stage='batch_upload',
         label='\u4e0a\u4f20\u6279\u6b21',
-        message='\u6b63\u5728\u521b\u5efa\u5bfc\u5165\u6279\u6b21\u5e76\u4fdd\u5b58\u6e90\u6587\u4ef6\u3002',
+        message='\u6b63\u5728\u521b\u5efa\u5bfc\u5165\u6279\u6b21\u5e76\u4fdd\u5b58\u793e\u4fdd\u3001\u516c\u79ef\u91d1\u6e90\u6587\u4ef6\u3002',
         percent=28,
     )
     batch = await create_import_batch(
         db=db,
         settings=settings,
-        files=files,
+        files=all_files,
         batch_name=batch_name,
         regions=resolved_regions,
         company_names=resolved_companies,
+        file_kinds=file_kinds,
     )
     await _emit_progress(
         progress_callback,
         stage='batch_upload',
         label='\u6279\u6b21\u5df2\u521b\u5efa',
-        message=f"\u6279\u6b21 {batch.batch_name} \u5df2\u521b\u5efa\uff0c\u5171 {len(batch.source_files)} \u4e2a\u6587\u4ef6\u3002",
+        message=f'\u6279\u6b21 {batch.batch_name} \u5df2\u521b\u5efa\uff0c\u5171 {len(batch.source_files)} \u4e2a\u6587\u4ef6\u3002',
         percent=36,
         batch_id=batch.id,
         batch_name=batch.batch_name,
@@ -137,7 +152,7 @@ async def run_simple_aggregate(
         progress_callback,
         stage='parse',
         label='\u89e3\u6790\u8bc6\u522b',
-        message='\u6b63\u5728\u8bc6\u522b\u5de5\u4f5c\u8868\u3001\u8868\u5934\u548c\u6807\u51c6\u5b57\u6bb5\u3002',
+        message='\u6b63\u5728\u8bc6\u522b\u793e\u4fdd\u4e0e\u516c\u79ef\u91d1\u5de5\u4f5c\u8868\u3001\u8868\u5934\u548c\u6807\u51c6\u5b57\u6bb5\u3002',
         percent=48,
         batch_id=batch.id,
         batch_name=batch.batch_name,
@@ -147,7 +162,7 @@ async def run_simple_aggregate(
         progress_callback,
         stage='parse',
         label='\u89e3\u6790\u5b8c\u6210',
-        message=f"\u5df2\u5b8c\u6210 {len(preview.source_files)} \u4e2a\u6587\u4ef6\u7684\u89e3\u6790\u3002",
+        message=f'\u5df2\u5b8c\u6210 {len(preview.source_files)} \u4e2a\u6587\u4ef6\u7684\u89e3\u6790\u3002',
         percent=60,
         batch_id=batch.id,
         batch_name=batch.batch_name,
@@ -167,7 +182,7 @@ async def run_simple_aggregate(
         progress_callback,
         stage='validate',
         label='\u6821\u9a8c\u5b8c\u6210',
-        message=f"\u5171\u53d1\u73b0 {validation.total_issue_count} \u6761\u6821\u9a8c\u95ee\u9898\u3002",
+        message=f'\u5171\u53d1\u73b0 {validation.total_issue_count} \u6761\u6821\u9a8c\u95ee\u9898\u3002',
         percent=76,
         batch_id=batch.id,
         batch_name=batch.batch_name,
@@ -187,7 +202,7 @@ async def run_simple_aggregate(
         progress_callback,
         stage='match',
         label='\u5339\u914d\u5b8c\u6210',
-        message=f"\u5df2\u5339\u914d {match.matched_count} \u6761\uff0c\u672a\u5339\u914d {match.unmatched_count} \u6761\u3002",
+        message=f'\u5df2\u5339\u914d {match.matched_count} \u6761\uff0c\u672a\u5339\u914d {match.unmatched_count} \u6761\u3002',
         percent=90,
         batch_id=batch.id,
         batch_name=batch.batch_name,
@@ -220,6 +235,7 @@ async def run_simple_aggregate(
             AggregateSourceFileRead(
                 source_file_id=item.source_file_id,
                 file_name=item.file_name,
+                source_kind=item.source_kind,
                 region=item.region,
                 company_name=item.company_name,
                 normalized_record_count=item.normalized_record_count,
@@ -315,8 +331,9 @@ def _preview_from_model(record) -> NormalizedPreviewRecord:
     values = {}
     for field in (
         'person_name', 'id_type', 'id_number', 'employee_id', 'social_security_number', 'company_name', 'region',
-        'billing_period', 'period_start', 'period_end', 'payment_base', 'payment_salary', 'total_amount',
-        'company_total_amount', 'personal_total_amount', 'pension_company', 'pension_personal', 'medical_company',
+        'billing_period', 'period_start', 'period_end', 'payment_base', 'payment_salary',
+        'housing_fund_account', 'housing_fund_base', 'housing_fund_personal', 'housing_fund_company', 'housing_fund_total',
+        'total_amount', 'company_total_amount', 'personal_total_amount', 'pension_company', 'pension_personal', 'medical_company',
         'medical_personal', 'medical_maternity_company', 'maternity_amount', 'unemployment_company',
         'unemployment_personal', 'injury_company', 'supplementary_medical_company', 'supplementary_pension_company',
         'large_medical_personal', 'late_fee', 'interest', 'raw_sheet_name', 'raw_header_signature', 'source_file_name',

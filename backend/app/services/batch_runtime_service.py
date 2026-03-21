@@ -15,7 +15,7 @@ from backend.app.schemas.imports import (
     SourceFileValidationRead,
     ValidationIssueRead,
 )
-from backend.app.services.import_service import get_import_batch
+from backend.app.services.import_service import analyze_source_file, get_import_batch
 from backend.app.services.matching_service import (
     MatchPreviewResult,
     apply_match_results_to_normalized_records,
@@ -23,49 +23,16 @@ from backend.app.services.matching_service import (
     match_preview_records,
 )
 from backend.app.services.normalization_service import (
+    MERGE_VALUE_FIELDS,
     NormalizedPreviewRecord,
+    SourceRecordBundle,
     StandardizationResult,
-    build_normalized_models,
-    standardize_workbook,
+    merge_batch_standardized_records,
 )
 from backend.app.services.validation_service import build_validation_issue_models, validate_standardized_result
 
 
-CANONICAL_VALUE_FIELDS = (
-    'person_name',
-    'id_type',
-    'id_number',
-    'employee_id',
-    'social_security_number',
-    'company_name',
-    'region',
-    'billing_period',
-    'period_start',
-    'period_end',
-    'payment_base',
-    'payment_salary',
-    'total_amount',
-    'company_total_amount',
-    'personal_total_amount',
-    'pension_company',
-    'pension_personal',
-    'medical_company',
-    'medical_personal',
-    'medical_maternity_company',
-    'maternity_amount',
-    'unemployment_company',
-    'unemployment_personal',
-    'injury_company',
-    'supplementary_medical_company',
-    'supplementary_pension_company',
-    'large_medical_personal',
-    'late_fee',
-    'interest',
-    'raw_sheet_name',
-    'raw_header_signature',
-    'source_file_name',
-)
-
+CANONICAL_VALUE_FIELDS = MERGE_VALUE_FIELDS
 BLOCKED_REASON = 'Employee master data is required before batch matching can run.'
 
 
@@ -177,7 +144,10 @@ def get_batch_validation(db: Session, batch_id: str) -> BatchValidationRead:
                 field_name=issue.field_name,
                 message=issue.message,
             )
-            for issue in sorted(_source_file_related_validation_issues(source_file.normalized_records), key=lambda item: (item.normalized_record.source_row_number if item.normalized_record is not None else -1, item.issue_type, item.id))
+            for issue in sorted(
+                _source_file_related_validation_issues(source_file.normalized_records),
+                key=lambda item: (item.normalized_record.source_row_number if item.normalized_record is not None else -1, item.issue_type, item.id),
+            )
         ]
         total_issue_count += len(file_issues)
         source_files.append(
@@ -365,16 +335,20 @@ def _ensure_normalized_records(db: Session, batch_id: str) -> None:
     if batch.normalized_records:
         return
 
+    bundles: list[SourceRecordBundle] = []
     for source_file in batch.source_files:
-        standardized = standardize_workbook(
-            source_file.file_path,
-            region=source_file.region,
-            company_name=source_file.company_name,
-            source_file_name=source_file.file_name,
+        analyzed = analyze_source_file(source_file)
+        source_file.raw_sheet_name = analyzed.standardized.sheet_name
+        bundles.append(
+            SourceRecordBundle(
+                source_file_id=source_file.id,
+                source_file_name=source_file.file_name,
+                source_kind=source_file.source_kind,
+                standardized=analyzed.standardized,
+            )
         )
-        source_file.raw_sheet_name = standardized.sheet_name
-        db.add_all(build_normalized_models(standardized, batch_id=batch.id, source_file_id=source_file.id))
 
+    db.add_all(merge_batch_standardized_records(bundles, batch_id=batch.id))
     batch.status = BatchStatus.NORMALIZED
     db.commit()
 

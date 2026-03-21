@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
@@ -7,6 +7,7 @@ from typing import Any
 
 from openpyxl import load_workbook
 
+from backend.app.models.enums import SourceFileKind
 from backend.app.models.normalized_record import NormalizedRecord
 from backend.app.parsers import HeaderExtraction, extract_header_structure
 from backend.app.services.header_normalizer import (
@@ -20,6 +21,10 @@ from backend.app.validators import RowFilterDecision, classify_row
 AMOUNT_FIELDS = {
     "payment_base",
     "payment_salary",
+    "housing_fund_base",
+    "housing_fund_personal",
+    "housing_fund_company",
+    "housing_fund_total",
     "total_amount",
     "company_total_amount",
     "personal_total_amount",
@@ -39,7 +44,46 @@ AMOUNT_FIELDS = {
     "interest",
 }
 
-PLACEHOLDER_STRINGS = {"", "-", "--", "\u2014\u2014", "none", "null", "(\u7a7a\u767d)"}
+PLACEHOLDER_STRINGS = {"", "-", "--", "??", "none", "null", "(??)"}
+MERGE_VALUE_FIELDS = (
+    "person_name",
+    "id_type",
+    "id_number",
+    "employee_id",
+    "social_security_number",
+    "company_name",
+    "region",
+    "billing_period",
+    "period_start",
+    "period_end",
+    "payment_base",
+    "payment_salary",
+    "housing_fund_account",
+    "housing_fund_base",
+    "housing_fund_personal",
+    "housing_fund_company",
+    "housing_fund_total",
+    "total_amount",
+    "company_total_amount",
+    "personal_total_amount",
+    "pension_company",
+    "pension_personal",
+    "medical_company",
+    "medical_personal",
+    "medical_maternity_company",
+    "maternity_amount",
+    "unemployment_company",
+    "unemployment_personal",
+    "injury_company",
+    "supplementary_medical_company",
+    "supplementary_pension_company",
+    "large_medical_personal",
+    "late_fee",
+    "interest",
+    "raw_sheet_name",
+    "raw_header_signature",
+    "source_file_name",
+)
 
 
 @dataclass(slots=True)
@@ -59,6 +103,22 @@ class StandardizationResult:
     records: list[NormalizedPreviewRecord]
     filtered_rows: list[RowFilterDecision]
     unmapped_headers: list[str]
+
+
+@dataclass(slots=True)
+class SourceRecordBundle:
+    source_file_id: str
+    source_file_name: str
+    source_kind: str
+    standardized: StandardizationResult
+
+
+@dataclass(slots=True)
+class _MergedRecordEntry:
+    source_file_id: str
+    source_row_number: int
+    values: dict[str, Any]
+    raw_payload: dict[str, Any]
 
 
 def standardize_workbook(
@@ -130,6 +190,136 @@ def build_normalized_models(
         model_kwargs.update(preview.values)
         records.append(NormalizedRecord(**model_kwargs))
     return records
+
+
+def merge_batch_standardized_records(
+    source_bundles: list[SourceRecordBundle],
+    *,
+    batch_id: str,
+) -> list[NormalizedRecord]:
+    social_bundles = [item for item in source_bundles if item.source_kind == SourceFileKind.SOCIAL_SECURITY.value]
+    housing_bundles = [item for item in source_bundles if item.source_kind == SourceFileKind.HOUSING_FUND.value]
+
+    entries: list[_MergedRecordEntry] = []
+    index: dict[tuple[str, ...], list[_MergedRecordEntry]] = {}
+
+    base_bundles = social_bundles if social_bundles else housing_bundles
+    for bundle in base_bundles:
+        for record in bundle.standardized.records:
+            entry = _create_entry(bundle, record)
+            entries.append(entry)
+            key = _merge_key(record)
+            if key is not None:
+                index.setdefault(key, []).append(entry)
+
+    if social_bundles:
+        overlay_bundles = housing_bundles
+    else:
+        overlay_bundles = []
+
+    for bundle in overlay_bundles:
+        for record in bundle.standardized.records:
+            key = _merge_key(record)
+            matches = index.get(key, []) if key is not None else []
+            if len(matches) == 1:
+                _merge_entry(matches[0], bundle, record)
+                continue
+            entry = _create_entry(bundle, record)
+            entries.append(entry)
+            if key is not None:
+                index.setdefault(key, []).append(entry)
+
+    models: list[NormalizedRecord] = []
+    for entry in entries:
+        model_kwargs = {
+            "batch_id": batch_id,
+            "source_file_id": entry.source_file_id,
+            "source_row_number": entry.source_row_number,
+            "raw_payload": entry.raw_payload,
+        }
+        for field_name in MERGE_VALUE_FIELDS:
+            value = entry.values.get(field_name)
+            if value is not None:
+                model_kwargs[field_name] = value
+        models.append(NormalizedRecord(**model_kwargs))
+    return models
+
+
+def _create_entry(bundle: SourceRecordBundle, record: NormalizedPreviewRecord) -> _MergedRecordEntry:
+    raw_payload = {
+        **record.raw_payload,
+        "merged_sources": [
+            {
+                "source_kind": bundle.source_kind,
+                "source_file_id": bundle.source_file_id,
+                "source_file_name": bundle.source_file_name,
+                "sheet_name": bundle.standardized.sheet_name,
+                "raw_header_signature": bundle.standardized.raw_header_signature,
+                "source_row_number": record.source_row_number,
+                "raw_values": {_key: _json_safe(_value) for _key, _value in record.raw_values.items()},
+                "unmapped_values": {_key: _json_safe(_value) for _key, _value in record.unmapped_values.items()},
+            }
+        ],
+    }
+    return _MergedRecordEntry(
+        source_file_id=bundle.source_file_id,
+        source_row_number=record.source_row_number,
+        values=dict(record.values),
+        raw_payload=raw_payload,
+    )
+
+
+def _merge_entry(entry: _MergedRecordEntry, bundle: SourceRecordBundle, record: NormalizedPreviewRecord) -> None:
+    for field_name, value in record.values.items():
+        existing = entry.values.get(field_name)
+        if existing is None and value is not None:
+            entry.values[field_name] = value
+            continue
+        if value is None or existing == value:
+            continue
+        conflicts = entry.raw_payload.setdefault("merged_field_conflicts", {})
+        values = conflicts.setdefault(field_name, [])
+        for item in (existing, value):
+            safe_item = _json_safe(item)
+            if safe_item not in values:
+                values.append(safe_item)
+
+    merged_sources = entry.raw_payload.setdefault("merged_sources", [])
+    merged_sources.append(
+        {
+            "source_kind": bundle.source_kind,
+            "source_file_id": bundle.source_file_id,
+            "source_file_name": bundle.source_file_name,
+            "sheet_name": bundle.standardized.sheet_name,
+            "raw_header_signature": bundle.standardized.raw_header_signature,
+            "source_row_number": record.source_row_number,
+            "raw_values": {key: _json_safe(value) for key, value in record.raw_values.items()},
+            "unmapped_values": {key: _json_safe(value) for key, value in record.unmapped_values.items()},
+        }
+    )
+
+
+def _merge_key(record: NormalizedPreviewRecord) -> tuple[str, ...] | None:
+    id_number = _normalize_identity_value(record.values.get("id_number"))
+    company_name = _normalize_identity_value(record.values.get("company_name"))
+    person_name = _normalize_identity_value(record.values.get("person_name"))
+
+    if id_number and company_name:
+        return ("id_company", id_number, company_name)
+    if id_number:
+        return ("id", id_number)
+    if person_name and company_name:
+        return ("name_company", person_name, company_name)
+    if person_name:
+        return ("name", person_name)
+    return None
+
+
+def _normalize_identity_value(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip().lower()
+    return text or None
 
 
 def _standardize_rows(
@@ -308,7 +498,7 @@ def _to_decimal(value: Any) -> Decimal | None:
     if isinstance(value, float):
         return Decimal(str(value))
     if isinstance(value, str):
-        candidate = value.strip().replace(',', '')
+        candidate = value.strip().replace(",", "")
         if not candidate or candidate.lower() in PLACEHOLDER_STRINGS:
             return None
         try:
@@ -320,5 +510,5 @@ def _to_decimal(value: Any) -> Decimal | None:
 
 def _json_safe(value: Any) -> Any:
     if isinstance(value, Decimal):
-        return format(value, 'f')
+        return format(value, "f")
     return value

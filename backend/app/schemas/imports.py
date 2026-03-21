@@ -12,6 +12,7 @@ class SourceFileRead(BaseModel):
     file_name: str
     file_path: str
     file_size: int
+    source_kind: str
     region: str | None
     company_name: str | None
     file_hash: str | None
@@ -63,6 +64,7 @@ class NormalizedPreviewRecordRead(BaseModel):
 class SourceFilePreviewRead(BaseModel):
     source_file_id: str
     file_name: str
+    source_kind: str
     region: str | None
     company_name: str | None
     raw_sheet_name: str

@@ -1,8 +1,8 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from copy import copy
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 from typing import Iterable
 
@@ -19,26 +19,26 @@ TOOL_SHEET_HEADER_ROW = 6
 TOOL_DATA_START_ROW = 7
 
 REGION_LABELS = {
-    'guangzhou': '广州',
-    'hangzhou': '杭州',
-    'xiamen': '厦门',
-    'shenzhen': '深圳',
-    'wuhan': '武汉',
-    'changsha': '长沙',
+    'guangzhou': '\u5e7f\u5dde',
+    'hangzhou': '\u676d\u5dde',
+    'xiamen': '\u53a6\u95e8',
+    'shenzhen': '\u6df1\u5733',
+    'wuhan': '\u6b66\u6c49',
+    'changsha': '\u957f\u6c99',
 }
 
 SALARY_HEADERS = [
-    '员工姓名', '工号', '个人医疗保险', '个人失业保险', '个人大病医疗', '个人残疾保障金', '个人养老保险', '个人公积金',
-    '公司养老保险', '公司医疗保险', '公司失业保险', '公司工伤保险', '公司生育保险', '公司大病医疗', '公司残疾保障金', '公司公积金',
-    '个人社保承担额', '个人公积金承担额',
+    '\u5458\u5de5\u59d3\u540d', '\u5de5\u53f7', '\u4e2a\u4eba\u533b\u7597\u4fdd\u9669', '\u4e2a\u4eba\u5931\u4e1a\u4fdd\u9669', '\u4e2a\u4eba\u5927\u75c5\u533b\u7597', '\u4e2a\u4eba\u6b8b\u75be\u4fdd\u969c\u91d1', '\u4e2a\u4eba\u517b\u8001\u4fdd\u9669', '\u4e2a\u4eba\u516c\u79ef\u91d1',
+    '\u516c\u53f8\u517b\u8001\u4fdd\u9669', '\u516c\u53f8\u533b\u7597\u4fdd\u9669', '\u516c\u53f8\u5931\u4e1a\u4fdd\u9669', '\u516c\u53f8\u5de5\u4f24\u4fdd\u9669', '\u516c\u53f8\u751f\u80b2\u4fdd\u9669', '\u516c\u53f8\u5927\u75c5\u533b\u7597', '\u516c\u53f8\u6b8b\u75be\u4fdd\u969c\u91d1', '\u516c\u53f8\u516c\u79ef\u91d1',
+    '\u4e2a\u4eba\u793e\u4fdd\u627f\u62c5\u989d', '\u4e2a\u4eba\u516c\u79ef\u91d1\u627f\u62c5\u989d',
 ]
 
 TOOL_HEADERS = [
-    '主体', '区域', '员工姓名（辅助）', '身份证', '工号', None, '员工姓名', '工号', '个人医疗保险', '个人失业保险', '个人大病医疗',
-    '个人残疾保障金', '个人养老保险', '个人公积金', '公司养老保险', '公司医疗保险', '公司失业保险', '公司工伤保险', '公司生育保险',
-    '公司大病医疗', '公司残疾保障金', '公司公积金', '个人社保承担额', '个人公积金承担额', None, None, '个人社保应缴纳总额', '个人承担检验',
-    '个人社保检验', '个人公积金', '个人+单位合计承担总额', None, '单位承担社保', '公司承担检验', '检验值', '单位承担公积金',
-    '单位社保+公积金合计承担总额', None, None, '社保：个人+单位', '公积金：个人+单位', '个人+单位合计',
+    '\u4e3b\u4f53', '\u533a\u57df', '\u5458\u5de5\u59d3\u540d\uff08\u8f85\u52a9\uff09', '\u8eab\u4efd\u8bc1', '\u5de5\u53f7', None, '\u5458\u5de5\u59d3\u540d', '\u5de5\u53f7', '\u4e2a\u4eba\u533b\u7597\u4fdd\u9669', '\u4e2a\u4eba\u5931\u4e1a\u4fdd\u9669', '\u4e2a\u4eba\u5927\u75c5\u533b\u7597',
+    '\u4e2a\u4eba\u6b8b\u75be\u4fdd\u969c\u91d1', '\u4e2a\u4eba\u517b\u8001\u4fdd\u9669', '\u4e2a\u4eba\u516c\u79ef\u91d1', '\u516c\u53f8\u517b\u8001\u4fdd\u9669', '\u516c\u53f8\u533b\u7597\u4fdd\u9669', '\u516c\u53f8\u5931\u4e1a\u4fdd\u9669', '\u516c\u53f8\u5de5\u4f24\u4fdd\u9669', '\u516c\u53f8\u751f\u80b2\u4fdd\u9669',
+    '\u516c\u53f8\u5927\u75c5\u533b\u7597', '\u516c\u53f8\u6b8b\u75be\u4fdd\u969c\u91d1', '\u516c\u53f8\u516c\u79ef\u91d1', '\u4e2a\u4eba\u793e\u4fdd\u627f\u62c5\u989d', '\u4e2a\u4eba\u516c\u79ef\u91d1\u627f\u62c5\u989d', None, None, '\u4e2a\u4eba\u793e\u4fdd\u5e94\u7f34\u7eb3\u603b\u989d', '\u4e2a\u4eba\u627f\u62c5\u68c0\u9a8c',
+    '\u4e2a\u4eba\u793e\u4fdd\u68c0\u9a8c', '\u4e2a\u4eba\u516c\u79ef\u91d1', '\u4e2a\u4eba+\u5355\u4f4d\u5408\u8ba1\u627f\u62c5\u603b\u989d', None, '\u5355\u4f4d\u627f\u62c5\u793e\u4fdd', '\u516c\u53f8\u627f\u62c5\u68c0\u9a8c', '\u68c0\u9a8c\u503c', '\u5355\u4f4d\u627f\u62c5\u516c\u79ef\u91d1',
+    '\u5355\u4f4d\u793e\u4fdd+\u516c\u79ef\u91d1\u5408\u8ba1\u627f\u62c5\u603b\u989d', None, None, '\u793e\u4fdd\uff1a\u4e2a\u4eba+\u5355\u4f4d', '\u516c\u79ef\u91d1\uff1a\u4e2a\u4eba+\u5355\u4f4d', '\u4e2a\u4eba+\u5355\u4f4d\u5408\u8ba1',
 ]
 
 
@@ -156,6 +156,7 @@ def _salary_row_values(record: NormalizedRecord) -> list[object]:
     company_maternity = _amount(record.maternity_amount)
     company_large_medical = _amount(record.supplementary_medical_company)
     personal_social_total = _amount(record.personal_total_amount)
+    personal_housing, company_housing, _housing_total = _resolved_housing_fund_values(record)
 
     return [
         record.person_name or '',
@@ -165,7 +166,7 @@ def _salary_row_values(record: NormalizedRecord) -> list[object]:
         personal_large_medical,
         Decimal('0'),
         personal_pension,
-        Decimal('0'),
+        personal_housing,
         company_pension,
         company_medical,
         company_unemployment,
@@ -173,22 +174,21 @@ def _salary_row_values(record: NormalizedRecord) -> list[object]:
         company_maternity,
         company_large_medical,
         Decimal('0'),
-        Decimal('0'),
+        company_housing,
         personal_social_total,
-        Decimal('0'),
+        personal_housing,
     ]
 
 
 def _tool_row_values(record: NormalizedRecord) -> list[object]:
     salary_values = _salary_row_values(record)
     personal_social_total = _amount(record.personal_total_amount)
-    personal_housing_fund = Decimal('0')
+    personal_housing_fund, company_housing_fund, _housing_total = _resolved_housing_fund_values(record)
     company_social_total = sum(salary_values[8:15], Decimal('0'))
-    company_housing_fund = Decimal('0')
     personal_social_due = sum(salary_values[2:7], Decimal('0'))
-    personal_total_with_company = personal_social_due + personal_social_total + personal_housing_fund + salary_values[7]
+    personal_total_with_company = personal_social_due + personal_social_total + personal_housing_fund
     social_grand_total = personal_social_due + personal_social_total + company_social_total
-    housing_grand_total = salary_values[7] + company_housing_fund
+    housing_grand_total = personal_housing_fund + company_housing_fund
     overall_total = personal_total_with_company + (company_social_total + company_housing_fund)
 
     return [
@@ -206,7 +206,7 @@ def _tool_row_values(record: NormalizedRecord) -> list[object]:
         personal_social_due,
         personal_social_due,
         Decimal('0'),
-        salary_values[7],
+        personal_housing_fund,
         personal_total_with_company,
         None,
         company_social_total,
@@ -222,6 +222,27 @@ def _tool_row_values(record: NormalizedRecord) -> list[object]:
     ]
 
 
+def _resolved_housing_fund_values(record: NormalizedRecord) -> tuple[Decimal, Decimal, Decimal]:
+    personal = _amount(record.housing_fund_personal)
+    company = _amount(record.housing_fund_company)
+    total = _amount(record.housing_fund_total)
+    quant = Decimal('0.01')
+
+    if total == 0:
+        total = personal + company
+    if personal == 0 and company == 0 and total != 0:
+        personal = (total / Decimal('2')).quantize(quant, rounding=ROUND_HALF_UP)
+        company = (total - personal).quantize(quant, rounding=ROUND_HALF_UP)
+    elif personal == 0 and total != 0 and company != 0:
+        personal = (total - company).quantize(quant, rounding=ROUND_HALF_UP)
+    elif company == 0 and total != 0 and personal != 0:
+        company = (total - personal).quantize(quant, rounding=ROUND_HALF_UP)
+
+    if total == 0:
+        total = personal + company
+    return personal, company, total
+
+
 def _resolve_template_path(template_path: str | Path | None, template_type: TemplateType) -> Path:
     if template_path:
         candidate = Path(template_path)
@@ -234,7 +255,7 @@ def _resolve_template_path(template_path: str | Path | None, template_type: Temp
     if configured and configured.exists():
         return configured
 
-    pattern = '*薪酬*.xlsx' if template_type == TemplateType.SALARY else '*最终版*.xlsx'
+    pattern = '*\u85aa\u916c*.xlsx' if template_type == TemplateType.SALARY else '*\u6700\u7ec8\u7248*.xlsx'
     matches = sorted(settings.templates_path.glob(pattern))
     if matches:
         return matches[0]

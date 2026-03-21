@@ -1,4 +1,4 @@
-﻿import { getApiBaseUrl } from '../config/env';
+import { getApiBaseUrl } from '../config/env';
 import { ApiClientError, type ApiSuccessResponse, apiClient } from './api';
 
 export interface AggregateEmployeeImport {
@@ -11,6 +11,7 @@ export interface AggregateEmployeeImport {
 export interface AggregateSourceFile {
   source_file_id: string;
   file_name: string;
+  source_kind: string;
   region: string | null;
   company_name: string | null;
   normalized_record_count: number;
@@ -70,44 +71,40 @@ type AggregateStreamEnvelope =
   | AggregateStreamResultEnvelope
   | AggregateStreamErrorEnvelope;
 
-export async function runSimpleAggregate(input: {
+interface AggregateInput {
   files: File[];
+  housingFundFiles?: File[];
   employeeMasterFile?: File | null;
   batchName?: string;
-}): Promise<AggregateRunResult> {
+}
+
+function buildAggregateFormData(input: AggregateInput): FormData {
   const formData = new FormData();
   input.files.forEach((file) => formData.append('files', file));
+  (input.housingFundFiles ?? []).forEach((file) => formData.append('housing_fund_files', file));
   if (input.employeeMasterFile) {
     formData.append('employee_master_file', input.employeeMasterFile);
   }
   if (input.batchName?.trim()) {
     formData.append('batch_name', input.batchName.trim());
   }
+  return formData;
+}
 
-  const response = await apiClient.post<ApiSuccessResponse<AggregateRunResult>>('/aggregate', formData, {
+export async function runSimpleAggregate(input: AggregateInput): Promise<AggregateRunResult> {
+  const response = await apiClient.post<ApiSuccessResponse<AggregateRunResult>>('/aggregate', buildAggregateFormData(input), {
     headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 180000,
   });
   return response.data.data;
 }
 
-export async function runSimpleAggregateWithProgress(input: {
-  files: File[];
-  employeeMasterFile?: File | null;
-  batchName?: string;
+export async function runSimpleAggregateWithProgress(input: AggregateInput & {
   onProgress?: (event: AggregateProgressEvent) => void;
 }): Promise<AggregateRunResult> {
-  const formData = new FormData();
-  input.files.forEach((file) => formData.append('files', file));
-  if (input.employeeMasterFile) {
-    formData.append('employee_master_file', input.employeeMasterFile);
-  }
-  if (input.batchName?.trim()) {
-    formData.append('batch_name', input.batchName.trim());
-  }
-
   const response = await fetch(`${getApiBaseUrl()}/aggregate/stream`, {
     method: 'POST',
-    body: formData,
+    body: buildAggregateFormData(input),
   });
 
   if (!response.ok) {
@@ -167,4 +164,3 @@ export async function runSimpleAggregateWithProgress(input: {
   }
   return finalResult;
 }
-

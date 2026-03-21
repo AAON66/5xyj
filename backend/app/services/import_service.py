@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import hashlib
 import shutil
@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from backend.app.core.config import Settings
 from backend.app.models import HeaderMapping, ImportBatch, SourceFile
-from backend.app.models.enums import BatchStatus, MappingSource
+from backend.app.models.enums import BatchStatus, MappingSource, SourceFileKind
 from backend.app.parsers import HeaderExtraction, extract_header_structure
 from backend.app.schemas.imports import (
     FilteredRowPreviewRead,
@@ -26,9 +26,11 @@ from backend.app.schemas.imports import (
     SourceFileRead,
 )
 from backend.app.services.header_normalizer import HeaderMappingDecision, HeaderNormalizationResult, normalize_header_extraction
+from backend.app.services.housing_fund_service import analyze_housing_fund_workbook
 from backend.app.services.normalization_service import StandardizationResult, standardize_workbook
 
 ALLOWED_EXTENSIONS = {'.xlsx', '.xls'}
+ALLOWED_SOURCE_KINDS = {item.value for item in SourceFileKind}
 
 
 class ImportServiceError(Exception):
@@ -53,7 +55,6 @@ class StoredUpload:
 
 @dataclass
 class AnalyzedSourceFile:
-    extraction: HeaderExtraction
     normalization: HeaderNormalizationResult
     standardized: StandardizationResult
 
@@ -65,12 +66,14 @@ async def create_import_batch(
     batch_name: str | None = None,
     regions: list[str] | None = None,
     company_names: list[str] | None = None,
+    file_kinds: list[str] | None = None,
 ) -> ImportBatch:
     if not files:
         raise InvalidUploadError('At least one Excel file is required.')
 
     runtime_regions = _normalize_metadata_list(regions, len(files), 'regions')
     runtime_companies = _normalize_metadata_list(company_names, len(files), 'company_names')
+    runtime_file_kinds = _normalize_file_kinds(file_kinds, len(files))
 
     batch = ImportBatch(batch_name=(batch_name or _build_batch_name()).strip(), status=BatchStatus.UPLOADED)
     db.add(batch)
@@ -89,6 +92,7 @@ async def create_import_batch(
                 file_name=stored.original_name,
                 file_path=str(stored.storage_path),
                 file_size=stored.file_size,
+                source_kind=runtime_file_kinds[index],
                 region=runtime_regions[index],
                 company_name=runtime_companies[index],
                 file_hash=stored.file_hash,
@@ -113,13 +117,11 @@ def list_import_batches(db: Session) -> list[ImportBatchSummaryRead]:
     return [_to_summary_schema(batch) for batch in batches]
 
 
-
 def get_import_batch(db: Session, batch_id: str) -> ImportBatch:
     batch = db.query(ImportBatch).filter(ImportBatch.id == batch_id).first()
     if batch is None:
         raise BatchNotFoundError(f"Import batch '{batch_id}' was not found.")
     return batch
-
 
 
 def preview_import_batch(db: Session, batch_id: str) -> ImportBatchPreviewRead:
@@ -133,7 +135,6 @@ def preview_import_batch(db: Session, batch_id: str) -> ImportBatchPreviewRead:
     )
 
 
-
 def parse_import_batch(db: Session, batch_id: str) -> ImportBatchPreviewRead:
     batch = get_import_batch(db, batch_id)
     batch.status = BatchStatus.PARSING
@@ -142,7 +143,7 @@ def parse_import_batch(db: Session, batch_id: str) -> ImportBatchPreviewRead:
     try:
         file_previews = []
         for source_file in batch.source_files:
-            analyzed = _analyze_source_file(source_file)
+            analyzed = analyze_source_file(source_file)
             _persist_source_file_mappings(db, source_file, analyzed.normalization.decisions)
             file_preview = _build_source_file_preview_from_analysis(source_file, analyzed)
             file_previews.append(file_preview)
@@ -163,7 +164,6 @@ def parse_import_batch(db: Session, batch_id: str) -> ImportBatchPreviewRead:
     )
 
 
-
 def serialize_import_batch(batch: ImportBatch) -> ImportBatchDetailRead:
     return ImportBatchDetailRead(
         id=batch.id,
@@ -178,6 +178,7 @@ def serialize_import_batch(batch: ImportBatch) -> ImportBatchDetailRead:
                 file_name=source_file.file_name,
                 file_path=source_file.file_path,
                 file_size=source_file.file_size,
+                source_kind=source_file.source_kind,
                 region=source_file.region,
                 company_name=source_file.company_name,
                 file_hash=source_file.file_hash,
@@ -188,10 +189,36 @@ def serialize_import_batch(batch: ImportBatch) -> ImportBatchDetailRead:
     )
 
 
+def analyze_source_file(source_file: SourceFile) -> AnalyzedSourceFile:
+    workbook_path = Path(source_file.file_path)
+    if source_file.source_kind == SourceFileKind.HOUSING_FUND.value:
+        housing_analysis = analyze_housing_fund_workbook(
+            workbook_path,
+            region=source_file.region,
+            company_name=source_file.company_name,
+            source_file_name=source_file.file_name,
+        )
+        return AnalyzedSourceFile(
+            normalization=housing_analysis.normalization,
+            standardized=housing_analysis.standardized,
+        )
+
+    extraction = extract_header_structure(workbook_path)
+    base_normalization = normalize_header_extraction(extraction, region=source_file.region)
+    normalization = _apply_manual_mapping_overrides(base_normalization, source_file.header_mappings)
+    standardized = standardize_workbook(
+        workbook_path,
+        region=source_file.region,
+        company_name=source_file.company_name,
+        source_file_name=source_file.file_name,
+        extraction=extraction,
+        normalization=normalization,
+    )
+    return AnalyzedSourceFile(normalization=normalization, standardized=standardized)
+
 
 def _build_source_file_preview(source_file: SourceFile) -> SourceFilePreviewRead:
-    return _build_source_file_preview_from_analysis(source_file, _analyze_source_file(source_file))
-
+    return _build_source_file_preview_from_analysis(source_file, analyze_source_file(source_file))
 
 
 def _build_source_file_preview_from_analysis(
@@ -203,6 +230,7 @@ def _build_source_file_preview_from_analysis(
     return SourceFilePreviewRead(
         source_file_id=source_file.id,
         file_name=source_file.file_name,
+        source_kind=source_file.source_kind,
         region=source_file.region,
         company_name=source_file.company_name,
         raw_sheet_name=standardized.sheet_name,
@@ -244,28 +272,6 @@ def _build_source_file_preview_from_analysis(
             for record in standardized.records[:20]
         ],
     )
-
-
-
-def _analyze_source_file(source_file: SourceFile) -> AnalyzedSourceFile:
-    workbook_path = Path(source_file.file_path)
-    extraction = extract_header_structure(workbook_path)
-    base_normalization = normalize_header_extraction(extraction, region=source_file.region)
-    normalization = _apply_manual_mapping_overrides(base_normalization, source_file.header_mappings)
-    standardized = standardize_workbook(
-        workbook_path,
-        region=source_file.region,
-        company_name=source_file.company_name,
-        source_file_name=source_file.file_name,
-        extraction=extraction,
-        normalization=normalization,
-    )
-    return AnalyzedSourceFile(
-        extraction=extraction,
-        normalization=normalization,
-        standardized=standardized,
-    )
-
 
 
 def _apply_manual_mapping_overrides(
@@ -313,7 +319,6 @@ def _apply_manual_mapping_overrides(
     )
 
 
-
 def _persist_source_file_mappings(
     db: Session,
     source_file: SourceFile,
@@ -347,7 +352,6 @@ def _persist_source_file_mappings(
             db.delete(mapping)
 
 
-
 def _to_summary_schema(batch: ImportBatch) -> ImportBatchSummaryRead:
     return ImportBatchSummaryRead(
         id=batch.id,
@@ -359,10 +363,8 @@ def _to_summary_schema(batch: ImportBatch) -> ImportBatchSummaryRead:
     )
 
 
-
 def _build_batch_name() -> str:
     return f"import-batch-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
-
 
 
 def _normalize_metadata_list(values: list[str] | None, file_count: int, field_name: str) -> list[str | None]:
@@ -374,6 +376,20 @@ def _normalize_metadata_list(values: list[str] | None, file_count: int, field_na
         return normalized * file_count
     if len(normalized) != file_count:
         raise InvalidUploadError(f"Field '{field_name}' must be empty, contain one value, or match the number of files.")
+    return normalized
+
+
+def _normalize_file_kinds(values: list[str] | None, file_count: int) -> list[str]:
+    if not values:
+        return [SourceFileKind.SOCIAL_SECURITY.value] * file_count
+    normalized = [((value or '').strip() or SourceFileKind.SOCIAL_SECURITY.value) for value in values]
+    if len(normalized) == 1 and file_count > 1:
+        normalized = normalized * file_count
+    if len(normalized) != file_count:
+        raise InvalidUploadError("Field 'file_kinds' must be empty, contain one value, or match the number of files.")
+    invalid = [value for value in normalized if value not in ALLOWED_SOURCE_KINDS]
+    if invalid:
+        raise InvalidUploadError(f"Unsupported source kinds: {', '.join(sorted(set(invalid)))}.")
     return normalized
 
 
@@ -397,7 +413,6 @@ async def _store_upload(batch_dir: Path, upload: UploadFile) -> StoredUpload:
         file_size=len(payload),
         file_hash=hashlib.sha256(payload).hexdigest(),
     )
-
 
 
 def _json_safe_dict(values: dict[str, object | None]) -> dict[str, object | None]:

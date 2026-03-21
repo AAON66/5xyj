@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import asyncio
 import json
@@ -22,7 +22,8 @@ router = APIRouter(prefix='/aggregate', tags=['aggregate'])
 @router.post('', status_code=status.HTTP_201_CREATED)
 async def run_simple_aggregate_endpoint(
     request: Request,
-    files: list[UploadFile] = File(...),
+    files: list[UploadFile] = File(default=[]),
+    housing_fund_files: list[UploadFile] = File(default=[]),
     employee_master_file: UploadFile | None = File(default=None),
     batch_name: str | None = Form(default=None),
     regions: str | None = Form(default=None),
@@ -34,12 +35,13 @@ async def run_simple_aggregate_endpoint(
             db,
             request.app.state.settings,
             files=files,
+            housing_fund_files=housing_fund_files,
             employee_master_file=employee_master_file,
             batch_name=batch_name,
             regions=_parse_metadata_values(regions),
             company_names=_parse_metadata_values(company_names),
         )
-    except (InvalidUploadError, EmployeeImportError) as exc:
+    except (InvalidUploadError, EmployeeImportError, ValueError) as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     return success_response(payload.model_dump(mode='json'), message='Aggregate run completed.', status_code=status.HTTP_201_CREATED)
@@ -48,7 +50,8 @@ async def run_simple_aggregate_endpoint(
 @router.post('/stream')
 async def run_simple_aggregate_stream_endpoint(
     request: Request,
-    files: list[UploadFile] = File(...),
+    files: list[UploadFile] = File(default=[]),
+    housing_fund_files: list[UploadFile] = File(default=[]),
     employee_master_file: UploadFile | None = File(default=None),
     batch_name: str | None = Form(default=None),
     regions: str | None = Form(default=None),
@@ -64,6 +67,14 @@ async def run_simple_aggregate_stream_endpoint(
             'content': await upload.read(),
         }
         for upload in files
+    ]
+    housing_payloads = [
+        {
+            'filename': upload.filename or 'housing-fund.xlsx',
+            'content_type': upload.content_type,
+            'content': await upload.read(),
+        }
+        for upload in housing_fund_files
     ]
     employee_payload = None
     if employee_master_file is not None:
@@ -84,6 +95,10 @@ async def run_simple_aggregate_stream_endpoint(
                 UploadFile(filename=item['filename'], file=BytesIO(item['content']))
                 for item in file_payloads
             ]
+            runtime_housing = [
+                UploadFile(filename=item['filename'], file=BytesIO(item['content']))
+                for item in housing_payloads
+            ]
             runtime_employee = None
             if employee_payload is not None:
                 runtime_employee = UploadFile(
@@ -96,13 +111,14 @@ async def run_simple_aggregate_stream_endpoint(
                     db,
                     request.app.state.settings,
                     files=runtime_files,
+                    housing_fund_files=runtime_housing,
                     employee_master_file=runtime_employee,
                     batch_name=batch_name,
                     regions=parsed_regions,
                     company_names=parsed_companies,
                     progress_callback=emit_progress,
                 )
-            except (InvalidUploadError, EmployeeImportError) as exc:
+            except (InvalidUploadError, EmployeeImportError, ValueError) as exc:
                 await queue.put({'event': 'error', 'code': 'bad_request', 'message': str(exc)})
             except Exception:
                 await queue.put(

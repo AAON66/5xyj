@@ -7,6 +7,7 @@ from sqlalchemy import BigInteger, DateTime, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from backend.app.models.base import Base, UUIDPrimaryKeyMixin
+from backend.app.models.enums import SourceFileKind
 
 if TYPE_CHECKING:
     from backend.app.models.header_mapping import HeaderMapping
@@ -25,6 +26,13 @@ class SourceFile(UUIDPrimaryKeyMixin, Base):
     file_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     file_path: Mapped[str] = mapped_column(String(1024), nullable=False)
     file_size: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    source_kind: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default=SourceFileKind.SOCIAL_SECURITY.value,
+        server_default=SourceFileKind.SOCIAL_SECURITY.value,
+        index=True,
+    )
     region: Mapped[str | None] = mapped_column(String(100))
     company_name: Mapped[str | None] = mapped_column(String(255), index=True)
     raw_sheet_name: Mapped[str | None] = mapped_column(String(255))

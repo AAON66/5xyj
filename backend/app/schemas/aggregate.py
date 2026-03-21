@@ -15,6 +15,7 @@ class AggregateEmployeeImportRead(BaseModel):
 class AggregateSourceFileRead(BaseModel):
     source_file_id: str
     file_name: str
+    source_kind: str
     region: str | None
     company_name: str | None
     normalized_record_count: int
