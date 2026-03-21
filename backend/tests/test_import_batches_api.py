@@ -11,6 +11,8 @@ from backend.app.core.config import ROOT_DIR, Settings
 from backend.app.core.database import create_database_engine, create_session_factory
 from backend.app.dependencies import get_db
 from backend.app.main import create_app
+from backend.app.services import import_service as import_service_module
+from backend.app.services.region_detection_service import RegionDetectionResult
 from backend.app.models import Base
 
 
@@ -215,3 +217,60 @@ def test_create_import_batch_rejects_metadata_length_mismatch() -> None:
 
     assert response.status_code == 400
     assert 'company_names' in response.json()['error']['message']
+
+
+
+def test_create_import_batch_prefers_filename_region_before_workbook_detection(monkeypatch: pytest.MonkeyPatch) -> None:
+    client, _ = build_test_client('filename_region_fast_path')
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError('Workbook region detection should not run when filename already reveals the region.')
+
+    monkeypatch.setattr(import_service_module, 'detect_region_for_workbook', fail_if_called)
+
+    with client:
+        response = client.post(
+            '/api/v1/imports',
+            files=[
+                (
+                    'files',
+                    ('深圳无限增长202602公积金账单.xlsx', b'not-a-real-workbook-but-good-enough', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
+                )
+            ],
+        )
+
+    assert response.status_code == 201
+    payload = response.json()['data']
+    assert payload['source_files'][0]['region'] == 'shenzhen'
+
+
+
+def test_create_import_batch_falls_back_to_workbook_region_detection_when_filename_is_generic(monkeypatch: pytest.MonkeyPatch) -> None:
+    client, _ = build_test_client('generic_filename_region_fallback')
+
+    def fake_detection(*args, **kwargs):
+        return RegionDetectionResult(
+            region='xiamen',
+            confidence=0.95,
+            source='rule',
+            reason='test-fallback',
+            local_confidence=0.95,
+            llm_confidence=None,
+        )
+
+    monkeypatch.setattr(import_service_module, 'detect_region_for_workbook', fake_detection)
+
+    with client:
+        response = client.post(
+            '/api/v1/imports',
+            files=[
+                (
+                    'files',
+                    ('generic.xlsx', b'not-a-real-workbook-but-good-enough', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
+                )
+            ],
+        )
+
+    assert response.status_code == 201
+    payload = response.json()['data']
+    assert payload['source_files'][0]['region'] == 'xiamen'

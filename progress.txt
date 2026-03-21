@@ -861,3 +861,24 @@ ormalization_service.py backendpp\services\import_service.py backendpp\service
 
 ### Notes:
 - Quick aggregate now keeps one active run at a time by design, which avoids overlapping uploads from stomping on the same local operator session.
+
+## [2026-03-22] - Task: Import-stage pivot workbook upload optimization
+
+### What was done:
+- Optimized import batch creation so region inference now prefers filename-based rules before opening a workbook, which avoids expensive workbook scans for obvious files like Shenzhen housing-fund sheets during the upload/save stage.
+- Moved upload progress emission to immediately after file persistence and added a distinct `region_detection` progress phase, so the quick aggregate UI no longer looks frozen on a single `uploading` message while a fallback workbook scan is running.
+- Added regression coverage for both paths: fast filename-based region detection and generic-filename fallback to workbook-based region detection.
+- Kept company-name inference local to the import service to avoid introducing a new circular dependency while preserving the existing filename cleanup behavior.
+
+### Testing:
+- `py -m compileall backend`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_import_batches_api.py -p no:cacheprovider`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_aggregate_api.py -k "aggregate_stream_endpoint_emits_progress_events" -p no:cacheprovider`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_aggregate_api.py -k "aggregate_stream_endpoint_reports_intermediate_upload_and_parse_progress" -p no:cacheprovider`
+
+### Risks / Open Questions:
+- Generic filenames still need workbook-based region detection, so truly ambiguous pivot-heavy files can still spend time in a dedicated `region_detection` stage; they just no longer masquerade as a stalled file-save step.
+- If a future batch contains many generic filenames, the next optimization target should be caching lightweight workbook fingerprints before deeper scans.
+
+### Notes:
+- This change focuses on preserving data integrity while removing unnecessary workbook opens during upload; parse, normalization, and export behavior are unchanged.

@@ -35,7 +35,7 @@ from backend.app.services.header_normalizer import (
 )
 from backend.app.services.housing_fund_service import analyze_housing_fund_workbook
 from backend.app.services.normalization_service import StandardizationResult, standardize_workbook
-from backend.app.services.region_detection_service import detect_region_for_workbook
+from backend.app.services.region_detection_service import detect_region_for_workbook, detect_region_from_filename
 
 ALLOWED_EXTENSIONS = {'.xlsx', '.xls'}
 ALLOWED_SOURCE_KINDS = {item.value for item in SourceFileKind}
@@ -127,8 +127,31 @@ async def create_import_batch(
         for index, upload in enumerate(files, start=1):
             stored = await _store_upload(batch_dir, upload)
             stored_paths.append(stored.storage_path)
-            detected_region = runtime_regions[index - 1]
+            await _notify_progress(
+                progress_callback,
+                {
+                    'phase': 'uploading',
+                    'current': index,
+                    'total': len(files),
+                    'file_name': stored.original_name,
+                    'batch_id': batch.id,
+                    'batch_name': batch.batch_name,
+                },
+            )
+
+            detected_region = runtime_regions[index - 1] or detect_region_from_filename(stored.original_name)
             if detected_region is None:
+                await _notify_progress(
+                    progress_callback,
+                    {
+                        'phase': 'region_detection',
+                        'current': index,
+                        'total': len(files),
+                        'file_name': stored.original_name,
+                        'batch_id': batch.id,
+                        'batch_name': batch.batch_name,
+                    },
+                )
                 detection = detect_region_for_workbook(
                     stored.storage_path,
                     filename=stored.original_name,
@@ -143,20 +166,10 @@ async def create_import_batch(
                     file_size=stored.file_size,
                     source_kind=runtime_file_kinds[index - 1],
                     region=detected_region,
-                    company_name=runtime_companies[index - 1] or _infer_company_name_from_filename(stored.original_name, detected_region),
+                    company_name=runtime_companies[index - 1]
+                    or _infer_company_name_from_filename(stored.original_name, detected_region),
                     file_hash=stored.file_hash,
                 )
-            )
-            await _notify_progress(
-                progress_callback,
-                {
-                    'phase': 'uploading',
-                    'current': index,
-                    'total': len(files),
-                    'file_name': stored.original_name,
-                    'batch_id': batch.id,
-                    'batch_name': batch.batch_name,
-                },
             )
 
         db.add_all(pending_source_files)
@@ -478,6 +491,22 @@ def _run_progress_callback(
 
 def _build_batch_name() -> str:
     return f"import-batch-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+
+
+def _infer_company_name_from_filename(filename: str, region: str | None) -> str | None:
+    stem = Path(filename).stem
+    if '--' in stem:
+        tail = stem.split('--')[-1].strip()
+        return tail or None
+
+    cleaned = DATE_PATTERN.sub('', stem)
+    cleaned = cleaned.replace('??1???2?', '')
+    for noise in FILENAME_NOISE:
+        cleaned = cleaned.replace(noise, '')
+    if region:
+        cleaned = cleaned.replace(REGION_LABELS.get(region, ''), '')
+    cleaned = re.sub(r'[()??_\-\s]+', '', cleaned)
+    return cleaned or (REGION_LABELS.get(region) if region else None)
 
 
 def _normalize_metadata_list(values: list[str] | None, file_count: int, field_name: str) -> list[str | None]:
