@@ -727,3 +727,21 @@ ormalization_service.py backendpp\services\import_service.py backendpp\service
 
 ### Notes:
 - The quick aggregate page now lets users download both fixed output templates directly after the run succeeds, without opening the advanced export page.
+
+## [2026-03-21] - Task: Quick aggregate file add/remove UX
+
+### What was done:
+- Reworked the quick aggregate file selection area into styled upload panels for social security files, housing fund files, and optional employee master input.
+- Added append-style file selection so users can continue adding files across multiple picker actions without losing the existing list.
+- Added per-file delete controls and clear-list actions for social security and housing fund selections, plus replace/remove actions for the optional employee master file.
+- Improved the upload area styling with stronger hierarchy, file chips, summaries, and mobile-safe responsive behavior.
+
+### Testing:
+- `cmd /c npm.cmd run lint`
+- `cmd /c npm.cmd run build`
+
+### Risks / Open Questions:
+- File deduplication currently uses name + size + lastModified, which is practical for operator workflows but not a byte-level hash comparison.
+
+### Notes:
+- This is a frontend usability enhancement on top of the existing quick aggregate flow; backend behavior and aggregate semantics remain unchanged.

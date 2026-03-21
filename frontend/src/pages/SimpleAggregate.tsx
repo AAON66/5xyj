@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { Link } from 'react-router-dom';
 
 import { PageContainer, SectionState, SurfaceNotice } from '../components';
@@ -13,31 +13,31 @@ import {
 import { fetchSystemHealth, type SystemHealth } from '../services/system';
 
 const PROGRESS_STEPS = [
-  { key: 'employee_import', label: '\u5458\u5de5\u4e3b\u6863' },
-  { key: 'batch_upload', label: '\u4e0a\u4f20\u6279\u6b21' },
-  { key: 'parse', label: '\u89e3\u6790\u8bc6\u522b' },
-  { key: 'validate', label: '\u6570\u636e\u6821\u9a8c' },
-  { key: 'match', label: '\u5de5\u53f7\u5339\u914d' },
-  { key: 'export', label: '\u53cc\u6a21\u677f\u5bfc\u51fa' },
+  { key: 'employee_import', label: '员工主档' },
+  { key: 'batch_upload', label: '上传批次' },
+  { key: 'parse', label: '解析识别' },
+  { key: 'validate', label: '数据校验' },
+  { key: 'match', label: '工号匹配' },
+  { key: 'export', label: '双模板导出' },
 ] as const;
 
 function artifactLabel(value: string): string {
-  return value === 'salary' ? '\u85aa\u916c\u6a21\u677f' : '\u5de5\u5177\u8868\u6700\u7ec8\u7248';
+  return value === 'salary' ? '薪酬模板' : '工具表最终版';
 }
 
 function statusLabel(value: string | null): string {
   switch (value) {
     case 'completed':
     case 'exported':
-      return '\u5df2\u5b8c\u6210';
+      return '已完成';
     case 'failed':
-      return '\u5df2\u5931\u8d25';
+      return '已失败';
     case 'matched':
-      return '\u5df2\u5339\u914d';
+      return '已匹配';
     case 'validated':
-      return '\u5df2\u6821\u9a8c';
+      return '已校验';
     case 'normalized':
-      return '\u5df2\u6807\u51c6\u5316';
+      return '已标准化';
     default:
       return value ?? '-';
   }
@@ -54,9 +54,9 @@ function artifactTone(artifact: AggregateArtifact): 'success' | 'warning' | 'err
 }
 
 function formatArtifactMessage(artifact: AggregateArtifact): string {
-  const path = artifact.file_path ?? artifact.error_message ?? '\u6682\u65e0\u8f93\u51fa\u8def\u5f84';
+  const path = artifact.file_path ?? artifact.error_message ?? '暂无输出路径';
   if (artifact.row_count > 0 && artifact.file_path) {
-    return `${path} | ${artifact.row_count} \u884c`;
+    return `${path} | ${artifact.row_count} 行`;
   }
   return path;
 }
@@ -81,7 +81,103 @@ function getStepState(stepKey: string, progress: AggregateProgressEvent | null):
 }
 
 function sourceKindLabel(value: string): string {
-  return value === 'housing_fund' ? '\u516c\u79ef\u91d1' : '\u793e\u4fdd';
+  return value === 'housing_fund' ? '公积金' : '社保';
+}
+
+function fileKey(file: File): string {
+  return `${file.name}_${file.size}_${file.lastModified}`;
+}
+
+function mergeFiles(existing: File[], incoming: FileList | null): File[] {
+  if (!incoming?.length) {
+    return existing;
+  }
+
+  const merged = [...existing];
+  const known = new Set(existing.map((file) => fileKey(file)));
+  Array.from(incoming).forEach((file) => {
+    const key = fileKey(file);
+    if (!known.has(key)) {
+      known.add(key);
+      merged.push(file);
+    }
+  });
+  return merged;
+}
+
+function formatFileSize(size: number): string {
+  if (size >= 1024 * 1024) {
+    return `${(size / (1024 * 1024)).toFixed(2)} MB`;
+  }
+  if (size >= 1024) {
+    return `${(size / 1024).toFixed(1)} KB`;
+  }
+  return `${size} B`;
+}
+
+interface UploadPanelProps {
+  eyebrow: string;
+  title: string;
+  description: string;
+  files: File[];
+  onAdd: () => void;
+  onClear: () => void;
+  onRemove: (target: File) => void;
+  emptyMessage: string;
+  tone: 'social' | 'housing';
+}
+
+function UploadPanel({
+  eyebrow,
+  title,
+  description,
+  files,
+  onAdd,
+  onClear,
+  onRemove,
+  emptyMessage,
+  tone,
+}: UploadPanelProps) {
+  return (
+    <article className={`upload-panel upload-panel--${tone}`}>
+      <div className="upload-panel__header">
+        <div>
+          <span className="panel-label">{eyebrow}</span>
+          <h3>{title}</h3>
+          <p>{description}</p>
+        </div>
+        <div className="upload-panel__summary">
+          <strong>{files.length}</strong>
+          <span>已选文件</span>
+        </div>
+      </div>
+      <div className="upload-panel__actions button-row">
+        <button type="button" className="button button--primary" onClick={onAdd}>
+          添加文件
+        </button>
+        <button type="button" className="button button--ghost" onClick={onClear} disabled={!files.length}>
+          清空列表
+        </button>
+      </div>
+      {files.length ? (
+        <div className="upload-file-list">
+          {files.map((file) => (
+            <div key={fileKey(file)} className="upload-file-chip">
+              <div className="upload-file-chip__meta">
+                <strong>{file.name}</strong>
+                <span>{formatFileSize(file.size)}</span>
+              </div>
+              <button type="button" className="button button--ghost upload-file-chip__remove" onClick={() => onRemove(file)}>
+                删除
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="upload-panel__empty">{emptyMessage}</div>
+      )}
+    </article>
+  );
 }
 
 export function SimpleAggregatePage() {
@@ -94,6 +190,10 @@ export function SimpleAggregatePage() {
   const [pageError, setPageError] = useState<string | null>(null);
   const [result, setResult] = useState<AggregateRunResult | null>(null);
   const [progress, setProgress] = useState<AggregateProgressEvent | null>(null);
+
+  const socialInputRef = useRef<HTMLInputElement | null>(null);
+  const housingInputRef = useRef<HTMLInputElement | null>(null);
+  const employeeInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -123,9 +223,32 @@ export function SimpleAggregatePage() {
     [result],
   );
 
+  function handleSocialFilesSelected(event: ChangeEvent<HTMLInputElement>) {
+    setSocialFiles((current) => mergeFiles(current, event.target.files));
+    event.target.value = '';
+  }
+
+  function handleHousingFilesSelected(event: ChangeEvent<HTMLInputElement>) {
+    setHousingFundFiles((current) => mergeFiles(current, event.target.files));
+    event.target.value = '';
+  }
+
+  function handleEmployeeMasterSelected(event: ChangeEvent<HTMLInputElement>) {
+    setEmployeeMasterFile(event.target.files?.[0] ?? null);
+    event.target.value = '';
+  }
+
+  function removeSocialFile(target: File) {
+    setSocialFiles((current) => current.filter((file) => fileKey(file) !== fileKey(target)));
+  }
+
+  function removeHousingFile(target: File) {
+    setHousingFundFiles((current) => current.filter((file) => fileKey(file) !== fileKey(target)));
+  }
+
   async function handleRun() {
     if (!socialFiles.length && !housingFundFiles.length) {
-      setPageError('\u8bf7\u81f3\u5c11\u9009\u62e9\u4e00\u4e2a\u793e\u4fdd\u6216\u516c\u79ef\u91d1 Excel \u6587\u4ef6\u3002');
+      setPageError('请至少选择一个社保或公积金 Excel 文件。');
       return;
     }
 
@@ -134,8 +257,8 @@ export function SimpleAggregatePage() {
     setResult(null);
     setProgress({
       stage: 'employee_import',
-      label: '\u51c6\u5907\u5f00\u59cb',
-      message: '\u6b63\u5728\u51c6\u5907\u5feb\u901f\u805a\u5408\u4efb\u52a1\u3002',
+      label: '准备开始',
+      message: '正在准备快速聚合任务。',
       percent: 0,
     });
 
@@ -151,15 +274,15 @@ export function SimpleAggregatePage() {
       setProgress((current) =>
         current ?? {
           stage: 'export',
-          label: '\u5bfc\u51fa\u5b8c\u6210',
-          message: '\u53cc\u6a21\u677f\u5bfc\u51fa\u6d41\u7a0b\u5df2\u7ed3\u675f\u3002',
+          label: '导出完成',
+          message: '双模板导出流程已结束。',
           percent: 100,
           batch_id: payload.batch_id,
           batch_name: payload.batch_name,
         },
       );
     } catch (error) {
-      setPageError(normalizeApiError(error).message || '\u5feb\u901f\u805a\u5408\u5931\u8d25\uff0c\u8bf7\u68c0\u67e5\u6587\u4ef6\u5185\u5bb9\u540e\u91cd\u8bd5\u3002');
+      setPageError(normalizeApiError(error).message || '快速聚合失败，请检查文件内容后重试。');
     } finally {
       setRunning(false);
     }
@@ -168,8 +291,8 @@ export function SimpleAggregatePage() {
   return (
     <PageContainer
       eyebrow="Quick Aggregate"
-      title="\u4e0a\u4f20\u540e\u76f4\u63a5\u5bfc\u51fa\u4e24\u4efd\u7ed3\u679c"
-      description="\u9ed8\u8ba4\u8d70\u5b8c\u6574\u4e3b\u94fe\u8def\uff1a\u81ea\u52a8\u8bc6\u522b\u793e\u4fdd\u4e0e\u516c\u79ef\u91d1\u8868\u5934\u3001\u8fc7\u6ee4\u975e\u660e\u7ec6\u884c\u3001\u6267\u884c\u6821\u9a8c\u548c\u5de5\u53f7\u5339\u914d\uff0c\u6700\u540e\u540c\u65f6\u8f93\u51fa\u85aa\u916c\u6a21\u677f\u548c\u5de5\u5177\u8868\u6700\u7ec8\u7248\u3002"
+      title="上传后直接导出两份结果"
+      description="默认走完整主链路：自动识别社保与公积金表头、过滤非明细行、执行校验和工号匹配，最后同时输出薪酬模板和工具表最终版。"
       actions={
         <div className="button-row">
           <button
@@ -178,10 +301,10 @@ export function SimpleAggregatePage() {
             disabled={(!socialFiles.length && !housingFundFiles.length) || running}
             onClick={() => void handleRun()}
           >
-            {running ? '\u6b63\u5728\u805a\u5408...' : '\u5f00\u59cb\u805a\u5408\u5e76\u5bfc\u51fa'}
+            {running ? '正在聚合...' : '开始聚合并导出'}
           </button>
           <Link to="/imports" className="button button--ghost">
-            \u8fdb\u5165\u9ad8\u7ea7\u9875\u9762
+            进入高级页面
           </Link>
         </div>
       }
@@ -189,92 +312,123 @@ export function SimpleAggregatePage() {
       {health ? (
         <SurfaceNotice
           tone="success"
-          title="\u540e\u7aef\u5df2\u5c31\u7eea"
-          message={`${health.app_name} ${health.version} | /api/v1/system/health \u54cd\u5e94\u6b63\u5e38`}
+          title="后端已就绪"
+          message={`${health.app_name} ${health.version} | /api/v1/system/health 响应正常`}
         />
       ) : null}
-      {pageError ? <SurfaceNotice tone="error" title="\u672c\u6b21\u805a\u5408\u5931\u8d25" message={pageError} /> : null}
+      {pageError ? <SurfaceNotice tone="error" title="本次聚合失败" message={pageError} /> : null}
       {result && result.export_status === 'completed' ? (
         <SurfaceNotice
           tone="success"
-          title="\u4e24\u4efd\u6587\u4ef6\u5df2\u751f\u6210"
-          message={`\u6279\u6b21 ${result.batch_name} \u5df2\u5b8c\u6210\u53cc\u6a21\u677f\u5bfc\u51fa\u3002`}
+          title="两份文件已生成"
+          message={`批次 ${result.batch_name} 已完成双模板导出。`}
         />
       ) : null}
       {result && result.employee_master ? (
         <SurfaceNotice
           tone="info"
-          title="\u5df2\u540c\u6b65\u5bfc\u5165\u5458\u5de5\u4e3b\u6863"
-          message={`${result.employee_master.file_name} | \u65b0\u589e ${result.employee_master.created_count} | \u66f4\u65b0 ${result.employee_master.updated_count}`}
+          title="已同步导入员工主档"
+          message={`${result.employee_master.file_name} | 新增 ${result.employee_master.created_count} | 更新 ${result.employee_master.updated_count}`}
         />
       ) : null}
       {result && result.blocked_reason ? (
-        <SurfaceNotice tone="warning" title="\u94fe\u8def\u5df2\u7ee7\u7eed\u4f46\u9700\u5173\u6ce8" message={result.blocked_reason} />
+        <SurfaceNotice tone="warning" title="链路已继续但需关注" message={result.blocked_reason} />
       ) : null}
 
       <div className="panel-grid panel-grid--two simple-aggregate-grid">
         <section className="panel-card simple-aggregate-card">
           <div className="section-heading">
             <div>
-              <span className="panel-label">\u6b65\u9aa4 1</span>
-              <h2>\u9009\u62e9\u6587\u4ef6</h2>
+              <span className="panel-label">步骤 1</span>
+              <h2>选择文件</h2>
             </div>
           </div>
-          <label className="form-field">
-            <span>\u793e\u4fdd\u660e\u7ec6\u6587\u4ef6</span>
-            <input
-              type="file"
-              accept=".xlsx,.xls"
-              multiple
-              onChange={(event) => setSocialFiles(Array.from(event.target.files ?? []))}
+
+          <input ref={socialInputRef} type="file" accept=".xlsx,.xls" multiple hidden onChange={handleSocialFilesSelected} />
+          <input ref={housingInputRef} type="file" accept=".xlsx,.xls" multiple hidden onChange={handleHousingFilesSelected} />
+          <input ref={employeeInputRef} type="file" accept=".csv,.xlsx,.xlsm" hidden onChange={handleEmployeeMasterSelected} />
+
+          <div className="upload-board">
+            <UploadPanel
+              eyebrow="社保明细"
+              title="添加社保文件"
+              description="支持连续多次添加文件，系统会自动合并到同一批次。"
+              files={socialFiles}
+              onAdd={() => socialInputRef.current?.click()}
+              onClear={() => setSocialFiles([])}
+              onRemove={removeSocialFile}
+              emptyMessage="还没有选择社保文件。"
+              tone="social"
             />
-          </label>
-          <label className="form-field">
-            <span>\u516c\u79ef\u91d1\u660e\u7ec6\u6587\u4ef6</span>
-            <input
-              type="file"
-              accept=".xlsx,.xls"
-              multiple
-              onChange={(event) => setHousingFundFiles(Array.from(event.target.files ?? []))}
+            <UploadPanel
+              eyebrow="公积金明细"
+              title="添加公积金文件"
+              description="和社保文件一起上传后，系统会自动按人员维度合并。"
+              files={housingFundFiles}
+              onAdd={() => housingInputRef.current?.click()}
+              onClear={() => setHousingFundFiles([])}
+              onRemove={removeHousingFile}
+              emptyMessage="还没有选择公积金文件。"
+              tone="housing"
             />
-          </label>
-          <label className="form-field">
-            <span>\u5458\u5de5\u4e3b\u6863\uff08\u53ef\u9009\uff09</span>
-            <input
-              type="file"
-              accept=".csv,.xlsx,.xlsm"
-              onChange={(event) => setEmployeeMasterFile(event.target.files?.[0] ?? null)}
-            />
-          </label>
-          <label className="form-field">
-            <span>\u6279\u6b21\u540d\u79f0\uff08\u53ef\u9009\uff09</span>
-            <input
-              value={batchName}
-              onChange={(event) => setBatchName(event.target.value)}
-              placeholder="\u4f8b\uff1a2026-02 \u793e\u4fdd\u516c\u79ef\u91d1\u805a\u5408"
-            />
-          </label>
-          <div className="simple-file-list">
-            <div className="status-item">
-              <strong>{socialFiles.length ? `\u5df2\u9009 ${socialFiles.length} \u4e2a\u793e\u4fdd\u6587\u4ef6` : '\u8fd8\u6ca1\u6709\u9009\u62e9\u793e\u4fdd\u6587\u4ef6'}</strong>
-              <div>{socialFiles.map((file) => file.name).join(' / ') || '\u652f\u6301\u540c\u65f6\u4e0a\u4f20\u591a\u4e2a\u793e\u4fdd Excel\uff0c\u7cfb\u7edf\u4f1a\u4e00\u8d77\u5904\u7406\u3002'}</div>
-            </div>
-            <div className="status-item">
-              <strong>{housingFundFiles.length ? `\u5df2\u9009 ${housingFundFiles.length} \u4e2a\u516c\u79ef\u91d1\u6587\u4ef6` : '\u8fd8\u6ca1\u6709\u9009\u62e9\u516c\u79ef\u91d1\u6587\u4ef6'}</strong>
-              <div>{housingFundFiles.map((file) => file.name).join(' / ') || '\u53ef\u4e0e\u793e\u4fdd\u6587\u4ef6\u4e00\u8d77\u4e0a\u4f20\uff0c\u7cfb\u7edf\u4f1a\u81ea\u52a8\u5408\u5e76\u5230\u540c\u4e00\u6279\u6b21\u3002'}</div>
-            </div>
-            <div className="status-item">
-              <strong>{employeeMasterFile ? employeeMasterFile.name : '\u672a\u9644\u5e26\u5458\u5de5\u4e3b\u6863'}</strong>
-              <div>{employeeMasterFile ? '\u672c\u6b21\u4f1a\u5728\u805a\u5408\u524d\u5148\u5bfc\u5165\u5458\u5de5\u4e3b\u6863\u3002' : '\u4e0d\u4f20\u4e5f\u53ef\u7ee7\u7eed\u5bfc\u51fa\uff0c\u4f46\u5de5\u53f7\u4f1a\u4fdd\u7559\u7a7a\u503c\u3002'}</div>
-            </div>
+          </div>
+
+          <div className="upload-support-grid">
+            <article className="upload-panel upload-panel--master">
+              <div className="upload-panel__header">
+                <div>
+                  <span className="panel-label">员工主档</span>
+                  <h3>可选主数据</h3>
+                  <p>如果这次一并导入员工主档，系统会在聚合前先完成工号基准更新。</p>
+                </div>
+              </div>
+              <div className="upload-panel__actions button-row">
+                <button type="button" className="button button--primary" onClick={() => employeeInputRef.current?.click()}>
+                  {employeeMasterFile ? '重新选择' : '添加主档'}
+                </button>
+                <button
+                  type="button"
+                  className="button button--ghost"
+                  disabled={!employeeMasterFile}
+                  onClick={() => setEmployeeMasterFile(null)}
+                >
+                  删除文件
+                </button>
+              </div>
+              {employeeMasterFile ? (
+                <div className="upload-file-chip upload-file-chip--single">
+                  <div className="upload-file-chip__meta">
+                    <strong>{employeeMasterFile.name}</strong>
+                    <span>{formatFileSize(employeeMasterFile.size)}</span>
+                  </div>
+                </div>
+              ) : (
+                <div className="upload-panel__empty">未附带员工主档，也可以先直接导出结果。</div>
+              )}
+            </article>
+
+            <article className="upload-panel upload-panel--meta">
+              <label className="form-field form-field--compact">
+                <span>批次名称（可选）</span>
+                <input
+                  value={batchName}
+                  onChange={(event) => setBatchName(event.target.value)}
+                  placeholder="例：2026-02 社保公积金聚合"
+                />
+              </label>
+              <div className="upload-meta-tip">
+                <strong>当前支持</strong>
+                <span>继续添加文件、单个删除文件、清空列表，再统一执行一次聚合。</span>
+              </div>
+            </article>
           </div>
         </section>
 
         <section className="panel-card simple-aggregate-card">
           <div className="section-heading">
             <div>
-              <span className="panel-label">\u6b65\u9aa4 2</span>
-              <h2>\u76f4\u63a5\u67e5\u770b\u7ed3\u679c</h2>
+              <span className="panel-label">步骤 2</span>
+              <h2>直接查看结果</h2>
             </div>
           </div>
           {running && progress ? (
@@ -294,7 +448,7 @@ export function SimpleAggregatePage() {
               {progress.batch_name ? (
                 <div className="progress-card__meta status-item">
                   <strong>{progress.batch_name}</strong>
-                  <div>{progress.batch_id ?? '\u6279\u6b21\u7f16\u53f7\u751f\u6210\u4e2d'}</div>
+                  <div>{progress.batch_id ?? '批次编号生成中'}</div>
                 </div>
               ) : null}
               <div className="progress-step-list">
@@ -303,9 +457,7 @@ export function SimpleAggregatePage() {
                   return (
                     <div key={step.key} className={`progress-step progress-step--${stepState}`}>
                       <strong>{step.label}</strong>
-                      <span>
-                        {stepState === 'done' ? '\u5df2\u5b8c\u6210' : stepState === 'active' ? '\u8fdb\u884c\u4e2d' : '\u7b49\u5f85\u4e2d'}
-                      </span>
+                      <span>{stepState === 'done' ? '已完成' : stepState === 'active' ? '进行中' : '等待中'}</span>
                     </div>
                   );
                 })}
@@ -316,19 +468,19 @@ export function SimpleAggregatePage() {
               <div className="simple-result-summary status-grid">
                 <article className="status-item">
                   <strong>{statusLabel(result.export_status)}</strong>
-                  <div>\u5bfc\u51fa\u72b6\u6001</div>
+                  <div>导出状态</div>
                 </article>
                 <article className="status-item">
                   <strong>{normalizedCount}</strong>
-                  <div>\u805a\u5408\u540e\u8bb0\u5f55\u6570</div>
+                  <div>聚合后记录数</div>
                 </article>
                 <article className="status-item">
                   <strong>{filteredCount}</strong>
-                  <div>\u5df2\u8fc7\u6ee4\u975e\u660e\u7ec6\u884c</div>
+                  <div>已过滤非明细行</div>
                 </article>
                 <article className="status-item">
                   <strong>{result.matched_count}</strong>
-                  <div>\u5339\u914d\u6210\u529f\u8bb0\u5f55</div>
+                  <div>匹配成功记录</div>
                 </article>
               </div>
               <div className="simple-artifact-list">
@@ -358,14 +510,14 @@ export function SimpleAggregatePage() {
                   <div key={file.source_file_id} className="status-item">
                     <strong>{`${sourceKindLabel(file.source_kind)} | ${file.file_name}`}</strong>
                     <div>
-                      {`${file.region ?? '\u672a\u8bc6\u522b\u5730\u533a'} / ${file.company_name ?? '\u672a\u8bc6\u522b\u516c\u53f8'} / ${file.normalized_record_count} \u6761\u660e\u7ec6 / \u8fc7\u6ee4 ${file.filtered_row_count} \u884c`}
+                      {`${file.region ?? '未识别地区'} / ${file.company_name ?? '未识别公司'} / ${file.normalized_record_count} 条明细 / 过滤 ${file.filtered_row_count} 行`}
                     </div>
                   </div>
                 ))}
               </div>
             </div>
           ) : (
-            <SectionState title="\u7b49\u4f60\u5f00\u59cb\u805a\u5408" message="\u4e0a\u4f20\u793e\u4fdd\u3001\u516c\u79ef\u91d1\u6587\u4ef6\u540e\uff0c\u8fd9\u91cc\u4f1a\u76f4\u63a5\u7ed9\u4f60\u4e24\u4efd\u5bfc\u51fa\u6587\u4ef6\u7684\u751f\u6210\u7ed3\u679c\u548c\u8def\u5f84\u3002" />
+            <SectionState title="等你开始聚合" message="上传社保、公积金文件后，这里会直接给你两份导出文件的生成结果和路径。" />
           )}
         </section>
       </div>
