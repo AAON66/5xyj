@@ -4,22 +4,22 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a614a6ab-24b5-4f20-8229-5cf8b352ba3a" name="更改" comment="v2.0.0">
+    <list default="true" id="a614a6ab-24b5-4f20-8229-5cf8b352ba3a" name="更改" comment="v3.0.0接入了LLM，并且有了并行解析功能">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/mappings/manual_field_aliases.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/mappings/manual_field_aliases.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/services/aggregate_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/aggregate_service.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/services/header_normalizer.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/header_normalizer.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/services/import_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/import_service.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/services/region_detection_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/region_detection_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/exporters/template_exporter.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/exporters/template_exporter.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/batch_export_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/batch_export_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/employee_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/employee_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/matching_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/matching_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/validators/non_detail_row_filter.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/validators/non_detail_row_filter.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/tests/test_aggregate_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_aggregate_api.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/tests/test_aggregate_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_aggregate_service.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/tests/test_region_detection_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_region_detection_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_employee_master_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_employee_master_api.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_export_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_export_api.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_matching_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_matching_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_non_detail_row_filter.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_non_detail_row_filter.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_template_exporter.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_template_exporter.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/app.db" beforeDir="false" afterPath="$PROJECT_DIR$/data/app.db" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/app.db-shm" beforeDir="false" afterPath="$PROJECT_DIR$/data/app.db-shm" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/app.db-wal" beforeDir="false" afterPath="$PROJECT_DIR$/data/app.db-wal" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/SimpleAggregate.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/SimpleAggregate.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/services/aggregate.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/services/aggregate.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/styles.css" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/styles.css" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/progress.txt" beforeDir="false" afterPath="$PROJECT_DIR$/progress.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -80,7 +80,7 @@
       <workItem from="1773977629742" duration="16517000" />
       <workItem from="1774108356380" duration="354000" />
       <workItem from="1774119102062" duration="2617000" />
-      <workItem from="1774181989524" duration="540000" />
+      <workItem from="1774181989524" duration="1244000" />
     </task>
     <task id="LOCAL-00001" summary="v2.0.0">
       <option name="closed" value="true" />
@@ -90,7 +90,15 @@
       <option name="project" value="LOCAL" />
       <updated>1774119132882</updated>
     </task>
-    <option name="localTasksCounter" value="2" />
+    <task id="LOCAL-00002" summary="v3.0.0接入了LLM，并且有了并行解析功能">
+      <option name="closed" value="true" />
+      <created>1774182622172</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1774182622172</updated>
+    </task>
+    <option name="localTasksCounter" value="3" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -102,8 +110,20 @@
       </list>
     </option>
   </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State />
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
   <component name="VcsManagerConfiguration">
     <MESSAGE value="v2.0.0" />
-    <option name="LAST_COMMIT_MESSAGE" value="v2.0.0" />
+    <MESSAGE value="v3.0.0接入了LLM，并且有了并行解析功能" />
+    <option name="LAST_COMMIT_MESSAGE" value="v3.0.0接入了LLM，并且有了并行解析功能" />
   </component>
 </project>

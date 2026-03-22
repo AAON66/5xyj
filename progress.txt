@@ -1059,3 +1059,85 @@ ormalization_service.py backendpp\services\import_service.py backendpp\service
 
 ### Notes:
 - This round specifically addresses the user request for “真正完成并行解析” by proving the backend reached `active_count=5` on a real 32-file batch and by surfacing the active file names directly in the parse UI.
+
+## [2026-03-22] - Task: Export filenames use batch name or timestamp fallback
+
+### What was done:
+- Replaced the export filename prefix source in `batch_export_service.py` so dual-template exports no longer use the long batch UUID as the visible filename prefix.
+- Added a unified export-prefix builder that now:
+  - prefers the user-provided `batch_name`
+  - falls back to a `YYYYMMDD-HHMMSS` timestamp when the batch name is implicit or unavailable
+  - treats the auto-generated `import-batch-*` names as implicit rather than user-facing names
+  - removes Windows-illegal filename characters
+  - collapses repeated whitespace and underscores
+  - trims leading and trailing spaces, underscores, and dots
+  - truncates overly long prefixes to a safe length
+- Kept the existing `_salary.xlsx` and `_final_tool.xlsx` suffixes unchanged so both templates remain distinct and downloadable without collisions.
+- Left the download API shape unchanged; because the file is now saved with the shorter name, the browser download filename automatically became shorter too.
+
+### Testing:
+- `.\.venv\Scripts\python.exe -m compileall backend`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_template_exporter.py backend\tests\test_export_api.py -p no:cacheprovider`
+- `cmd /c npm.cmd run build`
+- Added regression coverage for:
+  - explicit batch-name based export filenames
+  - timestamp fallback when no batch name is provided
+  - sanitizing and truncating noisy batch names
+  - timestamp fallback when a provided batch name sanitizes to empty
+
+### Risks / Open Questions:
+- Current fallback detection treats `import-batch-*` as an implicit system-generated name; if future product requirements want that exact generated batch label shown in exported filenames, this helper would need to be adjusted intentionally.
+- Timestamp fallback is generated at export start time, not upload time, which matches the current implementation assumption and keeps the two exported files in the same run aligned.
+
+### Notes:
+- This change only affects the final exported filenames and download names; output directories, artifact schema, and template filling behavior remain unchanged.
+
+## [2026-03-22] - Task: Fix employee-id backfill and dirty final_tool export rows
+
+### What was done:
+- Hardened `matching_service.py` so ID matching now normalizes Chinese ID values before exact compare, strips whitespace, uppercases trailing `X`, and rejects header-like pseudo values such as `姓名` / `身份证号` / `身份证号码` / `工号`.
+- Tightened match fallback rules so `姓名 + 公司` and `姓名`-only matching now run only when the source ID is truly missing or just a header-like placeholder; non-empty invalid IDs no longer silently fall back to name matching.
+- Extended `non_detail_row_filter.py` to classify repeated header blocks such as `姓名 / 身份证号码 / 工号` as `header_row`, and added placeholder handling for `空白 / (空白) / （空白）`.
+- Added an exporter-level `exportable_record` guard in `template_exporter.py` so both `salary` and `final_tool` now skip rows whose name is blank/header-like, whose ID is invalid header text, or whose record has neither a valid ID nor a matched employee ID.
+- Kept rows with missing ID only when they already have a reliable matched `employee_id`, which aligns export behavior with the confirmed rule set and blocks the screenshot-style dirty rows from leaking into `final_tool`.
+- Added aggregate regression checks to verify that uploading an employee master writes the matched employee ID into `salary.B` and `final_tool.E`, while header-text identity cells do not leak into exported records.
+
+### Testing:
+- `.\.venv\Scripts\python.exe -m compileall backend`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_matching_service.py backend\tests\test_non_detail_row_filter.py -p no:cacheprovider -q`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_template_exporter.py -p no:cacheprovider -q`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_aggregate_api.py::test_aggregate_endpoint_exports_both_templates_without_employee_master backend\tests\test_aggregate_api.py::test_aggregate_endpoint_imports_employee_master_and_matches_records backend\tests\test_aggregate_api.py::test_aggregate_endpoint_merges_housing_fund_into_dual_exports -p no:cacheprovider -q`
+- `cmd /c npm.cmd run build`
+
+### Risks / Open Questions:
+- The exporter templates are large, so export-focused pytest cases are still slow on Windows `openpyxl` saves even though they now pass consistently; this is a performance concern, not a correctness blocker.
+- Rows that have no source ID but do have a reliable matched employee ID are still allowed into exports by design; if product later requires backfilling the ID card number from the employee master as well, that would be a separate enhancement.
+
+### Notes:
+- This round focused on correctness of employee ID propagation and dirty-row suppression, not on changing template column layout or introducing any new API fields.
+
+## [2026-03-22] - Task: Fix employee master id-number import for slash-style roster headers
+
+### What was done:
+- Identified the live root cause for missing employee IDs in exports: the real roster file uses the header `证件/证件号码`, but `employee_service.py` did not recognize that alias, so all imported employee master `id_number` values were stored as `None`.
+- Added `证件/证件号码` and `证件 / 证件号码` to the employee-master ID alias set and made employee header normalization strip `/` and `\` so slash-style roster headers map reliably to `id_number`.
+- Added a regression test in `test_employee_master_api.py` that imports a workbook with the real slash-style ID header and verifies the imported employee record keeps the expected身份证号.
+- Re-imported the real runtime roster into `data/app.db`, updating all 2083 existing employee master rows so their `id_number` values are now populated for exact matching.
+
+### Testing:
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_employee_master_api.py -p no:cacheprovider -q`
+- `.\.venv\Scripts\python.exe -m compileall backend`
+- Manual real-file verification with `data/external/roster/花名册.xlsx`:
+  - parsed rows: `2083`
+  - rows with `id_number`: `2083`
+- Manual end-to-end aggregate replay with the real roster plus `深圳创造欢乐202602社保明细.xlsx`:
+  - `matched_count=16`
+  - salary export rows now contain employee IDs such as `01642`, `01632`, `01809`
+  - final tool export rows now contain matching employee IDs in the工号列
+
+### Risks / Open Questions:
+- If future roster files use additional unrecognized variants of the ID header, they will need to be added to the alias set or covered by a more generic synonym rule.
+- If an Excel roster stores身份证号 as lossy numeric cells instead of text, Excel precision loss can still damage the source data before import; that is a separate data-quality issue from the alias bug fixed here.
+
+### Notes:
+- The runtime employee master database has already been refreshed from the real roster, so subsequent aggregates in this workspace no longer depend on the old null-ID imports.

@@ -83,6 +83,9 @@ def test_classify_row_filters_real_xiamen_total_row() -> None:
         (["\u9000\u4f11\u4eba\u5458", None, None], "group_header"),
         (["\u5bb6\u5c5e\u7edf\u7b79\u4eba\u5458", None, None], "group_header"),
         ([None, "", "--"], "blank_row"),
+        (["\u59d3\u540d", "\u8eab\u4efd\u8bc1\u53f7\u7801"], "header_row"),
+        (["\u5de5\u53f7", "\u59d3\u540d", "\u8eab\u4efd\u8bc1\u53f7"], "header_row"),
+        (["(\u7a7a\u767d)", None, None], "blank_row"),
     ],
 )
 def test_classify_row_filters_known_non_detail_shapes(row_values: list[object], expected_reason: str) -> None:
@@ -98,6 +101,13 @@ def test_classify_row_keeps_sparse_detail_row_with_amounts() -> None:
     assert decision.keep is True
     assert decision.reason == "detail_row"
     assert decision.first_value == "\u5f20\u4e09"
+
+
+def test_classify_row_filters_repeated_header_block_without_amounts() -> None:
+    decision = classify_row(["\u59d3\u540d", "\u8eab\u4efd\u8bc1\u53f7\u7801", "\u5de5\u53f7", None], row_number=18)
+
+    assert decision.keep is False
+    assert decision.reason == "header_row"
 
 
 def test_filter_candidate_rows_returns_kept_and_filtered_rows() -> None:

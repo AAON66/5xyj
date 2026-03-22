@@ -10,7 +10,16 @@ NON_DETAIL_TOKENS = {
     "\u9000\u4f11\u4eba\u5458": "group_header",
     "\u5bb6\u5c5e\u7edf\u7b79\u4eba\u5458": "group_header",
 }
-PLACEHOLDER_VALUES = {"", "-", "--", "\u2014\u2014", "none", "null"}
+PLACEHOLDER_VALUES = {"", "-", "--", "\u2014\u2014", "none", "null", "\u7a7a\u767d", "(\u7a7a\u767d)", "\uff08\u7a7a\u767d\uff09"}
+HEADER_ROW_TOKENS = {
+    "\u59d3\u540d",
+    "\u5458\u5de5\u59d3\u540d",
+    "\u8eab\u4efd\u8bc1\u53f7",
+    "\u8eab\u4efd\u8bc1\u53f7\u7801",
+    "\u8bc1\u4ef6\u53f7",
+    "\u8bc1\u4ef6\u53f7\u7801",
+    "\u5de5\u53f7",
+}
 
 
 @dataclass(slots=True)
@@ -54,6 +63,15 @@ def classify_row(values: Iterable[object], row_number: int) -> RowFilterDecision
             row_number=row_number,
             keep=False,
             reason=exact_reason,
+            first_value=first_value,
+            normalized_values=normalized_values,
+        )
+
+    if _looks_like_header_row(non_empty_values):
+        return RowFilterDecision(
+            row_number=row_number,
+            keep=False,
+            reason="header_row",
             first_value=first_value,
             normalized_values=normalized_values,
         )
@@ -114,6 +132,17 @@ def _is_text_only_group_row(non_empty_values: list[str]) -> bool:
     if any(_looks_numeric(value) for value in non_empty_values[1:]):
         return False
     return first_value in NON_DETAIL_TOKENS or first_value.endswith("\u4eba\u5458")
+
+
+def _looks_like_header_row(non_empty_values: list[str]) -> bool:
+    header_like = [value for value in non_empty_values if value in HEADER_ROW_TOKENS]
+    if not header_like:
+        return False
+    if len(header_like) == len(non_empty_values):
+        return True
+    if len(non_empty_values) <= 4 and len(header_like) >= 2 and not any(_looks_numeric(value) for value in non_empty_values):
+        return True
+    return False
 
 
 def _normalize(value: object) -> str:

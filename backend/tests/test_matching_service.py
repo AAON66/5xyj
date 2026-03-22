@@ -65,6 +65,25 @@ def test_match_preview_records_matches_by_id_number_exact() -> None:
     assert results[0].confidence == 1.0
 
 
+def test_match_preview_records_normalizes_id_number_before_exact_match() -> None:
+    sample_path = find_sample('\u5e7f\u5206')
+    standardized = standardize_workbook(sample_path, region='guangzhou', company_name='\u5e7f\u5dde\u793a\u4f8b')
+    record = standardized.records[0]
+    record.values['id_number'] = f" {str(record.values['id_number']).lower()} "
+    employee = make_employee(
+        'E1002',
+        record.values['person_name'],
+        id_number=str(record.values['id_number']).strip().upper(),
+        company_name='\u5176\u5b83\u516c\u53f8',
+    )
+
+    results = match_preview_records([record], [employee])
+
+    assert results[0].match_status == MatchStatus.MATCHED.value
+    assert results[0].employee_id == 'E1002'
+    assert results[0].match_basis == 'id_number_exact'
+
+
 def test_match_preview_records_matches_by_name_and_company_when_id_missing() -> None:
     sample_path = find_sample('\u957f\u6c99')
     standardized = standardize_workbook(sample_path, region='changsha', company_name='\u957f\u6c99\u793a\u4f8b\u516c\u53f8')
@@ -108,6 +127,33 @@ def test_match_preview_records_marks_unmatched_when_no_candidate() -> None:
     assert results[0].match_status == MatchStatus.UNMATCHED.value
     assert results[0].employee_id is None
     assert results[0].candidate_employee_ids == []
+
+
+def test_match_preview_records_does_not_treat_header_text_as_id_number() -> None:
+    sample_path = find_sample('\u6b66\u6c49')
+    standardized = standardize_workbook(sample_path, region='wuhan')
+    record = standardized.records[0]
+    record.values['id_number'] = '\u8eab\u4efd\u8bc1\u53f7\u7801'
+
+    results = match_preview_records([record], [make_employee('E4100', record.values['person_name'], id_number='440101199001010011')])
+
+    assert results[0].match_status == MatchStatus.LOW_CONFIDENCE.value
+    assert results[0].employee_id == 'E4100'
+    assert results[0].match_basis == 'person_name_exact'
+
+
+def test_match_preview_records_does_not_fallback_to_name_when_non_empty_id_is_invalid() -> None:
+    sample_path = find_sample('\u6b66\u6c49')
+    standardized = standardize_workbook(sample_path, region='wuhan', company_name='\u6b66\u6c49\u793a\u4f8b\u516c\u53f8')
+    record = standardized.records[0]
+    record.values['id_number'] = '12345'
+    record.values['company_name'] = '\u6b66\u6c49\u793a\u4f8b\u516c\u53f8'
+
+    results = match_preview_records([record], [make_employee('E4200', record.values['person_name'], company_name='\u6b66\u6c49\u793a\u4f8b\u516c\u53f8')])
+
+    assert results[0].match_status == MatchStatus.UNMATCHED.value
+    assert results[0].employee_id is None
+    assert results[0].match_basis is None
 
 
 def test_match_preview_records_marks_duplicate_for_multiple_exact_candidates() -> None:

@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from typing import Iterable
 
 from backend.app.models.employee_master import EmployeeMaster
@@ -8,6 +9,18 @@ from backend.app.models.enums import MatchStatus
 from backend.app.models.match_result import MatchResult
 from backend.app.models.normalized_record import NormalizedRecord
 from backend.app.services.normalization_service import NormalizedPreviewRecord
+
+HEADER_LIKE_IDENTITY_VALUES = {
+    '姓名',
+    '身份证号',
+    '身份证号码',
+    '证件号',
+    '证件号码',
+    '工号',
+    '员工姓名',
+    '员工工号',
+}
+ID_NUMBER_PATTERN = re.compile(r'^\d{15}$|^\d{17}[\dX]$')
 
 
 @dataclass(slots=True)
@@ -71,12 +84,14 @@ def apply_match_results_to_normalized_records(
 
 def _match_preview_record(record: NormalizedPreviewRecord, employees: list[EmployeeMaster]) -> MatchPreviewResult:
     values = record.values
-    id_number = _normalize(values.get('id_number'))
+    raw_id_number = values.get('id_number')
+    id_number = _normalize_id_number(values.get('id_number'))
     person_name = _normalize(values.get('person_name'))
     company_name = _normalize(values.get('company_name'))
+    can_fallback_without_id = _is_missing_id_number(raw_id_number)
 
     if id_number:
-        exact_matches = [employee for employee in employees if _normalize(employee.id_number) == id_number]
+        exact_matches = [employee for employee in employees if _normalize_id_number(employee.id_number) == id_number]
         exact_result = _resolve_candidates(
             record.source_row_number,
             exact_matches,
@@ -87,7 +102,7 @@ def _match_preview_record(record: NormalizedPreviewRecord, employees: list[Emplo
         if exact_result is not None:
             return exact_result
 
-    if person_name and company_name:
+    if person_name and company_name and can_fallback_without_id:
         company_matches = [
             employee
             for employee in employees
@@ -103,7 +118,7 @@ def _match_preview_record(record: NormalizedPreviewRecord, employees: list[Emplo
         if company_result is not None:
             return company_result
 
-    if person_name:
+    if person_name and can_fallback_without_id:
         name_matches = [employee for employee in employees if _normalize(employee.person_name) == person_name]
         name_result = _resolve_candidates(
             record.source_row_number,
@@ -163,3 +178,21 @@ def _normalize(value: object) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _normalize_id_number(value: object) -> str | None:
+    text = _normalize(value)
+    if text is None:
+        return None
+    compact = text.replace(' ', '').upper()
+    if compact in HEADER_LIKE_IDENTITY_VALUES:
+        return None
+    return compact if ID_NUMBER_PATTERN.fullmatch(compact) else None
+
+
+def _is_missing_id_number(value: object) -> bool:
+    text = _normalize(value)
+    if text is None:
+        return True
+    compact = text.replace(' ', '').upper()
+    return compact in HEADER_LIKE_IDENTITY_VALUES

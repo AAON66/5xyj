@@ -26,7 +26,19 @@ from backend.app.schemas.employees import (
 HEADER_ALIASES = {
     "employee_id": {"employee_id", "工号", "员工工号", "职工工号", "人员工号", "员工编号", "职员编号", "员工编码", "编号", "erp工号"},
     "person_name": {"person_name", "姓名", "员工姓名", "职工姓名", "人员姓名", "姓名name"},
-    "id_number": {"id_number", "证件号码", "身份证号", "身份证号码", "证件号", "身份证", "身份证件号码", "身份证件号", "证件号码(身份证)"},
+    "id_number": {
+        "id_number",
+        "证件号码",
+        "身份证号",
+        "身份证号码",
+        "证件号",
+        "身份证",
+        "身份证件号码",
+        "身份证件号",
+        "证件号码(身份证)",
+        "证件/证件号码",
+        "证件 / 证件号码",
+    },
     "company_name": {"company_name", "公司", "公司名称", "所属公司", "主体", "主体公司", "法人公司", "所属法人公司", "归属公司", "用工主体", "法人主体"},
     "department": {"department", "部门", "部门名称", "所属部门", "组织", "组织架构", "一级部门", "二级部门", "部门/组别", "组别"},
     "active": {"active", "是否在职", "在职状态", "启用状态", "状态", "任职状态", "人员状态", "在离职状态"},
@@ -337,6 +349,8 @@ def _normalize_header(value: str) -> str:
             .replace("）", ")")
             .replace("：", "")
             .replace(":", "")
+            .replace("/", "")
+            .replace("\\", "")
             .replace("_", "")
             .split()
         )

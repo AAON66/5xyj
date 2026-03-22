@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -83,14 +84,17 @@ def build_test_context(test_name: str, *, salary_template: Path | None, final_to
     return TestClient(app), settings, session_factory
 
 
-def create_batch(client: TestClient, sample_path: Path) -> str:
+def create_batch(client: TestClient, sample_path: Path, *, batch_name: str | None = 'export-batch') -> str:
+    data = {
+        'regions': json.dumps(['shenzhen'], ensure_ascii=False),
+        'company_names': json.dumps([COMPANY_NAME], ensure_ascii=False),
+    }
+    if batch_name is not None:
+        data['batch_name'] = batch_name
+
     response = client.post(
         '/api/v1/imports',
-        data={
-            'batch_name': 'export-batch',
-            'regions': json.dumps(['shenzhen'], ensure_ascii=False),
-            'company_names': json.dumps([COMPANY_NAME], ensure_ascii=False),
-        },
+        data=data,
         files=[('files', (sample_path.name, sample_path.read_bytes(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))],
     )
     assert response.status_code == 201
@@ -143,12 +147,102 @@ def test_export_batch_endpoint_writes_both_template_outputs() -> None:
     assert len(payload['artifacts']) == 2
     assert all(item['status'] == 'completed' for item in payload['artifacts'])
     assert all(Path(item['file_path']).exists() for item in payload['artifacts'])
+    assert Path(next(item for item in payload['artifacts'] if item['template_type'] == 'salary')['file_path']).name == 'export-batch_salary.xlsx'
+    assert Path(next(item for item in payload['artifacts'] if item['template_type'] == 'final_tool')['file_path']).name == 'export-batch_final_tool.xlsx'
 
     get_payload = get_response.json()['data']
     assert get_payload['export_job_id'] == payload['export_job_id']
     assert get_payload['export_status'] == 'completed'
     assert len(get_payload['artifacts']) == 2
     assert detail_response.json()['data']['status'] == 'exported'
+
+
+def test_export_batch_endpoint_uses_timestamp_filename_when_batch_name_is_implicit() -> None:
+    salary_template = find_template('\u85aa\u916c')
+    tool_template = find_template('\u6700\u7ec8\u7248')
+    sample_path = find_sample(SAMPLE_KEYWORD)
+    client, _settings, session_factory = build_test_context(
+        'export_timestamp_name',
+        salary_template=salary_template,
+        final_tool_template=tool_template,
+    )
+    seed_employee_for_first_record(session_factory, sample_path)
+
+    with client:
+        batch_id = create_batch(client, sample_path, batch_name=None)
+        match_response = client.post(f'/api/v1/imports/{batch_id}/match')
+        export_response = client.post(f'/api/v1/imports/{batch_id}/export')
+        salary_download = client.get(f'/api/v1/imports/{batch_id}/export/salary/download')
+        tool_download = client.get(f'/api/v1/imports/{batch_id}/export/final_tool/download')
+
+    assert match_response.status_code == 200
+    assert export_response.status_code == 200
+    payload = export_response.json()['data']
+    salary_name = Path(next(item for item in payload['artifacts'] if item['template_type'] == 'salary')['file_path']).name
+    tool_name = Path(next(item for item in payload['artifacts'] if item['template_type'] == 'final_tool')['file_path']).name
+    assert re.fullmatch(r'\d{8}-\d{6}_salary\.xlsx', salary_name)
+    assert re.fullmatch(r'\d{8}-\d{6}_final_tool\.xlsx', tool_name)
+    assert 'filename=' in salary_download.headers['content-disposition']
+    assert salary_name in salary_download.headers['content-disposition']
+    assert tool_name in tool_download.headers['content-disposition']
+
+
+def test_export_batch_endpoint_sanitizes_and_truncates_batch_name_for_export_files() -> None:
+    salary_template = find_template('\u85aa\u916c')
+    tool_template = find_template('\u6700\u7ec8\u7248')
+    sample_path = find_sample(SAMPLE_KEYWORD)
+    client, _settings, session_factory = build_test_context(
+        'export_sanitized_name',
+        salary_template=salary_template,
+        final_tool_template=tool_template,
+    )
+    seed_employee_for_first_record(session_factory, sample_path)
+
+    noisy_batch_name = '  2026/02:深圳*社保?公积金<>|  导出___批次___名字特别特别特别长特别特别长  '
+
+    with client:
+        batch_id = create_batch(client, sample_path, batch_name=noisy_batch_name)
+        match_response = client.post(f'/api/v1/imports/{batch_id}/match')
+        export_response = client.post(f'/api/v1/imports/{batch_id}/export')
+
+    assert match_response.status_code == 200
+    assert export_response.status_code == 200
+    payload = export_response.json()['data']
+    salary_name = Path(next(item for item in payload['artifacts'] if item['template_type'] == 'salary')['file_path']).name
+    tool_name = Path(next(item for item in payload['artifacts'] if item['template_type'] == 'final_tool')['file_path']).name
+    assert salary_name.endswith('_salary.xlsx')
+    assert tool_name.endswith('_final_tool.xlsx')
+    assert len(salary_name) <= 44
+    assert len(tool_name) <= 48
+    assert all(char not in salary_name for char in '\\/:*?"<>|')
+    assert all(char not in tool_name for char in '\\/:*?"<>|')
+    assert '__' not in salary_name
+    assert '__' not in tool_name
+
+
+def test_export_batch_endpoint_falls_back_to_timestamp_when_sanitized_batch_name_is_empty() -> None:
+    salary_template = find_template('\u85aa\u916c')
+    tool_template = find_template('\u6700\u7ec8\u7248')
+    sample_path = find_sample(SAMPLE_KEYWORD)
+    client, _settings, session_factory = build_test_context(
+        'export_empty_after_sanitize',
+        salary_template=salary_template,
+        final_tool_template=tool_template,
+    )
+    seed_employee_for_first_record(session_factory, sample_path)
+
+    with client:
+        batch_id = create_batch(client, sample_path, batch_name='  <>:"/\\\\|?*  ')
+        match_response = client.post(f'/api/v1/imports/{batch_id}/match')
+        export_response = client.post(f'/api/v1/imports/{batch_id}/export')
+
+    assert match_response.status_code == 200
+    assert export_response.status_code == 200
+    payload = export_response.json()['data']
+    salary_name = Path(next(item for item in payload['artifacts'] if item['template_type'] == 'salary')['file_path']).name
+    tool_name = Path(next(item for item in payload['artifacts'] if item['template_type'] == 'final_tool')['file_path']).name
+    assert re.fullmatch(r'\d{8}-\d{6}_salary\.xlsx', salary_name)
+    assert re.fullmatch(r'\d{8}-\d{6}_final_tool\.xlsx', tool_name)
 
 
 

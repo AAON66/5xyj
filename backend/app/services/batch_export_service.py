@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+import re
 
 from sqlalchemy.orm import Session
 
@@ -16,6 +17,10 @@ from backend.app.services.import_service import get_import_batch
 BLOCKED_REASON_NOT_MATCHED = 'Batch must complete matching before export can run.'
 BLOCKED_REASON_MATCH_BLOCKED = 'Batch export is blocked because employee matching is blocked.'
 NO_EXPORT_JOB_REASON = 'Export has not been requested yet.'
+AUTO_BATCH_NAME_PREFIX = 'import-batch-'
+MAX_EXPORT_PREFIX_LENGTH = 32
+INVALID_EXPORT_FILENAME_CHARS_RE = re.compile(r'[\\/:*?"<>|]+')
+EXPORT_PREFIX_SPACING_RE = re.compile(r'[\s_]+')
 
 
 class ExportBlockedError(Exception):
@@ -31,6 +36,7 @@ class ExportExecutionResult:
 def export_batch(db: Session, batch_id: str, settings: Settings) -> BatchExportRead:
     batch = get_import_batch(db, batch_id)
     _ensure_exportable(batch)
+    export_started_at = datetime.now().astimezone()
 
     job = ExportJob(batch_id=batch.id, status='pending')
     db.add(job)
@@ -44,7 +50,7 @@ def export_batch(db: Session, batch_id: str, settings: Settings) -> BatchExportR
         output_dir=output_dir,
         salary_template_path=settings.salary_template_file,
         final_tool_template_path=settings.final_tool_template_file,
-        export_prefix=batch.id,
+        export_prefix=_build_export_prefix(batch, exported_at=export_started_at),
     )
 
     artifact_models: list[ExportArtifact] = []
@@ -142,3 +148,19 @@ def _derive_non_export_reason(batch) -> str | None:
     if not batch.match_results:
         return BLOCKED_REASON_NOT_MATCHED
     return NO_EXPORT_JOB_REASON
+
+
+def _build_export_prefix(batch, *, exported_at: datetime | None = None) -> str:
+    timestamp_source = exported_at or datetime.now().astimezone()
+    timestamp_prefix = timestamp_source.strftime('%Y%m%d-%H%M%S')
+    raw_batch_name = (batch.batch_name or '').strip()
+    if not raw_batch_name or raw_batch_name.startswith(AUTO_BATCH_NAME_PREFIX):
+        return timestamp_prefix
+
+    cleaned = INVALID_EXPORT_FILENAME_CHARS_RE.sub(' ', raw_batch_name)
+    cleaned = EXPORT_PREFIX_SPACING_RE.sub('_', cleaned).strip(' ._')
+    if not cleaned:
+        return timestamp_prefix
+    if len(cleaned) > MAX_EXPORT_PREFIX_LENGTH:
+        cleaned = cleaned[:MAX_EXPORT_PREFIX_LENGTH].rstrip(' ._')
+    return cleaned or timestamp_prefix

@@ -229,6 +229,19 @@ def test_aggregate_endpoint_imports_employee_master_and_matches_records() -> Non
     assert all(item['status'] == 'completed' for item in payload['artifacts'])
     assert all(Path(item['file_path']).exists() for item in payload['artifacts'])
 
+    salary_artifact = next(item for item in payload['artifacts'] if item['template_type'] == 'salary')
+    tool_artifact = next(item for item in payload['artifacts'] if item['template_type'] == 'final_tool')
+    salary_wb = load_workbook(salary_artifact['file_path'], data_only=False)
+    salary_sheet = salary_wb[salary_wb.sheetnames[0]]
+    assert salary_sheet['B2'].value == 'E9001'
+    salary_wb.close()
+
+    tool_wb = load_workbook(tool_artifact['file_path'], data_only=False)
+    tool_sheet = tool_wb[tool_wb.sheetnames[0]]
+    assert tool_sheet['E7'].value == 'E9001'
+    assert tool_sheet['D7'].value not in {'身份证号', '身份证号码'}
+    tool_wb.close()
+
 
 
 

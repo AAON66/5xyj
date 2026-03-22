@@ -68,6 +68,8 @@ def test_export_dual_templates_writes_both_template_outputs() -> None:
     tool_artifact = next(item for item in result.artifacts if item.template_type == 'final_tool')
     assert salary_artifact.status == 'completed'
     assert tool_artifact.status == 'completed'
+    assert Path(salary_artifact.file_path).name == 'match_batch_salary.xlsx'
+    assert Path(tool_artifact.file_path).name == 'match_batch_final_tool.xlsx'
 
     salary_wb = load_workbook(salary_artifact.file_path, data_only=False)
     salary_sheet = salary_wb[salary_wb.sheetnames[0]]
@@ -128,3 +130,57 @@ def test_export_dual_templates_marks_overall_failure_when_any_template_is_missin
     failed_tool = next(item for item in result.artifacts if item.template_type == 'final_tool')
     assert failed_tool.status == 'failed'
     assert failed_tool.error_message
+
+
+def test_export_dual_templates_filters_header_like_dirty_rows() -> None:
+    salary_template = find_template('薪酬')
+    tool_template = find_template('最终版')
+    sample_path = find_sample('深圳创造欢乐')
+
+    standardized = standardize_workbook(sample_path, region='shenzhen', company_name='创造欢乐')
+    trimmed = type(standardized)(
+        source_file=standardized.source_file,
+        sheet_name=standardized.sheet_name,
+        raw_header_signature=standardized.raw_header_signature,
+        records=standardized.records[:1],
+        filtered_rows=standardized.filtered_rows,
+        unmapped_headers=standardized.unmapped_headers,
+    )
+    records = build_normalized_models(trimmed, batch_id='batch-1', source_file_id='source-1')
+    records[0].employee_id = '01620'
+
+    dirty = build_normalized_models(trimmed, batch_id='batch-1', source_file_id='source-1')[0]
+    dirty.person_name = '姓名'
+    dirty.id_number = '身份证号码'
+    dirty.employee_id = None
+    dirty.personal_total_amount = None
+    dirty.housing_fund_personal = None
+    records.append(dirty)
+
+    output_dir = ARTIFACTS_ROOT / 'dirty_row_filter'
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    result = export_dual_templates(
+        records,
+        output_dir=output_dir,
+        salary_template_path=salary_template,
+        final_tool_template_path=tool_template,
+        export_prefix='dirty_filter',
+    )
+
+    salary_artifact = next(item for item in result.artifacts if item.template_type == 'salary')
+    tool_artifact = next(item for item in result.artifacts if item.template_type == 'final_tool')
+    assert salary_artifact.row_count == 1
+    assert tool_artifact.row_count == 1
+
+    salary_wb = load_workbook(salary_artifact.file_path, data_only=False)
+    salary_sheet = salary_wb[salary_wb.sheetnames[0]]
+    assert salary_sheet['A2'].value == records[0].person_name
+    assert salary_sheet['A3'].value in (None, '')
+    salary_wb.close()
+
+    tool_wb = load_workbook(tool_artifact.file_path, data_only=False)
+    tool_sheet = tool_wb[tool_wb.sheetnames[0]]
+    assert tool_sheet['C7'].value == records[0].person_name
+    assert tool_sheet['C8'].value in (None, '')
+    tool_wb.close()

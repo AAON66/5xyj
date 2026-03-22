@@ -93,6 +93,18 @@ def make_offset_alias_workbook_bytes() -> bytes:
     return buffer.getvalue()
 
 
+def make_slash_id_header_workbook_bytes() -> bytes:
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = '花名册'
+    sheet.append(['姓名', '工号', '证件/证件号码', '公司名称'])
+    sheet.append(['赵六', 'E3001', '440101199404040044', '广分示例'])
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    workbook.close()
+    return buffer.getvalue()
+
+
 def find_sample(keyword: str) -> Path:
     for path in sorted(SAMPLES_DIR.glob('*.xlsx')):
         if keyword in path.name:
@@ -201,6 +213,24 @@ def test_import_employee_master_detects_offset_header_and_alias_columns() -> Non
     assert employee['company_name'] == '\u96f6\u4e00\u88c2\u53d8'
     assert employee['department'] == '\u589e\u957f\u4e2d\u5fc3'
     assert employee['active'] is True
+
+
+def test_import_employee_master_maps_slash_style_id_number_header() -> None:
+    client, _settings, _session_factory = build_test_context('slash_id_header_import')
+
+    with client:
+        response = client.post(
+            '/api/v1/employees/import',
+            files=[('file', ('花名册.xlsx', make_slash_id_header_workbook_bytes(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))],
+        )
+        list_response = client.get('/api/v1/employees', params={'query': 'E3001', 'active_only': 'false'})
+
+    assert response.status_code == 201
+    employee = list_response.json()['data']['items'][0]
+    assert employee['employee_id'] == 'E3001'
+    assert employee['person_name'] == '赵六'
+    assert employee['id_number'] == '440101199404040044'
+    assert employee['company_name'] == '广分示例'
 
 
 def test_update_and_status_endpoints_change_employee_and_write_audit() -> None:

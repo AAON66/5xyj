@@ -4,6 +4,7 @@ from copy import copy
 from dataclasses import dataclass
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
+import re
 from typing import Iterable
 
 from openpyxl import Workbook, load_workbook
@@ -20,6 +21,41 @@ SALARY_SHEET_HEADER_ROW = 1
 SALARY_DATA_START_ROW = 2
 TOOL_SHEET_HEADER_ROW = 6
 TOOL_DATA_START_ROW = 7
+HEADER_LIKE_PERSON_VALUES = {
+    '\u59d3\u540d',
+    '\u5458\u5de5\u59d3\u540d',
+    '\u8eab\u4efd\u8bc1\u53f7',
+    '\u8eab\u4efd\u8bc1\u53f7\u7801',
+    '\u8bc1\u4ef6\u53f7',
+    '\u8bc1\u4ef6\u53f7\u7801',
+    '\u5de5\u53f7',
+    '\u7a7a\u767d',
+    '(\u7a7a\u767d)',
+    '\uff08\u7a7a\u767d\uff09',
+}
+ID_NUMBER_PATTERN = re.compile(r'^\d{15}$|^\d{17}[\dX]$')
+EXPORT_AMOUNT_FIELDS = (
+    'housing_fund_personal',
+    'housing_fund_company',
+    'housing_fund_total',
+    'total_amount',
+    'company_total_amount',
+    'personal_total_amount',
+    'pension_company',
+    'pension_personal',
+    'medical_company',
+    'medical_personal',
+    'medical_maternity_company',
+    'maternity_amount',
+    'unemployment_company',
+    'unemployment_personal',
+    'injury_company',
+    'supplementary_medical_company',
+    'supplementary_pension_company',
+    'large_medical_personal',
+    'late_fee',
+    'interest',
+)
 
 REGION_LABELS = {
     'guangzhou': '\u5e7f\u5dde',
@@ -72,7 +108,7 @@ def export_dual_templates(
     final_tool_template_path: str | Path | None = None,
     export_prefix: str | None = None,
 ) -> DualTemplateExportResult:
-    normalized_records = list(records)
+    normalized_records = [record for record in records if _is_exportable_record(record)]
     settings = get_settings()
     output_root = Path(output_dir) if output_dir else settings.outputs_path
     output_root.mkdir(parents=True, exist_ok=True)
@@ -386,3 +422,39 @@ def _region_label(value: str | None) -> str:
     if value is None:
         return ''
     return REGION_LABELS.get(value, value)
+
+
+def _is_exportable_record(record: NormalizedRecord) -> bool:
+    person_name = _normalize_export_text(record.person_name)
+    employee_id = _normalize_export_text(record.employee_id)
+    id_number = _normalize_id_number(record.id_number)
+    if person_name is None or person_name in HEADER_LIKE_PERSON_VALUES:
+        return False
+    if id_number is None and employee_id is None:
+        return False
+    if not _has_any_business_value(record):
+        return False
+    return True
+
+
+def _has_any_business_value(record: NormalizedRecord) -> bool:
+    if _normalize_export_text(record.person_name) or _normalize_id_number(record.id_number) or _normalize_export_text(record.employee_id):
+        return True
+    return any(_amount(getattr(record, field_name)) != Decimal('0') for field_name in EXPORT_AMOUNT_FIELDS)
+
+
+def _normalize_export_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _normalize_id_number(value: str | None) -> str | None:
+    text = _normalize_export_text(value)
+    if text is None:
+        return None
+    compact = text.replace(' ', '').upper()
+    if compact in HEADER_LIKE_PERSON_VALUES:
+        return None
+    return compact if ID_NUMBER_PATTERN.fullmatch(compact) else None
