@@ -939,4 +939,4 @@ ormalization_service.py backendpp\services\import_service.py backendpp\service
 - Worker-thread parsing currently opens a dedicated session off the same engine, which is safe with the current SQLite settings (`check_same_thread=False`, WAL), but should still be revisited if the runtime later moves to a job queue architecture.
 
 ### Notes:
-- The investigated `??202602?????.xlsx` workbook is valid and parses in under one second through the housing-fund parser, so it was not the real bottleneck.
+- The investigated Changsha housing-fund workbook is valid and parses in under one second through the housing-fund parser, so it was not the real bottleneck.

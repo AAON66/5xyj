@@ -241,23 +241,47 @@ def parse_import_batch(
         source_files = list(batch.source_files)
         total_files = len(source_files)
         for index, source_file in enumerate(source_files, start=1):
+            progress_base_payload = {
+                'current': index,
+                'total': total_files,
+                'file_name': source_file.file_name,
+                'batch_id': batch.id,
+                'batch_name': batch.batch_name,
+                'source_kind': source_file.source_kind,
+                'region': source_file.region,
+                'company_name': source_file.company_name,
+            }
             _run_progress_callback(
                 progress_callback,
                 {
-                    'phase': 'parsing',
-                    'current': index,
-                    'total': total_files,
-                    'file_name': source_file.file_name,
-                    'batch_id': batch.id,
-                    'batch_name': batch.batch_name,
+                    **progress_base_payload,
+                    'phase': 'parse_started',
                 },
             )
             analyzed = analyze_source_file(source_file)
+            _run_progress_callback(
+                progress_callback,
+                {
+                    **progress_base_payload,
+                    'phase': 'parse_analyzed',
+                    'normalized_record_count': len(analyzed.standardized.records),
+                    'filtered_row_count': len(analyzed.standardized.filtered_rows),
+                    'unmapped_header_count': len(analyzed.standardized.unmapped_headers),
+                },
+            )
             _persist_source_file_mappings(db, source_file, analyzed.normalization.decisions)
             file_preview = _build_source_file_preview_from_analysis(source_file, analyzed)
             file_previews.append(file_preview)
             source_file.raw_sheet_name = analyzed.standardized.sheet_name
             db.commit()
+            _run_progress_callback(
+                progress_callback,
+                {
+                    **progress_base_payload,
+                    'phase': 'parse_saved',
+                    'raw_sheet_name': analyzed.standardized.sheet_name,
+                },
+            )
         batch = get_import_batch(db, batch_id)
         batch.status = BatchStatus.NORMALIZED
         db.commit()

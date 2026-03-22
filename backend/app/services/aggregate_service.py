@@ -4,6 +4,7 @@ import asyncio
 import inspect
 import re
 from collections.abc import Awaitable, Callable
+from queue import Empty, Queue
 from pathlib import Path
 
 from fastapi import UploadFile
@@ -41,6 +42,8 @@ FILENAME_NOISE = (
 
 DATE_PATTERN = re.compile(r'(20\d{2}\u5e74\d{1,2}\u6708|20\d{4}|\d{6})')
 ProgressCallback = Callable[[dict[str, object]], Awaitable[None] | None]
+PARSE_PROGRESS_HEARTBEAT_SECONDS = 4.0
+PARSE_PROGRESS_POLL_INTERVAL_SECONDS = 0.1
 
 
 async def run_simple_aggregate(
@@ -175,25 +178,10 @@ async def run_simple_aggregate(
         batch_name=batch.batch_name,
     )
 
-    event_loop = asyncio.get_running_loop()
+    parse_progress_queue: Queue[dict[str, object]] = Queue()
 
     def emit_parse_progress(payload: dict[str, object]) -> None:
-        current = int(payload.get('current', 0) or 0)
-        total = max(1, int(payload.get('total', 1) or 1))
-        file_name = str(payload.get('file_name', ''))
-        if progress_callback is None:
-            return
-
-        progress_event = {
-            'stage': 'parse',
-            'label': '解析识别',
-            'message': f'正在解析文件 {current}/{total}：{file_name}',
-            'percent': _interpolate_percent(42, 60, current, total),
-            'batch_id': str(payload.get('batch_id') or batch.id),
-            'batch_name': str(payload.get('batch_name') or batch.batch_name),
-        }
-        future = asyncio.run_coroutine_threadsafe(_emit_progress(progress_callback, **progress_event), event_loop)
-        future.result()
+        parse_progress_queue.put(dict(payload))
 
     def run_parse_in_worker_session():
         worker_db = Session(bind=db.get_bind(), autoflush=False, autocommit=False, future=True)
@@ -202,7 +190,14 @@ async def run_simple_aggregate(
         finally:
             worker_db.close()
 
-    preview = await asyncio.to_thread(run_parse_in_worker_session)
+    parse_task = asyncio.create_task(asyncio.to_thread(run_parse_in_worker_session))
+    preview = await _stream_parse_progress(
+        parse_task=parse_task,
+        parse_progress_queue=parse_progress_queue,
+        progress_callback=progress_callback,
+        batch_id=batch.id,
+        batch_name=batch.batch_name,
+    )
     db.expire_all()
 
     await _emit_progress(
@@ -325,6 +320,120 @@ def _interpolate_percent_fraction(start: int, end: int, progress_value: float, t
         return end
     bounded_progress = min(max(progress_value, 0.0), float(total))
     return min(end, max(start, round(start + ((end - start) * bounded_progress / total))))
+
+
+async def _stream_parse_progress(
+    *,
+    parse_task: asyncio.Task,
+    parse_progress_queue: Queue[dict[str, object]],
+    progress_callback: ProgressCallback | None,
+    batch_id: str,
+    batch_name: str,
+):
+    last_payload: dict[str, object] | None = None
+    last_activity = asyncio.get_running_loop().time()
+    last_heartbeat = last_activity
+
+    while True:
+        drained = False
+        while True:
+            try:
+                payload = parse_progress_queue.get_nowait()
+            except Empty:
+                break
+            drained = True
+            last_payload = payload
+            now = asyncio.get_running_loop().time()
+            last_activity = now
+            last_heartbeat = now
+            await _emit_progress(
+                progress_callback,
+                **_build_parse_progress_event(
+                    payload,
+                    batch_id=batch_id,
+                    batch_name=batch_name,
+                ),
+            )
+
+        if parse_task.done() and parse_progress_queue.empty():
+            return await parse_task
+
+        now = asyncio.get_running_loop().time()
+        if (
+            last_payload is not None
+            and not parse_task.done()
+            and now - last_activity >= PARSE_PROGRESS_HEARTBEAT_SECONDS
+            and now - last_heartbeat >= PARSE_PROGRESS_HEARTBEAT_SECONDS
+        ):
+            await _emit_progress(
+                progress_callback,
+                **_build_parse_progress_event(
+                    last_payload,
+                    batch_id=batch_id,
+                    batch_name=batch_name,
+                    heartbeat=True,
+                ),
+            )
+            last_heartbeat = now
+
+        await asyncio.sleep(PARSE_PROGRESS_POLL_INTERVAL_SECONDS)
+
+
+def _build_parse_progress_event(
+    payload: dict[str, object],
+    *,
+    batch_id: str,
+    batch_name: str,
+    heartbeat: bool = False,
+) -> dict[str, object]:
+    current = int(payload.get('current', 0) or 0)
+    total = max(1, int(payload.get('total', 1) or 1))
+    file_name = str(payload.get('file_name', ''))
+    phase = str(payload.get('phase') or 'parse_started')
+    source_kind = str(payload.get('source_kind') or '') or None
+    region = str(payload.get('region') or '') or None
+    company_name = str(payload.get('company_name') or '') or None
+    descriptor = _build_parse_descriptor(source_kind=source_kind, region=region, company_name=company_name)
+
+    if heartbeat:
+        message = f'????{descriptor} {current}/{total}?{file_name}'
+        progress_value = max(0.0, current - 1 + 0.45)
+    elif phase == 'parse_analyzed':
+        message = f'???{descriptor} {current}/{total}???????{file_name}'
+        progress_value = max(0.0, current - 1 + 0.7)
+    elif phase == 'parse_saved':
+        message = f'???{descriptor} {current}/{total}??????{file_name}'
+        progress_value = float(current)
+    else:
+        message = f'????{descriptor} {current}/{total}?{file_name}'
+        progress_value = max(0.0, current - 1 + 0.25)
+
+    return {
+        'stage': 'parse',
+        'label': '解析识别',
+        'message': message,
+        'percent': _interpolate_percent_fraction(42, 60, progress_value, total),
+        'batch_id': str(payload.get('batch_id') or batch_id),
+        'batch_name': str(payload.get('batch_name') or batch_name),
+    }
+
+
+def _build_parse_descriptor(*, source_kind: str | None, region: str | None, company_name: str | None) -> str:
+    kind_label = _source_kind_label(source_kind)
+    qualifiers: list[str] = []
+    if region:
+        qualifiers.append(REGION_LABELS.get(region, region))
+    if company_name:
+        qualifiers.append(company_name)
+    if qualifiers:
+        return f'{kind_label}?{" / ".join(qualifiers)}?'
+    return kind_label
+
+
+def _source_kind_label(source_kind: str | None) -> str:
+    if source_kind == SourceFileKind.HOUSING_FUND.value:
+        return '公积金文件'
+    return '社保文件'
 
 
 def _match_for_simple_aggregate(db: Session, batch_id: str):
