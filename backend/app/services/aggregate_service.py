@@ -333,6 +333,8 @@ async def _stream_parse_progress(
     last_payload: dict[str, object] | None = None
     last_activity = asyncio.get_running_loop().time()
     last_heartbeat = last_activity
+    parse_state_by_file: dict[str, dict[str, object]] = {}
+    parse_worker_count = 1
 
     while True:
         drained = False
@@ -346,12 +348,19 @@ async def _stream_parse_progress(
             now = asyncio.get_running_loop().time()
             last_activity = now
             last_heartbeat = now
+            parse_worker_count = max(parse_worker_count, int(payload.get('worker_count', 1) or 1))
+            _update_parse_state(parse_state_by_file, payload)
             await _emit_progress(
                 progress_callback,
                 **_build_parse_progress_event(
                     payload,
                     batch_id=batch_id,
                     batch_name=batch_name,
+                    parse_snapshot=_build_parse_snapshot(
+                        parse_state_by_file,
+                        total_files=max(1, int(payload.get('total', 1) or 1)),
+                        worker_count=parse_worker_count,
+                    ),
                 ),
             )
 
@@ -371,6 +380,11 @@ async def _stream_parse_progress(
                     last_payload,
                     batch_id=batch_id,
                     batch_name=batch_name,
+                    parse_snapshot=_build_parse_snapshot(
+                        parse_state_by_file,
+                        total_files=max(1, int(last_payload.get('total', 1) or 1)),
+                        worker_count=parse_worker_count,
+                    ),
                     heartbeat=True,
                 ),
             )
@@ -379,11 +393,61 @@ async def _stream_parse_progress(
         await asyncio.sleep(PARSE_PROGRESS_POLL_INTERVAL_SECONDS)
 
 
+def _update_parse_state(parse_state_by_file: dict[str, dict[str, object]], payload: dict[str, object]) -> None:
+    source_file_id = str(payload.get('source_file_id') or f"file-{payload.get('file_index') or payload.get('current') or 0}")
+    state = dict(parse_state_by_file.get(source_file_id, {}))
+    state.update(
+        {
+            'source_file_id': source_file_id,
+            'file_index': int(payload.get('file_index', payload.get('current', 0)) or 0),
+            'file_name': str(payload.get('file_name') or ''),
+            'source_kind': str(payload.get('source_kind') or '') or None,
+            'region': str(payload.get('region') or '') or None,
+            'company_name': str(payload.get('company_name') or '') or None,
+            'phase': str(payload.get('phase') or 'parse_started'),
+        }
+    )
+    for optional_key in ('normalized_record_count', 'filtered_row_count', 'unmapped_header_count', 'raw_sheet_name'):
+        if optional_key in payload and payload.get(optional_key) is not None:
+            state[optional_key] = payload.get(optional_key)
+    parse_state_by_file[source_file_id] = state
+
+
+def _build_parse_snapshot(
+    parse_state_by_file: dict[str, dict[str, object]],
+    *,
+    total_files: int,
+    worker_count: int,
+) -> dict[str, object]:
+    files = sorted(
+        parse_state_by_file.values(),
+        key=lambda item: (int(item.get('file_index', 0) or 0), str(item.get('file_name') or '')),
+    )
+    queued_count = sum(1 for item in files if item.get('phase') == 'parse_queued')
+    active_count = sum(1 for item in files if item.get('phase') == 'parse_started')
+    analyzed_only_count = sum(1 for item in files if item.get('phase') == 'parse_analyzed')
+    saved_count = sum(1 for item in files if item.get('phase') == 'parse_saved')
+    unknown_count = max(0, total_files - len(files))
+    queued_count += unknown_count
+    return {
+        'summary': {
+            'total_files': total_files,
+            'worker_count': worker_count,
+            'active_count': active_count,
+            'analyzed_count': analyzed_only_count + saved_count,
+            'saved_count': saved_count,
+            'queued_count': queued_count,
+        },
+        'files': files,
+    }
+
+
 def _build_parse_progress_event(
     payload: dict[str, object],
     *,
     batch_id: str,
     batch_name: str,
+    parse_snapshot: dict[str, object] | None = None,
     heartbeat: bool = False,
 ) -> dict[str, object]:
     current = int(payload.get('current', 0) or 0)
@@ -394,19 +458,35 @@ def _build_parse_progress_event(
     region = str(payload.get('region') or '') or None
     company_name = str(payload.get('company_name') or '') or None
     descriptor = _build_parse_descriptor(source_kind=source_kind, region=region, company_name=company_name)
+    snapshot = parse_snapshot or _build_parse_snapshot({}, total_files=total, worker_count=int(payload.get('worker_count', 1) or 1))
+    parse_summary = dict(snapshot['summary'])
+    parse_files = [dict(item) for item in snapshot['files']]
+    queued_count = int(parse_summary['queued_count'])
+    active_count = int(parse_summary['active_count'])
+    analyzed_count = int(parse_summary['analyzed_count'])
+    saved_count = int(parse_summary['saved_count'])
+    analyzed_only_count = max(0, analyzed_count - saved_count)
+    progress_value = min(
+        float(total),
+        float(saved_count) + (analyzed_only_count * 0.82) + (active_count * 0.42),
+    )
 
     if heartbeat:
-        message = f'????{descriptor} {current}/{total}?{file_name}'
-        progress_value = max(0.0, current - 1 + 0.45)
+        message = (
+            f'正在并行解析{descriptor}，当前运行 {active_count} 个，'
+            f'已保存 {saved_count}/{total}，待处理 {queued_count} 个：{file_name}'
+        )
+    elif phase == 'parse_queued':
+        message = (
+            f'已将{descriptor} {current}/{total} 加入解析队列：{file_name}'
+            f'（并行 {parse_summary["worker_count"]} 路）'
+        )
     elif phase == 'parse_analyzed':
-        message = f'???{descriptor} {current}/{total}???????{file_name}'
-        progress_value = max(0.0, current - 1 + 0.7)
+        message = f'已完成{descriptor} {current}/{total} 的识别分析：{file_name}'
     elif phase == 'parse_saved':
-        message = f'???{descriptor} {current}/{total}??????{file_name}'
-        progress_value = float(current)
+        message = f'已完成{descriptor} {current}/{total} 的结果保存：{file_name}'
     else:
-        message = f'????{descriptor} {current}/{total}?{file_name}'
-        progress_value = max(0.0, current - 1 + 0.25)
+        message = f'正在解析{descriptor} {current}/{total}：{file_name}'
 
     return {
         'stage': 'parse',
@@ -415,6 +495,8 @@ def _build_parse_progress_event(
         'percent': _interpolate_percent_fraction(42, 60, progress_value, total),
         'batch_id': str(payload.get('batch_id') or batch_id),
         'batch_name': str(payload.get('batch_name') or batch_name),
+        'parse_summary': parse_summary,
+        'parse_files': parse_files,
     }
 
 
@@ -426,7 +508,7 @@ def _build_parse_descriptor(*, source_kind: str | None, region: str | None, comp
     if company_name:
         qualifiers.append(company_name)
     if qualifiers:
-        return f'{kind_label}?{" / ".join(qualifiers)}?'
+        return f'{kind_label}（{" / ".join(qualifiers)}）'
     return kind_label
 
 
@@ -568,6 +650,7 @@ async def _emit_progress(
     percent: int,
     batch_id: str | None = None,
     batch_name: str | None = None,
+    **extras: object,
 ) -> None:
     if progress_callback is None:
         return
@@ -582,6 +665,8 @@ async def _emit_progress(
         payload['batch_id'] = batch_id
     if batch_name is not None:
         payload['batch_name'] = batch_name
+    if extras:
+        payload.update(extras)
 
     result = progress_callback(payload)
     if inspect.isawaitable(result):

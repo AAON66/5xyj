@@ -53,27 +53,48 @@ async def test_run_simple_aggregate_emits_parse_heartbeat_and_fine_grained_messa
     def fake_parse_import_batch(worker_db, batch_id: str, progress_callback=None):
         base_payload = {
             'current': 1,
+            'file_index': 1,
             'total': 1,
-            'file_name': '??202602?????.xlsx',
+            'file_name': '长沙202602公积金账单.xlsx',
             'batch_id': batch_id,
             'batch_name': 'batch-1',
+            'source_file_id': 'sf-1',
             'source_kind': 'housing_fund',
             'region': 'changsha',
-            'company_name': '????',
+            'company_name': '李猛社保',
+            'worker_count': 2,
         }
+        progress_callback({**base_payload, 'phase': 'parse_queued'})
         progress_callback({**base_payload, 'phase': 'parse_started'})
         time.sleep(0.08)
-        progress_callback({**base_payload, 'phase': 'parse_analyzed'})
+        progress_callback(
+            {
+                **base_payload,
+                'phase': 'parse_analyzed',
+                'normalized_record_count': 47,
+                'filtered_row_count': 0,
+                'unmapped_header_count': 1,
+            }
+        )
         time.sleep(0.02)
-        progress_callback({**base_payload, 'phase': 'parse_saved'})
+        progress_callback(
+            {
+                **base_payload,
+                'phase': 'parse_saved',
+                'normalized_record_count': 47,
+                'filtered_row_count': 0,
+                'unmapped_header_count': 1,
+                'raw_sheet_name': 'Sheet4',
+            }
+        )
         return SimpleNamespace(
             source_files=[
                 SimpleNamespace(
                     source_file_id='sf-1',
-                    file_name='??202602?????.xlsx',
+                    file_name='长沙202602公积金账单.xlsx',
                     source_kind='housing_fund',
                     region='changsha',
-                    company_name='????',
+                    company_name='李猛社保',
                     normalized_record_count=47,
                     filtered_row_count=0,
                 )
@@ -128,9 +149,13 @@ async def test_run_simple_aggregate_emits_parse_heartbeat_and_fine_grained_messa
         db.close()
 
     parse_messages = [str(event['message']) for event in events if event.get('stage') == 'parse']
+    parse_events = [event for event in events if event.get('stage') == 'parse']
 
     assert result.export_status == 'completed'
-    assert any('?????????' in message for message in parse_messages)
-    assert any('?????????' in message for message in parse_messages)
-    assert any('????????' in message for message in parse_messages)
-    assert any('????????' in message for message in parse_messages)
+    assert any('加入解析队列' in message for message in parse_messages)
+    assert any('正在解析公积金文件' in message for message in parse_messages)
+    assert any('识别分析' in message for message in parse_messages)
+    assert any('结果保存' in message for message in parse_messages)
+    assert any(event.get('parse_summary', {}).get('worker_count') == 2 for event in parse_events)
+    assert any(event.get('parse_summary', {}).get('saved_count') == 1 for event in parse_events)
+    assert any(event.get('parse_files') and event['parse_files'][0].get('raw_sheet_name') == 'Sheet4' for event in parse_events)

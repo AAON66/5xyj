@@ -19,6 +19,23 @@ LLM_IRRELEVANT_KEYWORDS = (
     '序号', '状态', '备注', '合作产品', '档案费', '制卡费', '工会费', '采暖费', '其它费用', '其他费用', '户籍性质', '起做时间', '服务费', '比例', '大病', '小计', '基数'
 )
 
+EXPLICIT_SKIP_SIGNATURE_KEYWORDS = (
+    '费率',
+    '社保缴纳档位',
+    '调基补差预收',
+    '残保金',
+    '减免金额',
+    '本金合计',
+    '参保人员身份',
+    '职业年金',
+    '公务员医疗补助',
+    '家属统筹医疗',
+    '机关事业单位养老保险',
+    '机关养老应缴费额',
+    '公务员补助应缴费额',
+    '离休人员医疗保障',
+)
+
 
 @dataclass(slots=True)
 class HeaderMappingDecision:
@@ -240,6 +257,9 @@ def _merge_llm_result(
 
 def _should_attempt_llm_fallback(signature: str) -> bool:
     normalized_signature = signature.replace('\n', ' / ')
+    if any(keyword in normalized_signature for keyword in EXPLICIT_SKIP_SIGNATURE_KEYWORDS):
+        return False
+
     if any(keyword in normalized_signature for keyword in LLM_IRRELEVANT_KEYWORDS) and not any(
         keyword in normalized_signature for keyword in LLM_RELEVANCE_KEYWORDS
     ):

@@ -49,6 +49,27 @@ export interface AggregateProgressEvent {
   percent: number;
   batch_id?: string;
   batch_name?: string;
+  parse_summary?: {
+    total_files: number;
+    worker_count: number;
+    active_count: number;
+    analyzed_count: number;
+    saved_count: number;
+    queued_count: number;
+  };
+  parse_files?: Array<{
+    source_file_id?: string;
+    file_index: number;
+    file_name: string;
+    source_kind?: string | null;
+    region?: string | null;
+    company_name?: string | null;
+    phase: string;
+    normalized_record_count?: number;
+    filtered_row_count?: number;
+    unmapped_header_count?: number;
+    raw_sheet_name?: string;
+  }>;
 }
 
 interface AggregateStreamProgressEnvelope extends AggregateProgressEvent {

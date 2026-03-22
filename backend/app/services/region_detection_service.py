@@ -15,6 +15,7 @@ DEEPSEEK_COMPLETIONS_PATH = "/chat/completions"
 DEFAULT_REGION_LLM_TIMEOUT = 45.0
 REGION_LLM_CONFIDENCE_THRESHOLD = 0.8
 STRONG_RULE_CONFIDENCE_THRESHOLD = 0.96
+LOCAL_RULE_LLM_FALLBACK_THRESHOLD = 0.72
 
 REGION_LABELS = {
     "guangzhou": "\u5e7f\u5dde",
@@ -178,7 +179,7 @@ def detect_region_for_workbook(
 ) -> RegionDetectionResult:
     workbook_context = build_workbook_region_context(workbook_path, filename=filename, source_kind=source_kind)
     local_result = detect_region_with_local_rules(workbook_context.filename, workbook_context=workbook_context)
-    if local_result.region and local_result.confidence >= STRONG_RULE_CONFIDENCE_THRESHOLD:
+    if local_result.region and local_result.confidence >= LOCAL_RULE_LLM_FALLBACK_THRESHOLD:
         return local_result
     llm_result = detect_region_with_llm_sync(workbook_context)
     return merge_region_detection_results(local_result, llm_result)

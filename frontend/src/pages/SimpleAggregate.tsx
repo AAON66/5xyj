@@ -64,6 +64,23 @@ const TEXT = {
   unknownCompany: '未识别公司',
   socialKind: '社保',
   housingKind: '公积金',
+  parseOverview: '解析总览',
+  parseTotalFiles: '总文件数',
+  parseWorkers: '并行路数',
+  parseQueued: '排队中',
+  parseRunning: '解析中',
+  parseAnalyzed: '待保存',
+  parseSaved: '已保存',
+  parseSheet: '工作表',
+  parseRecords: '明细',
+  parseFiltered: '过滤',
+  parseUnmapped: '未识别表头',
+  phaseQueued: '排队中',
+  phaseStarted: '解析中',
+  phaseAnalyzed: '待保存',
+  phaseSaved: '已保存',
+  activeParallel: '当前并行解析',
+  activeIdle: '当前没有文件处于解析中，系统会自动补上下一个排队文件。',
 };
 
 const PROGRESS_STEPS = [
@@ -154,6 +171,52 @@ function getStepState(stepKey: string, progress: AggregateProgressEvent | null):
 
 function sourceKindLabel(value: string): string {
   return value === 'housing_fund' ? TEXT.housingKind : TEXT.socialKind;
+}
+
+function parsePhaseLabel(value: string): string {
+  switch (value) {
+    case 'parse_queued':
+      return TEXT.phaseQueued;
+    case 'parse_started':
+      return TEXT.phaseStarted;
+    case 'parse_analyzed':
+      return TEXT.phaseAnalyzed;
+    case 'parse_saved':
+      return TEXT.phaseSaved;
+    default:
+      return TEXT.active;
+  }
+}
+
+function parsePhaseTone(value: string): 'queued' | 'running' | 'analyzed' | 'saved' {
+  switch (value) {
+    case 'parse_saved':
+      return 'saved';
+    case 'parse_analyzed':
+      return 'analyzed';
+    case 'parse_started':
+      return 'running';
+    default:
+      return 'queued';
+  }
+}
+
+function formatParseFileMeta(progress: NonNullable<AggregateProgressEvent['parse_files']>[number]): string {
+  const parts = [
+    sourceKindLabel(progress.source_kind ?? 'social_security'),
+    progress.region ?? TEXT.unknownRegion,
+    progress.company_name ?? TEXT.unknownCompany,
+  ];
+  if (typeof progress.normalized_record_count === 'number') {
+    parts.push(`${TEXT.parseRecords} ${progress.normalized_record_count}`);
+  }
+  if (typeof progress.filtered_row_count === 'number') {
+    parts.push(`${TEXT.parseFiltered} ${progress.filtered_row_count}`);
+  }
+  if (typeof progress.unmapped_header_count === 'number') {
+    parts.push(`${TEXT.parseUnmapped} ${progress.unmapped_header_count}`);
+  }
+  return parts.join(' / ');
 }
 
 function fileKey(file: File): string {
@@ -278,6 +341,12 @@ export function SimpleAggregatePage() {
   const outputArtifacts = useMemo(() => result?.artifacts ?? [], [result]);
   const normalizedCount = useMemo(() => result?.source_files.reduce((sum, item) => sum + item.normalized_record_count, 0) ?? 0, [result]);
   const filteredCount = useMemo(() => result?.source_files.reduce((sum, item) => sum + item.filtered_row_count, 0) ?? 0, [result]);
+  const parseSummary = progress?.parse_summary;
+  const parseFiles = progress?.parse_files ?? [];
+  const activeParseFiles = useMemo(
+    () => parseFiles.filter((item) => item.phase === 'parse_started').slice(0, parseSummary?.worker_count ?? 5),
+    [parseFiles, parseSummary?.worker_count],
+  );
 
   const socialEntries = useMemo(() => {
     if (hasSessionRecord && !socialFiles.length) {
@@ -523,6 +592,69 @@ export function SimpleAggregatePage() {
                   );
                 })}
               </div>
+              {progress.stage === 'parse' && parseSummary ? (
+                <div className="parse-visualizer">
+                  <div className="parse-visualizer__header">
+                    <strong>{TEXT.parseOverview}</strong>
+                    <span>{`实时刷新 ${parseSummary.saved_count}/${parseSummary.total_files}`}</span>
+                  </div>
+                  <div className="parse-active-panel">
+                    <div className="parse-active-panel__header">
+                      <strong>{`${TEXT.activeParallel} (${activeParseFiles.length}/${parseSummary.worker_count})`}</strong>
+                    </div>
+                    {activeParseFiles.length ? (
+                      <div className="parse-active-list">
+                        {activeParseFiles.map((item) => (
+                          <article key={item.source_file_id ?? `${item.file_index}_${item.file_name}_active`} className="parse-active-item">
+                            <strong>{item.file_name}</strong>
+                            <span>{`${sourceKindLabel(item.source_kind ?? 'social_security')} / ${item.region ?? TEXT.unknownRegion} / ${item.company_name ?? TEXT.unknownCompany}`}</span>
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="parse-active-empty">{TEXT.activeIdle}</div>
+                    )}
+                  </div>
+                  <div className="parse-visualizer__summary">
+                    <article className="parse-visualizer__metric">
+                      <strong>{parseSummary.total_files}</strong>
+                      <span>{TEXT.parseTotalFiles}</span>
+                    </article>
+                    <article className="parse-visualizer__metric">
+                      <strong>{parseSummary.worker_count}</strong>
+                      <span>{TEXT.parseWorkers}</span>
+                    </article>
+                    <article className="parse-visualizer__metric">
+                      <strong>{parseSummary.queued_count}</strong>
+                      <span>{TEXT.parseQueued}</span>
+                    </article>
+                    <article className="parse-visualizer__metric">
+                      <strong>{parseSummary.active_count}</strong>
+                      <span>{TEXT.parseRunning}</span>
+                    </article>
+                    <article className="parse-visualizer__metric">
+                      <strong>{Math.max(0, parseSummary.analyzed_count - parseSummary.saved_count)}</strong>
+                      <span>{TEXT.parseAnalyzed}</span>
+                    </article>
+                    <article className="parse-visualizer__metric">
+                      <strong>{parseSummary.saved_count}</strong>
+                      <span>{TEXT.parseSaved}</span>
+                    </article>
+                  </div>
+                  <div className="parse-file-list">
+                    {parseFiles.map((item) => (
+                      <article key={item.source_file_id ?? `${item.file_index}_${item.file_name}`} className="parse-file-item">
+                        <div className="parse-file-item__title">
+                          <strong>{`${item.file_index}. ${item.file_name}`}</strong>
+                          <span className={`parse-file-pill parse-file-pill--${parsePhaseTone(item.phase)}`}>{parsePhaseLabel(item.phase)}</span>
+                        </div>
+                        <div className="parse-file-item__meta">{formatParseFileMeta(item)}</div>
+                        {item.raw_sheet_name ? <div className="parse-file-item__sheet">{`${TEXT.parseSheet}：${item.raw_sheet_name}`}</div> : null}
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
             </div>
           ) : result ? (
             <div className="simple-result-stack">

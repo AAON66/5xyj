@@ -4,6 +4,7 @@ import hashlib
 import inspect
 import shutil
 from collections.abc import Awaitable, Callable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -41,6 +42,7 @@ ALLOWED_EXTENSIONS = {'.xlsx', '.xls'}
 ALLOWED_SOURCE_KINDS = {item.value for item in SourceFileKind}
 LLM_FALLBACK_CONFIDENCE_THRESHOLD = 0.72
 UPLOAD_CHUNK_SIZE = 1024 * 1024
+MAX_PARSE_WORKERS = 5
 DATE_PATTERN = re.compile(r'(20\d{2}\u5e74\d{1,2}\u6708|20\d{4}|\d{6})')
 FILENAME_NOISE = (
     '\u793e\u4f1a\u4fdd\u9669\u8d39\u7533\u62a5\u4e2a\u4eba\u660e\u7ec6\u8868',
@@ -95,6 +97,29 @@ class StoredUpload:
 class AnalyzedSourceFile:
     normalization: HeaderNormalizationResult
     standardized: StandardizationResult
+
+
+@dataclass(frozen=True, slots=True)
+class ManualMappingSnapshot:
+    raw_header_signature: str
+    canonical_field: str | None
+    confidence: float | None
+    candidate_fields: list[str]
+    manually_overridden: bool
+
+
+@dataclass(frozen=True, slots=True)
+class SourceFileAnalysisContext:
+    source_file_id: str
+    file_name: str
+    file_path: str
+    source_kind: str
+    region: str | None
+    company_name: str | None
+    file_index: int
+    total_files: int
+    worker_count: int
+    manual_mappings: tuple[ManualMappingSnapshot, ...]
 
 
 async def create_import_batch(
@@ -237,51 +262,72 @@ def parse_import_batch(
     db.refresh(batch)
 
     try:
-        file_previews = []
         source_files = list(batch.source_files)
         total_files = len(source_files)
-        for index, source_file in enumerate(source_files, start=1):
-            progress_base_payload = {
-                'current': index,
-                'total': total_files,
-                'file_name': source_file.file_name,
-                'batch_id': batch.id,
-                'batch_name': batch.batch_name,
-                'source_kind': source_file.source_kind,
-                'region': source_file.region,
-                'company_name': source_file.company_name,
-            }
-            _run_progress_callback(
-                progress_callback,
-                {
-                    **progress_base_payload,
-                    'phase': 'parse_started',
-                },
+        worker_count = _resolve_parse_worker_count(total_files)
+        contexts = [
+            _build_source_file_analysis_context(
+                source_file,
+                file_index=index,
+                total_files=total_files,
+                worker_count=worker_count,
             )
-            analyzed = analyze_source_file(source_file)
-            _run_progress_callback(
-                progress_callback,
-                {
-                    **progress_base_payload,
-                    'phase': 'parse_analyzed',
-                    'normalized_record_count': len(analyzed.standardized.records),
-                    'filtered_row_count': len(analyzed.standardized.filtered_rows),
-                    'unmapped_header_count': len(analyzed.standardized.unmapped_headers),
-                },
-            )
-            _persist_source_file_mappings(db, source_file, analyzed.normalization.decisions)
-            file_preview = _build_source_file_preview_from_analysis(source_file, analyzed)
-            file_previews.append(file_preview)
-            source_file.raw_sheet_name = analyzed.standardized.sheet_name
-            db.commit()
-            _run_progress_callback(
-                progress_callback,
-                {
-                    **progress_base_payload,
-                    'phase': 'parse_saved',
-                    'raw_sheet_name': analyzed.standardized.sheet_name,
-                },
-            )
+            for index, source_file in enumerate(source_files, start=1)
+        ]
+        source_files_by_id = {source_file.id: source_file for source_file in source_files}
+        previews_by_id: dict[str, SourceFilePreviewRead] = {}
+        contexts_by_id = {context.source_file_id: context for context in contexts}
+        _emit_parse_queued_events(
+            contexts,
+            batch_id=batch.id,
+            batch_name=batch.batch_name,
+            progress_callback=progress_callback,
+        )
+
+        if worker_count == 1:
+            for context in contexts:
+                analyzed = _analyze_source_file_context(
+                    context,
+                    batch_id=batch.id,
+                    batch_name=batch.batch_name,
+                    progress_callback=progress_callback,
+                )
+                _persist_analyzed_source_file(
+                    db,
+                    source_file=source_files_by_id[context.source_file_id],
+                    context=context,
+                    analyzed=analyzed,
+                    batch_id=batch.id,
+                    batch_name=batch.batch_name,
+                    previews_by_id=previews_by_id,
+                    progress_callback=progress_callback,
+                )
+        else:
+            with ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix='batch-parse') as executor:
+                futures = {
+                    executor.submit(
+                        _analyze_source_file_context,
+                        context,
+                        batch.id,
+                        batch.batch_name,
+                        progress_callback,
+                    ): context.source_file_id
+                    for context in contexts
+                }
+                for future in as_completed(futures):
+                    source_file_id = futures[future]
+                    context = contexts_by_id[source_file_id]
+                    analyzed = future.result()
+                    _persist_analyzed_source_file(
+                        db,
+                        source_file=source_files_by_id[source_file_id],
+                        context=context,
+                        analyzed=analyzed,
+                        batch_id=batch.id,
+                        batch_name=batch.batch_name,
+                        previews_by_id=previews_by_id,
+                        progress_callback=progress_callback,
+                    )
         batch = get_import_batch(db, batch_id)
         batch.status = BatchStatus.NORMALIZED
         db.commit()
@@ -297,7 +343,7 @@ def parse_import_batch(
         batch_id=batch.id,
         batch_name=batch.batch_name,
         status=batch.status.value,
-        source_files=file_previews,
+        source_files=[previews_by_id[context.source_file_id] for context in contexts],
     )
 
 
@@ -326,6 +372,132 @@ def serialize_import_batch(batch: ImportBatch) -> ImportBatchDetailRead:
     )
 
 
+def _resolve_parse_worker_count(total_files: int) -> int:
+    if total_files <= 1:
+        return 1
+    return min(MAX_PARSE_WORKERS, total_files)
+
+
+def _build_source_file_analysis_context(
+    source_file: SourceFile,
+    *,
+    file_index: int,
+    total_files: int,
+    worker_count: int,
+) -> SourceFileAnalysisContext:
+    manual_mappings = tuple(
+        ManualMappingSnapshot(
+            raw_header_signature=mapping.raw_header_signature,
+            canonical_field=mapping.canonical_field,
+            confidence=mapping.confidence,
+            candidate_fields=list(mapping.candidate_fields or []),
+            manually_overridden=bool(mapping.manually_overridden),
+        )
+        for mapping in source_file.header_mappings
+    )
+    return SourceFileAnalysisContext(
+        source_file_id=source_file.id,
+        file_name=source_file.file_name,
+        file_path=source_file.file_path,
+        source_kind=source_file.source_kind,
+        region=source_file.region,
+        company_name=source_file.company_name,
+        file_index=file_index,
+        total_files=total_files,
+        worker_count=worker_count,
+        manual_mappings=manual_mappings,
+    )
+
+
+def _build_parse_progress_payload(batch_id: str, batch_name: str, context: SourceFileAnalysisContext) -> dict[str, object]:
+    return {
+        'current': context.file_index,
+        'file_index': context.file_index,
+        'total': context.total_files,
+        'file_name': context.file_name,
+        'batch_id': batch_id,
+        'batch_name': batch_name,
+        'source_file_id': context.source_file_id,
+        'source_kind': context.source_kind,
+        'region': context.region,
+        'company_name': context.company_name,
+        'worker_count': context.worker_count,
+    }
+
+
+def _emit_parse_queued_events(
+    contexts: list[SourceFileAnalysisContext],
+    *,
+    batch_id: str,
+    batch_name: str,
+    progress_callback: ImportProgressCallback | None,
+) -> None:
+    for context in contexts:
+        _run_progress_callback(
+            progress_callback,
+            {
+                **_build_parse_progress_payload(batch_id, batch_name, context),
+                'phase': 'parse_queued',
+            },
+        )
+
+
+def _persist_analyzed_source_file(
+    db: Session,
+    *,
+    source_file: SourceFile,
+    context: SourceFileAnalysisContext,
+    analyzed: AnalyzedSourceFile,
+    batch_id: str,
+    batch_name: str,
+    previews_by_id: dict[str, SourceFilePreviewRead],
+    progress_callback: ImportProgressCallback | None,
+) -> None:
+    _persist_source_file_mappings(db, source_file, analyzed.normalization.decisions)
+    source_file.raw_sheet_name = analyzed.standardized.sheet_name
+    db.commit()
+    previews_by_id[context.source_file_id] = _build_source_file_preview_from_analysis(source_file, analyzed)
+    _run_progress_callback(
+        progress_callback,
+        {
+            **_build_parse_progress_payload(batch_id, batch_name, context),
+            'phase': 'parse_saved',
+            'normalized_record_count': len(analyzed.standardized.records),
+            'filtered_row_count': len(analyzed.standardized.filtered_rows),
+            'unmapped_header_count': len(analyzed.standardized.unmapped_headers),
+            'raw_sheet_name': analyzed.standardized.sheet_name,
+        },
+    )
+
+
+def _analyze_source_file_context(
+    context: SourceFileAnalysisContext,
+    batch_id: str,
+    batch_name: str,
+    progress_callback: ImportProgressCallback | None = None,
+) -> AnalyzedSourceFile:
+    progress_base_payload = _build_parse_progress_payload(batch_id, batch_name, context)
+    _run_progress_callback(
+        progress_callback,
+        {
+            **progress_base_payload,
+            'phase': 'parse_started',
+        },
+    )
+    analyzed = analyze_source_file_context(context)
+    _run_progress_callback(
+        progress_callback,
+        {
+            **progress_base_payload,
+            'phase': 'parse_analyzed',
+            'normalized_record_count': len(analyzed.standardized.records),
+            'filtered_row_count': len(analyzed.standardized.filtered_rows),
+            'unmapped_header_count': len(analyzed.standardized.unmapped_headers),
+        },
+    )
+    return analyzed
+
+
 def analyze_source_file(source_file: SourceFile) -> AnalyzedSourceFile:
     workbook_path = Path(source_file.file_path)
     if source_file.source_kind == SourceFileKind.HOUSING_FUND.value:
@@ -352,6 +524,38 @@ def analyze_source_file(source_file: SourceFile) -> AnalyzedSourceFile:
         region=source_file.region,
         company_name=source_file.company_name,
         source_file_name=source_file.file_name,
+        extraction=extraction,
+        normalization=normalization,
+    )
+    return AnalyzedSourceFile(normalization=normalization, standardized=standardized)
+
+
+def analyze_source_file_context(context: SourceFileAnalysisContext) -> AnalyzedSourceFile:
+    workbook_path = Path(context.file_path)
+    if context.source_kind == SourceFileKind.HOUSING_FUND.value:
+        housing_analysis = analyze_housing_fund_workbook(
+            workbook_path,
+            region=context.region,
+            company_name=context.company_name,
+            source_file_name=context.file_name,
+        )
+        return AnalyzedSourceFile(
+            normalization=housing_analysis.normalization,
+            standardized=housing_analysis.standardized,
+        )
+
+    extraction = extract_header_structure(workbook_path)
+    base_normalization = normalize_header_extraction_with_sync_fallback(
+        extraction,
+        region=context.region,
+        confidence_threshold=LLM_FALLBACK_CONFIDENCE_THRESHOLD,
+    )
+    normalization = _apply_manual_mapping_overrides(base_normalization, list(context.manual_mappings))
+    standardized = standardize_workbook(
+        workbook_path,
+        region=context.region,
+        company_name=context.company_name,
+        source_file_name=context.file_name,
         extraction=extraction,
         normalization=normalization,
     )

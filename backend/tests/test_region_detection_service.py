@@ -72,6 +72,21 @@ def test_detect_region_for_workbook_uses_workbook_clues_for_xiamen() -> None:
     assert result.confidence >= 0.5
 
 
+def test_detect_region_for_workbook_skips_llm_when_local_rules_are_good_enough(monkeypatch) -> None:
+    sample_path = find_sample('\u5e7f\u5206')
+
+    def fail_llm(_workbook_context):
+        raise AssertionError('LLM fallback should not run when local rules are already sufficient.')
+
+    monkeypatch.setattr(region_module, 'detect_region_with_llm_sync', fail_llm)
+
+    result = region_module.detect_region_for_workbook(sample_path, filename='2026年2月公积金--广分.xlsx', source_kind='housing_fund')
+
+    assert result.region == 'guangzhou'
+    assert result.source == 'rule'
+    assert result.confidence >= 0.72
+
+
 def test_merge_region_detection_prefers_combined_rule_and_llm_when_they_agree() -> None:
     local = region_module.RegionDetectionResult(
         region='shenzhen',

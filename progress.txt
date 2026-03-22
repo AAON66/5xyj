@@ -961,3 +961,101 @@ ormalization_service.py backendpp\services\import_service.py backendpp\service
 
 ### Notes:
 - The key fix is systemic rather than file-specific: the pipeline now prefers the real detail sheet and avoids LLM work on obviously non-business columns, so new mixed-format merged batches should degrade much more gracefully.
+
+## [2026-03-22] - Task: Batch parse fallback throttling and parse-progress copy cleanup
+
+### What was done:
+- Added explicit local skip rules in the header normalizer for columns that should not trigger DeepSeek fallback, including `费率`, `社保缴纳档位`, `调基补差预收`, `残保金`, `减免金额`, `本金合计`, `参保人员身份`, `职业年金`, `公务员医疗补助`, `家属统筹医疗`, `机关养老应缴费额`, and `离休人员医疗保障`.
+- Added direct alias coverage for `生育保险 / 应缴费额` and Wuhan `个人缴纳 / 职工大额医疗互助保险应缴费额`, which removes unnecessary LLM fallback for those known business fields.
+- Fixed parse-stage aggregate progress copy in the quick aggregate orchestrator so emitted status text is readable Chinese again instead of `????社保文件?...`.
+- Reproduced the user desktop batch from the real Desktop folders inside `data/external` and re-ran the real parsers locally instead of waiting for UI stalls to reveal the bottleneck.
+
+### Testing:
+- `.\.venv\Scripts\python.exe -m compileall backend`
+- `cmd /c npm.cmd run build`
+- Local batch parse replay on `data/external/allin` confirmed all 19 social-security files now parse in about `3.239s` total, with previously slow Shenzhen/Hangzhou/Wuhan files reduced from tens of seconds or minutes to sub-second runtimes.
+- Local batch parse replay on `data/external/housing_fund` confirmed all 13 housing-fund files analyze in about `7.042s` total.
+- Local employee roster parse on [花名册.xlsx](/D:/execl_mix/data/external/roster/花名册.xlsx) loaded `2083` rows successfully.
+- Direct `run_simple_aggregate(...)` smoke test with real Shenzhen social-security + housing-fund files and the real roster completed end to end and exported both templates successfully to [salary export](/D:/execl_mix/data/outputs/21de06e0-93ea-4b41-937b-daf567cd6ae4/bf4ec2f6-d8b2-4d8d-bfb8-8f15d1082434/21de06e0-93ea-4b41-937b-daf567cd6ae4_salary.xlsx) and [final tool export](/D:/execl_mix/data/outputs/21de06e0-93ea-4b41-937b-daf567cd6ae4/bf4ec2f6-d8b2-4d8d-bfb8-8f15d1082434/21de06e0-93ea-4b41-937b-daf567cd6ae4_final_tool.xlsx).
+
+### Risks / Open Questions:
+- Some skipped columns such as `职业年金`, `公务员补助`, and `机关养老应缴费额` remain intentionally unmapped because they do not yet have a safe one-to-one canonical target; their raw values are still preserved, but if those amounts must feed exports we should add an explicit aggregation rule rather than an LLM guess.
+- The quick aggregate API stream smoke test through HTTP timed out in the shell, but the same aggregate path succeeded when executed directly through `run_simple_aggregate(...)`; if needed, the next follow-up should inspect the HTTP streaming wrapper separately from the core aggregate pipeline.
+
+### Notes:
+- This change specifically targets the “46% 解析识别” style stalls by eliminating low-value LLM fallback on known helper columns before they can slow the batch down.
+
+## [2026-03-22] - Task: Region-detection fallback throttling for aggregate acceleration
+
+### What was done:
+- Tightened workbook region detection so the system now treats sufficiently strong local rule results as authoritative and skips DeepSeek fallback instead of waiting for a slow external confirmation.
+- Kept the LLM path only for genuinely weak or missing local signals, which better matches the project rule of “rules first, LLM fallback”.
+- Reproduced the real Guangzhou housing-fund files from the user desktop and confirmed they were the hidden bottleneck during the upload-to-parse transition, not the parse pipeline itself.
+
+### Testing:
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_region_detection_service.py -p no:cacheprovider`
+- `.\.venv\Scripts\python.exe -m compileall backend`
+- Direct timing on real files:
+  - `2026年2月公积金--广分.xlsx` region detection reduced from about `35.229s` to `0.248s`
+  - `2026年2月公积金--视播.xlsx` region detection reduced from about `29.182s` to `0.229s`
+- Full real-batch aggregate replay with 19 social-security files + 13 housing-fund files + roster:
+  - previous batch-upload stage reached parse at about `87.243s`
+  - optimized batch-upload stage reached parse at about `2.710s`
+  - parse stage completed at about `10.880s`
+
+### Risks / Open Questions:
+- This prioritizes operator speed by trusting local workbook evidence once it is already reasonably strong; if a future ambiguous file needs more semantic help, it can still fall back to DeepSeek when local confidence stays below the threshold.
+- The current full-batch runtime is now dominated more by export than by parse; if the next optimization target is total wall-clock time, exporter profiling should be next.
+
+### Notes:
+- The user-facing “解析识别很慢” symptom was partly caused by pre-parse region detection on housing-fund files; this fix removes that hidden delay from the critical path.
+
+## [2026-03-22] - Task: Parallel parse pipeline and file-level parse visualization
+
+### What was done:
+- Converted batch parsing into a multi-worker pipeline in `import_service.py`: files are first queued, then analyzed in parallel with up to 4 workers, and finally persisted in order so database writes stay deterministic.
+- Extended parse progress events to emit file-level phases (`parse_queued`, `parse_started`, `parse_analyzed`, `parse_saved`) plus structured `parse_summary` and `parse_files` payloads, so the UI can render real queue/running/saved state instead of a single opaque percentage.
+- Added a parse visualizer to the quick aggregate page that shows total files, parallel worker count, queued/running/analyzed/saved counts, and a scrollable per-file status list with source kind, region, company, record counts, filtered rows, unmapped-header counts, and sheet name when available.
+- Kept the existing flowing progress bar and combined it with the new file-level status panel so long-running parses still look active and understandable to the user.
+- Reproduced the mixed real batch from `data/external/allin`, `data/external/housing_fund`, and `data/external/roster`, and confirmed the new parse snapshots move from full queue to full completion while both export templates still succeed.
+
+### Testing:
+- `.\.venv\Scripts\python.exe -m compileall backend`
+- `cmd /c npm.cmd run build`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_aggregate_service.py backend\tests\test_aggregate_api.py -p no:cacheprovider`
+- Real mixed-batch aggregate replay with 32 files + roster confirmed:
+  - first parse snapshot: `queued_count=32`, `active_count=0`, `worker_count=4`
+  - mid parse snapshot: `queued_count=14`, `active_count=3`, `analyzed_count=15`
+  - final parse snapshot: `saved_count=32`, `queued_count=0`
+  - full aggregate still exported both templates successfully
+
+### Risks / Open Questions:
+- Parse is now both faster and much more visible, but the total wall-clock time of the full batch is still dominated by export rather than parse; the next major acceleration target should be the exporter layer.
+- Parsing work is parallelized while persistence remains ordered and single-threaded on purpose; if later we need even lower end-to-end latency, we should profile whether ordered save is the next bottleneck before parallelizing database writes.
+
+### Notes:
+- I did not create a git commit because the worktree currently contains many user/runtime-generated database and upload artifacts; avoiding a mixed commit is safer than bundling unrelated state.
+
+## [2026-03-22] - Task: Fixed 5-way parallel parsing and active-file parse display
+
+### What was done:
+- Changed the parse scheduler to a fixed `5`-worker model so each batch now runs up to five file analyses concurrently instead of using the previous smaller adaptive cap.
+- Changed parse persistence from “wait for all analyses, then save” to “save immediately when a file finishes analyzing”, so saved progress now advances during the parallel run rather than only after the whole analysis wave completes.
+- Added a dedicated “当前并行解析” block on the quick aggregate page that shows exactly which files are actively being parsed at that moment, alongside the broader per-file parse state list.
+
+### Testing:
+- `.\.venv\Scripts\python.exe -m compileall backend`
+- `cmd /c npm.cmd run build`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_aggregate_service.py backend\tests\test_aggregate_api.py -p no:cacheprovider`
+- Real mixed-batch replay on `data/external` confirmed:
+  - `max_active_count=5`
+  - `max_worker_count=5`
+  - example concurrent active files included Shenzhen, Guangzhou, and personal-detail workbooks at the same time
+  - aggregate still finished with `export_status='completed'`
+
+### Risks / Open Questions:
+- Fixed 5-way parsing improves visibility and parallel throughput, but total wall-clock time is still affected by later export work; if the next user concern is total batch duration, export profiling remains the next target.
+- Because the runtime is on Windows and uses in-process worker threads, very CPU-heavy future parsers may still need deeper profiling, but the current batch now does reach five simultaneous active parse slots in real runs.
+
+### Notes:
+- This round specifically addresses the user request for “真正完成并行解析” by proving the backend reached `active_count=5` on a real 32-file batch and by surfacing the active file names directly in the parse UI.
