@@ -56,6 +56,22 @@ EXPORT_AMOUNT_FIELDS = (
     'late_fee',
     'interest',
 )
+EXPORT_TEXT_FIELDS = (
+    'person_name',
+    'id_type',
+    'id_number',
+    'employee_id',
+    'social_security_number',
+    'company_name',
+    'region',
+    'billing_period',
+    'period_start',
+    'period_end',
+    'housing_fund_account',
+    'raw_sheet_name',
+    'raw_header_signature',
+    'source_file_name',
+)
 
 REGION_LABELS = {
     'guangzhou': '\u5e7f\u5dde',
@@ -108,7 +124,7 @@ def export_dual_templates(
     final_tool_template_path: str | Path | None = None,
     export_prefix: str | None = None,
 ) -> DualTemplateExportResult:
-    normalized_records = [record for record in records if _is_exportable_record(record)]
+    normalized_records = _merge_export_records([record for record in records if _is_exportable_record(record)])
     settings = get_settings()
     output_root = Path(output_dir) if output_dir else settings.outputs_path
     output_root.mkdir(parents=True, exist_ok=True)
@@ -416,6 +432,108 @@ def _resolve_template_path(template_path: str | Path | None, template_type: Temp
 
 def _amount(value: Decimal | None) -> Decimal:
     return value if value is not None else Decimal('0')
+
+
+def _merge_export_records(records: list[NormalizedRecord]) -> list[NormalizedRecord]:
+    merged_records: list[NormalizedRecord] = []
+    index_by_key: dict[tuple[str, str], int] = {}
+
+    for record in records:
+        merge_key = _export_merge_key(record)
+        if merge_key is None:
+            merged_records.append(record)
+            continue
+        existing_index = index_by_key.get(merge_key)
+        if existing_index is None:
+            merged_records.append(_copy_export_record(record))
+            index_by_key[merge_key] = len(merged_records) - 1
+            continue
+        merged_records[existing_index] = _merge_two_records(merged_records[existing_index], record)
+
+    return merged_records
+
+
+def _export_merge_key(record: NormalizedRecord) -> tuple[str, str] | None:
+    employee_id = _normalize_export_text(record.employee_id)
+    if employee_id:
+        return ('employee_id', employee_id)
+    id_number = _normalize_id_number(record.id_number)
+    if id_number:
+        return ('id_number', id_number)
+    return None
+
+
+def _copy_export_record(record: NormalizedRecord) -> NormalizedRecord:
+    clone = NormalizedRecord()
+    for field_name in EXPORT_TEXT_FIELDS:
+        setattr(clone, field_name, getattr(record, field_name, None))
+    for field_name in EXPORT_AMOUNT_FIELDS:
+        setattr(clone, field_name, getattr(record, field_name, None))
+    return clone
+
+
+def _merge_two_records(base: NormalizedRecord, incoming: NormalizedRecord) -> NormalizedRecord:
+    for field_name in EXPORT_TEXT_FIELDS:
+        setattr(
+            base,
+            field_name,
+            _merge_text_value(
+                getattr(base, field_name, None),
+                getattr(incoming, field_name, None),
+                prefer_longer=field_name in {'company_name', 'raw_sheet_name', 'source_file_name'},
+                prefer_valid_id=field_name == 'id_number',
+            ),
+        )
+    for field_name in EXPORT_AMOUNT_FIELDS:
+        setattr(
+            base,
+            field_name,
+            _merge_amount_value(getattr(base, field_name, None), getattr(incoming, field_name, None)),
+        )
+    return base
+
+
+def _merge_text_value(
+    current: str | None,
+    incoming: str | None,
+    *,
+    prefer_longer: bool = False,
+    prefer_valid_id: bool = False,
+) -> str | None:
+    normalized_current = _normalize_export_text(current)
+    normalized_incoming = _normalize_export_text(incoming)
+    if normalized_current is None:
+        return normalized_incoming
+    if normalized_incoming is None:
+        return normalized_current
+    if normalized_current == normalized_incoming:
+        return normalized_current
+    if prefer_valid_id:
+        current_id = _normalize_id_number(normalized_current)
+        incoming_id = _normalize_id_number(normalized_incoming)
+        if current_id is None:
+            return normalized_incoming
+        if incoming_id is None:
+            return normalized_current
+    if normalized_current in HEADER_LIKE_PERSON_VALUES:
+        return normalized_incoming
+    if normalized_incoming in HEADER_LIKE_PERSON_VALUES:
+        return normalized_current
+    if prefer_longer and len(normalized_incoming) > len(normalized_current):
+        return normalized_incoming
+    return normalized_current
+
+
+def _merge_amount_value(current: Decimal | None, incoming: Decimal | None) -> Decimal | None:
+    current_amount = _amount(current)
+    incoming_amount = _amount(incoming)
+    if current is None or current_amount == Decimal('0'):
+        return incoming
+    if incoming is None or incoming_amount == Decimal('0'):
+        return current
+    if current_amount == incoming_amount:
+        return current
+    return current if abs(current_amount) >= abs(incoming_amount) else incoming
 
 
 def _region_label(value: str | None) -> str:

@@ -1141,3 +1141,26 @@ ormalization_service.py backendpp\services\import_service.py backendpp\service
 
 ### Notes:
 - The runtime employee master database has already been refreshed from the real roster, so subsequent aggregates in this workspace no longer depend on the old null-ID imports.
+
+## [2026-03-22] - Task: Merge duplicate salary/final_tool rows by matched employee identity before export
+
+### What was done:
+- Added an export-stage consolidation pass in `template_exporter.py` so records are merged before writing templates when they resolve to the same employee identity.
+- Implemented merge keys with the priority `employee_id -> id_number`, which directly targets the real bug where the same matched employee appeared twice because the social-security row and housing-fund row were still separate normalized records.
+- Added field-level merge rules so text fields keep the better non-empty value while amount fields prefer the non-zero value, allowing complementary social-only and housing-only rows to collapse into one exported row without losing either side's amounts.
+- Kept the existing exportable-row filtering in place, so dirty/header rows are still filtered before and after the new merge step.
+- Restarted the backend process after the fix so new aggregate runs use the updated export logic immediately.
+
+### Testing:
+- `.\.venv\Scripts\python.exe -m compileall backend`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_template_exporter.py::test_export_dual_templates_merges_records_with_same_employee_id_before_writing -p no:cacheprovider -q`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_template_exporter.py::test_export_dual_templates_writes_both_template_outputs backend\tests\test_template_exporter.py::test_export_dual_templates_filters_header_like_dirty_rows -p no:cacheprovider -q`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_aggregate_api.py::test_aggregate_endpoint_merges_housing_fund_into_dual_exports -p no:cacheprovider -q`
+- `cmd /c npm.cmd run build`
+
+### Risks / Open Questions:
+- Current amount conflict handling is intentionally conservative: if the same merged field already has two different non-zero values, export keeps the larger-magnitude value instead of summing, to avoid accidental double counting from duplicate source rows.
+- If later we need to distinguish “true duplicates” from “same employee across multiple billing periods in one batch”, that should be handled with a stricter merge key including period fields rather than weakening this export fix.
+
+### Notes:
+- This fix specifically addresses the user-observed symptom of duplicate rows with the same工号 but complementary社保/公积金信息 in the final salary export.

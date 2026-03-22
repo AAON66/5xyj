@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -182,5 +183,83 @@ def test_export_dual_templates_filters_header_like_dirty_rows() -> None:
     tool_wb = load_workbook(tool_artifact.file_path, data_only=False)
     tool_sheet = tool_wb[tool_wb.sheetnames[0]]
     assert tool_sheet['C7'].value == records[0].person_name
+    assert tool_sheet['C8'].value in (None, '')
+    tool_wb.close()
+
+
+def test_export_dual_templates_merges_records_with_same_employee_id_before_writing() -> None:
+    salary_template = find_template('薪酬')
+    tool_template = find_template('最终版')
+    sample_path = find_sample('深圳创造欢乐')
+
+    standardized = standardize_workbook(sample_path, region='shenzhen', company_name='创造欢乐')
+    trimmed = type(standardized)(
+        source_file=standardized.source_file,
+        sheet_name=standardized.sheet_name,
+        raw_header_signature=standardized.raw_header_signature,
+        records=standardized.records[:1],
+        filtered_rows=standardized.filtered_rows,
+        unmapped_headers=standardized.unmapped_headers,
+    )
+    social_record = build_normalized_models(trimmed, batch_id='batch-1', source_file_id='source-1')[0]
+    social_record.employee_id = '01620'
+    social_record.housing_fund_personal = None
+    social_record.housing_fund_company = None
+    social_record.housing_fund_total = None
+
+    housing_record = build_normalized_models(trimmed, batch_id='batch-1', source_file_id='source-2')[0]
+    housing_record.employee_id = '01620'
+    housing_record.medical_personal = None
+    housing_record.unemployment_personal = None
+    housing_record.large_medical_personal = None
+    housing_record.pension_personal = None
+    housing_record.pension_company = None
+    housing_record.supplementary_pension_company = None
+    housing_record.medical_company = None
+    housing_record.medical_maternity_company = None
+    housing_record.unemployment_company = None
+    housing_record.injury_company = None
+    housing_record.maternity_amount = None
+    housing_record.supplementary_medical_company = None
+    housing_record.personal_total_amount = None
+    housing_record.company_total_amount = None
+    housing_record.total_amount = None
+    housing_record.housing_fund_personal = Decimal('500')
+    housing_record.housing_fund_company = Decimal('500')
+    housing_record.housing_fund_total = Decimal('1000')
+
+    output_dir = ARTIFACTS_ROOT / 'merge_same_employee'
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    result = export_dual_templates(
+        [social_record, housing_record],
+        output_dir=output_dir,
+        salary_template_path=salary_template,
+        final_tool_template_path=tool_template,
+        export_prefix='merge_same_employee',
+    )
+
+    salary_artifact = next(item for item in result.artifacts if item.template_type == 'salary')
+    tool_artifact = next(item for item in result.artifacts if item.template_type == 'final_tool')
+    assert salary_artifact.row_count == 1
+    assert tool_artifact.row_count == 1
+
+    salary_wb = load_workbook(salary_artifact.file_path, data_only=False)
+    salary_sheet = salary_wb[salary_wb.sheetnames[0]]
+    assert salary_sheet['A2'].value == social_record.person_name
+    assert salary_sheet['B2'].value == '01620'
+    assert float(salary_sheet['C2'].value) == float(social_record.medical_personal)
+    assert float(salary_sheet['H2'].value) == 500.0
+    assert float(salary_sheet['P2'].value) == 500.0
+    assert salary_sheet['A3'].value in (None, '')
+    salary_wb.close()
+
+    tool_wb = load_workbook(tool_artifact.file_path, data_only=False)
+    tool_sheet = tool_wb[tool_wb.sheetnames[0]]
+    assert tool_sheet['C7'].value == social_record.person_name
+    assert tool_sheet['E7'].value == '01620'
+    assert float(tool_sheet['I7'].value) == float(social_record.medical_personal)
+    assert float(tool_sheet['N7'].value) == 500.0
+    assert float(tool_sheet['V7'].value) == 500.0
     assert tool_sheet['C8'].value in (None, '')
     tool_wb.close()
