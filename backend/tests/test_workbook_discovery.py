@@ -82,6 +82,37 @@ def test_discover_workbook_finds_valid_sheet_when_first_sheet_is_noise() -> None
     assert any("Detected data start row" in reason for reason in discovery.discoveries[0].reasoning)
 
 
+
+
+def test_discover_workbook_prefers_detail_sheet_over_payment_notice_summary() -> None:
+    artifacts_dir = create_artifact_dir("third_party_merge_like")
+    workbook_path = artifacts_dir / "third_party_merge_like.xlsx"
+
+    workbook = Workbook()
+    notice = workbook.active
+    notice.title = "付款通知书"
+    notice.append([])
+    notice.append(["付款通知书"])
+    notice.append(["付款单位", "零一创造欢乐（深圳）科技有限公司"])
+    notice.append(["账单月", "缴纳地", "社保小计", "公积金小计", "服务费", "合计"])
+    notice.append(["202602", "上海", 47653.68, 18346, 360, 66359.68])
+
+    detail = workbook.create_sheet("付款明细")
+    detail.append([
+        "序号", "状态", "客户名称", "姓名", "身份证号", "参保地", "账单年月",
+        "养老企业汇缴", "养老个人汇缴", "社保合计", "公积金企业汇缴", "公积金个人汇缴", "公积金合计"
+    ])
+    detail.append([1, "正常", "零一创造欢乐（深圳）科技有限公司", "张三", "310101199001010011", "上海", "202602", 1193.6, 596.8, 3291.6, 840, 840, 1680])
+    detail.append([2, "正常", "零一创造欢乐（深圳）科技有限公司", "李四", "310101199202020022", "上海", "202602", 1193.6, 596.8, 3291.6, 840, 840, 1680])
+    workbook.save(workbook_path)
+
+    discovery = discover_workbook(workbook_path)
+
+    assert discovery.selected_sheet_name == "付款明细"
+    assert discovery.selected_header_row_candidates == [1]
+    assert discovery.selected_data_start_row == 2
+    assert discovery.discoveries[0].sheet_name == "付款明细"
+    assert any("title hint" in reason.lower() for reason in discovery.discoveries[0].reasoning)
 def test_discover_workbook_returns_failure_for_empty_workbook() -> None:
     artifacts_dir = create_artifact_dir("empty_workbook")
     workbook_path = artifacts_dir / "empty_workbook.xlsx"
@@ -103,7 +134,7 @@ def test_discover_workbook_on_real_guangzhou_sample() -> None:
     discovery = discover_workbook(sample_path)
 
     assert discovery.selected_sheet_name == "sheet1"
-    assert discovery.selected_header_row_candidates == [8]
+    assert discovery.selected_header_row_candidates == [7, 8]
     assert discovery.selected_data_start_row == 9
     assert discovery.failure_reason is None
 

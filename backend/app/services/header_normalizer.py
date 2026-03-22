@@ -12,6 +12,14 @@ from backend.app.services.llm_mapping_service import (
 )
 
 
+LLM_RELEVANCE_KEYWORDS = (
+    '姓名', '名称', '证件', '身份证', '社保', '公积金', '养老', '医疗', '失业', '生育', '工伤', '补充', '大病', '滞纳金', '利息', '基数', '金额', '汇缴', '应缴', '合计', '总额', '编号', '账号', '账单', '年月', '所属月', '缴纳月', '缴费', '单位', '个人', '参保地'
+)
+LLM_IRRELEVANT_KEYWORDS = (
+    '序号', '状态', '备注', '合作产品', '档案费', '制卡费', '工会费', '采暖费', '其它费用', '其他费用', '户籍性质', '起做时间', '服务费', '比例', '大病', '小计', '基数'
+)
+
+
 @dataclass(slots=True)
 class HeaderMappingDecision:
     raw_header: str
@@ -169,6 +177,8 @@ async def normalize_header_column_with_fallback(
     decision = normalize_header_column(column, region=region)
     if decision.canonical_field is not None:
         return decision
+    if not _should_attempt_llm_fallback(column.signature):
+        return _build_skipped_irrelevant_decision(decision)
 
     llm_result = await map_header_with_llm(column.signature, region=region)
     return _merge_llm_result(decision, llm_result, confidence_threshold=confidence_threshold)
@@ -183,6 +193,8 @@ def normalize_header_column_with_sync_fallback(
     decision = normalize_header_column(column, region=region)
     if decision.canonical_field is not None:
         return decision
+    if not _should_attempt_llm_fallback(column.signature):
+        return _build_skipped_irrelevant_decision(decision)
 
     llm_result = map_header_with_llm_sync(column.signature, region=region)
     return _merge_llm_result(decision, llm_result, confidence_threshold=confidence_threshold)
@@ -221,6 +233,51 @@ def _merge_llm_result(
         matched_rules=decision.matched_rules,
         llm_attempted=llm_attempted,
         llm_status=llm_result.status,
+        rule_overrode_llm=False,
+    )
+
+
+
+def _should_attempt_llm_fallback(signature: str) -> bool:
+    normalized_signature = signature.replace('\n', ' / ')
+    if any(keyword in normalized_signature for keyword in LLM_IRRELEVANT_KEYWORDS) and not any(
+        keyword in normalized_signature for keyword in LLM_RELEVANCE_KEYWORDS
+    ):
+        return False
+
+    if normalized_signature in ('社保', '公积金'):
+        return False
+
+    if any(
+        keyword in normalized_signature
+        for keyword in ('比例', '起做时间', '户籍性质', '大病', '小计', '差额', '住院', '门诊', '个账', '补充公积金', '补充公积')
+    ):
+        return False
+
+    if '基数' in normalized_signature and not any(
+        keyword in normalized_signature for keyword in ('缴费基数', '公积金企业基数', '公积金个人基数')
+    ):
+        return False
+
+    if normalized_signature.endswith('合计') and any(
+        keyword in normalized_signature for keyword in ('养老', '医疗', '失业', '工伤', '生育')
+    ):
+        return False
+
+    return any(keyword in normalized_signature for keyword in LLM_RELEVANCE_KEYWORDS)
+
+
+def _build_skipped_irrelevant_decision(decision: HeaderMappingDecision) -> HeaderMappingDecision:
+    return HeaderMappingDecision(
+        raw_header=decision.raw_header,
+        raw_header_signature=decision.raw_header_signature,
+        canonical_field=None,
+        mapping_source='unmapped',
+        confidence=None,
+        candidate_fields=decision.candidate_fields,
+        matched_rules=decision.matched_rules,
+        llm_attempted=False,
+        llm_status='skipped_irrelevant',
         rule_overrode_llm=False,
     )
 

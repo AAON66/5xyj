@@ -940,3 +940,24 @@ ormalization_service.py backendpp\services\import_service.py backendpp\service
 
 ### Notes:
 - The investigated Changsha housing-fund workbook is valid and parses in under one second through the housing-fund parser, so it was not the real bottleneck.
+
+## [2026-03-22] - Task: Third-party merged-sheet parse acceleration hardening
+
+### What was done:
+- Fixed workbook discovery so third-party files that contain both a payment notice sheet and a real detail sheet now prefer the true detail sheet. The detector no longer mistakes subtotal-style header labels for group rows, and it now recognizes short `name + amount` detail rows that appear in Changsha-like sheets.
+- Expanded manual alias coverage for third-party merged statements, including company name, ID number, region, billing period, social-security period columns, social-security contribution columns, and housing-fund contribution columns.
+- Hardened header-normalizer fallback gating so helper columns like ratio, start-time, pure insurance base, subtotal, balance, outpatient, inpatient, account-balance, and split supplementary housing-fund helper columns are skipped locally instead of repeatedly calling DeepSeek.
+- Reproduced the user-reported Shanghai-merged statement locally and reduced the single-file header-normalization path from roughly 24 seconds with many failed LLM fallbacks to about 0.17 seconds with zero LLM errors.
+- Added regressions for preferring the real detail sheet over the payment notice sheet, for skipping irrelevant third-party helper columns without calling the LLM, and for directly mapping the new third-party merge headers.
+
+### Testing:
+- `py -m compileall backend`
+- `./.venv/Scripts/python.exe -m pytest backend/tests/test_workbook_discovery.py backend/tests/test_header_normalizer.py backend/tests/test_llm_mapping_service.py -p no:cacheprovider`
+- Local reproduction on `.tmp_shanghai_merge.xlsx` confirmed `discover_workbook -> extract_header_structure -> normalize_header_extraction_with_sync_fallback` finishes in about `0.165s`, with `27` rule-mapped columns and `0` LLM errors.
+
+### Risks / Open Questions:
+- This round is optimized for third-party merged statements with clear detail headers; if a future vendor uses different helper-column wording, we may still need one more alias or skip-pattern expansion.
+- Some third-party helper totals remain intentionally unmapped because they do not correspond cleanly to the canonical business fields; they are now skipped quickly instead of being forced through low-value LLM guesses.
+
+### Notes:
+- The key fix is systemic rather than file-specific: the pipeline now prefers the real detail sheet and avoids LLM work on obviously non-business columns, so new mixed-format merged batches should degrade much more gracefully.

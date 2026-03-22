@@ -194,7 +194,7 @@ async def test_llm_fallback_handles_http_error(monkeypatch) -> None:
     )
     monkeypatch.setattr(llm_mapping_module.httpx, "AsyncClient", lambda **kwargs: client)
 
-    column = HeaderColumn(8, "H", ["异常列"], "异常列")
+    column = HeaderColumn(8, "H", ["未知金额字段"], "未知金额字段")
     decision = await normalize_header_column_with_fallback(column, region="guangzhou")
 
     assert decision.canonical_field is None
@@ -345,7 +345,7 @@ async def test_llm_service_keeps_unmapped_when_canonical_field_is_invalid(monkey
     )
     monkeypatch.setattr(llm_mapping_module.httpx, "AsyncClient", lambda **kwargs: client)
 
-    column = HeaderColumn(11, "K", ["?????"], "?????")
+    column = HeaderColumn(11, "K", ["神秘单位金额"], "神秘单位金额")
     decision = await normalize_header_column_with_fallback(column, region="guangzhou", confidence_threshold=0.8)
 
     assert decision.canonical_field is None
@@ -492,3 +492,45 @@ async def test_llm_service_tolerates_unparseable_confidence(monkeypatch) -> None
 
     assert result.status == "success"
     assert result.confidence is None
+
+
+def test_sync_fallback_skips_irrelevant_third_party_columns(monkeypatch) -> None:
+    def fail_llm(*args, **kwargs):
+        raise AssertionError("LLM should not be called for irrelevant helper columns.")
+
+    monkeypatch.setattr(header_normalizer_module, "map_header_with_llm_sync", fail_llm)
+    column = HeaderColumn(12, "L", ["养老企业基数"], "养老企业基数")
+
+    decision = header_normalizer_module.normalize_header_column_with_sync_fallback(column, region="shenzhen")
+
+    assert decision.canonical_field is None
+    assert decision.mapping_source == "unmapped"
+    assert decision.llm_attempted is False
+    assert decision.llm_status == "skipped_irrelevant"
+
+
+def test_rule_mapping_covers_third_party_merge_headers() -> None:
+    columns = [
+        HeaderColumn(1, "A", ["客户名称"], "客户名称"),
+        HeaderColumn(2, "B", ["身份证号"], "身份证号"),
+        HeaderColumn(3, "C", ["参保地"], "参保地"),
+        HeaderColumn(4, "D", ["账单年月"], "账单年月"),
+        HeaderColumn(5, "E", ["养老企业汇缴"], "养老企业汇缴"),
+        HeaderColumn(6, "F", ["社保合计"], "社保合计"),
+        HeaderColumn(7, "G", ["公积金企业汇缴"], "公积金企业汇缴"),
+        HeaderColumn(8, "H", ["公积金合计"], "公积金合计"),
+    ]
+
+    decisions = {
+        column.signature: normalize_header_column(column, region="shenzhen")
+        for column in columns
+    }
+
+    assert decisions["客户名称"].canonical_field == "company_name"
+    assert decisions["身份证号"].canonical_field == "id_number"
+    assert decisions["参保地"].canonical_field == "region"
+    assert decisions["账单年月"].canonical_field == "billing_period"
+    assert decisions["养老企业汇缴"].canonical_field == "pension_company"
+    assert decisions["社保合计"].canonical_field == "total_amount"
+    assert decisions["公积金企业汇缴"].canonical_field == "housing_fund_company"
+    assert decisions["公积金合计"].canonical_field == "housing_fund_total"
