@@ -4,6 +4,7 @@ from backend.app.services.batch_export_service import (
     export_batch,
     get_batch_export,
 )
+from backend.app.services.compare_service import build_compare_export_workbook, compare_batches
 from backend.app.services.batch_runtime_service import (
     BatchRuntimeError,
     get_batch_match,
@@ -84,6 +85,7 @@ __all__ = [
     'BatchNotFoundError',
     'ExportBlockedError',
     'BatchRuntimeError',
+    'build_compare_export_workbook',
     'EmployeeDeleteBlockedError',
     'EmployeeImportError',
     'EmployeeMasterNotFoundError',
@@ -111,6 +113,7 @@ __all__ = [
     'build_normalized_models',
     'build_validation_issue_models',
     'create_import_batch',
+    'compare_batches',
     'delete_employee_master',
     'detect_region_for_workbook',
     'export_batch',

@@ -117,6 +117,36 @@ def test_match_preview_records_marks_name_only_match_as_low_confidence() -> None
     assert results[0].confidence == 0.6
 
 
+def test_match_preview_records_matches_non_mainland_id_number_exact() -> None:
+    sample_path = find_sample('\u957f\u6c99')
+    standardized = standardize_workbook(sample_path, region='changsha')
+    record = standardized.records[0]
+    record.values['person_name'] = '\u718a\u5bb6\u4e3d'
+    record.values['id_number'] = 'H60550516'
+    employee = make_employee('E3301', '\u718a\u5bb6\u4e3d', id_number='H60550516')
+
+    results = match_preview_records([record], [employee])
+
+    assert results[0].match_status == MatchStatus.MATCHED.value
+    assert results[0].employee_id == 'E3301'
+    assert results[0].match_basis == 'id_number_exact'
+
+
+def test_apply_match_results_to_normalized_records_writes_employee_id_for_unique_name_only_match() -> None:
+    sample_path = find_sample('\u957f\u6c99')
+    standardized = standardize_workbook(sample_path, region='changsha')
+    preview_record = standardized.records[0]
+    employee = make_employee('E3401', preview_record.values['person_name'])
+
+    match_results = match_preview_records([preview_record], [employee])
+    normalized_models = build_normalized_models(standardized, batch_id='batch-1', source_file_id='source-1')
+
+    apply_match_results_to_normalized_records(normalized_models, match_results)
+
+    assert match_results[0].match_status == MatchStatus.LOW_CONFIDENCE.value
+    assert normalized_models[0].employee_id == 'E3401'
+
+
 def test_match_preview_records_marks_unmatched_when_no_candidate() -> None:
     sample_path = find_sample('\u6b66\u6c49')
     standardized = standardize_workbook(sample_path, region='wuhan')

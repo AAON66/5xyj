@@ -34,6 +34,7 @@ HEADER_LIKE_PERSON_VALUES = {
     '\uff08\u7a7a\u767d\uff09',
 }
 ID_NUMBER_PATTERN = re.compile(r'^\d{15}$|^\d{17}[\dX]$')
+NON_MAINLAND_ID_NUMBER_PATTERN = re.compile(r'^[A-Z]{1,2}\d{6,10}[A-Z0-9]?$')
 EXPORT_AMOUNT_FIELDS = (
     'housing_fund_personal',
     'housing_fund_company',
@@ -71,6 +72,41 @@ EXPORT_TEXT_FIELDS = (
     'raw_sheet_name',
     'raw_header_signature',
     'source_file_name',
+)
+SOCIAL_AMOUNT_FIELDS = (
+    'total_amount',
+    'company_total_amount',
+    'personal_total_amount',
+    'pension_company',
+    'pension_personal',
+    'medical_company',
+    'medical_personal',
+    'medical_maternity_company',
+    'maternity_amount',
+    'unemployment_company',
+    'unemployment_personal',
+    'injury_company',
+    'supplementary_medical_company',
+    'supplementary_pension_company',
+    'large_medical_personal',
+    'late_fee',
+    'interest',
+)
+EXPLICIT_HOUSING_COMPANY_HEADER_TOKENS = (
+    '单位',
+    '单位缴存额',
+    '单位月缴存额',
+    '单位月缴存额(元)',
+    '单位月缴额',
+    '单位金额',
+)
+EXPLICIT_HOUSING_PERSONAL_HEADER_TOKENS = (
+    '个人',
+    '个人缴存额',
+    '个人月缴存额',
+    '个人月缴存额(元)',
+    '职工月缴额',
+    '个人金额',
 )
 HOUSING_SOURCE_KIND = 'housing_fund'
 HOUSING_BURDEN_CANDIDATE_RATIO = Decimal('1.5')
@@ -892,12 +928,12 @@ def _is_exportable_record(record: NormalizedRecord) -> bool:
         return False
     if not _has_any_business_value(record):
         return False
+    if _is_inferred_housing_only_record(record):
+        return False
     return True
 
 
 def _has_any_business_value(record: NormalizedRecord) -> bool:
-    if _normalize_export_text(record.person_name) or _normalize_id_number(record.id_number) or _normalize_export_text(record.employee_id):
-        return True
     return any(_amount(getattr(record, field_name)) != Decimal('0') for field_name in EXPORT_AMOUNT_FIELDS)
 
 
@@ -915,4 +951,53 @@ def _normalize_id_number(value: str | None) -> str | None:
     compact = text.replace(' ', '').upper()
     if compact in HEADER_LIKE_PERSON_VALUES:
         return None
-    return compact if ID_NUMBER_PATTERN.fullmatch(compact) else None
+    if ID_NUMBER_PATTERN.fullmatch(compact):
+        return compact
+    if NON_MAINLAND_ID_NUMBER_PATTERN.fullmatch(compact):
+        return compact
+    return None
+
+
+def _is_inferred_housing_only_record(record: NormalizedRecord) -> bool:
+    personal_housing, company_housing, housing_total = _resolved_housing_fund_values(record)
+    has_housing = any(amount != Decimal('0') for amount in (personal_housing, company_housing, housing_total))
+    if not has_housing:
+        return False
+    has_social = any(_amount(getattr(record, field_name, None)) != Decimal('0') for field_name in SOCIAL_AMOUNT_FIELDS)
+    if has_social:
+        return False
+    return not _has_explicit_housing_breakdown(record)
+
+
+def _has_explicit_housing_breakdown(record: NormalizedRecord) -> bool:
+    raw_payload = record.raw_payload or {}
+    merged_sources = raw_payload.get('merged_sources')
+    if not isinstance(merged_sources, list):
+        return False
+
+    for source in merged_sources:
+        if not isinstance(source, dict) or source.get('source_kind') != HOUSING_SOURCE_KIND:
+            continue
+        raw_values = source.get('raw_values')
+        if not isinstance(raw_values, dict):
+            continue
+        has_company = _has_explicit_housing_amount_key(raw_values, EXPLICIT_HOUSING_COMPANY_HEADER_TOKENS)
+        has_personal = _has_explicit_housing_amount_key(raw_values, EXPLICIT_HOUSING_PERSONAL_HEADER_TOKENS)
+        if has_company and has_personal:
+            return True
+    return False
+
+
+def _has_explicit_housing_amount_key(raw_values: dict[object, object], header_tokens: tuple[str, ...]) -> bool:
+    for raw_key, raw_value in raw_values.items():
+        header = _normalize_export_text(str(raw_key) if raw_key is not None else None)
+        if header is None:
+            continue
+        normalized_header = header.replace('（', '(').replace('）', ')').replace(' ', '').lower()
+        if '比例' in normalized_header or '基数' in normalized_header or '账号' in normalized_header:
+            continue
+        if raw_value in (None, ''):
+            continue
+        if any(token.lower() == normalized_header or token.lower() in normalized_header for token in header_tokens):
+            return True
+    return False

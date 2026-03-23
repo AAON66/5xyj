@@ -21,6 +21,7 @@ HEADER_LIKE_IDENTITY_VALUES = {
     '员工工号',
 }
 ID_NUMBER_PATTERN = re.compile(r'^\d{15}$|^\d{17}[\dX]$')
+NON_MAINLAND_ID_NUMBER_PATTERN = re.compile(r'^[A-Z]{1,2}\d{6,10}[A-Z0-9]?$')
 
 
 @dataclass(slots=True)
@@ -78,7 +79,10 @@ def apply_match_results_to_normalized_records(
         result = indexed_results.get(record.source_row_number)
         if result is None:
             continue
-        if result.match_status == MatchStatus.MATCHED.value and result.employee_id:
+        if result.employee_id and result.match_status in {
+            MatchStatus.MATCHED.value,
+            MatchStatus.LOW_CONFIDENCE.value,
+        }:
             record.employee_id = result.employee_id
 
 
@@ -187,7 +191,11 @@ def _normalize_id_number(value: object) -> str | None:
     compact = text.replace(' ', '').upper()
     if compact in HEADER_LIKE_IDENTITY_VALUES:
         return None
-    return compact if ID_NUMBER_PATTERN.fullmatch(compact) else None
+    if ID_NUMBER_PATTERN.fullmatch(compact):
+        return compact
+    if NON_MAINLAND_ID_NUMBER_PATTERN.fullmatch(compact):
+        return compact
+    return None
 
 
 def _is_missing_id_number(value: object) -> bool:

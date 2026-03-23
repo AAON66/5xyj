@@ -1335,3 +1335,52 @@ ormalization_service.py backendpp\services\import_service.py backendpp\service
 
 ### Notes:
 - This issue turned out to be a mix of one corrupted `.env` value and missing charset signaling on the backend response path.
+## [2026-03-23] - Task: Fix salary export omissions for partial-coverage rows, non-mainland IDs, and zero-amount extras
+
+### What was done:
+- Expanded ID normalization in `backend/app/services/matching_service.py` and `backend/app/exporters/template_exporter.py` so non-mainland IDs like `H60550516` are treated as valid identity documents instead of dirty data.
+- Updated `apply_match_results_to_normalized_records` so a unique name-only match can still write back `employee_id` even when the match remains marked as `low_confidence`; this preserves partial-coverage employees such as Changsha rows that do not carry a usable ID number.
+- Tightened export filtering in `backend/app/exporters/template_exporter.py` so rows with only identity fields and no non-zero business amounts are excluded from salary/final-tool output.
+- Added matching regressions for non-mainland ID exact match and unique name-only employee-id writeback, and added exporter regression coverage for filtering zero-amount rows.
+- Re-ran matching and export for the real batch behind `20260323-161626_salary.xlsx`, producing a fresh export `20260323-173536_salary.xlsx`.
+
+### Testing:
+- `.\\.venv\\Scripts\\python.exe -m pytest backend\\tests\\test_matching_service.py -p no:cacheprovider -q`
+- `.\\.venv\\Scripts\\python.exe -m pytest backend\\tests\\test_template_exporter.py -p no:cacheprovider -q`
+- `.\\.venv\\Scripts\\python.exe -m compileall backend`
+- Restarted backend and re-ran:
+  - `POST /api/v1/imports/52c1549061b346299b540ca0391ecf34/match`
+  - `POST /api/v1/imports/52c1549061b346299b540ca0391ecf34/export`
+- Compared the regenerated salary file against the reference template and verified:
+  - `彭沛君` now exists with employee id `02481`
+  - `熊家丽` now exists with employee id `01458`
+  - `张欣怡 / 李悦 / 郑皓昀` are no longer exported
+
+### Risks / Open Questions:
+- One extra row `邓宁玉` still appears in the regenerated salary export while not present in the provided reference template. This row carries non-zero housing fund amounts, so it was intentionally not filtered by the new zero-amount rule. Its business treatment may need a separate rule decision.
+
+### Notes:
+- The Changsha omission was not caused by “not enough five-insurance rows” directly; the real break was that a partial but valid row had no ID number, was matched only by unique person name, and previously never had its employee id written back for export.
+## [2026-03-23] - Task: Align housing-only export behavior with reference template for 邓宁玉
+
+### What was done:
+- Investigated the remaining extra row `邓宁玉` and compared it with the reference-kept `肖典欢`.
+- Identified the practical difference: both are housing-only rows, but `肖典欢` comes from a source row with explicit `单位/个人` housing amount columns, while `邓宁玉` only had total amount plus rates and the personal/company split was inferred by the parser.
+- Added an exporter rule in `backend/app/exporters/template_exporter.py` to exclude housing-only rows when the housing split is inferred rather than explicitly present in source provenance.
+- Kept explicit-split housing-only rows exportable so the rule matches the observed reference behavior instead of deleting all housing-only employees.
+- Re-exported the real batch and generated `20260323-174933_salary.xlsx`, which now drops `邓宁玉` while still retaining `肖典欢`.
+
+### Testing:
+- `.\\.venv\\Scripts\\python.exe -m compileall backend`
+- Restarted backend and re-ran:
+  - `POST /api/v1/imports/52c1549061b346299b540ca0391ecf34/export`
+- Runtime comparison against the user-provided reference template confirmed:
+  - `肖典欢` still exists
+  - `邓宁玉` is no longer exported
+  - exported salary row count is now `426`, matching the reference row count
+
+### Risks / Open Questions:
+- The new rule intentionally trusts source provenance. If future housing files omit explicit personal/company amount columns but the business still expects those rows to export, we may need a configurable policy switch instead of a hard-coded exclusion.
+
+### Notes:
+- This is a business-rule fix at export time, not a parser failure fix: the inferred housing-only row was parsed correctly, but the reference behavior shows it should not participate in the final salary template.

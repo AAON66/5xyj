@@ -187,6 +187,164 @@ def test_export_dual_templates_filters_header_like_dirty_rows() -> None:
     tool_wb.close()
 
 
+def test_export_dual_templates_filters_zero_amount_rows_even_when_identity_exists() -> None:
+    salary_template = find_template('薪酬')
+    tool_template = find_template('最终版')
+    sample_path = find_sample('深圳创造欢乐')
+
+    standardized = standardize_workbook(sample_path, region='shenzhen', company_name='创造欢乐')
+    trimmed = type(standardized)(
+        source_file=standardized.source_file,
+        sheet_name=standardized.sheet_name,
+        raw_header_signature=standardized.raw_header_signature,
+        records=standardized.records[:1],
+        filtered_rows=standardized.filtered_rows,
+        unmapped_headers=standardized.unmapped_headers,
+    )
+    zero_amount = build_normalized_models(trimmed, batch_id='batch-1', source_file_id='source-1')[0]
+    zero_amount.person_name = '离职空行'
+    zero_amount.id_number = '440100199001010011'
+    zero_amount.employee_id = 'E0001'
+    for field_name in (
+        'housing_fund_personal',
+        'housing_fund_company',
+        'housing_fund_total',
+        'total_amount',
+        'company_total_amount',
+        'personal_total_amount',
+        'pension_company',
+        'pension_personal',
+        'medical_company',
+        'medical_personal',
+        'medical_maternity_company',
+        'maternity_amount',
+        'unemployment_company',
+        'unemployment_personal',
+        'injury_company',
+        'supplementary_medical_company',
+        'supplementary_pension_company',
+        'large_medical_personal',
+        'late_fee',
+        'interest',
+    ):
+        setattr(zero_amount, field_name, Decimal('0'))
+
+    output_dir = ARTIFACTS_ROOT / 'zero_amount_filter'
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    result = export_dual_templates(
+        [zero_amount],
+        output_dir=output_dir,
+        salary_template_path=salary_template,
+        final_tool_template_path=tool_template,
+        export_prefix='zero_amount_filter',
+    )
+
+    salary_artifact = next(item for item in result.artifacts if item.template_type == 'salary')
+    tool_artifact = next(item for item in result.artifacts if item.template_type == 'final_tool')
+    assert salary_artifact.row_count == 0
+    assert tool_artifact.row_count == 0
+
+    salary_wb = load_workbook(salary_artifact.file_path, data_only=False)
+    salary_sheet = salary_wb[salary_wb.sheetnames[0]]
+    assert salary_sheet['A2'].value in (None, '')
+    salary_wb.close()
+
+    tool_wb = load_workbook(tool_artifact.file_path, data_only=False)
+    tool_sheet = tool_wb[tool_wb.sheetnames[0]]
+    assert tool_sheet['C7'].value in (None, '')
+    tool_wb.close()
+
+
+def test_export_dual_templates_filters_housing_only_rows_when_split_is_only_inferred() -> None:
+    salary_template = find_template('薪酬')
+    tool_template = find_template('最终版')
+    sample_path = find_sample('深圳创造欢乐')
+
+    standardized = standardize_workbook(sample_path, region='shenzhen', company_name='创造欢乐')
+    trimmed = type(standardized)(
+        source_file=standardized.source_file,
+        sheet_name=standardized.sheet_name,
+        raw_header_signature=standardized.raw_header_signature,
+        records=standardized.records[:1],
+        filtered_rows=standardized.filtered_rows,
+        unmapped_headers=standardized.unmapped_headers,
+    )
+
+    inferred_only = build_normalized_models(trimmed, batch_id='batch-1', source_file_id='source-1')[0]
+    inferred_only.person_name = '推导拆分'
+    inferred_only.employee_id = 'E0002'
+    inferred_only.id_number = '440100199001010022'
+    inferred_only.housing_fund_personal = Decimal('175')
+    inferred_only.housing_fund_company = Decimal('175')
+    inferred_only.housing_fund_total = Decimal('350')
+    inferred_only.raw_payload = {
+        'merged_sources': [
+            {
+                'source_kind': 'housing_fund',
+                'raw_values': {
+                    '姓名': '推导拆分',
+                    '证件号码': '440100199001010022',
+                    '缴存基数（元）': '3500',
+                    '单位缴存比例': '0.05',
+                    '个人缴存比例': '0.05',
+                    '金额合计（元）': '350',
+                },
+            }
+        ]
+    }
+
+    explicit_split = build_normalized_models(trimmed, batch_id='batch-1', source_file_id='source-2')[0]
+    explicit_split.person_name = '显式拆分'
+    explicit_split.employee_id = 'E0003'
+    explicit_split.id_number = '440100199001010033'
+    explicit_split.housing_fund_personal = Decimal('175')
+    explicit_split.housing_fund_company = Decimal('175')
+    explicit_split.housing_fund_total = Decimal('350')
+    explicit_split.raw_payload = {
+        'merged_sources': [
+            {
+                'source_kind': 'housing_fund',
+                'raw_values': {
+                    '姓名': '显式拆分',
+                    '证件号码': '440100199001010033',
+                    '单位': 175,
+                    '个人': 175,
+                    '金额合计（元）': '350',
+                },
+            }
+        ]
+    }
+
+    output_dir = ARTIFACTS_ROOT / 'housing_only_inference_filter'
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    result = export_dual_templates(
+        [inferred_only, explicit_split],
+        output_dir=output_dir,
+        salary_template_path=salary_template,
+        final_tool_template_path=tool_template,
+        export_prefix='housing_only_inference_filter',
+    )
+
+    salary_artifact = next(item for item in result.artifacts if item.template_type == 'salary')
+    tool_artifact = next(item for item in result.artifacts if item.template_type == 'final_tool')
+    assert salary_artifact.row_count == 1
+    assert tool_artifact.row_count == 1
+
+    salary_wb = load_workbook(salary_artifact.file_path, data_only=False)
+    salary_sheet = salary_wb[salary_wb.sheetnames[0]]
+    assert salary_sheet['A2'].value == '显式拆分'
+    assert salary_sheet['A3'].value in (None, '')
+    salary_wb.close()
+
+    tool_wb = load_workbook(tool_artifact.file_path, data_only=False)
+    tool_sheet = tool_wb[tool_wb.sheetnames[0]]
+    assert tool_sheet['C7'].value == '显式拆分'
+    assert tool_sheet['C8'].value in (None, '')
+    tool_wb.close()
+
+
 def test_export_dual_templates_merges_records_with_same_employee_id_before_writing() -> None:
     salary_template = find_template('薪酬')
     tool_template = find_template('最终版')
@@ -670,3 +828,117 @@ def test_export_dual_templates_zeroes_housing_burden_when_no_reliable_baseline_e
     assert float(tool_sheet['N7'].value) == 500.0
     assert float(tool_sheet['X7'].value) == 0.0
     tool_wb.close()
+
+
+def test_export_dual_templates_filters_housing_only_rows_when_split_is_only_inferred() -> None:
+    salary_template = find_template('薪酬')
+    tool_template = find_template('最终版')
+    sample_path = find_sample('深圳创造欢乐')
+
+    standardized = standardize_workbook(sample_path, region='shenzhen', company_name='创造欢乐')
+    trimmed = type(standardized)(
+        source_file=standardized.source_file,
+        sheet_name=standardized.sheet_name,
+        raw_header_signature=standardized.raw_header_signature,
+        records=standardized.records[:1],
+        filtered_rows=standardized.filtered_rows,
+        unmapped_headers=standardized.unmapped_headers,
+    )
+    record = build_normalized_models(trimmed, batch_id='batch-1', source_file_id='source-1')[0]
+    record.person_name = '推导公积金'
+    record.employee_id = 'H3001'
+    record.id_number = '440100199001013001'
+    record.housing_fund_personal = Decimal('175')
+    record.housing_fund_company = Decimal('175')
+    record.housing_fund_total = Decimal('350')
+    record.raw_payload = {
+        'housing_fund_inference_notes': ['split_from_total_and_rates'],
+        'merged_sources': [
+            {
+                'source_kind': 'housing_fund',
+                'source_file_name': '深圳创造欢乐202602公积金账单.xlsx',
+                'source_row_number': 73,
+                'raw_values': {
+                    '姓名': '推导公积金',
+                    '证件号码': '440100199001013001',
+                    '个人账号': '123456',
+                    '缴存基数（元）': '3500',
+                    '单位缴存比例': '0.05',
+                    '个人缴存比例': '0.05',
+                    '金额合计（元）': '350',
+                },
+            }
+        ],
+    }
+
+    output_dir = ARTIFACTS_ROOT / 'housing_only_inferred_filter'
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    result = export_dual_templates(
+        [record],
+        output_dir=output_dir,
+        salary_template_path=salary_template,
+        final_tool_template_path=tool_template,
+        export_prefix='housing_only_inferred_filter',
+    )
+
+    salary_artifact = next(item for item in result.artifacts if item.template_type == 'salary')
+    tool_artifact = next(item for item in result.artifacts if item.template_type == 'final_tool')
+    assert salary_artifact.row_count == 0
+    assert tool_artifact.row_count == 0
+
+
+def test_export_dual_templates_keeps_housing_only_rows_when_source_has_explicit_split_columns() -> None:
+    salary_template = find_template('薪酬')
+    tool_template = find_template('最终版')
+    sample_path = find_sample('深圳创造欢乐')
+
+    standardized = standardize_workbook(sample_path, region='shenzhen', company_name='创造欢乐')
+    trimmed = type(standardized)(
+        source_file=standardized.source_file,
+        sheet_name=standardized.sheet_name,
+        raw_header_signature=standardized.raw_header_signature,
+        records=standardized.records[:1],
+        filtered_rows=standardized.filtered_rows,
+        unmapped_headers=standardized.unmapped_headers,
+    )
+    record = build_normalized_models(trimmed, batch_id='batch-1', source_file_id='source-1')[0]
+    record.person_name = '显式公积金'
+    record.employee_id = 'H3002'
+    record.id_number = '440100199001013002'
+    record.housing_fund_personal = Decimal('175')
+    record.housing_fund_company = Decimal('175')
+    record.housing_fund_total = Decimal('350')
+    record.raw_payload = {
+        'merged_sources': [
+            {
+                'source_kind': 'housing_fund',
+                'source_file_name': '深圳无限增长202602公积金账单.xlsx',
+                'source_row_number': 6,
+                'raw_values': {
+                    '姓名': '显式公积金',
+                    '证件号码': '440100199001013002',
+                    '个人账号': '654321',
+                    '缴存基数（元）': '3500',
+                    '单位': 175,
+                    '个人': 175,
+                },
+            }
+        ],
+    }
+
+    output_dir = ARTIFACTS_ROOT / 'housing_only_explicit_keep'
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    result = export_dual_templates(
+        [record],
+        output_dir=output_dir,
+        salary_template_path=salary_template,
+        final_tool_template_path=tool_template,
+        export_prefix='housing_only_explicit_keep',
+    )
+
+    salary_artifact = next(item for item in result.artifacts if item.template_type == 'salary')
+    tool_artifact = next(item for item in result.artifacts if item.template_type == 'final_tool')
+    assert salary_artifact.row_count == 1
+    assert tool_artifact.row_count == 1
