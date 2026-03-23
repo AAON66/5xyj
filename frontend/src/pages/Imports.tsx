@@ -109,16 +109,24 @@ export function ImportsPage() {
     async function loadBatchState(batchId: string) {
       setRefreshingPreview(true);
       try {
-        const [detailResult, previewResult] = await Promise.all([
-          fetchImportBatch(batchId),
-          fetchImportBatchPreview(batchId).catch(() => null),
-        ]);
+        const detailResult = await fetchImportBatch(batchId);
         if (!active) {
           return;
         }
+        const firstSourceFileId = detailResult.source_files[0]?.id;
         setSelectedBatch(detailResult);
-        setPreview(previewResult);
+        setPreview(null);
         setPageError(null);
+
+        if (!firstSourceFileId || detailResult.status === 'uploaded') {
+          return;
+        }
+
+        const previewResult = await fetchImportBatchPreview(batchId, { sourceFileId: firstSourceFileId }).catch(() => null);
+        if (!active) {
+          return;
+        }
+        setPreview(previewResult);
       } catch {
         if (active) {
           setPageError('当前批次详情加载失败，请重新选择批次或稍后重试。');
@@ -176,7 +184,10 @@ export function ImportsPage() {
         companyName,
       });
       const parsed = await parseImportBatch(created.id);
-      setPreview(parsed);
+      setPreview({
+        ...parsed,
+        source_files: parsed.source_files.slice(0, 1),
+      });
       setSelectedBatchId(created.id);
       setSelectedBatch(created);
       await reloadBatches(created.id);
@@ -193,7 +204,10 @@ export function ImportsPage() {
     setLocalNotice(null);
     try {
       const parsed = await parseImportBatch(batchId);
-      setPreview(parsed);
+      setPreview({
+        ...parsed,
+        source_files: parsed.source_files.slice(0, 1),
+      });
       setSelectedBatchId(batchId);
       setSelectedBatch(await fetchImportBatch(batchId));
       await reloadBatches(batchId);

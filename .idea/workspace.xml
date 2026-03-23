@@ -4,14 +4,36 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a614a6ab-24b5-4f20-8229-5cf8b352ba3a" name="更改" comment="v3.0.2，修复没有工号的问题。">
+    <list default="true" id="a614a6ab-24b5-4f20-8229-5cf8b352ba3a" name="更改" comment="v4.0.0，聚合相关的Bug全部完善">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/api/v1/aggregate.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/api/v1/aggregate.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/api/v1/imports.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/api/v1/imports.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/api/v1/responses.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/api/v1/responses.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/app/exporters/template_exporter.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/exporters/template_exporter.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/mappings/manual_field_aliases.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/mappings/manual_field_aliases.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/aggregate_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/aggregate_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/import_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/import_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/normalization_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/normalization_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_aggregate_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_aggregate_api.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_aggregate_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_aggregate_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_export_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_export_api.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_import_batches_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_import_batches_api.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_normalization_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_normalization_service.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/tests/test_template_exporter.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_template_exporter.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_template_exporter_regression.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_template_exporter_regression.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/app.db" beforeDir="false" afterPath="$PROJECT_DIR$/data/app.db" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/app.db-shm" beforeDir="false" afterPath="$PROJECT_DIR$/data/app.db-shm" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/app.db-wal" beforeDir="false" afterPath="$PROJECT_DIR$/data/app.db-wal" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/ImportBatchDetail.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/ImportBatchDetail.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Imports.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Imports.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/SimpleAggregate.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/SimpleAggregate.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/services/aggregate.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/services/aggregate.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/services/aggregateSessionStore.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/services/aggregateSessionStore.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/services/imports.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/services/imports.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/styles.css" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/styles.css" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/progress.txt" beforeDir="false" afterPath="$PROJECT_DIR$/progress.txt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/start_backend_local.cmd" beforeDir="false" afterPath="$PROJECT_DIR$/start_backend_local.cmd" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/start_backend_local.ps1" beforeDir="false" afterPath="$PROJECT_DIR$/start_backend_local.ps1" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -21,6 +43,18 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "AAON66"
+  }
+}]]></component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/AAON66/EXCEL_HR_Mix_tool.git",
+    "accountId": "9a4be840-2db8-40b2-b771-e9584c1f1cac"
+  }
+}]]></component>
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 7
 }</component>
@@ -71,7 +105,7 @@
       <workItem from="1773977629742" duration="16517000" />
       <workItem from="1774108356380" duration="354000" />
       <workItem from="1774119102062" duration="2617000" />
-      <workItem from="1774181989524" duration="2012000" />
+      <workItem from="1774181989524" duration="10100000" />
     </task>
     <task id="LOCAL-00001" summary="v2.0.0">
       <option name="closed" value="true" />
@@ -97,7 +131,15 @@
       <option name="project" value="LOCAL" />
       <updated>1774189705712</updated>
     </task>
-    <option name="localTasksCounter" value="4" />
+    <task id="LOCAL-00004" summary="v4.0.0，聚合相关的Bug全部完善">
+      <option name="closed" value="true" />
+      <created>1774191059864</created>
+      <option name="number" value="00004" />
+      <option name="presentableId" value="LOCAL-00004" />
+      <option name="project" value="LOCAL" />
+      <updated>1774191059864</updated>
+    </task>
+    <option name="localTasksCounter" value="5" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -124,6 +166,7 @@
     <MESSAGE value="v2.0.0" />
     <MESSAGE value="v3.0.0接入了LLM，并且有了并行解析功能" />
     <MESSAGE value="v3.0.2，修复没有工号的问题。" />
-    <option name="LAST_COMMIT_MESSAGE" value="v3.0.2，修复没有工号的问题。" />
+    <MESSAGE value="v4.0.0，聚合相关的Bug全部完善" />
+    <option name="LAST_COMMIT_MESSAGE" value="v4.0.0，聚合相关的Bug全部完善" />
   </component>
 </project>

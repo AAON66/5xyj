@@ -44,6 +44,7 @@ DATE_PATTERN = re.compile(r'(20\d{2}\u5e74\d{1,2}\u6708|20\d{4}|\d{6})')
 ProgressCallback = Callable[[dict[str, object]], Awaitable[None] | None]
 PARSE_PROGRESS_HEARTBEAT_SECONDS = 4.0
 PARSE_PROGRESS_POLL_INTERVAL_SECONDS = 0.1
+EMPLOYEE_MASTER_MODES = {'none', 'upload', 'existing'}
 
 
 async def run_simple_aggregate(
@@ -53,6 +54,7 @@ async def run_simple_aggregate(
     files: list[UploadFile],
     housing_fund_files: list[UploadFile] | None = None,
     employee_master_file: UploadFile | None = None,
+    employee_master_mode: str | None = None,
     batch_name: str | None = None,
     regions: list[str] | None = None,
     company_names: list[str] | None = None,
@@ -70,8 +72,9 @@ async def run_simple_aggregate(
         percent=4,
     )
 
+    resolved_employee_master_mode = _resolve_employee_master_mode(employee_master_mode, employee_master_file)
     employee_summary: AggregateEmployeeImportRead | None = None
-    if employee_master_file is not None and (employee_master_file.filename or '').strip():
+    if resolved_employee_master_mode == 'upload':
         await _emit_progress(
             progress_callback,
             stage='employee_import',
@@ -91,6 +94,18 @@ async def run_simple_aggregate(
             stage='employee_import',
             label='\u5458\u5de5\u4e3b\u6863\u5df2\u540c\u6b65',
             message=f'\u5df2\u5bfc\u5165 {employee_import.imported_count} \u6761\u5458\u5de5\u4e3b\u6863\u8bb0\u5f55\u3002',
+            percent=18,
+        )
+    elif resolved_employee_master_mode == 'existing':
+        available_count = db.query(EmployeeMaster).filter(EmployeeMaster.active.is_(True)).count()
+        await _emit_progress(
+            progress_callback,
+            stage='employee_import',
+            label='\u4f7f\u7528\u5df2\u6709\u4e3b\u6863',
+            message=(
+                f'\u672c\u6b21\u5c06\u76f4\u63a5\u4f7f\u7528\u670d\u52a1\u5668\u5df2\u6709\u7684 {available_count} '
+                '\u6761\u5728\u804c\u5458\u5de5\u4e3b\u6863\u8bb0\u5f55\u7528\u4e8e\u5de5\u53f7\u5339\u914d\u3002'
+            ),
             percent=18,
         )
     else:
@@ -239,7 +254,10 @@ async def run_simple_aggregate(
         batch_id=batch.id,
         batch_name=batch.batch_name,
     )
-    match = _match_for_simple_aggregate(db, batch.id)
+    if resolved_employee_master_mode == 'none':
+        match = _match_for_simple_aggregate(db, batch.id, use_existing_employee_master=False)
+    else:
+        match = _match_for_simple_aggregate(db, batch.id, use_existing_employee_master=True)
     await _emit_progress(
         progress_callback,
         stage='match',
@@ -518,11 +536,13 @@ def _source_kind_label(source_kind: str | None) -> str:
     return '社保文件'
 
 
-def _match_for_simple_aggregate(db: Session, batch_id: str):
+def _match_for_simple_aggregate(db: Session, batch_id: str, *, use_existing_employee_master: bool):
     batch = get_import_batch(db, batch_id)
-    employee_masters = list(
-        db.query(EmployeeMaster).filter(EmployeeMaster.active.is_(True)).order_by(EmployeeMaster.employee_id.asc()).all()
-    )
+    employee_masters = []
+    if use_existing_employee_master:
+        employee_masters = list(
+            db.query(EmployeeMaster).filter(EmployeeMaster.active.is_(True)).order_by(EmployeeMaster.employee_id.asc()).all()
+        )
     if employee_masters:
         return match_batch(db, batch_id)
 
@@ -576,6 +596,25 @@ def _match_for_simple_aggregate(db: Session, batch_id: str):
         'low_confidence_count': low_confidence_count,
         'source_files': [],
     })
+
+
+def _resolve_employee_master_mode(employee_master_mode: str | None, employee_master_file: UploadFile | None) -> str:
+    normalized_mode = (employee_master_mode or '').strip().lower() or None
+    has_uploaded_file = employee_master_file is not None and bool((employee_master_file.filename or '').strip())
+
+    if normalized_mode is not None and normalized_mode not in EMPLOYEE_MASTER_MODES:
+        raise ValueError('employee_master_mode must be one of: none, upload, existing.')
+
+    if normalized_mode == 'existing' and has_uploaded_file:
+        raise ValueError('employee_master_mode=existing cannot be used together with employee_master_file.')
+    if normalized_mode == 'none' and has_uploaded_file:
+        raise ValueError('employee_master_mode=none cannot be used together with employee_master_file.')
+    if normalized_mode == 'upload' and not has_uploaded_file:
+        raise ValueError('employee_master_mode=upload requires employee_master_file.')
+
+    if has_uploaded_file:
+        return 'upload'
+    return normalized_mode or 'none'
 
 
 def _preview_from_model(record) -> NormalizedPreviewRecord:

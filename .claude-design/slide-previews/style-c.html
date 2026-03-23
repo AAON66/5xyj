@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Style C — Bold Signal</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; }
+:root {
+  --bg: #141414;
+  --card: #0057FF;
+  --accent: #FFD600;
+  --text: #ffffff;
+  --muted: rgba(255,255,255,0.45);
+}
+.slide {
+  width: 100vw; height: 100vh; height: 100dvh;
+  overflow: hidden;
+  background: var(--bg);
+  display: grid;
+  grid-template-columns: clamp(180px, 28vw, 340px) 1fr;
+  font-family: 'Space Grotesk', sans-serif;
+  position: relative;
+}
+/* subtle dot grid */
+.slide::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image: radial-gradient(rgba(255,255,255,0.06) 1px, transparent 1px);
+  background-size: 28px 28px;
+  pointer-events: none;
+}
+/* left colored card */
+.card-panel {
+  background: var(--card);
+  display: flex; flex-direction: column;
+  justify-content: space-between;
+  padding: clamp(1.5rem, 3.5vw, 3rem);
+  position: relative; z-index: 1;
+  overflow: hidden;
+  opacity: 0;
+  animation: slideRight 0.6s cubic-bezier(.22,.68,0,1.2) forwards 0.1s;
+}
+.card-panel::after {
+  content: '';
+  position: absolute;
+  width: clamp(120px, 25vw, 260px);
+  height: clamp(120px, 25vw, 260px);
+  border-radius: 50%;
+  background: rgba(255,255,255,0.08);
+  bottom: calc(-1 * clamp(40px, 8vw, 80px));
+  right: calc(-1 * clamp(40px, 8vw, 80px));
+}
+.slide-num {
+  font-family: 'Archivo Black', sans-serif;
+  font-size: clamp(3rem, 8vw, 7rem);
+  color: rgba(255,255,255,0.15);
+  line-height: 1;
+}
+.card-title {
+  font-family: 'Archivo Black', sans-serif;
+  font-size: clamp(1.1rem, 2.5vw, 2rem);
+  color: #fff;
+  line-height: 1.15;
+}
+.card-sub {
+  font-size: clamp(0.65rem, 1.1vw, 0.8rem);
+  color: rgba(255,255,255,0.7);
+  margin-top: 0.5rem;
+  line-height: 1.5;
+}
+/* right content */
+.right-panel {
+  display: flex; flex-direction: column;
+  justify-content: center;
+  padding: clamp(1.5rem, 4vw, 4rem);
+  position: relative; z-index: 1;
+  gap: clamp(0.6rem, 1.8vh, 1.4rem);
+}
+.section-label {
+  font-size: clamp(0.6rem, 1vw, 0.72rem);
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--accent);
+  opacity: 0;
+  animation: fadeUp 0.5s ease forwards 0.5s;
+}
+.main-heading {
+  font-family: 'Archivo Black', sans-serif;
+  font-size: clamp(1.6rem, 3.8vw, 3.2rem);
+  color: var(--text);
+  line-height: 1.05;
+  opacity: 0;
+  animation: fadeUp 0.5s ease forwards 0.65s;
+}
+.desc-text {
+  font-size: clamp(0.72rem, 1.3vw, 0.95rem);
+  color: var(--muted);
+  line-height: 1.65;
+  max-width: 480px;
+  opacity: 0;
+  animation: fadeUp 0.5s ease forwards 0.8s;
+}
+.stats-row {
+  display: flex; gap: clamp(1rem, 3vw, 2.5rem);
+  margin-top: clamp(0.25rem, 1vh, 0.75rem);
+  opacity: 0;
+  animation: fadeUp 0.5s ease forwards 0.95s;
+}
+.stat { display: flex; flex-direction: column; gap: 0.2rem; }
+.stat-val {
+  font-family: 'Archivo Black', sans-serif;
+  font-size: clamp(1.4rem, 3vw, 2.4rem);
+  color: var(--accent);
+  line-height: 1;
+}
+.stat-desc {
+  font-size: clamp(0.6rem, 1vw, 0.72rem);
+  color: var(--muted);
+  line-height: 1.3;
+}
+.nav-hint {
+  position: absolute;
+  bottom: clamp(1rem, 2.5vh, 2rem);
+  right: clamp(1.5rem, 4vw, 4rem);
+  font-size: clamp(0.55rem, 0.9vw, 0.68rem);
+  color: rgba(255,255,255,0.2);
+  letter-spacing: 0.08em;
+  opacity: 0;
+  animation: fadeUp 0.4s ease forwards 1.2s;
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes slideRight {
+  from { opacity: 0; transform: translateX(-30px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+</style>
+</head>
+<body>
+<div class="slide">
+  <div class="card-panel">
+    <div class="slide-num">01</div>
+    <div>
+      <div class="card-title">社保<br>聚合<br>工具</div>
+      <div class="card-sub">2026年3月<br>内部汇报</div>
+    </div>
+  </div>
+  <div class="right-panel">
+    <div class="section-label">项目概览 · Social Security Aggregation</div>
+    <div class="main-heading">多地区社保<br>自动化处理平台</div>
+    <div class="desc-text">
+      聚合广州、深圳、杭州、厦门、武汉、长沙等地区社保表格，
+      自动识别表头结构，统一映射标准字段，同步导出双模板结果。
+    </div>
+    <div class="stats-row">
+      <div class="stat">
+        <span class="stat-val">6+</span>
+        <span class="stat-desc">覆盖城市</span>
+      </div>
+      <div class="stat">
+        <span class="stat-val">30+</span>
+        <span class="stat-desc">标准字段</span>
+      </div>
+      <div class="stat">
+        <span class="stat-val">2</span>
+        <span class="stat-desc">导出模板</span>
+      </div>
+    </div>
+  </div>
+  <div class="nav-hint">↑↓ 方向键导航</div>
+</div>
+</body>
+</html>

@@ -12,6 +12,7 @@ export interface AggregateSelectionSummary {
   socialFiles: string[];
   housingFundFiles: string[];
   employeeMasterFile: string | null;
+  employeeMasterMode: 'none' | 'upload' | 'existing';
   batchName: string;
 }
 
@@ -39,6 +40,7 @@ function emptySelection(): AggregateSelectionSummary {
     socialFiles: [],
     housingFundFiles: [],
     employeeMasterFile: null,
+    employeeMasterMode: 'none',
     batchName: '',
   };
 }
@@ -67,15 +69,27 @@ function restoreSnapshot(): AggregateSessionSnapshot {
 
   try {
     const parsed = JSON.parse(raw) as AggregateSessionSnapshot;
+    const normalizedSelection: AggregateSelectionSummary = {
+      ...emptySelection(),
+      ...parsed.selection,
+      employeeMasterMode:
+        parsed.selection?.employeeMasterMode === 'upload' || parsed.selection?.employeeMasterMode === 'existing'
+          ? parsed.selection.employeeMasterMode
+          : 'none',
+    };
     if (parsed.status === 'running') {
       return {
         ...parsed,
+        selection: normalizedSelection,
         status: 'cancelled',
         error: INTERRUPTED_MESSAGE,
         finishedAt: new Date().toISOString(),
       };
     }
-    return parsed;
+    return {
+      ...parsed,
+      selection: normalizedSelection,
+    };
   } catch {
     return emptySnapshot();
   }
@@ -107,6 +121,7 @@ function summarizeSelection(input: AggregateInput): AggregateSelectionSummary {
     socialFiles: input.files.map((file) => file.name),
     housingFundFiles: (input.housingFundFiles ?? []).map((file) => file.name),
     employeeMasterFile: input.employeeMasterFile?.name ?? null,
+    employeeMasterMode: input.employeeMasterMode ?? (input.employeeMasterFile ? 'upload' : 'none'),
     batchName: input.batchName?.trim() ?? '',
   };
 }

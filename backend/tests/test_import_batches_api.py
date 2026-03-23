@@ -184,6 +184,52 @@ def test_preview_import_batch_returns_not_found_for_unknown_batch() -> None:
     assert response.json()['error']['code'] == 'not_found'
 
 
+def test_preview_import_batch_can_scope_to_single_source_file() -> None:
+    client, _ = build_test_client('preview_single_source_file')
+    shenzhen_sample = find_sample('深圳创造欢乐')
+    guangzhou_sample = find_sample('广分')
+
+    with client:
+        created = client.post(
+            '/api/v1/imports',
+            files=[
+                ('files', (shenzhen_sample.name, shenzhen_sample.read_bytes(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')),
+                ('files', (guangzhou_sample.name, guangzhou_sample.read_bytes(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')),
+            ],
+            data={'regions': '["shenzhen", "guangzhou"]', 'company_names': '["深圳公司", "广州分公司"]'},
+        )
+        batch_payload = created.json()['data']
+        batch_id = batch_payload['id']
+        second_source_file_id = batch_payload['source_files'][1]['id']
+
+        client.post(f'/api/v1/imports/{batch_id}/parse')
+        preview_response = client.get(f'/api/v1/imports/{batch_id}/preview', params={'source_file_id': second_source_file_id})
+
+    assert preview_response.status_code == 200
+    payload = preview_response.json()['data']
+    assert len(payload['source_files']) == 1
+    assert payload['source_files'][0]['source_file_id'] == second_source_file_id
+    assert payload['source_files'][0]['file_name'] == guangzhou_sample.name
+
+
+def test_preview_import_batch_rejects_unknown_source_file() -> None:
+    client, _ = build_test_client('preview_unknown_source_file')
+    sample_path = find_sample('深圳创造欢乐')
+
+    with client:
+        created = client.post(
+            '/api/v1/imports',
+            files=[('files', (sample_path.name, sample_path.read_bytes(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))],
+            data={'regions': 'shenzhen', 'company_names': '创造欢乐'},
+        )
+        batch_id = created.json()['data']['id']
+        client.post(f'/api/v1/imports/{batch_id}/parse')
+        response = client.get(f'/api/v1/imports/{batch_id}/preview', params={'source_file_id': 'missing-source-file'})
+
+    assert response.status_code == 404
+    assert response.json()['error']['code'] == 'not_found'
+
+
 def test_create_import_batch_rejects_invalid_extension() -> None:
     client, settings = build_test_client('invalid_extension')
 

@@ -183,6 +183,7 @@ MANUAL_ALIAS_RULES: tuple[AliasRule, ...] = (
     AliasRule("medical_personal", ("职工基本医疗保险", "个人应缴"), confidence=0.97),
     AliasRule("medical_company", ("基本医疗应缴费额", "单位部分"), confidence=0.97),
     AliasRule("maternity_amount", ("生育企业汇缴",), confidence=0.97),
+    AliasRule("maternity_amount", ("职工基本医疗保险(生育)", "单位应缴"), regions=("xiamen",), confidence=0.98),
     AliasRule("medical_personal", ("基本医疗应缴费额", "个人部分"), confidence=0.97),
     AliasRule("medical_company", ("单位缴纳", "企业职工基本医疗应缴费额"), regions=("wuhan",), confidence=0.97),
     AliasRule("medical_personal", ("个人缴纳", "企业职工基本医疗应缴费额"), regions=("wuhan",), confidence=0.97),

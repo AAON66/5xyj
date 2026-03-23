@@ -6,10 +6,18 @@ from decimal import Decimal
 import pytest
 
 from backend.app.core.config import ROOT_DIR
-from backend.app.services import build_normalized_models, standardize_workbook
+from backend.app.models.enums import SourceFileKind
+from backend.app.services import (
+    SourceRecordBundle,
+    build_normalized_models,
+    merge_batch_standardized_records,
+    standardize_housing_fund_workbook,
+    standardize_workbook,
+)
 
 
 SAMPLES_DIR = ROOT_DIR / 'data' / 'samples'
+HOUSING_SAMPLES_DIR = SAMPLES_DIR / '公积金'
 
 
 def find_sample(keyword: str) -> Path:
@@ -17,6 +25,13 @@ def find_sample(keyword: str) -> Path:
         if keyword in path.name:
             return path
     pytest.skip(f'Sample containing {keyword!r} was not found in {SAMPLES_DIR}.')
+
+
+def find_housing_sample(keyword: str) -> Path:
+    for path in sorted(HOUSING_SAMPLES_DIR.glob('*.xlsx')):
+        if keyword in path.name:
+            return path
+    pytest.skip(f'Housing sample containing {keyword!r} was not found in {HOUSING_SAMPLES_DIR}.')
 
 
 def test_standardize_workbook_on_real_guangzhou_sample() -> None:
@@ -73,6 +88,7 @@ def test_standardize_workbook_on_real_xiamen_sample() -> None:
     assert first.values['total_amount'] is not None
     assert first.values['company_total_amount'] is not None
     assert first.values['personal_total_amount'] is not None
+    assert first.values['maternity_amount'] == Decimal('31.03')
     assert first.values['late_fee'] == Decimal('0')
     assert first.values['interest'] == Decimal('0')
     assert '\u53c2\u4fdd\u4eba\u5458\u8eab\u4efd' in first.unmapped_values
@@ -143,3 +159,43 @@ def test_build_normalized_models_preserves_provenance() -> None:
     assert models[0].raw_header_signature == result.raw_header_signature
     assert models[0].raw_payload is not None
     assert models[0].raw_payload['raw_values']['\u59d3\u540d'] == result.records[0].values['person_name']
+
+
+def test_merge_batch_standardized_records_merges_name_only_housing_rows_into_hangzhou_social_rows() -> None:
+    social_sample = find_sample('\u676d\u5dde\u88c2\u53d8')
+    housing_sample = find_housing_sample('\u676d\u5dde\u88c2\u53d8')
+
+    social_result = standardize_workbook(social_sample, region='hangzhou', company_name='\u96f6\u4e00\u88c2\u53d8')
+    housing_result = standardize_housing_fund_workbook(housing_sample, region='hangzhou')
+
+    social_names = {record.values.get('person_name') for record in social_result.records}
+    target_housing_record = next(
+        record
+        for record in housing_result.records
+        if record.values.get('person_name') in social_names and record.values.get('housing_fund_company') is not None
+    )
+
+    merged = merge_batch_standardized_records(
+        [
+            SourceRecordBundle(
+                source_file_id='social-source',
+                source_file_name=social_sample.name,
+                source_kind=SourceFileKind.SOCIAL_SECURITY.value,
+                standardized=social_result,
+            ),
+            SourceRecordBundle(
+                source_file_id='housing-source',
+                source_file_name=housing_sample.name,
+                source_kind=SourceFileKind.HOUSING_FUND.value,
+                standardized=housing_result,
+            ),
+        ],
+        batch_id='batch-merge',
+    )
+
+    merged_matches = [record for record in merged if record.person_name == target_housing_record.values.get('person_name')]
+    assert len(merged_matches) == 1
+    merged_record = merged_matches[0]
+    assert merged_record.pension_company is not None
+    assert merged_record.housing_fund_company == target_housing_record.values.get('housing_fund_company')
+    assert merged_record.housing_fund_personal == target_housing_record.values.get('housing_fund_personal')

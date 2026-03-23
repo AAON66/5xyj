@@ -111,7 +111,7 @@ async def test_run_simple_aggregate_emits_parse_heartbeat_and_fine_grained_messa
     monkeypatch.setattr(
         aggregate_service_module,
         '_match_for_simple_aggregate',
-        lambda db, batch_id: SimpleNamespace(
+        lambda db, batch_id, **kwargs: SimpleNamespace(
             blocked_reason=None,
             matched_count=0,
             unmatched_count=0,

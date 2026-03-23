@@ -245,6 +245,35 @@ def test_export_batch_endpoint_falls_back_to_timestamp_when_sanitized_batch_name
     assert re.fullmatch(r'\d{8}-\d{6}_final_tool\.xlsx', tool_name)
 
 
+def test_export_batch_endpoint_falls_back_to_discovered_templates_when_configured_paths_are_missing() -> None:
+    salary_template = find_template('\u85aa\u916c')
+    tool_template = find_template('\u6700\u7ec8\u7248')
+    sample_path = find_sample(SAMPLE_KEYWORD)
+    client, settings, session_factory = build_test_context(
+        'export_template_discovery_fallback',
+        salary_template=ARTIFACTS_ROOT / 'missing-salary.xlsx',
+        final_tool_template=ARTIFACTS_ROOT / 'missing-tool.xlsx',
+    )
+    seed_employee_for_first_record(session_factory, sample_path)
+
+    discovered_dir = settings.templates_path / 'nested'
+    discovered_dir.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(salary_template, discovered_dir / salary_template.name)
+    shutil.copy2(tool_template, discovered_dir / tool_template.name)
+
+    with client:
+        batch_id = create_batch(client, sample_path, batch_name='export-template-discovery-fallback')
+        match_response = client.post(f'/api/v1/imports/{batch_id}/match')
+        export_response = client.post(f'/api/v1/imports/{batch_id}/export')
+
+    assert match_response.status_code == 200
+    assert export_response.status_code == 200
+    payload = export_response.json()['data']
+    assert payload['export_status'] == 'completed'
+    assert all(item['status'] == 'completed' for item in payload['artifacts'])
+    assert all(Path(item['file_path']).exists() for item in payload['artifacts'])
+
+
 
 def test_export_batch_endpoint_fails_when_any_template_is_missing() -> None:
     salary_template = find_template('\u85aa\u916c')

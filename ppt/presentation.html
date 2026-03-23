@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>社保表格聚合工具 · 领导汇报 · 2026年3月</title>
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+/* === VIEWPORT BASE === */
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow-x:hidden;background:#2d2d2d;font-family:'DM Sans',sans-serif}
+html{scroll-snap-type:y mandatory;scroll-behavior:smooth}
+.slide{width:100vw;height:100vh;height:100dvh;overflow:hidden;scroll-snap-align:start;display:flex;flex-direction:column;position:relative}
+@media(max-height:700px){:root{--slide-padding:clamp(.75rem,3vw,2rem);--title-size:clamp(1.25rem,4.5vw,2.5rem)}}
+@media(max-height:600px){:root{--slide-padding:clamp(.5rem,2.5vw,1.5rem);--body-size:clamp(.7rem,1.2vw,.95rem)}.nav-dots{display:none}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.2ms!important}html{scroll-behavior:auto}}
+
+/* === THEME === */
+:root{
+  --outer:#2d2d2d;--page:#f8f6f1;--dark:#1a1a1a;--mid:#555;--light:#888;--border:#e5e2db;
+  --t1:#98d4bb;--t2:#c7b8ea;--t3:#f4b8c5;--t4:#a8d8ea;--t5:#ffe6a7;
+  --ease:cubic-bezier(.16,1,.3,1);
+  --slide-padding:clamp(1rem,4vw,4rem);
+  --title-size:clamp(1.5rem,5vw,4rem);
+  --body-size:clamp(.75rem,1.5vw,1.125rem);
+}
+
+/* === PAPER LAYOUT === */
+.pw{width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:var(--outer);padding:clamp(.5rem,2vh,1.5rem)}
+.paper{width:100%;height:100%;max-width:min(96vw,1100px);max-height:min(96vh,720px);background:var(--page);border-radius:4px;box-shadow:0 12px 80px rgba(0,0,0,.55);display:grid;grid-template-columns:2.2rem 1fr auto;overflow:hidden}
+.holes{background:#ede9e1;border-right:1px solid #d8d4cc;display:flex;flex-direction:column;justify-content:space-evenly;align-items:center;padding:2rem 0}
+.hole{width:clamp(.7rem,1.5vw,1rem);height:clamp(.7rem,1.5vw,1rem);border-radius:50%;background:var(--outer);box-shadow:inset 0 1px 3px rgba(0,0,0,.4)}
+.main{overflow:hidden;display:flex;flex-direction:column;padding:clamp(1.2rem,3vh,2.5rem) clamp(1.2rem,3vw,2.8rem);gap:clamp(.6rem,1.5vh,1.2rem)}
+.tabs{display:flex;flex-direction:column;justify-content:flex-start;padding-top:clamp(.8rem,2vh,2rem);gap:2px}
+.tab{writing-mode:vertical-rl;text-orientation:mixed;transform:rotate(180deg);font-size:clamp(.42rem,.65vw,.58rem);font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:clamp(.5rem,1.2vh,1rem) .3rem;border-radius:0 3px 3px 0;white-space:nowrap;cursor:pointer;opacity:.65;transition:opacity .2s}
+.tab:hover{opacity:1}.tab.active{opacity:1;margin-left:3px;box-shadow:-2px 0 0 rgba(0,0,0,.15)}
+.tab:nth-child(1){background:var(--t1);color:#2d5a3d}
+.tab:nth-child(2){background:var(--t2);color:#4a3d7a}
+.tab:nth-child(3){background:var(--t3);color:#7a3d4a}
+.tab:nth-child(4){background:var(--t4);color:#2d5a7a}
+.tab:nth-child(5){background:var(--t5);color:#7a6a2d}
+
+/* === REVEAL ANIMATIONS === */
+.reveal{opacity:0;transform:translateY(18px);transition:opacity .55s var(--ease),transform .55s var(--ease)}
+.slide.visible .reveal{opacity:1;transform:translateY(0)}
+.rl{opacity:0;transform:translateX(-20px);transition:opacity .55s var(--ease),transform .55s var(--ease)}
+.slide.visible .rl{opacity:1;transform:translateX(0)}
+.rs{opacity:0;transform:scale(.94);transition:opacity .5s var(--ease),transform .5s var(--ease)}
+.slide.visible .rs{opacity:1;transform:scale(1)}
+.d1{transition-delay:.08s}.d2{transition-delay:.18s}.d3{transition-delay:.28s}.d4{transition-delay:.38s}
+.d5{transition-delay:.46s}.d6{transition-delay:.54s}.d7{transition-delay:.62s}.d8{transition-delay:.7s}
+
+/* === COMMON === */
+.lbl{display:flex;align-items:center;gap:.6rem;font-size:clamp(.55rem,.85vw,.68rem);font-weight:600;letter-spacing:.15em;text-transform:uppercase;color:var(--light)}
+.lbl-dot{width:.5rem;height:.5rem;border-radius:50%;flex-shrink:0}
+.stitle{font-family:'Bodoni Moda',serif;font-size:clamp(1.6rem,4.5vw,3.2rem);font-weight:700;color:var(--dark);line-height:1;letter-spacing:-.02em}
+.stitle .ac{color:#7a6bba}.stitle .acm{color:#3a8a6a}.stitle .acs{color:#2d7aa0}.stitle .acg{color:#9a7a2d}
+.lead{font-size:clamp(.75rem,1.3vw,.95rem);color:var(--mid);line-height:1.6;max-width:600px;border-left:3px solid var(--border);padding-left:clamp(.7rem,1.5vw,1rem)}
+.lead.lb{border-left-color:var(--t2)}
+.ctag{padding:.2rem .6rem;border-radius:20px;font-size:clamp(.55rem,.9vw,.68rem);font-weight:600;letter-spacing:.08em}
+.tm{background:rgba(152,212,187,.3);color:#2d5a3d}.tl{background:rgba(199,184,234,.35);color:#4a3d7a}
+.ts{background:rgba(168,216,234,.35);color:#2d5a7a}.tp{background:rgba(244,184,197,.35);color:#7a3d4a}
+
+/* === PROGRESS & NAV === */
+#pb{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--t2),var(--t1));z-index:1000;width:0%;transition:width .3s ease}
+.nav-dots{position:fixed;right:clamp(.5rem,1.5vw,1.2rem);top:50%;transform:translateY(-50%);display:flex;flex-direction:column;gap:6px;z-index:100}
+.nd{width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.3);cursor:pointer;transition:all .3s}
+.nd.active{background:rgba(255,255,255,.9);transform:scale(1.4)}
+
+/* === EDIT === */
+.eho{position:fixed;top:0;left:0;width:80px;height:80px;z-index:10000;cursor:pointer}
+.etg{position:fixed;top:1rem;left:1rem;background:var(--dark);color:var(--page);border:none;border-radius:6px;padding:.4rem .8rem;font-family:'DM Sans',sans-serif;font-size:.7rem;font-weight:600;cursor:pointer;z-index:10001;opacity:0;pointer-events:none;transition:opacity .3s}
+.etg.show,.etg.active{opacity:1;pointer-events:auto}.etg.active{background:#c44a6a;color:#fff}
+[contenteditable=true]{outline:2px dashed rgba(122,107,186,.5);border-radius:3px;cursor:text}
+[contenteditable=true]:focus{outline:2px solid #7a6bba;background:rgba(199,184,234,.08)}
+
+/* ==========================================
+   SLIDE-SPECIFIC STYLES
+   ========================================== */
+
+/* COVER */
+.cov .main{justify-content:space-between;padding:clamp(1.5rem,4vh,3.5rem) clamp(1.5rem,4vw,3.5rem)}
+.cbadge{display:inline-flex;align-items:center;gap:.5rem;background:#ede9e1;border-radius:20px;padding:.25rem .8rem;font-size:clamp(.55rem,.9vw,.7rem);font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--mid);width:fit-content}
+.cbadge::before{content:'';display:block;width:.5rem;height:.5rem;border-radius:50%;background:var(--t1)}
+.ctag-row{display:flex;flex-wrap:wrap;gap:.4rem}
+.cmid{display:flex;flex-direction:column;gap:clamp(.6rem,1.5vh,1.2rem);padding:clamp(1rem,2.5vh,2rem) 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.cbot{display:flex;align-items:center;justify-content:space-between}
+.cmeta-row{font-size:clamp(.6rem,.9vw,.72rem);color:var(--light)}.cmeta-row strong{color:var(--dark);font-weight:600}
+.cver{font-family:'Bodoni Moda',serif;font-size:clamp(2rem,4vw,3.2rem);font-weight:700;color:var(--border);line-height:1}
+.cmain{font-family:'Bodoni Moda',serif;font-size:clamp(2.2rem,7vw,5.5rem);font-weight:700;color:var(--dark);line-height:.95;letter-spacing:-.03em}
+.cmain .sub{font-size:.55em;color:#7a6bba;display:block;margin-top:.1em}
+.ctag2{font-size:clamp(.55rem,.85vw,.68rem);font-weight:500;color:var(--light);letter-spacing:.1em;text-transform:uppercase}
+
+/* TOC */
+.toc-grid{display:grid;grid-template-columns:1fr 1fr;gap:clamp(.5rem,1.2vh,.9rem);flex:1}
+.toc-item{display:flex;align-items:flex-start;gap:clamp(.6rem,1.5vw,1rem);padding:clamp(.6rem,1.5vh,1rem) clamp(.7rem,1.5vw,1.1rem);background:white;border-radius:6px;border:1px solid var(--border);transition:transform .2s,box-shadow .2s}
+.toc-item:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.08)}
+.toc-num{font-family:'Bodoni Moda',serif;font-size:clamp(1.2rem,2.5vw,2rem);font-weight:700;line-height:1;flex-shrink:0;min-width:2rem}
+.toc-t{font-size:clamp(.7rem,1.2vw,.9rem);font-weight:600;color:var(--dark);line-height:1.2}
+.toc-d{font-size:clamp(.6rem,.95vw,.75rem);color:var(--light);line-height:1.3}
+
+/* CHALLENGE */
+.chl{display:flex;flex-direction:column;gap:clamp(.5rem,1.2vh,.9rem);flex:1}
+.chi{display:flex;gap:clamp(.8rem,1.5vw,1.2rem);align-items:flex-start;padding:clamp(.6rem,1.5vh,1rem) clamp(.8rem,1.5vw,1.2rem);background:white;border-radius:6px;border:1px solid var(--border)}
+.chic{font-size:clamp(1rem,2vw,1.4rem);flex-shrink:0;margin-top:.1rem}
+.chb{display:flex;flex-direction:column;gap:.2rem}
+.cht{font-size:clamp(.7rem,1.2vw,.9rem);font-weight:600;color:var(--dark);line-height:1.2}
+.chd{font-size:clamp(.62rem,.95vw,.76rem);color:var(--mid);line-height:1.4}
+
+/* GOALS */
+.gg{display:grid;grid-template-columns:1fr 1fr;gap:clamp(.5rem,1.2vh,.9rem);flex:1}
+.gc{background:white;border-radius:6px;border:1px solid var(--border);padding:clamp(.8rem,2vh,1.4rem);display:flex;flex-direction:column;gap:.4rem;position:relative;overflow:hidden}
+.gc::before{content:'';position:absolute;top:0;left:0;width:100%;height:3px}
+.gc:nth-child(1)::before{background:var(--t1)}.gc:nth-child(2)::before{background:var(--t2)}
+.gc:nth-child(3)::before{background:var(--t3)}.gc:nth-child(4)::before{background:var(--t4)}
+.gn{font-family:'Bodoni Moda',serif;font-size:clamp(1.5rem,3vw,2.5rem);font-weight:700;line-height:1;color:var(--border)}
+.gt{font-size:clamp(.72rem,1.2vw,.9rem);font-weight:600;color:var(--dark);line-height:1.2}
+.gd{font-size:clamp(.62rem,.95vw,.76rem);color:var(--mid);line-height:1.4}
+
+/* ARCH */
+.aw{display:grid;grid-template-columns:1fr auto 1fr;gap:clamp(1rem,2.5vw,2rem);flex:1;align-items:start}
+.ac-col{display:flex;flex-direction:column;gap:clamp(.4rem,1vh,.7rem)}
+.ah{padding:clamp(.4rem,1vh,.7rem) clamp(.6rem,1.5vw,1rem);border-radius:5px 5px 0 0;font-size:clamp(.62rem,.95vw,.76rem);font-weight:700;letter-spacing:.1em;text-transform:uppercase;text-align:center}
+.ah.fe{background:rgba(168,216,234,.4);color:#2d5a7a}.ah.be{background:rgba(199,184,234,.4);color:#4a3d7a}
+.ab{background:white;border:1px solid var(--border);border-radius:5px;padding:clamp(.5rem,1.2vh,.9rem) clamp(.6rem,1.5vw,1rem);display:flex;flex-direction:column;gap:.2rem}
+.abt{font-size:clamp(.65rem,1vw,.8rem);font-weight:600;color:var(--dark)}
+.abd{font-size:clamp(.58rem,.88vw,.7rem);color:var(--light)}
+.aar{text-align:center;font-size:clamp(.7rem,1.2vw,.9rem);color:var(--light)}
+
+/* REGIONS */
+.rg{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(.4rem,1vh,.7rem);flex:1}
+.rc{background:white;border-radius:6px;border:1px solid var(--border);padding:clamp(.6rem,1.5vh,1rem);display:flex;flex-direction:column;gap:.3rem;position:relative;overflow:hidden}
+.rc::after{content:'';position:absolute;bottom:0;left:0;right:0;height:3px}
+.rc:nth-child(1)::after{background:var(--t1)}.rc:nth-child(2)::after{background:var(--t2)}.rc:nth-child(3)::after{background:var(--t3)}
+.rc:nth-child(4)::after{background:var(--t4)}.rc:nth-child(5)::after{background:var(--t5)}.rc:nth-child(6)::after{background:#d4b8a0}
+.rn{font-size:clamp(.7rem,1.2vw,.9rem);font-weight:700;color:var(--dark)}
+.rf{font-size:clamp(.58rem,.88vw,.7rem);color:var(--light);font-style:italic}
+.rfl{list-style:none;display:flex;flex-direction:column;gap:.15rem;margin-top:.1rem}
+.rfl li{font-size:clamp(.58rem,.88vw,.7rem);color:var(--mid);padding-left:.8rem;position:relative;line-height:1.35}
+.rfl li::before{content:'·';position:absolute;left:0;color:var(--light)}
+
+/* FIELD MAP */
+.mf{display:grid;grid-template-columns:1fr auto 1fr;gap:clamp(.8rem,2vw,1.5rem);align-items:center;flex:1}
+.fc{display:flex;flex-direction:column;gap:clamp(.3rem,.8vh,.6rem)}
+.fct{font-size:clamp(.6rem,.9vw,.72rem);font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--light);margin-bottom:.2rem}
+.ft{background:white;border:1px solid var(--border);border-radius:4px;padding:.3rem .6rem;font-size:clamp(.6rem,.92vw,.74rem);font-weight:500;color:var(--dark);line-height:1.2}
+.ft.mp{background:rgba(199,184,234,.2);border-color:var(--t2);color:#4a3d7a}
+.faw{font-size:clamp(1rem,2vw,1.6rem);color:var(--light);text-align:center}
+.aib{display:inline-flex;align-items:center;gap:.4rem;background:rgba(199,184,234,.2);border:1px solid var(--t2);border-radius:20px;padding:.2rem .6rem;font-size:clamp(.55rem,.85vw,.68rem);font-weight:600;color:#4a3d7a}
+.aib::before{content:'★';font-size:.6em}
+
+/* VALIDATION */
+.vc{display:grid;grid-template-columns:1fr 1fr;gap:clamp(1rem,2.5vw,2rem);flex:1}
+.vcc{display:flex;flex-direction:column;gap:clamp(.4rem,1vh,.7rem)}
+.vct{font-size:clamp(.62rem,.95vw,.76rem);font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--light)}
+.vi{display:flex;align-items:center;gap:.6rem;padding:clamp(.4rem,1vh,.7rem) clamp(.6rem,1.5vw,1rem);background:white;border-radius:5px;border:1px solid var(--border)}
+.vd{width:.45rem;height:.45rem;border-radius:50%;flex-shrink:0}.vd.ok{background:#3a8a6a}.vd.wn{background:#d4a030}.vd.er{background:#c44a6a}
+.vt{font-size:clamp(.62rem,.95vw,.76rem);color:var(--mid);line-height:1.3}.vt strong{color:var(--dark);font-weight:600}
+
+/* MATCH */
+.mfl{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(.6rem,1.5vw,1.2rem);flex:1;align-items:start}
+.mfc{display:flex;flex-direction:column;gap:clamp(.4rem,1vh,.7rem)}
+.mfh{padding:clamp(.4rem,1vh,.7rem);border-radius:5px;font-size:clamp(.6rem,.95vw,.74rem);font-weight:700;text-align:center;letter-spacing:.06em;text-transform:uppercase}
+.mfh.src{background:rgba(168,216,234,.3);color:#2d5a7a}.mfh.eng{background:rgba(199,184,234,.3);color:#4a3d7a}.mfh.res{background:rgba(152,212,187,.3);color:#2d5a3d}
+.mc{background:white;border:1px solid var(--border);border-radius:5px;padding:clamp(.4rem,1vh,.7rem) clamp(.5rem,1.2vw,.9rem)}
+.mct{font-size:clamp(.62rem,.95vw,.76rem);font-weight:600;color:var(--dark);line-height:1.2}
+.mcd{font-size:clamp(.58rem,.88vw,.7rem);color:var(--light);margin-top:.1rem;line-height:1.3}
+.mc.hi{border-color:var(--t2);background:rgba(199,184,234,.1)}.mc.su{border-color:var(--t1);background:rgba(152,212,187,.1)}
+.mc.wa{border-color:var(--t5);background:rgba(255,230,167,.1)}.mc.da{border-color:var(--t3);background:rgba(244,184,197,.1)}
+
+/* EXPORT */
+.ec{display:grid;grid-template-columns:1fr 1fr;gap:clamp(1rem,2.5vw,2rem);flex:1;align-items:start}
+.ecard{background:white;border-radius:8px;padding:clamp(1rem,2.5vh,2rem);display:flex;flex-direction:column;gap:clamp(.5rem,1.2vh,.9rem)}
+.ecard:nth-child(1){border:2px solid var(--t2)}.ecard:nth-child(2){border:2px solid var(--t1)}
+.ebdg{display:inline-block;padding:.2rem .6rem;border-radius:4px;font-size:clamp(.55rem,.85vw,.68rem);font-weight:700;letter-spacing:.08em;text-transform:uppercase;width:fit-content}
+.ecard:nth-child(1) .ebdg{background:rgba(199,184,234,.3);color:#4a3d7a}.ecard:nth-child(2) .ebdg{background:rgba(152,212,187,.3);color:#2d5a3d}
+.et{font-family:'Bodoni Moda',serif;font-size:clamp(1rem,2vw,1.5rem);font-weight:700;color:var(--dark);line-height:1.2}
+.ep{font-size:clamp(.55rem,.85vw,.68rem);color:var(--light);font-family:monospace;background:#f0ece5;padding:.3rem .5rem;border-radius:3px;word-break:break-all;line-height:1.4}
+.el{list-style:none;display:flex;flex-direction:column;gap:.25rem}
+.el li{font-size:clamp(.6rem,.92vw,.74rem);color:var(--mid);padding-left:1rem;position:relative;line-height:1.35}
+.el li::before{content:'✓';position:absolute;left:0;color:#3a8a6a;font-weight:700}
+
+/* AI */
+.ais{display:grid;grid-template-columns:1fr 1fr;gap:clamp(1rem,2.5vw,2rem);flex:1}
+.aip{display:flex;flex-direction:column;gap:clamp(.4rem,1vh,.7rem)}
+.aipt{font-size:clamp(.62rem,.95vw,.76rem);font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--light)}
+.aii{display:flex;gap:.6rem;align-items:flex-start;padding:clamp(.4rem,1vh,.7rem) clamp(.6rem,1.5vw,1rem);background:white;border-radius:5px;border:1px solid var(--border)}
+.aiic{font-size:clamp(.9rem,1.5vw,1.1rem);flex-shrink:0;margin-top:.05rem}
+.aiit{font-size:clamp(.6rem,.92vw,.74rem);color:var(--mid);line-height:1.4}.aiit strong{color:var(--dark);display:block;margin-bottom:.1rem}
+.aii.hi{border-color:var(--t2);background:rgba(199,184,234,.08)}
+
+/* METRICS */
+.mg{display:grid;grid-template-columns:repeat(3,1fr);gap:clamp(.5rem,1.2vh,.9rem);flex:1}
+.mcard{background:white;border-radius:6px;border:1px solid var(--border);padding:clamp(.8rem,2vh,1.5rem) clamp(.6rem,1.5vw,1.2rem);display:flex;flex-direction:column;justify-content:space-between;gap:.5rem;position:relative;overflow:hidden}
+.mcard::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.mcard:nth-child(1)::before{background:var(--t1)}.mcard:nth-child(2)::before{background:var(--t2)}.mcard:nth-child(3)::before{background:var(--t3)}
+.mcard:nth-child(4)::before{background:var(--t4)}.mcard:nth-child(5)::before{background:var(--t5)}.mcard:nth-child(6)::before{background:#d4b8a0}
+.mn{font-family:'Bodoni Moda',serif;font-size:clamp(2rem,4.5vw,3.5rem);font-weight:700;color:var(--dark);line-height:1}
+.ml{font-size:clamp(.6rem,.95vw,.75rem);font-weight:500;color:var(--mid);line-height:1.3}
+.ms{font-size:clamp(.55rem,.85vw,.65rem);color:var(--light);font-style:italic}
+
+/* ROADMAP */
+.rl-list{display:flex;flex-direction:column;gap:clamp(.4rem,1vh,.7rem);flex:1}
+.ri{display:grid;grid-template-columns:auto 1fr;gap:clamp(.8rem,2vw,1.5rem);align-items:center;padding:clamp(.5rem,1.2vh,.9rem) clamp(.8rem,2vw,1.4rem);background:white;border-radius:6px;border:1px solid var(--border)}
+.rph{font-size:clamp(.55rem,.85vw,.68rem);font-weight:700;letter-spacing:.1em;text-transform:uppercase;padding:.25rem .6rem;border-radius:20px;white-space:nowrap}
+.ph-now{background:rgba(152,212,187,.3);color:#2d5a3d}.ph-q2{background:rgba(199,184,234,.3);color:#4a3d7a}
+.ph-q3{background:rgba(168,216,234,.3);color:#2d5a7a}.ph-q4{background:rgba(255,230,167,.3);color:#7a6a2d}
+.rco{display:flex;flex-direction:column;gap:.15rem}
+.rct{font-size:clamp(.68rem,1.1vw,.86rem);font-weight:600;color:var(--dark)}
+.rcd{font-size:clamp(.6rem,.9vw,.72rem);color:var(--light);line-height:1.3}
+
+/* CLOSING */
+.clb{display:grid;grid-template-columns:1fr 1fr;gap:clamp(1.5rem,3.5vw,3rem);flex:1;align-items:center}
+.cll{display:flex;flex-direction:column;gap:clamp(.8rem,2vh,1.5rem)}
+.clbig{font-family:'Bodoni Moda',serif;font-size:clamp(2rem,5.5vw,4.5rem);font-weight:700;color:var(--dark);line-height:1;letter-spacing:-.02em}
+.clbig em{color:#7a6bba;font-style:normal}
+.clsum{font-size:clamp(.7rem,1.2vw,.9rem);color:var(--mid);line-height:1.6;max-width:340px}
+.clr{display:flex;flex-direction:column;gap:clamp(.5rem,1.2vh,.9rem)}
+.ckpi{background:white;border:1px solid var(--border);border-radius:6px;padding:clamp(.6rem,1.5vh,1.1rem) clamp(.8rem,2vw,1.4rem);display:flex;align-items:center;gap:.8rem}
+.ckn{font-family:'Bodoni Moda',serif;font-size:clamp(1.5rem,3vw,2.5rem);font-weight:700;color:var(--dark);min-width:3.5rem;line-height:1}
+.ckt{font-size:clamp(.65rem,1vw,.8rem);font-weight:600;color:var(--dark)}
+.cks{font-size:clamp(.58rem,.88vw,.7rem);color:var(--light)}
+
+/* ==============================================
+   BEFORE / AFTER SLIDE
+   ============================================== */
+.ba-wrap{display:grid;grid-template-columns:1fr 1fr;flex:1;gap:0;overflow:hidden;border-radius:4px;border:1px solid var(--border)}
+.ba-before{background:#1a1a1a;display:flex;flex-direction:column;justify-content:center;padding:clamp(1.2rem,3vw,2.5rem);gap:clamp(.8rem,1.5vh,1.2rem);position:relative}
+.ba-after{background:#fff;display:flex;flex-direction:column;justify-content:center;padding:clamp(1.2rem,3vw,2.5rem);gap:clamp(.8rem,1.5vh,1.2rem);border-left:3px solid var(--t1)}
+.ba-label{font-size:clamp(.55rem,.85vw,.68rem);font-weight:700;letter-spacing:.15em;text-transform:uppercase}
+.ba-before .ba-label{color:rgba(255,255,255,.4)}
+.ba-after .ba-label{color:#3a8a6a}
+.ba-time{font-family:'Bodoni Moda',serif;line-height:1;font-weight:700}
+.ba-before .ba-time{font-size:clamp(2rem,5vw,3.5rem);color:#ff6b6b}
+.ba-after .ba-time{font-size:clamp(2rem,5vw,3.5rem);color:#3a8a6a}
+.ba-unit{font-size:clamp(.7rem,1.2vw,.9rem);font-weight:500;margin-left:.3rem}
+.ba-before .ba-unit{color:rgba(255,255,255,.5)}
+.ba-after .ba-unit{color:#3a8a6a}
+.ba-desc{font-size:clamp(.65rem,1vw,.8rem);color:rgba(255,255,255,.55);line-height:1.5}
+.ba-after .ba-desc{color:var(--mid)}
+
+/* Slow progress bar (before) */
+.ba-prog-wrap{display:flex;flex-direction:column;gap:.4rem}
+.ba-prog-label{font-size:clamp(.55rem,.85vw,.65rem);color:rgba(255,255,255,.4);letter-spacing:.08em}
+.ba-after .ba-prog-label{color:var(--light)}
+.ba-prog{height:6px;background:rgba(255,255,255,.1);border-radius:3px;overflow:hidden;position:relative}
+.ba-after .ba-prog{background:rgba(152,212,187,.2)}
+.ba-fill{height:100%;border-radius:3px;transform-origin:left;transform:scaleX(0)}
+.ba-before .ba-fill{background:linear-gradient(90deg,#ff6b6b,#ff9a9a)}
+.ba-after .ba-fill{background:linear-gradient(90deg,var(--t1),#6bba8a)}
+
+/* Animate bar when slide becomes visible */
+.slide.visible .ba-fill.slow{animation:fillSlow 8s linear forwards .6s}
+.slide.visible .ba-fill.fast{animation:fillFast .8s var(--ease) forwards .6s}
+@keyframes fillSlow{to{transform:scaleX(.35)}} /* stuck at 35% — still working */
+@keyframes fillFast{to{transform:scaleX(1)}}
+
+/* Step list */
+.ba-steps{list-style:none;display:flex;flex-direction:column;gap:.3rem}
+.ba-steps li{font-size:clamp(.6rem,.92vw,.74rem);color:rgba(255,255,255,.5);padding-left:1.2rem;position:relative;line-height:1.3}
+.ba-after .ba-steps li{color:var(--mid)}
+.ba-steps li::before{position:absolute;left:0}
+.ba-before .ba-steps li::before{content:'⏳'}
+.ba-after .ba-steps li::before{content:'✓';color:#3a8a6a;font-weight:700}
+
+/* VS badge */
+.vs-badge{position:absolute;right:calc(-1 * clamp(1.2rem,2.5vw,2rem));top:50%;transform:translateY(-50%);width:clamp(2rem,4vw,3rem);height:clamp(2rem,4vw,3rem);background:var(--page);border:2px solid var(--border);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:clamp(.55rem,.8vw,.68rem);font-weight:800;color:var(--mid);letter-spacing:.05em;z-index:10}
+
+/* Counter animation */
+.ba-counter{font-family:'Bodoni Moda',serif;line-height:1;font-weight:700}
+
+/* ==============================================
+   UI DEMO SLIDES — browser window style
+   ============================================== */
+.demo-wrap{flex:1;display:flex;flex-direction:column;gap:clamp(.5rem,1.2vh,.8rem);overflow:hidden}
+.browser{background:white;border:1px solid var(--border);border-radius:8px;overflow:hidden;display:flex;flex-direction:column;flex:1;min-height:0}
+.browser-bar{background:#f0ece5;border-bottom:1px solid var(--border);padding:.4rem .8rem;display:flex;align-items:center;gap:.5rem;flex-shrink:0}
+.btr{display:flex;gap:.3rem}
+.btr span{width:.55rem;height:.55rem;border-radius:50%}
+.btr span:nth-child(1){background:#f4b8c5}.btr span:nth-child(2){background:var(--t5)}.btr span:nth-child(3){background:var(--t1)}
+.burl{flex:1;background:white;border:1px solid var(--border);border-radius:20px;padding:.15rem .7rem;font-size:clamp(.5rem,.8vw,.62rem);color:var(--light);font-family:monospace}
+.browser-body{flex:1;overflow:hidden;padding:clamp(.8rem,1.5vh,1.2rem);display:flex;flex-direction:column;gap:clamp(.5rem,1vh,.8rem)}
+
+/* APP TOPBAR inside browser */
+.app-bar{display:flex;align-items:center;justify-content:space-between;padding:.4rem .8rem;background:var(--page);border:1px solid var(--border);border-radius:6px;flex-shrink:0}
+.app-title{font-size:clamp(.6rem,.95vw,.75rem);font-weight:700;color:var(--dark);letter-spacing:.05em}
+.app-tag{font-size:clamp(.5rem,.75vw,.6rem);background:rgba(199,184,234,.3);color:#4a3d7a;padding:.1rem .4rem;border-radius:10px;font-weight:600}
+
+/* ---- DEMO 1: UPLOAD ---- */
+.upload-zone{border:2px dashed var(--t2);border-radius:8px;padding:clamp(.8rem,1.5vh,1.2rem);display:flex;flex-direction:column;align-items:center;gap:.4rem;background:rgba(199,184,234,.05);flex-shrink:0}
+.upload-icon{font-size:clamp(1.2rem,2.5vw,1.8rem);opacity:.5}
+.upload-hint{font-size:clamp(.58rem,.9vw,.7rem);color:var(--light);text-align:center}
+.file-list{display:flex;flex-direction:column;gap:.3rem;flex:1;overflow:hidden}
+.file-row{display:grid;grid-template-columns:auto 1fr auto auto;gap:.6rem;align-items:center;padding:.35rem .6rem;background:white;border:1px solid var(--border);border-radius:5px;opacity:0;transform:translateY(8px);transition:opacity .3s ease,transform .3s ease}
+.file-row.show{opacity:1;transform:translateY(0)}
+.file-icon{font-size:clamp(.8rem,1.3vw,.95rem)}
+.file-name{font-size:clamp(.58rem,.9vw,.7rem);font-weight:500;color:var(--dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.file-size{font-size:clamp(.5rem,.75vw,.6rem);color:var(--light)}
+.file-status{font-size:clamp(.55rem,.85vw,.65rem);font-weight:600;padding:.1rem .4rem;border-radius:10px;white-space:nowrap}
+.fs-wait{background:rgba(168,216,234,.2);color:#2d5a7a}
+.fs-proc{background:rgba(255,230,167,.3);color:#7a6a2d;animation:pulse .8s infinite}
+.fs-done{background:rgba(152,212,187,.3);color:#2d5a3d}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+
+/* parse progress mini bars */
+.parse-bar{height:3px;background:var(--border);border-radius:2px;overflow:hidden;margin-top:.15rem}
+.parse-fill{height:100%;background:linear-gradient(90deg,var(--t2),var(--t1));border-radius:2px;transform-origin:left;transform:scaleX(0);transition:transform .6s var(--ease)}
+
+/* ---- DEMO 2: DASHBOARD ---- */
+.dash-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:.4rem;flex-shrink:0}
+.dstat{background:white;border:1px solid var(--border);border-radius:5px;padding:.4rem .6rem;display:flex;flex-direction:column;gap:.1rem}
+.dstat-n{font-family:'Bodoni Moda',serif;font-size:clamp(1rem,2vw,1.4rem);font-weight:700;color:var(--dark);line-height:1}
+.dstat-l{font-size:clamp(.5rem,.75vw,.6rem);color:var(--light)}
+.dash-table{flex:1;overflow:hidden;display:flex;flex-direction:column;gap:.2rem}
+.dt-header{display:grid;grid-template-columns:2fr 1.5fr 1fr 1fr 1.2fr;gap:.4rem;padding:.25rem .5rem;background:var(--page);border-radius:4px;flex-shrink:0}
+.dth{font-size:clamp(.5rem,.75vw,.6rem);font-weight:700;color:var(--light);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dt-rows{display:flex;flex-direction:column;gap:.2rem;overflow:hidden}
+.dt-row{display:grid;grid-template-columns:2fr 1.5fr 1fr 1fr 1.2fr;gap:.4rem;align-items:center;padding:.25rem .5rem;background:white;border:1px solid var(--border);border-radius:4px;opacity:0;transform:translateX(-10px);transition:opacity .3s ease,transform .3s ease}
+.dt-row.show{opacity:1;transform:translateX(0)}
+.dtc{font-size:clamp(.55rem,.85vw,.66rem);color:var(--dark);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dtc.mono{font-family:monospace;font-size:clamp(.5rem,.75vw,.6rem);color:var(--light)}
+.status-dot{display:inline-flex;align-items:center;gap:.25rem;font-size:clamp(.5rem,.75vw,.6rem);font-weight:600;padding:.1rem .35rem;border-radius:10px;white-space:nowrap}
+.sd-ok{background:rgba(152,212,187,.3);color:#2d5a3d}
+.sd-proc{background:rgba(255,230,167,.3);color:#7a6a2d}
+.sd-warn{background:rgba(244,184,197,.3);color:#7a3d4a}
+
+/* region tag in table */
+.rtag{font-size:clamp(.48rem,.72vw,.58rem);padding:.08rem .35rem;border-radius:3px;font-weight:600}
+.rtag-gz{background:rgba(152,212,187,.25);color:#2d5a3d}
+.rtag-hz{background:rgba(199,184,234,.25);color:#4a3d7a}
+.rtag-sz{background:rgba(244,184,197,.25);color:#7a3d4a}
+.rtag-xm{background:rgba(168,216,234,.25);color:#2d5a7a}
+.rtag-wh{background:rgba(255,230,167,.3);color:#7a6a2d}
+.rtag-cs{background:rgba(212,184,160,.25);color:#6a4a2d}
+
+/* ---- DEMO 3: EXPORT ---- */
+.export-demo{display:grid;grid-template-columns:1fr 1fr;gap:clamp(.8rem,2vw,1.5rem);flex:1;align-items:center}
+.exp-card{border-radius:8px;padding:clamp(.8rem,2vh,1.5rem);display:flex;flex-direction:column;gap:clamp(.5rem,1.2vh,.8rem);position:relative;overflow:hidden;opacity:0;transform:translateY(20px);transition:opacity .5s var(--ease),transform .5s var(--ease)}
+.exp-card.show{opacity:1;transform:translateY(0)}
+.exp-card:nth-child(1){border:2px solid var(--t2);background:rgba(199,184,234,.05)}
+.exp-card:nth-child(2){border:2px solid var(--t1);background:rgba(152,212,187,.05)}
+.exp-circle{width:clamp(2.5rem,5vw,4rem);height:clamp(2.5rem,5vw,4rem);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:clamp(1.2rem,2.5vw,1.8rem);flex-shrink:0}
+.exp-card:nth-child(1) .exp-circle{background:rgba(199,184,234,.2)}
+.exp-card:nth-child(2) .exp-circle{background:rgba(152,212,187,.2)}
+.exp-header{display:flex;align-items:center;gap:.8rem}
+.exp-info{display:flex;flex-direction:column;gap:.15rem}
+.exp-name{font-size:clamp(.68rem,1.1vw,.86rem);font-weight:700;color:var(--dark);line-height:1.2}
+.exp-type{font-size:clamp(.55rem,.85vw,.65rem);color:var(--light)}
+.exp-progress{display:flex;flex-direction:column;gap:.3rem}
+.exp-bar{height:6px;background:var(--border);border-radius:3px;overflow:hidden}
+.exp-fill{height:100%;border-radius:3px;transform-origin:left;transform:scaleX(0)}
+.exp-card:nth-child(1) .exp-fill{background:linear-gradient(90deg,var(--t2),#9a7aff)}
+.exp-card:nth-child(2) .exp-fill{background:linear-gradient(90deg,var(--t1),#6bba8a)}
+.exp-pct{font-size:clamp(.55rem,.85vw,.65rem);color:var(--light);text-align:right}
+.exp-success{display:flex;align-items:center;gap:.5rem;padding:.4rem .7rem;background:rgba(152,212,187,.2);border-radius:5px;opacity:0;transition:opacity .5s ease}
+.exp-success.show{opacity:1}
+.exp-success-icon{font-size:1rem}
+.exp-success-text{font-size:clamp(.58rem,.9vw,.7rem);font-weight:600;color:#2d5a3d}
+
+/* dual export success banner */
+.exp-banner{display:flex;align-items:center;justify-content:center;gap:.8rem;padding:clamp(.5rem,1.2vh,.8rem);background:rgba(152,212,187,.15);border:1px solid rgba(152,212,187,.4);border-radius:6px;opacity:0;transition:opacity .5s ease .2s;flex-shrink:0}
+.exp-banner.show{opacity:1}
+.exp-banner-text{font-size:clamp(.65rem,1vw,.8rem);font-weight:600;color:#2d5a3d}
+
+/* ---- DEMO 4: FIELD MAPPING animation ---- */
+.fmap-demo{flex:1;display:flex;flex-direction:column;gap:clamp(.5rem,1.2vh,.8rem);overflow:hidden}
+.fmap-row{display:grid;grid-template-columns:1fr auto 1fr auto;gap:.5rem;align-items:center}
+.fmap-raw{background:white;border:1px solid var(--border);border-radius:4px;padding:.25rem .5rem;font-size:clamp(.58rem,.9vw,.7rem);color:var(--dark);opacity:0;transform:translateX(-15px);transition:opacity .4s ease,transform .4s ease}
+.fmap-raw.show{opacity:1;transform:translateX(0)}
+.fmap-arrow{font-size:.8rem;color:var(--light);opacity:0;transition:opacity .3s ease .2s}
+.fmap-raw.show + .fmap-arrow{opacity:1}
+.fmap-std{background:rgba(199,184,234,.15);border:1px solid var(--t2);border-radius:4px;padding:.25rem .5rem;font-size:clamp(.58rem,.9vw,.7rem);color:#4a3d7a;font-weight:600;opacity:0;transform:translateX(15px);transition:opacity .4s ease .15s,transform .4s ease .15s}
+.fmap-std.show{opacity:1;transform:translateX(0)}
+.fmap-conf{font-size:clamp(.5rem,.75vw,.6rem);padding:.1rem .3rem;border-radius:10px;background:rgba(152,212,187,.25);color:#2d5a3d;font-weight:600;opacity:0;transition:opacity .3s ease .4s;white-space:nowrap}
+.fmap-raw.show ~ .fmap-conf, .fmap-std.show ~ .fmap-conf{opacity:1}
+</style>
+</head>
+<body>
+
+<div id="pb"></div>
+<nav class="nav-dots" id="nd"></nav>
+<div class="eho" id="eho"></div>
+<button class="etg" id="etg">&#9999; 编辑</button>
+
+<!-- ============================================================
+     SLIDE 1: COVER
+     ============================================================ -->
+<section class="slide" data-i="0">
+<div class="pw"><div class="paper cov">
+  <div class="holes"><div class="hole"></div><div class="hole"></div><div class="hole"></div><div class="hole"></div></div>
+  <div class="main">
+    <div class="reveal d1"><div class="cbadge">内部汇报文件 · 机密</div></div>
+    <div class="reveal d2" style="display:flex;flex-direction:column;gap:.3rem">
+      <div class="ctag2">React + FastAPI · 智能解析 · v4.0.0</div>
+      <div class="cmain">社保表格<span class="sub">聚合工具</span></div>
+    </div>
+    <div class="cmid reveal d3">
+      <div style="font-size:clamp(.72rem,1.2vw,.9rem);color:var(--mid);line-height:1.6;max-width:520px">统一多地区社保报表格式，自动识别表头、标准化字段、精准工号匹配，同步双模板导出。让社保数据处理从<strong>「手工对照 1-2天」</strong>升级为<strong>「一键自动化 5分钟」</strong>。</div>
+      <div class="ctag-row">
+        <span class="ctag tm">多地区解析</span><span class="ctag tl">AI+规则映射</span>
+        <span class="ctag ts">工号匹配</span><span class="ctag tp">双模板导出</span>
+      </div>
+    </div>
+    <div class="cbot reveal d4">
+      <div style="display:flex;flex-direction:column;gap:.2rem">
+        <div class="cmeta-row">汇报日期：<strong>2026年3月</strong></div>
+        <div class="cmeta-row">当前版本：<strong>v4.0.0</strong></div>
+      </div>
+      <div class="cver">v4</div>
+    </div>
+  </div>
+  <div class="tabs">
+    <div class="tab active" data-s="0">背景目标</div><div class="tab" data-s="1">系统功能</div>
+    <div class="tab" data-s="2">技术方案</div><div class="tab" data-s="3">成果展示</div>
+    <div class="tab" data-s="4">下一步计划</div>
+  </div>
+</div></div>
+</section>
+
+<!-- ============================================================
+     SLIDE 2: TOC
+     ============================================================ -->
+<section class="slide" data-i="1">
+<div class="pw"><div class="paper">
+  <div class="holes"><div class="hole"></div><div class="hole"></div><div class="hole"></div><div class="hole"></div></div>
+  <div class="main">
+    <div class="lbl reveal d1"><span class="lbl-dot" style="background:var(--t1)"></span>汇报结构</div>
+    <div class="stitle reveal d2">汇报<span class="ac">目录</span></div>
+    <div class="toc-grid">
+      <div class="toc-item reveal d3"><div class="toc-num" style="color:var(--t1)">一</div><div><div class="toc-t">项目背景与痛点</div><div class="toc-d">手工处理的代价与系统化的契机</div></div></div>
+      <div class="toc-item reveal d4"><div class="toc-num" style="color:var(--t2)">二</div><div><div class="toc-t">效率对比：前 vs 后</div><div class="toc-d">1-2天 → 5分钟，量化价值</div></div></div>
+      <div class="toc-item reveal d5"><div class="toc-num" style="color:var(--t3)">三</div><div><div class="toc-t">系统核心能力</div><div class="toc-d">解析·标准化·校验·匹配·双模板导出</div></div></div>
+      <div class="toc-item reveal d6"><div class="toc-num" style="color:var(--t4)">四</div><div><div class="toc-t">功能界面演示</div><div class="toc-d">上传·解析看板·导出全流程实录</div></div></div>
+      <div class="toc-item reveal d7" style="grid-column:span 2"><div class="toc-num" style="color:var(--t5)">五</div><div><div class="toc-t">成果数据 &amp; 后续规划</div><div class="toc-d">v4.0里程碑 · Q2-Q4路线图</div></div></div>
+    </div>
+  </div>
+  <div class="tabs"><div class="tab active" data-s="0">背景目标</div><div class="tab" data-s="1">系统功能</div><div class="tab" data-s="2">技术方案</div><div class="tab" data-s="3">成果展示</div><div class="tab" data-s="4">下一步计划</div></div>
+</div></div>
+</section>
+
+<!-- ============================================================
+     SLIDE 3: BACKGROUND
+     ============================================================ -->
+<section class="slide" data-i="2">
+<div class="pw"><div class="paper">
+  <div class="holes"><div class="hole"></div><div class="hole"></div><div class="hole"></div><div class="hole"></div></div>
+  <div class="main">
+    <div class="lbl reveal d1"><span class="lbl-dot" style="background:var(--t1)"></span>一 · 背景与挑战</div>
+    <div class="stitle reveal d2">我们在<span class="acm">解决什么</span>？</div>
+    <div class="lead lb reveal d3">各地区社保报表格式不统一，手工汇总每月耗费 <strong>1-2个工作日</strong>，错误率高，且无法追溯。</div>
+    <div class="chl">
+      <div class="chi reveal d4"><div class="chic">📋</div><div class="chb"><div class="cht">格式多样，无法统一读取</div><div class="chd">广/杭/深/厦/汉/长各自一套表头命名，同一险种有5+种不同叫法，人工对照每月耗时数小时</div></div></div>
+      <div class="chi reveal d5"><div class="chic">🔗</div><div class="chb"><div class="cht">工号匹配全靠人工比对</div><div class="chd">社保报表无工号字段，需人工核对姓名+身份证与员工主数据，漏匹配、错匹配时有发生</div></div></div>
+      <div class="chi reveal d6"><div class="chic">📤</div><div class="chb"><div class="cht">两份固定模板需手动填写</div><div class="chd">薪酬模板与工具表最终版须同步维护，每月重复劳动，一旦遗漏即视为未完成</div></div></div>
+      <div class="chi reveal d7"><div class="chic">🔍</div><div class="chb"><div class="cht">数据不可追溯，校验全凭经验</div><div class="chd">原始数据从何而来、合计行是否误算为明细，均无系统性记录</div></div></div>
+    </div>
+  </div>
+  <div class="tabs"><div class="tab active" data-s="0">背景目标</div><div class="tab" data-s="1">系统功能</div><div class="tab" data-s="2">技术方案</div><div class="tab" data-s="3">成果展示</div><div class="tab" data-s="4">下一步计划</div></div>
+</div></div>
+</section>
+
+<!-- ============================================================
+     SLIDE 4: BEFORE vs AFTER ← NEW ANIMATION SLIDE
+     ============================================================ -->
+<section class="slide" data-i="3" id="ba-slide">
+<div class="pw"><div class="paper">
+  <div class="holes"><div class="hole"></div><div class="hole"></div><div class="hole"></div><div class="hole"></div></div>
+  <div class="main">
+    <div class="lbl reveal d1"><span class="lbl-dot" style="background:var(--t3)"></span>一 · 效率对比</div>
+    <div class="stitle reveal d2">引入系统<span class="ac">前 vs 后</span></div>
+    <div class="ba-wrap reveal d3">
+      <!-- BEFORE -->
+      <div class="ba-before" style="position:relative">
+        <div class="ba-label">⛔ 之前 · 手工处理</div>
+        <div>
+          <div id="ba-before-num" class="ba-time">0</div>
+          <span class="ba-unit">天 / 每月</span>
+        </div>
+        <div class="ba-prog-wrap">
+          <div class="ba-prog-label">月度汇总进度（第2天下午仍未完成）</div>
+          <div class="ba-prog"><div class="ba-fill slow"></div></div>
+        </div>
+        <ul class="ba-steps">
+          <li>逐一打开6+地区报表，手动复制粘贴</li>
+          <li>对照险种名称手工归类，易出错</li>
+          <li>用VLOOKUP匹配工号，重复核查</li>
+          <li>分别填写两份模板，格式反复调整</li>
+          <li>最终核对汇总，发现错误再返工</li>
+        </ul>
+        <div class="vs-badge">VS</div>
+      </div>
+      <!-- AFTER -->
+      <div class="ba-after">
+        <div class="ba-label">✅ 之后 · 系统自动化</div>
+        <div>
+          <div id="ba-after-num" class="ba-time">0</div>
+          <span class="ba-unit">分钟 / 每月</span>
+        </div>
+        <div class="ba-prog-wrap">
+          <div class="ba-prog-label" style="color:var(--light)">月度汇总进度（< 5分钟全部完成）</div>
+          <div class="ba-prog"><div class="ba-fill fast"></div></div>
+        </div>
+        <ul class="ba-steps">
+          <li>批量上传所有地区报表文件</li>
+          <li>系统自动识别表头并标准化字段</li>
+          <li>AI辅助兜底，规则优先精准映射</li>
+          <li>工号自动匹配，异常项标注提示</li>
+          <li>双模板同步生成，一键下载</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+  <div class="tabs"><div class="tab active" data-s="0">背景目标</div><div class="tab" data-s="1">系统功能</div><div class="tab" data-s="2">技术方案</div><div class="tab" data-s="3">成果展示</div><div class="tab" data-s="4">下一步计划</div></div>
+</div></div>
+</section>
+
+<!-- ============================================================
+     SLIDE 5: GOALS
+     ============================================================ -->
+<section class="slide" data-i="4">
+<div class="pw"><div class="paper">
+  <div class="holes"><div class="hole"></div><div class="hole"></div><div class="hole"></div><div class="hole"></div></div>
+  <div class="main">
+    <div class="lbl reveal d1"><span class="lbl-dot" style="background:var(--t1)"></span>一 · 项目目标</div>
+    <div class="stitle reveal d2">我们要<span class="acm">达成什么</span>？</div>
+    <div class="gg">
+      <div class="gc reveal d3"><div class="gn">01</div><div class="gt">自动识别任意格式社保表</div><div class="gd">无论哪个地区、多少层表头，系统自动定位有效数据</div></div>
+      <div class="gc reveal d4"><div class="gn">02</div><div class="gt">统一字段标准化与工号匹配</div><div class="gd">所有原始列名映射到统一标准字段，结合员工主数据精准匹配</div></div>
+      <div class="gc reveal d5"><div class="gn">03</div><div class="gt">数据校验与异常预警</div><div class="gd">缺失、重复、非明细行、金额异常全部标记，不静默丢弃</div></div>
+      <div class="gc reveal d6"><div class="gn">04</div><div class="gt">同步双模板精准导出</div><div class="gd">薪酬模板与工具表同时生成，任意一份失败均视为任务未完成</div></div>
+    </div>
+  </div>
+  <div class="tabs"><div class="tab active" data-s="0">背景目标</div><div class="tab" data-s="1">系统功能</div><div class="tab" data-s="2">技术方案</div><div class="tab" data-s="3">成果展示</div><div class="tab" data-s="4">下一步计划</div></div>
+</div></div>
+</section>
+
+<!-- ============================================================
+     SLIDE 6: UI DEMO — FILE UPLOAD & PARSE
+     ============================================================ -->
+<section class="slide" data-i="5" id="demo-upload">
+<div class="pw"><div class="paper">
+  <div class="holes"><div class="hole"></div><div class="hole"></div><div class="hole"></div><div class="hole"></div></div>
+  <div class="main">
+    <div class="lbl reveal d1"><span class="lbl-dot" style="background:var(--t4)"></span>界面演示 · 上传与解析</div>
+    <div class="stitle reveal d2">批量上传<span class="acs">实时解析</span></div>
+    <div class="demo-wrap reveal d3">
+      <div class="browser">
+        <div class="browser-bar">
+          <div class="btr"><span></span><span></span><span></span></div>
+          <div class="burl">localhost:3000 / upload</div>
+        </div>
+        <div class="browser-body">
+          <div class="app-bar">
+            <div class="app-title">社保表格聚合工具</div>
+            <div class="app-tag">v4.0.0</div>
+          </div>
+          <div class="upload-zone">
+            <div class="upload-icon">📂</div>
+            <div class="upload-hint">拖拽或点击上传社保表格（支持多文件批量）</div>
+          </div>
+          <div class="file-list" id="file-list">
+            <!-- populated by JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="tabs"><div class="tab" data-s="0">背景目标</div><div class="tab active" data-s="1">系统功能</div><div class="tab" data-s="2">技术方案</div><div class="tab" data-s="3">成果展示</div><div class="tab" data-s="4">下一步计划</div></div>
+</div></div>
+</section>
+
+<!-- ============================================================
+     SLIDE 7: UI DEMO — FIELD MAPPING ANIMATION
+     ============================================================ -->
+<section class="slide" data-i="6" id="demo-mapping">
+<div class="pw"><div class="paper">
+  <div class="holes"><div class="hole"></div><div class="hole"></div><div class="hole"></div><div class="hole"></div></div>
+  <div class="main">
+    <div class="lbl reveal d1"><span class="lbl-dot" style="background:var(--t2)"></span>界面演示 · 字段标准化</div>
+    <div class="stitle reveal d2"><span class="ac">智能映射</span>过程实录</div>
+    <div class="demo-wrap reveal d3">
+      <div class="browser">
+        <div class="browser-bar">
+          <div class="btr"><span></span><span></span><span></span></div>
+          <div class="burl">localhost:3000 / mapping-preview</div>
+        </div>
+        <div class="browser-body">
+          <div class="app-bar">
+            <span class="app-title">字段识别结果</span>
+            <span class="app-tag">规则优先 · AI兜底</span>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr auto 1fr auto;gap:.4rem;align-items:center;margin-bottom:.3rem;padding:.25rem .5rem">
+            <div style="font-size:clamp(.5rem,.75vw,.6rem);font-weight:700;color:var(--light);letter-spacing:.08em;text-transform:uppercase">原始列名</div>
+            <div></div>
+            <div style="font-size:clamp(.5rem,.75vw,.6rem);font-weight:700;color:var(--light);letter-spacing:.08em;text-transform:uppercase">标准字段</div>
+            <div style="font-size:clamp(.5rem,.75vw,.6rem);font-weight:700;color:var(--light);letter-spacing:.08em;text-transform:uppercase">置信度</div>
+          </div>
+          <div class="fmap-demo" id="fmap-demo">
+            <!-- populated by JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="tabs"><div class="tab" data-s="0">背景目标</div><div class="tab active" data-s="1">系统功能</div><div class="tab" data-s="2">技术方案</div><div class="tab" data-s="3">成果展示</div><div class="tab" data-s="4">下一步计划</div></div>
+</div></div>
+</section>
+
+<!-- ============================================================
+     SLIDE 8: UI DEMO — PARSE DASHBOARD
+     ============================================================ -->
+<section class="slide" data-i="7" id="demo-dashboard">
+<div class="pw"><div class="paper">
+  <div class="holes"><div class="hole"></div><div class="hole"></div><div class="hole"></div><div class="hole"></div></div>
+  <div class="main">
+    <div class="lbl reveal d1"><span class="lbl-dot" style="background:var(--t1)"></span>界面演示 · 解析看板</div>
+    <div class="stitle reveal d2">实时<span class="acm">解析状态</span>看板</div>
+    <div class="demo-wrap reveal d3">
+      <div class="browser">
+        <div class="browser-bar">
+          <div class="btr"><span></span><span></span><span></span></div>
+          <div class="burl">localhost:3000 / dashboard</div>
+        </div>
+        <div class="browser-body">
+          <div class="app-bar">
+            <span class="app-title">解析看板</span>
+            <span class="app-tag" id="dash-counter">已处理 0 条</span>
+          </div>
+          <div class="dash-stats" id="dash-stats">
+            <div class="dstat"><div class="dstat-n" id="ds-total">0</div><div class="dstat-l">总人员数</div></div>
+            <div class="dstat"><div class="dstat-n" id="ds-ok" style="color:#3a8a6a">0</div><div class="dstat-l">匹配成功</div></div>
+            <div class="dstat"><div class="dstat-n" id="ds-warn" style="color:#d4a030">0</div><div class="dstat-l">待核查</div></div>
+            <div class="dstat"><div class="dstat-n" id="ds-files">0</div><div class="dstat-l">来源文件</div></div>
+          </div>
+          <div class="dash-table">
+            <div class="dt-header">
+              <div class="dth">姓名</div><div class="dth">地区</div><div class="dth">工号</div><div class="dth">险种金额</div><div class="dth">状态</div>
+            </div>
+            <div class="dt-rows" id="dt-rows"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="tabs"><div class="tab" data-s="0">背景目标</div><div class="tab active" data-s="1">系统功能</div><div class="tab" data-s="2">技术方案</div><div class="tab" data-s="3">成果展示</div><div class="tab" data-s="4">下一步计划</div></div>
+</div></div>
+</section>
+
+<!-- ============================================================
+     SLIDE 9: REGIONS
+     ============================================================ -->
+<section class="slide" data-i="8">
+<div class="pw"><div class="paper">
+  <div class="holes"><div class="hole"></div><div class="hole"></div><div class="hole"></div><div class="hole"></div></div>
+  <div class="main">
+    <div class="lbl reveal d1"><span class="lbl-dot" style="background:var(--t2)"></span>二 · 系统功能</div>
+    <div class="stitle reveal d2">已覆盖<span class="ac">6+ 地区</span>社保格式</div>
+    <div class="rg">
+      <div class="rc reveal d3"><div class="rn">广州</div><div class="rf">2家公司样例</div><ul class="rfl"><li>两层复合表头（第7、8行）</li><li>前置单位信息行自动跳过</li><li>合计行精准过滤</li></ul></div>
+      <div class="rc reveal d4"><div class="rn">杭州</div><div class="rf">2家公司样例</div><ul class="rfl"><li>险种下分单位/个人子列</li><li>第3、4行复合表头合并识别</li><li>应缴费额自动归类</li></ul></div>
+      <div class="rc reveal d5"><div class="rn">厦门</div><div class="rf">2个文件含补缴</div><ul class="rfl"><li>职工社保对账单结构</li><li>补缴场景费款所属期处理</li><li>缴费基数/滞纳金提取</li></ul></div>
+      <div class="rc reveal d6"><div class="rn">深圳</div><div class="rf">8家公司样例</div><ul class="rfl"><li>在职/退休/家属统筹分组行过滤</li><li>地方补充医疗/养老字段识别</li><li>小计行自动排除</li></ul></div>
+      <div class="rc reveal d7"><div class="rn">武汉</div><div class="rf">1家公司样例</div><ul class="rfl"><li>单位/个人区块重复险种名处理</li><li>合计行识别与过滤</li></ul></div>
+      <div class="rc reveal d8"><div class="rn">长沙</div><div class="rf">1家公司样例</div><ul class="rfl"><li>有效Sheet动态定位</li><li>透视表样式表头识别</li><li>数据起始行自动探测</li></ul></div>
+    </div>
+  </div>
+  <div class="tabs"><div class="tab" data-s="0">背景目标</div><div class="tab active" data-s="1">系统功能</div><div class="tab" data-s="2">技术方案</div><div class="tab" data-s="3">成果展示</div><div class="tab" data-s="4">下一步计划</div></div>
+</div></div>
+</section>
+
+<!-- ============================================================
+     SLIDE 10: VALIDATION
+     ============================================================ -->
+<section class="slide" data-i="9">
+<div class="pw"><div class="paper">
+  <div class="holes"><div class="hole"></div><div class="hole"></div><div class="hole"></div><div class="hole"></div></div>
+  <div class="main">
+    <div class="lbl reveal d1"><span class="lbl-dot" style="background:var(--t2)"></span>二 · 系统功能</div>
+    <div class="stitle reveal d2">数据<span class="ac">校验看板</span></div>
+    <div class="lead lb reveal d3">每一条记录的解析、识别、校验、匹配、导出状态均在看板中可见，异常不静默，必须人工确认后才可继续。</div>
+    <div class="vc reveal d4">
+      <div class="vcc">
+        <div class="vct">解析与识别</div>
+        <div class="vi"><div class="vd ok"></div><div class="vt"><strong>有效Sheet定位</strong> — 非固定名称，动态识别</div></div>
+        <div class="vi"><div class="vd ok"></div><div class="vt"><strong>表头区域识别</strong> — 单层/双层/透视表均支持</div></div>
+        <div class="vi"><div class="vd ok"></div><div class="vt"><strong>非明细行过滤</strong> — 合计/小计/分组行自动排除</div></div>
+        <div class="vi"><div class="vd wn"></div><div class="vt"><strong>低置信度字段</strong> — 标记未识别，触发AI兜底</div></div>
+      </div>
+      <div class="vcc">
+        <div class="vct">匹配与导出</div>
+        <div class="vi"><div class="vd ok"></div><div class="vt"><strong>工号匹配成功</strong> — 可追溯到员工主数据</div></div>
+        <div class="vi"><div class="vd wn"></div><div class="vt"><strong>无法匹配</strong> — 标记显示，等待人工核查</div></div>
+        <div class="vi"><div class="vd er"></div><div class="vt"><strong>重复匹配</strong> — 强制阻断，不允许模糊写入</div></div>
+        <div class="vi"><div class="vd ok"></div><div class="vt"><strong>双模板导出完成</strong> — 任一失败视为整体未完成</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="tabs"><div class="tab" data-s="0">背景目标</div><div class="tab active" data-s="1">系统功能</div><div class="tab" data-s="2">技术方案</div><div class="tab" data-s="3">成果展示</div><div class="tab" data-s="4">下一步计划</div></div>
+</div></div>
+</section>
+
+<!-- ============================================================
+     SLIDE 11: UI DEMO — EXPORT COMPLETE
+     ============================================================ -->
+<section class="slide" data-i="10" id="demo-export">
+<div class="pw"><div class="paper">
+  <div class="holes"><div class="hole"></div><div class="hole"></div><div class="hole"></div><div class="hole"></div></div>
+  <div class="main">
+    <div class="lbl reveal d1"><span class="lbl-dot" style="background:var(--t1)"></span>界面演示 · 双模板导出</div>
+    <div class="stitle reveal d2">强制<span class="ac">双模板</span>同步完成</div>
+    <div class="demo-wrap reveal d3">
+      <div class="browser">
+        <div class="browser-bar">
+          <div class="btr"><span></span><span></span><span></span></div>
+          <div class="burl">localhost:3000 / export</div>
+        </div>
+        <div class="browser-body">
+          <div class="app-bar">
+            <span class="app-title">导出中心</span>
+            <span class="app-tag">2026年02月 社保公积金</span>
+          </div>
+          <div class="export-demo" id="export-demo">
+            <div class="exp-card" id="exp1">
+              <div class="exp-header">
+                <div class="exp-circle">📊</div>
+                <div class="exp-info">
+                  <div class="exp-name">社保公积金模板（薪酬）</div>
+                  <div class="exp-type">2026年02月 · 薪酬模板</div>
+                </div>
+              </div>
+              <div class="exp-progress">
+                <div class="exp-bar"><div class="exp-fill" id="ef1"></div></div>
+                <div class="exp-pct" id="ep1">0%</div>
+              </div>
+              <div class="exp-success" id="es1">
+                <div class="exp-success-icon">✅</div>
+                <div class="exp-success-text">导出成功 · 已写入 147 条人员记录</div>
+              </div>
+            </div>
+            <div class="exp-card" id="exp2">
+              <div class="exp-header">
+                <div class="exp-circle">📋</div>
+                <div class="exp-info">
+                  <div class="exp-name">社保公积金工具表（最终版）</div>
+                  <div class="exp-type">2026年02月 · 工具表模板</div>
+                </div>
+              </div>
+              <div class="exp-progress">
+                <div class="exp-bar"><div class="exp-fill" id="ef2"></div></div>
+                <div class="exp-pct" id="ep2">0%</div>
+              </div>
+              <div class="exp-success" id="es2">
+                <div class="exp-success-icon">✅</div>
+                <div class="exp-success-text">导出成功 · 已写入 147 条人员记录</div>
+              </div>
+            </div>
+          </div>
+          <div class="exp-banner" id="exp-banner">
+            <span style="font-size:1.2rem">🎉</span>
+            <div class="exp-banner-text">双模板同步导出完成 · 任务已完成 · 耗时约 4分32秒</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="tabs"><div class="tab" data-s="0">背景目标</div><div class="tab active" data-s="1">系统功能</div><div class="tab" data-s="2">技术方案</div><div class="tab" data-s="3">成果展示</div><div class="tab" data-s="4">下一步计划</div></div>
+</div></div>
+</section>
+
+<!-- ============================================================
+     SLIDE 12: AI STRATEGY
+     ============================================================ -->
+<section class="slide" data-i="11">
+<div class="pw"><div class="paper">
+  <div class="holes"><div class="hole"></div><div class="hole"></div><div class="hole"></div><div class="hole"></div></div>
+  <div class="main">
+    <div class="lbl reveal d1"><span class="lbl-dot" style="background:var(--t3)"></span>三 · 技术方案</div>
+    <div class="stitle reveal d2"><span class="ac">DeepSeek AI</span> 集成策略</div>
+    <div class="ais reveal d3">
+      <div class="aip">
+        <div class="aipt">AI 负责的场景</div>
+        <div class="aii hi"><div class="aiic">🔍</div><div class="aiit"><strong>非标准表头语义识别</strong>识别规则库未收录的新写法，给出候选字段排序</div></div>
+        <div class="aii hi"><div class="aiic">📊</div><div class="aiit"><strong>低置信度字段判定</strong>无法确定「单位金额」还是「个人金额」时AI辅助</div></div>
+        <div class="aii hi"><div class="aiic">🗂</div><div class="aiit"><strong>异常结构解析建议</strong>对全新格式文件，AI提出解析路径供人工确认</div></div>
+      </div>
+      <div class="aip">
+        <div class="aipt">AI 不替代的环节</div>
+        <div class="aii"><div class="aiic">🔢</div><div class="aiit"><strong>数值计算与金额汇总</strong>全部由Python精确计算，不依赖LLM输出</div></div>
+        <div class="aii"><div class="aiic">🔑</div><div class="aiit"><strong>工号精确匹配</strong>严格用员工主数据比对，AI不参与</div></div>
+        <div class="aii"><div class="aiic">🔒</div><div class="aiit"><strong>无API Key时完全降级</strong>基础规则链路独立可用，不阻塞主流程</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="tabs"><div class="tab" data-s="0">背景目标</div><div class="tab" data-s="1">系统功能</div><div class="tab active" data-s="2">技术方案</div><div class="tab" data-s="3">成果展示</div><div class="tab" data-s="4">下一步计划</div></div>
+</div></div>
+</section>
+
+<!-- ============================================================
+     SLIDE 13: METRICS
+     ============================================================ -->
+<section class="slide" data-i="12">
+<div class="pw"><div class="paper">
+  <div class="holes"><div class="hole"></div><div class="hole"></div><div class="hole"></div><div class="hole"></div></div>
+  <div class="main">
+    <div class="lbl reveal d1"><span class="lbl-dot" style="background:var(--t4)"></span>四 · 上线成果</div>
+    <div class="stitle reveal d2">v4.0 <span class="acs">里程碑</span>数据</div>
+    <div class="mg reveal d3">
+      <div class="mcard"><div class="mn">1-2天</div><div class="ml">→ 5分钟</div><div class="ms">月度汇总效率提升 99%</div></div>
+      <div class="mcard"><div class="mn">6+</div><div class="ml">已支持地区</div><div class="ms">广/杭/厦/深/汉/长</div></div>
+      <div class="mcard"><div class="mn">20+</div><div class="ml">样例文件覆盖</div><div class="ms">含多家公司、补缴场景</div></div>
+      <div class="mcard"><div class="mn">×2</div><div class="ml">强制双模板输出</div><div class="ms">任一失败 = 任务未完成</div></div>
+      <div class="mcard"><div class="mn">0</div><div class="ml">合计行进入明细</div><div class="ms">非明细行全部拦截</div></div>
+      <div class="mcard"><div class="mn">∞</div><div class="ml">数据全链路可追溯</div><div class="ms">来源·行号·映射依据均记录</div></div>
+    </div>
+  </div>
+  <div class="tabs"><div class="tab" data-s="0">背景目标</div><div class="tab" data-s="1">系统功能</div><div class="tab" data-s="2">技术方案</div><div class="tab active" data-s="3">成果展示</div><div class="tab" data-s="4">下一步计划</div></div>
+</div></div>
+</section>
+
+<!-- ============================================================
+     SLIDE 14: ROADMAP
+     ============================================================ -->
+<section class="slide" data-i="13">
+<div class="pw"><div class="paper">
+  <div class="holes"><div class="hole"></div><div class="hole"></div><div class="hole"></div><div class="hole"></div></div>
+  <div class="main">
+    <div class="lbl reveal d1"><span class="lbl-dot" style="background:var(--t5)"></span>五 · 后续规划</div>
+    <div class="stitle reveal d2">下一步<span class="acg">计划</span></div>
+    <div class="rl-list">
+      <div class="ri reveal d3"><div class="rph ph-now">进行中</div><div class="rco"><div class="rct">员工主数据完整接入</div><div class="rcd">对接HR系统导出，支持全量工号匹配，替代手工维护的主数据表</div></div></div>
+      <div class="ri reveal d4"><div class="rph ph-q2">Q2 2026</div><div class="rco"><div class="rct">新地区快速接入框架</div><div class="rcd">配置化解析规则，新地区通过配置文件定义，2天内完成接入</div></div></div>
+      <div class="ri reveal d5"><div class="rph ph-q2">Q2 2026</div><div class="rco"><div class="rct">自动化定时调度</div><div class="rcd">接收各分子公司月度社保邮件附件，自动解析并生成汇总</div></div></div>
+      <div class="ri reveal d6"><div class="rph ph-q3">Q3 2026</div><div class="rco"><div class="rct">多模板扩展 + 权限管理</div><div class="rcd">支持按业务需求增加新模板，引入角色权限系统</div></div></div>
+      <div class="ri reveal d7"><div class="rph ph-q4">Q4 2026</div><div class="rco"><div class="rct">历史趋势分析看板</div><div class="rcd">跨月度数据对比，人员社保变动预警，费率异常监控</div></div></div>
+    </div>
+  </div>
+  <div class="tabs"><div class="tab" data-s="0">背景目标</div><div class="tab" data-s="1">系统功能</div><div class="tab" data-s="2">技术方案</div><div class="tab" data-s="3">成果展示</div><div class="tab active" data-s="4">下一步计划</div></div>
+</div></div>
+</section>
+
+<!-- ============================================================
+     SLIDE 15: CLOSING
+     ============================================================ -->
+<section class="slide" data-i="14">
+<div class="pw"><div class="paper">
+  <div class="holes"><div class="hole"></div><div class="hole"></div><div class="hole"></div><div class="hole"></div></div>
+  <div class="main" style="justify-content:center">
+    <div class="lbl reveal d1"><span class="lbl-dot" style="background:var(--t2)"></span>总结</div>
+    <div class="clb">
+      <div class="cll">
+        <div class="clbig reveal d2">从手工<em>到自动</em>，<br>数据全链路可信</div>
+        <div class="clsum reveal d3">社保表格聚合工具将多地区、多格式、多层表头的复杂数据处理，收敛为一条稳定、可追溯、双模板输出的自动化链路。1-2天的重复劳动，压缩为5分钟。</div>
+        <div class="ctag-row reveal d4">
+          <span class="ctag tm">自动化</span><span class="ctag tl">可追溯</span><span class="ctag ts">零遗漏</span><span class="ctag tp">可扩展</span>
+        </div>
+      </div>
+      <div class="clr reveal d5">
+        <div class="ckpi"><div class="ckn" style="color:#ff6b6b;text-decoration:line-through;font-size:1.2rem;min-width:auto;margin-right:.3rem">1-2天</div><div style="font-size:1.5rem;font-weight:700;color:#3a8a6a;font-family:'Bodoni Moda',serif;min-width:3rem">5min</div><div><div class="ckt">月度汇总效率</div><div class="cks">提升 99%</div></div></div>
+        <div class="ckpi"><div class="ckn">6+</div><div><div class="ckt">地区全面覆盖</div><div class="cks">持续新增接入</div></div></div>
+        <div class="ckpi"><div class="ckn">×2</div><div><div class="ckt">强制双模板导出</div><div class="cks">薪酬模板+工具表最终版</div></div></div>
+        <div class="ckpi"><div class="ckn">AI</div><div><div class="ckt">规则+AI双引擎</div><div class="cks">DeepSeek语义兜底</div></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="tabs"><div class="tab" data-s="0">背景目标</div><div class="tab active" data-s="1">系统功能</div><div class="tab" data-s="2">技术方案</div><div class="tab" data-s="3">成果展示</div><div class="tab" data-s="4">下一步计划</div></div>
+</div></div>
+</section>
+
+<script>
+/* ============================================================
+   SLIDE CONTROLLER
+   ============================================================ */
+class Pres {
+  constructor() {
+    this.slides = Array.from(document.querySelectorAll('.slide'));
+    this.n = this.slides.length;
+    this.cur = 0;
+    this.demoRan = {};
+    this.setupObserver();
+    this.setupKeys();
+    this.setupTouch();
+    this.setupWheel();
+    this.setupDots();
+    this.setupTabs();
+    this.slides[0].classList.add('visible');
+  }
+
+  setupObserver() {
+    const io = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.classList.add('visible');
+          const i = this.slides.indexOf(e.target);
+          if (i !== -1) { this.cur = i; this.updateUI(); this.triggerDemo(e.target); }
+        }
+      });
+    }, { threshold: 0.5 });
+    this.slides.forEach(s => io.observe(s));
+  }
+
+  goTo(i) { if (i >= 0 && i < this.n) this.slides[i].scrollIntoView({ behavior: 'smooth' }); }
+  next() { this.goTo(this.cur + 1); }
+  prev() { this.goTo(this.cur - 1); }
+
+  setupKeys() {
+    document.addEventListener('keydown', e => {
+      if (editor && editor.on) return;
+      if (['ArrowDown','ArrowRight',' '].includes(e.key)) { e.preventDefault(); this.next(); }
+      else if (['ArrowUp','ArrowLeft'].includes(e.key)) { e.preventDefault(); this.prev(); }
+      else if (e.key === 'Home') { e.preventDefault(); this.goTo(0); }
+      else if (e.key === 'End') { e.preventDefault(); this.goTo(this.n - 1); }
+    });
+  }
+
+  setupTouch() {
+    let sy = 0;
+    document.addEventListener('touchstart', e => { sy = e.touches[0].clientY; }, { passive: true });
+    document.addEventListener('touchend', e => {
+      const dy = sy - e.changedTouches[0].clientY;
+      if (Math.abs(dy) > 50) dy > 0 ? this.next() : this.prev();
+    }, { passive: true });
+  }
+
+  setupWheel() {
+    let last = 0;
+    document.addEventListener('wheel', e => {
+      const now = Date.now(); if (now - last < 700) return; last = now;
+      e.deltaY > 0 ? this.next() : this.prev();
+    }, { passive: true });
+  }
+
+  setupDots() {
+    const nav = document.getElementById('nd');
+    this.slides.forEach((_, i) => {
+      const d = document.createElement('div');
+      d.className = 'nd' + (i === 0 ? ' active' : '');
+      d.addEventListener('click', () => this.goTo(i));
+      nav.appendChild(d);
+    });
+    this.dots = nav.querySelectorAll('.nd');
+  }
+
+  setupTabs() {
+    const map = [0, 2, 8, 11, 13];
+    document.querySelectorAll('.tab[data-s]').forEach(t => {
+      t.addEventListener('click', () => {
+        const s = parseInt(t.dataset.s);
+        if (map[s] !== undefined) this.goTo(map[s]);
+      });
+    });
+  }
+
+  updateUI() {
+    const p = (this.cur / (this.n - 1)) * 100;
+    document.getElementById('pb').style.width = p + '%';
+    if (this.dots) this.dots.forEach((d, i) => d.classList.toggle('active', i === this.cur));
+  }
+
+  triggerDemo(slide) {
+    const id = slide.id;
+    if (!id || this.demoRan[id]) return;
+    this.demoRan[id] = true;
+    if (id === 'ba-slide') runBeforeAfter();
+    if (id === 'demo-upload') runUploadDemo();
+    if (id === 'demo-mapping') runMappingDemo();
+    if (id === 'demo-dashboard') runDashboardDemo();
+    if (id === 'demo-export') runExportDemo();
+  }
+}
+
+/* ============================================================
+   BEFORE / AFTER COUNTERS
+   ============================================================ */
+function runBeforeAfter() {
+  // Animate "before" counter: 0 → 1.5 (representing 1-2 days)
+  animCount('ba-before-num', 0, 1.5, 1500, v => v >= 1 ? v.toFixed(1) : v.toFixed(1));
+  // Animate "after" counter: 0 → 5
+  setTimeout(() => animCount('ba-after-num', 0, 5, 800, v => Math.round(v)), 400);
+}
+
+function animCount(id, from, to, dur, fmt) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  let start = null;
+  function step(ts) {
+    if (!start) start = ts;
+    const p = Math.min((ts - start) / dur, 1);
+    const eased = 1 - Math.pow(1 - p, 3);
+    el.textContent = fmt(from + (to - from) * eased);
+    if (p < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+/* ============================================================
+   UI DEMO 1: UPLOAD
+   ============================================================ */
+function runUploadDemo() {
+  const files = [
+    { name: '广州分公司202602社保.xlsx', size: '42KB', region: '广州', status: 'done' },
+    { name: '杭州聚变202602社保账单.xlsx', size: '38KB', region: '杭州', status: 'done' },
+    { name: '深圳零一数科202602社保明细.xlsx', size: '55KB', region: '深圳', status: 'proc' },
+    { name: '深圳零一运营202602社保明细.xlsx', size: '51KB', region: '深圳', status: 'proc' },
+    { name: '厦门202602社保账单.xlsx', size: '29KB', region: '厦门', status: 'wait' },
+    { name: '武汉202602社保台账.xlsx', size: '33KB', region: '武汉', status: 'wait' },
+  ];
+  const list = document.getElementById('file-list');
+  if (!list) return;
+  list.innerHTML = '';
+
+  const statusLabel = { done: '解析完成', proc: '解析中...', wait: '等待中' };
+  const statusClass = { done: 'fs-done', proc: 'fs-proc', wait: 'fs-wait' };
+
+  files.forEach((f, i) => {
+    const row = document.createElement('div');
+    row.className = 'file-row';
+    row.innerHTML = `
+      <div class="file-icon">📄</div>
+      <div>
+        <div class="file-name">${f.name}</div>
+        <div class="parse-bar"><div class="parse-fill" id="pf${i}"></div></div>
+      </div>
+      <div class="file-size">${f.size}</div>
+      <div class="file-status ${statusClass[f.status]}">${statusLabel[f.status]}</div>
+    `;
+    list.appendChild(row);
+
+    setTimeout(() => {
+      row.classList.add('show');
+      const fill = document.getElementById('pf' + i);
+      if (fill) {
+        const pct = f.status === 'done' ? '1' : f.status === 'proc' ? '0.65' : '0.1';
+        setTimeout(() => { fill.style.transform = `scaleX(${pct})`; }, 150);
+      }
+    }, 200 + i * 280);
+  });
+}
+
+/* ============================================================
+   UI DEMO 2: FIELD MAPPING
+   ============================================================ */
+function runMappingDemo() {
+  const maps = [
+    { raw: '基本养老保险(单位缴纳)', std: 'pension_company', conf: '100%', by: '规则' },
+    { raw: '基本医疗保险（含生育）(单位)', std: 'medical_maternity_company', conf: '100%', by: '规则' },
+    { raw: '工伤应缴费额', std: 'injury_company', conf: '98%', by: '规则' },
+    { raw: '地方补充医疗（单位）', std: 'supplementary_medical_company', conf: '95%', by: '规则' },
+    { raw: '养老保险应缴费额（单位）', std: 'pension_company', conf: '87%', by: 'AI↓' },
+    { raw: '医保单位应缴', std: 'medical_company', conf: '82%', by: 'AI↓' },
+  ];
+  const container = document.getElementById('fmap-demo');
+  if (!container) return;
+  container.innerHTML = '';
+
+  maps.forEach((m, i) => {
+    const row = document.createElement('div');
+    row.className = 'fmap-row';
+    const confColor = parseFloat(m.conf) >= 90 ? '#3a8a6a' : '#d4a030';
+    row.innerHTML = `
+      <div class="fmap-raw" id="fr${i}">${m.raw}</div>
+      <div class="fmap-arrow" id="fa${i}">→</div>
+      <div class="fmap-std" id="fs${i}">${m.std}</div>
+      <div class="fmap-conf" style="background:${parseFloat(m.conf)>=90?'rgba(152,212,187,.25)':'rgba(255,230,167,.3)'};color:${confColor}">${m.conf} ${m.by}</div>
+    `;
+    container.appendChild(row);
+
+    setTimeout(() => {
+      document.getElementById('fr' + i)?.classList.add('show');
+      setTimeout(() => {
+        document.getElementById('fa' + i)?.style && (document.getElementById('fa' + i).style.opacity = '1');
+        document.getElementById('fs' + i)?.classList.add('show');
+      }, 200);
+    }, 300 + i * 350);
+  });
+}
+
+/* ============================================================
+   UI DEMO 3: DASHBOARD
+   ============================================================ */
+function runDashboardDemo() {
+  const rows = [
+    { name: '张伟', region: 'gz', rtag: 'rtag-gz', rl: '广州', id: 'A***1234', eid: 'GZ-0312', amt: '¥3,840', status: 'ok' },
+    { name: '李娜', region: 'hz', rtag: 'rtag-hz', rl: '杭州', id: 'B***5678', eid: 'HZ-0156', amt: '¥4,120', status: 'ok' },
+    { name: '王芳', region: 'sz', rtag: 'rtag-sz', rl: '深圳', id: 'C***9012', eid: 'SZ-0821', amt: '¥5,230', status: 'ok' },
+    { name: '刘洋', region: 'xm', rtag: 'rtag-xm', rl: '厦门', id: 'D***3456', eid: '—', amt: '¥2,980', status: 'warn' },
+    { name: '陈静', region: 'wh', rtag: 'rtag-wh', rl: '武汉', id: 'E***7890', eid: 'WH-0044', amt: '¥3,560', status: 'proc' },
+    { name: '杨帆', region: 'cs', rtag: 'rtag-cs', rl: '长沙', id: 'F***2345', eid: 'CS-0207', amt: '¥3,100', status: 'ok' },
+  ];
+  const statusMap = {
+    ok: { cls: 'sd-ok', label: '✓ 已匹配' },
+    warn: { cls: 'sd-warn', label: '△ 待核查' },
+    proc: { cls: 'sd-proc', label: '… 处理中' },
+  };
+  const tbody = document.getElementById('dt-rows');
+  if (!tbody) return;
+  tbody.innerHTML = '';
+
+  let okCount = 0, warnCount = 0;
+
+  rows.forEach((r, i) => {
+    const row = document.createElement('div');
+    row.className = 'dt-row';
+    const s = statusMap[r.status];
+    row.innerHTML = `
+      <div class="dtc">${r.name}</div>
+      <div class="dtc"><span class="rtag ${r.rtag}">${r.rl}</span></div>
+      <div class="dtc mono">${r.eid}</div>
+      <div class="dtc">${r.amt}</div>
+      <div class="dtc"><span class="status-dot ${s.cls}">${s.label}</span></div>
+    `;
+    tbody.appendChild(row);
+
+    setTimeout(() => {
+      row.classList.add('show');
+      const total = i + 1;
+      if (r.status === 'ok') okCount++;
+      if (r.status === 'warn') warnCount++;
+      document.getElementById('ds-total').textContent = total;
+      document.getElementById('ds-ok').textContent = okCount;
+      document.getElementById('ds-warn').textContent = warnCount;
+      document.getElementById('ds-files').textContent = Math.ceil(total / 1.5) || 1;
+      document.getElementById('dash-counter').textContent = `已处理 ${total} 条`;
+    }, 400 + i * 400);
+  });
+}
+
+/* ============================================================
+   UI DEMO 4: EXPORT
+   ============================================================ */
+function runExportDemo() {
+  // Show cards
+  setTimeout(() => { document.getElementById('exp1')?.classList.add('show'); }, 300);
+  setTimeout(() => { document.getElementById('exp2')?.classList.add('show'); }, 550);
+
+  // Animate progress bars
+  function animBar(fillId, pctId, delay, duration) {
+    setTimeout(() => {
+      const fill = document.getElementById(fillId);
+      const pct = document.getElementById(pctId);
+      if (!fill || !pct) return;
+      let start = null;
+      function step(ts) {
+        if (!start) start = ts;
+        const p = Math.min((ts - start) / duration, 1);
+        const eased = 1 - Math.pow(1 - p, 2);
+        fill.style.transform = `scaleX(${eased})`;
+        pct.textContent = Math.round(eased * 100) + '%';
+        if (p < 1) requestAnimationFrame(step);
+        else {
+          document.getElementById(fillId.replace('ef', 'es'))?.classList.add('show');
+        }
+      }
+      requestAnimationFrame(step);
+    }, delay);
+  }
+
+  animBar('ef1', 'ep1', 800, 1800);
+  animBar('ef2', 'ep2', 1100, 1600);
+
+  // Show banner after both complete
+  setTimeout(() => { document.getElementById('exp-banner')?.classList.add('show'); }, 3200);
+}
+
+/* ============================================================
+   INLINE EDITOR
+   ============================================================ */
+class Editor {
+  constructor() {
+    this.on = false;
+    this.setup();
+    this.load();
+  }
+  targets() {
+    return document.querySelectorAll(
+      '.stitle,.lead,.cht,.chd,.gt,.gd,.cmain,.clbig,.clsum,.rn,.mn,.ml,.rct,.rcd,.toc-t,.toc-d,.abt,.abd,.mct,.mcd,.ckt,.cks'
+    );
+  }
+  setup() {
+    const btn = document.getElementById('etg');
+    const hz = document.getElementById('eho');
+    let hideT;
+    btn.addEventListener('click', () => this.toggle());
+    hz.addEventListener('mouseenter', () => { clearTimeout(hideT); btn.classList.add('show'); });
+    hz.addEventListener('mouseleave', () => { hideT = setTimeout(() => { if (!this.on) btn.classList.remove('show'); }, 400); });
+    btn.addEventListener('mouseenter', () => clearTimeout(hideT));
+    btn.addEventListener('mouseleave', () => { hideT = setTimeout(() => { if (!this.on) btn.classList.remove('show'); }, 400); });
+    hz.addEventListener('click', () => this.toggle());
+    document.addEventListener('keydown', e => {
+      if ((e.key === 'e' || e.key === 'E') && !e.target.getAttribute('contenteditable')) this.toggle();
+      if ((e.ctrlKey || e.metaKey) && e.key === 's' && this.on) { e.preventDefault(); this.save(); this.toast('✓ 已保存'); }
+    });
+  }
+  toggle() {
+    this.on = !this.on;
+    const btn = document.getElementById('etg');
+    btn.textContent = this.on ? '✓ 完成编辑' : '✏ 编辑';
+    btn.classList.toggle('active', this.on);
+    btn.classList.add('show');
+    this.targets().forEach(el => { el.contentEditable = this.on ? 'true' : 'false'; });
+    if (!this.on) this.save();
+  }
+  save() {
+    const s = {};
+    this.targets().forEach((el, i) => { s['e' + i] = el.innerHTML; });
+    try { localStorage.setItem('ppt_v4', JSON.stringify(s)); } catch(e) {}
+  }
+  load() {
+    try {
+      const s = JSON.parse(localStorage.getItem('ppt_v4') || 'null');
+      if (!s) return;
+      this.targets().forEach((el, i) => { if (s['e' + i] !== undefined) el.innerHTML = s['e' + i]; });
+    } catch(e) {}
+  }
+  toast(msg) {
+    const t = document.createElement('div');
+    t.style.cssText = 'position:fixed;bottom:2rem;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#f8f6f1;padding:.5rem 1.2rem;border-radius:6px;font-size:.75rem;font-weight:600;z-index:99999;font-family:DM Sans,sans-serif';
+    t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2000);
+  }
+}
+
+const editor = new Editor();
+const pres = new Pres();
+</script>
+</body>
+</html>

@@ -17,6 +17,7 @@ from backend.app.services import ExportBlockedError, export_batch, get_batch_exp
 from backend.app.services.import_service import (
     BatchNotFoundError,
     InvalidUploadError,
+    SourceFileNotFoundError,
     create_import_batch,
     get_import_batch,
     list_import_batches,
@@ -82,10 +83,12 @@ def parse_import_batch_endpoint(batch_id: str, db: Session = Depends(get_db)):
 
 
 @router.get('/{batch_id}/preview')
-def preview_import_batch_endpoint(batch_id: str, db: Session = Depends(get_db)):
+def preview_import_batch_endpoint(batch_id: str, source_file_id: str | None = None, db: Session = Depends(get_db)):
     try:
-        payload = preview_import_batch(db, batch_id)
+        payload = preview_import_batch(db, batch_id, source_file_id=source_file_id)
     except BatchNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except SourceFileNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
 
     return success_response(payload.model_dump(mode='json'), message='Import batch preview retrieved.')

@@ -13,7 +13,7 @@ import re
 from uuid import uuid4
 
 from fastapi import UploadFile
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, load_only, selectinload
 
 from backend.app.core.config import Settings
 from backend.app.models import HeaderMapping, ImportBatch, SourceFile
@@ -82,6 +82,10 @@ class InvalidUploadError(ImportServiceError):
 
 
 class BatchNotFoundError(ImportServiceError):
+    pass
+
+
+class SourceFileNotFoundError(ImportServiceError):
     pass
 
 
@@ -229,20 +233,44 @@ async def create_import_batch(
 
 
 def list_import_batches(db: Session) -> list[ImportBatchSummaryRead]:
-    batches = db.query(ImportBatch).order_by(ImportBatch.created_at.desc()).all()
+    batches = (
+        db.query(ImportBatch)
+        .options(selectinload(ImportBatch.source_files).load_only(SourceFile.id))
+        .order_by(ImportBatch.created_at.desc())
+        .all()
+    )
     return [_to_summary_schema(batch) for batch in batches]
 
 
 def get_import_batch(db: Session, batch_id: str) -> ImportBatch:
-    batch = db.query(ImportBatch).filter(ImportBatch.id == batch_id).first()
+    batch = (
+        db.query(ImportBatch)
+        .options(
+            selectinload(ImportBatch.source_files).load_only(
+                SourceFile.id,
+                SourceFile.file_name,
+                SourceFile.file_path,
+                SourceFile.file_size,
+                SourceFile.source_kind,
+                SourceFile.region,
+                SourceFile.company_name,
+                SourceFile.file_hash,
+                SourceFile.uploaded_at,
+                SourceFile.raw_sheet_name,
+            )
+        )
+        .filter(ImportBatch.id == batch_id)
+        .first()
+    )
     if batch is None:
         raise BatchNotFoundError(f"Import batch '{batch_id}' was not found.")
     return batch
 
 
-def preview_import_batch(db: Session, batch_id: str) -> ImportBatchPreviewRead:
+def preview_import_batch(db: Session, batch_id: str, *, source_file_id: str | None = None) -> ImportBatchPreviewRead:
     batch = get_import_batch(db, batch_id)
-    file_previews = [_build_source_file_preview(source_file) for source_file in batch.source_files]
+    source_files = _resolve_preview_source_files(batch, source_file_id)
+    file_previews = [_build_source_file_preview(source_file) for source_file in source_files]
     return ImportBatchPreviewRead(
         batch_id=batch.id,
         batch_name=batch.batch_name,
@@ -706,6 +734,19 @@ def _to_summary_schema(batch: ImportBatch) -> ImportBatchSummaryRead:
         updated_at=batch.updated_at,
         file_count=len(batch.source_files),
     )
+
+
+def _resolve_preview_source_files(batch: ImportBatch, source_file_id: str | None) -> list[SourceFile]:
+    source_files = list(batch.source_files)
+    if source_file_id is None:
+        return source_files
+
+    matched = next((source_file for source_file in source_files if source_file.id == source_file_id), None)
+    if matched is None:
+        raise SourceFileNotFoundError(
+            f"Source file '{source_file_id}' was not found in import batch '{batch.id}'."
+        )
+    return [matched]
 
 
 async def _notify_progress(

@@ -8,7 +8,6 @@ import {
   parseImportBatch,
   type HeaderMappingPreview,
   type ImportBatchDetail,
-  type ImportBatchPreview,
   type SourceFilePreview,
 } from '../services/imports';
 
@@ -46,11 +45,12 @@ function summarizeMapping(mapping: HeaderMappingPreview): string {
 export function ImportBatchDetailPage() {
   const { batchId } = useParams<{ batchId: string }>();
   const [batchDetail, setBatchDetail] = useState<ImportBatchDetail | null>(null);
-  const [preview, setPreview] = useState<ImportBatchPreview | null>(null);
+  const [previewByFileId, setPreviewByFileId] = useState<Record<string, SourceFilePreview>>({});
   const [selectedSourceFileId, setSelectedSourceFileId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [parsing, setParsing] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [previewLoading, setPreviewLoading] = useState(false);
   const [panelNotice, setPanelNotice] = useState<{ tone: 'success' | 'warning'; message: string } | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
 
@@ -64,17 +64,14 @@ export function ImportBatchDetailPage() {
       }
 
       try {
-        const [detailResult, previewResult] = await Promise.all([
-          fetchImportBatch(batchId),
-          fetchImportBatchPreview(batchId).catch(() => null),
-        ]);
+        const detailResult = await fetchImportBatch(batchId);
         if (!active) {
           return;
         }
         setBatchDetail(detailResult);
-        setPreview(previewResult);
+        setPreviewByFileId({});
         setPageError(null);
-        const firstSourceFileId = previewResult?.source_files[0]?.source_file_id ?? detailResult.source_files[0]?.id ?? null;
+        const firstSourceFileId = detailResult.source_files[0]?.id ?? null;
         setSelectedSourceFileId((current) => current ?? firstSourceFileId);
       } catch {
         if (active) {
@@ -94,29 +91,75 @@ export function ImportBatchDetailPage() {
   }, [batchId]);
 
   const selectedSourceFile = useMemo<SourceFilePreview | null>(() => {
-    if (!preview?.source_files.length) {
+    if (!selectedSourceFileId) {
       return null;
     }
-    return preview.source_files.find((item) => item.source_file_id === selectedSourceFileId) ?? preview.source_files[0] ?? null;
-  }, [preview, selectedSourceFileId]);
+    return previewByFileId[selectedSourceFileId] ?? null;
+  }, [previewByFileId, selectedSourceFileId]);
 
   const previewColumns = useMemo(() => {
     const firstRecord = selectedSourceFile?.preview_records[0];
     return firstRecord ? Object.keys(firstRecord.values) : [];
   }, [selectedSourceFile]);
 
-  async function reloadBatchState(targetBatchId: string) {
+  useEffect(() => {
+    let active = true;
+
+    async function loadSelectedSourcePreview(targetBatchId: string, targetSourceFileId: string) {
+      if (previewByFileId[targetSourceFileId]) {
+        return;
+      }
+
+      setPreviewLoading(true);
+      try {
+        const previewResult = await fetchImportBatchPreview(targetBatchId, { sourceFileId: targetSourceFileId });
+        if (!active) {
+          return;
+        }
+        const filePreview = previewResult.source_files[0];
+        if (filePreview) {
+          setPreviewByFileId((current) => ({ ...current, [targetSourceFileId]: filePreview }));
+        }
+        setPageError(null);
+      } catch {
+        if (active) {
+          setPageError('当前文件预览加载失败，请稍后重试。');
+        }
+      } finally {
+        if (active) {
+          setPreviewLoading(false);
+        }
+      }
+    }
+
+    if (!batchId || !selectedSourceFileId || batchDetail?.status === 'uploaded') {
+      return () => {
+        active = false;
+      };
+    }
+
+    void loadSelectedSourcePreview(batchId, selectedSourceFileId);
+    return () => {
+      active = false;
+    };
+  }, [batchDetail?.status, batchId, previewByFileId, selectedSourceFileId]);
+
+  async function reloadBatchState(targetBatchId: string, preferredSourceFileId?: string | null) {
     setRefreshing(true);
     try {
-      const [detailResult, previewResult] = await Promise.all([
-        fetchImportBatch(targetBatchId),
-        fetchImportBatchPreview(targetBatchId).catch(() => null),
-      ]);
+      const detailResult = await fetchImportBatch(targetBatchId);
       setBatchDetail(detailResult);
-      setPreview(previewResult);
-      const firstSourceFileId = previewResult?.source_files[0]?.source_file_id ?? detailResult.source_files[0]?.id ?? null;
-      setSelectedSourceFileId((current) => current ?? firstSourceFileId);
+      const nextSourceFileId = preferredSourceFileId ?? detailResult.source_files[0]?.id ?? null;
+      setSelectedSourceFileId(nextSourceFileId);
       setPageError(null);
+
+      if (nextSourceFileId) {
+        const previewResult = await fetchImportBatchPreview(targetBatchId, { sourceFileId: nextSourceFileId }).catch(() => null);
+        const filePreview = previewResult?.source_files[0] ?? null;
+        if (filePreview) {
+          setPreviewByFileId((current) => ({ ...current, [nextSourceFileId]: filePreview }));
+        }
+      }
     } catch {
       setPageError('批次详情刷新失败，请稍后重试。');
     } finally {
@@ -132,9 +175,12 @@ export function ImportBatchDetailPage() {
     setPanelNotice(null);
     try {
       const parsed = await parseImportBatch(batchId);
-      setPreview(parsed);
-      setSelectedSourceFileId(parsed.source_files[0]?.source_file_id ?? null);
-      await reloadBatchState(batchId);
+      setPreviewByFileId(
+        Object.fromEntries(parsed.source_files.map((item) => [item.source_file_id, item])),
+      );
+      const nextSourceFileId = selectedSourceFileId ?? parsed.source_files[0]?.source_file_id ?? null;
+      setSelectedSourceFileId(nextSourceFileId);
+      await reloadBatchState(batchId, nextSourceFileId);
       setPanelNotice({ tone: 'success', message: '批次解析已刷新，下面是最新预览结果。' });
     } finally {
       setParsing(false);
@@ -181,7 +227,7 @@ export function ImportBatchDetailPage() {
             </div>
             <div>
               <span>预览文件数</span>
-              <strong>{preview?.source_files.length ?? 0}</strong>
+              <strong>{Object.keys(previewByFileId).length}</strong>
             </div>
           </div>
         </section>
@@ -189,8 +235,9 @@ export function ImportBatchDetailPage() {
         <section className="panel-card panel-card--soft">
           <span className="panel-label">详情说明</span>
           <strong>先看文件，再看表头与样本</strong>
-          <p>这个页面按单个批次聚合了上传文件、命中 sheet、表头签名、过滤行和标准化前 20 行，方便我们快速判断解析质量。</p>
+          <p>这个页面现在会优先同步批次基础信息，再按当前选中文件懒加载预览，切页和切文件会更轻更快。</p>
           {refreshing ? <SurfaceNotice tone="info" message="正在刷新批次详情，请稍候。" /> : null}
+          {previewLoading ? <SurfaceNotice tone="info" message="正在加载当前文件预览，请稍候。" /> : null}
         </section>
       </div>
 

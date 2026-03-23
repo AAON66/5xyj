@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Style A — Electric Studio</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; background: #0a0a0a; }
+:root {
+  --bg-dark: #0a0a0a;
+  --bg-white: #ffffff;
+  --accent-blue: #4361ee;
+  --text-dark: #0a0a0a;
+  --text-light: #ffffff;
+}
+.slide {
+  width: 100vw; height: 100vh; height: 100dvh;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  font-family: 'Manrope', sans-serif;
+}
+.left-panel {
+  background: #ffffff;
+  display: flex; flex-direction: column;
+  justify-content: center;
+  padding: clamp(2rem, 5vw, 5rem);
+  position: relative;
+}
+.left-panel::after {
+  content: '';
+  position: absolute; right: 0; top: 10%; bottom: 10%;
+  width: 4px;
+  background: var(--accent-blue);
+}
+.tag {
+  font-size: clamp(0.6rem, 1vw, 0.75rem);
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--accent-blue);
+  margin-bottom: clamp(0.75rem, 2vh, 1.5rem);
+  opacity: 0;
+  animation: fadeUp 0.6s ease forwards 0.2s;
+}
+h1 {
+  font-size: clamp(1.8rem, 4vw, 3.5rem);
+  font-weight: 800;
+  color: var(--text-dark);
+  line-height: 1.1;
+  margin-bottom: clamp(0.75rem, 2vh, 1.5rem);
+  opacity: 0;
+  animation: fadeUp 0.6s ease forwards 0.4s;
+}
+.subtitle {
+  font-size: clamp(0.8rem, 1.4vw, 1rem);
+  font-weight: 400;
+  color: #555;
+  line-height: 1.6;
+  opacity: 0;
+  animation: fadeUp 0.6s ease forwards 0.6s;
+}
+.right-panel {
+  background: var(--bg-dark);
+  display: flex; flex-direction: column;
+  justify-content: center;
+  padding: clamp(2rem, 5vw, 5rem);
+  position: relative;
+  overflow: hidden;
+}
+.right-panel::before {
+  content: '';
+  position: absolute;
+  width: clamp(200px, 40vw, 400px);
+  height: clamp(200px, 40vw, 400px);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(67,97,238,0.15) 0%, transparent 70%);
+  top: -10%; right: -10%;
+}
+.stat-block {
+  margin-bottom: clamp(1rem, 3vh, 2rem);
+  opacity: 0;
+  animation: fadeUp 0.6s ease forwards;
+}
+.stat-block:nth-child(1) { animation-delay: 0.5s; }
+.stat-block:nth-child(2) { animation-delay: 0.7s; }
+.stat-block:nth-child(3) { animation-delay: 0.9s; }
+.stat-num {
+  font-size: clamp(1.5rem, 3.5vw, 3rem);
+  font-weight: 800;
+  color: var(--accent-blue);
+  line-height: 1;
+}
+.stat-label {
+  font-size: clamp(0.7rem, 1.2vw, 0.875rem);
+  color: rgba(255,255,255,0.5);
+  margin-top: 0.25rem;
+}
+.divider {
+  width: 40px; height: 2px;
+  background: rgba(255,255,255,0.1);
+  margin: clamp(0.5rem, 1.5vh, 1rem) 0;
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+</style>
+</head>
+<body>
+<div class="slide">
+  <div class="left-panel">
+    <div class="tag">内部汇报 · 2026年3月</div>
+    <h1>社保表格<br>聚合工具</h1>
+    <p class="subtitle">多地区社保数据自动化处理平台<br>React + FastAPI · 智能识别 · 双模板导出</p>
+  </div>
+  <div class="right-panel">
+    <div class="stat-block">
+      <div class="stat-num">6+</div>
+      <div class="stat-label">覆盖城市（广州、深圳、杭州、厦门、武汉、长沙）</div>
+    </div>
+    <div class="divider"></div>
+    <div class="stat-block">
+      <div class="stat-num">30+</div>
+      <div class="stat-label">标准字段自动映射</div>
+    </div>
+    <div class="divider"></div>
+    <div class="stat-block">
+      <div class="stat-num">2</div>
+      <div class="stat-label">固定模板同步导出</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

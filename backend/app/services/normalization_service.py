@@ -221,6 +221,10 @@ def merge_batch_standardized_records(
         for record in bundle.standardized.records:
             key = _merge_key(record)
             matches = index.get(key, []) if key is not None else []
+            if len(matches) != 1:
+                fallback_matches = _find_fallback_merge_matches(record, entries)
+                if len(fallback_matches) == 1:
+                    matches = fallback_matches
             if len(matches) == 1:
                 _merge_entry(matches[0], bundle, record)
                 continue
@@ -313,6 +317,65 @@ def _merge_key(record: NormalizedPreviewRecord) -> tuple[str, ...] | None:
     if person_name:
         return ("name", person_name)
     return None
+
+
+def _find_fallback_merge_matches(
+    record: NormalizedPreviewRecord,
+    entries: list[_MergedRecordEntry],
+) -> list[_MergedRecordEntry]:
+    record_id_number = _normalize_identity_value(record.values.get("id_number"))
+    if record_id_number is not None:
+        id_matches = [
+            entry for entry in entries if _normalize_identity_value(entry.values.get("id_number")) == record_id_number
+        ]
+        if len(id_matches) == 1:
+            return id_matches
+
+    record_name = _normalize_identity_value(record.values.get("person_name"))
+    if record_name is None:
+        return []
+
+    record_region = _normalize_identity_value(record.values.get("region"))
+    record_company = _normalize_identity_value(record.values.get("company_name"))
+
+    name_matches = [
+        entry for entry in entries if _normalize_identity_value(entry.values.get("person_name")) == record_name
+    ]
+    if len(name_matches) <= 1:
+        return name_matches
+
+    company_and_region_matches = [
+        entry
+        for entry in name_matches
+        if _values_match(record_region, _normalize_identity_value(entry.values.get("region")))
+        and _values_match(record_company, _normalize_identity_value(entry.values.get("company_name")))
+    ]
+    if len(company_and_region_matches) == 1:
+        return company_and_region_matches
+
+    region_only_matches = [
+        entry
+        for entry in name_matches
+        if _values_match(record_region, _normalize_identity_value(entry.values.get("region")))
+    ]
+    if len(region_only_matches) == 1:
+        return region_only_matches
+
+    company_only_matches = [
+        entry
+        for entry in name_matches
+        if _values_match(record_company, _normalize_identity_value(entry.values.get("company_name")))
+    ]
+    if len(company_only_matches) == 1:
+        return company_only_matches
+
+    return []
+
+
+def _values_match(left: str | None, right: str | None) -> bool:
+    if left is None or right is None:
+        return False
+    return left == right
 
 
 def _normalize_identity_value(value: Any) -> str | None:

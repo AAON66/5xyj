@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from copy import copy
+from copy import copy, deepcopy
 from dataclasses import dataclass
 from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
@@ -72,6 +72,31 @@ EXPORT_TEXT_FIELDS = (
     'raw_header_signature',
     'source_file_name',
 )
+HOUSING_SOURCE_KIND = 'housing_fund'
+HOUSING_BURDEN_CANDIDATE_RATIO = Decimal('1.5')
+SOCIAL_SOURCE_KIND = 'social_security'
+SOCIAL_BURDEN_CANDIDATE_RATIO = Decimal('1.5')
+SOURCE_KIND_BY_AMOUNT_FIELD = {
+    'housing_fund_personal': HOUSING_SOURCE_KIND,
+    'housing_fund_company': HOUSING_SOURCE_KIND,
+    'housing_fund_total': HOUSING_SOURCE_KIND,
+    'total_amount': SOCIAL_SOURCE_KIND,
+    'company_total_amount': SOCIAL_SOURCE_KIND,
+    'personal_total_amount': SOCIAL_SOURCE_KIND,
+    'pension_company': SOCIAL_SOURCE_KIND,
+    'pension_personal': SOCIAL_SOURCE_KIND,
+    'medical_company': SOCIAL_SOURCE_KIND,
+    'medical_personal': SOCIAL_SOURCE_KIND,
+    'medical_maternity_company': SOCIAL_SOURCE_KIND,
+    'unemployment_company': SOCIAL_SOURCE_KIND,
+    'unemployment_personal': SOCIAL_SOURCE_KIND,
+    'injury_company': SOCIAL_SOURCE_KIND,
+    'supplementary_medical_company': SOCIAL_SOURCE_KIND,
+    'supplementary_pension_company': SOCIAL_SOURCE_KIND,
+    'large_medical_personal': SOCIAL_SOURCE_KIND,
+    'late_fee': SOCIAL_SOURCE_KIND,
+    'interest': SOCIAL_SOURCE_KIND,
+}
 
 REGION_LABELS = {
     'guangzhou': '\u5e7f\u5dde',
@@ -169,21 +194,25 @@ def _export_template_variant(
 
 def _rewrite_salary_sheet(workbook: Workbook, records: list[NormalizedRecord]) -> None:
     sheet = workbook[workbook.sheetnames[0]]
+    social_burden_context = _build_social_burden_context(records)
+    housing_burden_context = _build_housing_burden_context(records)
     _rewrite_sheet_in_place(
         sheet,
         template_row=SALARY_DATA_START_ROW,
         records=records,
-        value_builder=_salary_row_values,
+        value_builder=lambda record: _salary_row_values(record, social_burden_context, housing_burden_context),
     )
 
 
 def _rewrite_tool_sheet(workbook: Workbook, records: list[NormalizedRecord]) -> None:
     sheet = workbook[workbook.sheetnames[0]]
+    social_burden_context = _build_social_burden_context(records)
+    housing_burden_context = _build_housing_burden_context(records)
     _rewrite_sheet_in_place(
         sheet,
         template_row=TOOL_DATA_START_ROW,
         records=records,
-        value_builder=_tool_row_values,
+        value_builder=lambda record: _tool_row_values(record, social_burden_context, housing_burden_context),
     )
 
 
@@ -312,19 +341,32 @@ def _populate_output_row(
         target_cell.value = values[column_index - 1]
 
 
-def _salary_row_values(record: NormalizedRecord) -> list[object]:
+def _salary_row_values(
+    record: NormalizedRecord,
+    social_burden_context: dict[str, tuple[Decimal, ...]] | None = None,
+    housing_burden_context: dict[str, tuple[Decimal, ...]] | None = None,
+) -> list[object]:
     personal_medical = _amount(record.medical_personal)
     personal_unemployment = _amount(record.unemployment_personal)
-    personal_large_medical = _amount(record.large_medical_personal)
+    personal_large_medical = _resolved_personal_large_medical(record)
     personal_pension = _amount(record.pension_personal)
     company_pension = _amount(record.pension_company) + _amount(record.supplementary_pension_company)
-    company_medical = _amount(record.medical_maternity_company or record.medical_company)
+    company_medical = _resolved_company_medical(record)
     company_unemployment = _amount(record.unemployment_company)
     company_injury = _amount(record.injury_company)
     company_maternity = _amount(record.maternity_amount)
     company_large_medical = _amount(record.supplementary_medical_company)
-    personal_social_total = _amount(record.personal_total_amount)
+    personal_social_burden = _resolved_personal_social_burden(
+        record,
+        company_medical=company_medical,
+        social_burden_context=social_burden_context or {},
+    )
     personal_housing, company_housing, _housing_total = _resolved_housing_fund_values(record)
+    personal_housing_burden = _resolved_personal_housing_burden(
+        record,
+        company_housing=company_housing,
+        housing_burden_context=housing_burden_context or {},
+    )
 
     return [
         record.person_name or '',
@@ -343,19 +385,23 @@ def _salary_row_values(record: NormalizedRecord) -> list[object]:
         company_large_medical,
         Decimal('0'),
         company_housing,
-        personal_social_total,
-        personal_housing,
+        personal_social_burden,
+        personal_housing_burden,
     ]
 
 
-def _tool_row_values(record: NormalizedRecord) -> list[object]:
-    salary_values = _salary_row_values(record)
-    personal_social_total = _amount(record.personal_total_amount)
+def _tool_row_values(
+    record: NormalizedRecord,
+    social_burden_context: dict[str, tuple[Decimal, ...]] | None = None,
+    housing_burden_context: dict[str, tuple[Decimal, ...]] | None = None,
+) -> list[object]:
+    salary_values = _salary_row_values(record, social_burden_context, housing_burden_context)
+    personal_social_burden = salary_values[16]
     personal_housing_fund, company_housing_fund, _housing_total = _resolved_housing_fund_values(record)
     company_social_total = sum(salary_values[8:15], Decimal('0'))
     personal_social_due = sum(salary_values[2:7], Decimal('0'))
-    personal_total_with_company = personal_social_due + personal_social_total + personal_housing_fund
-    social_grand_total = personal_social_due + personal_social_total + company_social_total
+    personal_total_with_company = personal_social_due + personal_social_burden + personal_housing_fund
+    social_grand_total = personal_social_due + personal_social_burden + company_social_total
     housing_grand_total = personal_housing_fund + company_housing_fund
     overall_total = personal_total_with_company + (company_social_total + company_housing_fund)
 
@@ -396,6 +442,15 @@ def _resolved_housing_fund_values(record: NormalizedRecord) -> tuple[Decimal, De
     total = _amount(record.housing_fund_total)
     quant = Decimal('0.01')
 
+    if total != 0 and personal > 0 and personal <= Decimal('1') and company > Decimal('1'):
+        personal = (total - company).quantize(quant, rounding=ROUND_HALF_UP)
+        if personal <= 0:
+            personal = company
+    if total != 0 and company > 0 and company <= Decimal('1') and personal > Decimal('1'):
+        company = (total - personal).quantize(quant, rounding=ROUND_HALF_UP)
+        if company <= 0:
+            company = personal
+
     if total == 0:
         total = personal + company
     if personal == 0 and company == 0 and total != 0:
@@ -412,26 +467,204 @@ def _resolved_housing_fund_values(record: NormalizedRecord) -> tuple[Decimal, De
 
 
 def _resolve_template_path(template_path: str | Path | None, template_type: TemplateType) -> Path:
+    attempted_locations: list[str] = []
     if template_path:
         candidate = Path(template_path)
         if candidate.exists():
             return candidate
-        raise ExportServiceError(f'Template path does not exist: {candidate}')
+        attempted_locations.append(str(candidate))
 
     settings = get_settings()
     configured = settings.salary_template_file if template_type == TemplateType.SALARY else settings.final_tool_template_file
     if configured and configured.exists():
         return configured
+    if configured is not None:
+        attempted_locations.append(str(configured))
 
+    discovered = _discover_template_candidates(settings, template_type)
+    if discovered:
+        return discovered[0]
+
+    attempted_message = f" Attempted: {', '.join(attempted_locations)}." if attempted_locations else ''
+    raise ExportServiceError(f'No template could be resolved for {template_type.value}.{attempted_message}')
+
+
+def _discover_template_candidates(settings, template_type: TemplateType) -> list[Path]:
     pattern = '*\u85aa\u916c*.xlsx' if template_type == TemplateType.SALARY else '*\u6700\u7ec8\u7248*.xlsx'
-    matches = sorted(settings.templates_path.glob(pattern))
-    if matches:
-        return matches[0]
-    raise ExportServiceError(f'No template could be resolved for {template_type.value}.')
+    search_roots = [settings.templates_path, Path.home() / 'Desktop']
+    candidates: dict[Path, tuple[float, str]] = {}
+
+    for root in search_roots:
+        if not root.exists():
+            continue
+        for match in root.rglob(pattern):
+            if not match.is_file():
+                continue
+            try:
+                stat = match.stat()
+                candidates[match.resolve()] = (stat.st_mtime, match.name)
+            except OSError:
+                continue
+
+    return [
+        path
+        for path, _ in sorted(
+            candidates.items(),
+            key=lambda item: (item[1][0], item[1][1]),
+            reverse=True,
+        )
+    ]
 
 
 def _amount(value: Decimal | None) -> Decimal:
     return value if value is not None else Decimal('0')
+
+
+def _resolved_personal_large_medical(record: NormalizedRecord) -> Decimal:
+    amount = _amount(record.large_medical_personal)
+    if amount <= 0:
+        return amount
+    if record.region == 'changsha':
+        return amount * Decimal('2')
+    return amount
+
+
+def _resolved_company_medical(record: NormalizedRecord) -> Decimal:
+    amount = _amount(record.medical_maternity_company or record.medical_company)
+    if record.region == 'xiamen' and _source_signature_count_for_kind(record.raw_payload, SOCIAL_SOURCE_KIND) > 1:
+        amount += _amount(record.maternity_amount)
+    return amount
+
+
+def _build_social_burden_context(records: list[NormalizedRecord]) -> dict[str, tuple[Decimal, ...]]:
+    amount_counts_by_source: dict[str, dict[Decimal, int]] = {}
+
+    for record in records:
+        source_key = _social_burden_source_key(record)
+        if source_key is None:
+            continue
+        company_medical = _amount(record.medical_maternity_company or record.medical_company)
+        if company_medical <= 0:
+            continue
+        amount_counts = amount_counts_by_source.setdefault(source_key, {})
+        amount_counts[company_medical] = amount_counts.get(company_medical, 0) + 1
+
+    context: dict[str, tuple[Decimal, ...]] = {}
+    for source_key, amount_counts in amount_counts_by_source.items():
+        repeated_amounts = sorted(amount for amount, count in amount_counts.items() if count >= 2)
+        if not repeated_amounts:
+            continue
+        baseline = repeated_amounts[0]
+        candidates = tuple(
+            amount for amount in repeated_amounts if amount <= baseline * SOCIAL_BURDEN_CANDIDATE_RATIO
+        )
+        if candidates:
+            context[source_key] = candidates
+    return context
+
+
+def _resolved_personal_social_burden(
+    record: NormalizedRecord,
+    *,
+    company_medical: Decimal,
+    social_burden_context: dict[str, tuple[Decimal, ...]],
+) -> Decimal:
+    if not bool((record.raw_payload or {}).get('enable_social_burden_inference')):
+        return Decimal('0')
+    if company_medical <= 0:
+        return Decimal('0')
+    source_key = _social_burden_source_key(record)
+    candidates = social_burden_context.get(source_key or '', ())
+    allowance = _select_burden_allowance(company_medical, candidates)
+    if allowance is None:
+        return Decimal('0')
+    burden = company_medical - allowance
+    return burden if burden > 0 else Decimal('0')
+
+
+def _build_housing_burden_context(records: list[NormalizedRecord]) -> dict[str, tuple[Decimal, ...]]:
+    amount_counts_by_source: dict[str, dict[Decimal, int]] = {}
+
+    for record in records:
+        source_key = _housing_burden_source_key(record)
+        if source_key is None:
+            continue
+        personal_housing, company_housing, _housing_total = _resolved_housing_fund_values(record)
+        if personal_housing <= 0 or company_housing <= 0 or personal_housing != company_housing:
+            continue
+        amount_counts = amount_counts_by_source.setdefault(source_key, {})
+        amount_counts[company_housing] = amount_counts.get(company_housing, 0) + 1
+
+    context: dict[str, tuple[Decimal, ...]] = {}
+    for source_key, amount_counts in amount_counts_by_source.items():
+        repeated_amounts = sorted(amount for amount, count in amount_counts.items() if count >= 2)
+        if not repeated_amounts:
+            continue
+        baseline = repeated_amounts[0]
+        candidates = tuple(
+            amount for amount in repeated_amounts if amount <= baseline * HOUSING_BURDEN_CANDIDATE_RATIO
+        )
+        if candidates:
+            context[source_key] = candidates
+    return context
+
+
+def _resolved_personal_housing_burden(
+    record: NormalizedRecord,
+    *,
+    company_housing: Decimal,
+    housing_burden_context: dict[str, tuple[Decimal, ...]],
+) -> Decimal:
+    if company_housing <= 0:
+        return Decimal('0')
+    source_key = _housing_burden_source_key(record)
+    candidates = housing_burden_context.get(source_key or '', ())
+    allowance = _select_burden_allowance(company_housing, candidates)
+    if allowance is None:
+        return Decimal('0')
+    burden = company_housing - allowance
+    return burden if burden > 0 else Decimal('0')
+
+
+def _select_burden_allowance(
+    current_amount: Decimal,
+    candidates: tuple[Decimal, ...],
+) -> Decimal | None:
+    if not candidates:
+        return None
+    eligible = [candidate for candidate in candidates if candidate <= current_amount]
+    if eligible:
+        return eligible[-1]
+    return candidates[0]
+
+
+def _social_burden_source_key(record: NormalizedRecord) -> str | None:
+    return _source_key_for_kind(record, SOCIAL_SOURCE_KIND, ('medical_company', 'medical_maternity_company'))
+
+
+def _housing_burden_source_key(record: NormalizedRecord) -> str | None:
+    return _source_key_for_kind(record, HOUSING_SOURCE_KIND, ('housing_fund_personal', 'housing_fund_company', 'housing_fund_total'))
+
+
+def _source_key_for_kind(
+    record: NormalizedRecord,
+    source_kind: str,
+    amount_fields: tuple[str, ...],
+) -> str | None:
+    raw_payload = record.raw_payload or {}
+    merged_sources = raw_payload.get('merged_sources')
+    if isinstance(merged_sources, list):
+        for source in merged_sources:
+            if not isinstance(source, dict):
+                continue
+            if source.get('source_kind') != source_kind:
+                continue
+            source_file_name = _normalize_export_text(source.get('source_file_name'))
+            if source_file_name:
+                return source_file_name
+    if any(_amount(getattr(record, field_name, None)) > 0 for field_name in amount_fields):
+        return _normalize_export_text(record.source_file_name)
+    return None
 
 
 def _merge_export_records(records: list[NormalizedRecord]) -> list[NormalizedRecord]:
@@ -469,6 +702,7 @@ def _copy_export_record(record: NormalizedRecord) -> NormalizedRecord:
         setattr(clone, field_name, getattr(record, field_name, None))
     for field_name in EXPORT_AMOUNT_FIELDS:
         setattr(clone, field_name, getattr(record, field_name, None))
+    clone.raw_payload = deepcopy(record.raw_payload) if record.raw_payload is not None else None
     return clone
 
 
@@ -488,9 +722,55 @@ def _merge_two_records(base: NormalizedRecord, incoming: NormalizedRecord) -> No
         setattr(
             base,
             field_name,
-            _merge_amount_value(getattr(base, field_name, None), getattr(incoming, field_name, None)),
+            _merge_amount_value(
+                getattr(base, field_name, None),
+                getattr(incoming, field_name, None),
+                field_name=field_name,
+                current_payload=base.raw_payload,
+                incoming_payload=incoming.raw_payload,
+            ),
         )
+    base.raw_payload = _merge_raw_payloads(base.raw_payload, incoming.raw_payload)
     return base
+
+
+def _merge_raw_payloads(
+    current: dict[str, object] | None,
+    incoming: dict[str, object] | None,
+) -> dict[str, object] | None:
+    if current is None:
+        return deepcopy(incoming) if incoming is not None else None
+    if incoming is None:
+        return current
+
+    merged = deepcopy(current)
+    merged_sources = merged.setdefault('merged_sources', [])
+    if not isinstance(merged_sources, list):
+        merged_sources = []
+        merged['merged_sources'] = merged_sources
+
+    existing_keys = {
+        (
+            item.get('source_kind'),
+            item.get('source_file_name'),
+            item.get('source_row_number'),
+        )
+        for item in merged_sources
+        if isinstance(item, dict)
+    }
+    for item in incoming.get('merged_sources', []):
+        if not isinstance(item, dict):
+            continue
+        item_key = (
+            item.get('source_kind'),
+            item.get('source_file_name'),
+            item.get('source_row_number'),
+        )
+        if item_key in existing_keys:
+            continue
+        merged_sources.append(deepcopy(item))
+        existing_keys.add(item_key)
+    return merged
 
 
 def _merge_text_value(
@@ -524,16 +804,76 @@ def _merge_text_value(
     return normalized_current
 
 
-def _merge_amount_value(current: Decimal | None, incoming: Decimal | None) -> Decimal | None:
+def _merge_amount_value(
+    current: Decimal | None,
+    incoming: Decimal | None,
+    *,
+    field_name: str,
+    current_payload: dict[str, object] | None,
+    incoming_payload: dict[str, object] | None,
+) -> Decimal | None:
     current_amount = _amount(current)
     incoming_amount = _amount(incoming)
     if current is None or current_amount == Decimal('0'):
         return incoming
     if incoming is None or incoming_amount == Decimal('0'):
         return current
+    if _should_accumulate_amount(
+        field_name=field_name,
+        current_payload=current_payload,
+        incoming_payload=incoming_payload,
+    ):
+        return current_amount + incoming_amount
     if current_amount == incoming_amount:
         return current
     return current if abs(current_amount) >= abs(incoming_amount) else incoming
+
+
+def _should_accumulate_amount(
+    *,
+    field_name: str,
+    current_payload: dict[str, object] | None,
+    incoming_payload: dict[str, object] | None,
+) -> bool:
+    source_kind = SOURCE_KIND_BY_AMOUNT_FIELD.get(field_name)
+    if source_kind is None:
+        return False
+    current_signatures = _source_signatures_for_kind(current_payload, source_kind)
+    incoming_signatures = _source_signatures_for_kind(incoming_payload, source_kind)
+    if not current_signatures or not incoming_signatures:
+        return False
+    return current_signatures != incoming_signatures
+
+
+def _source_signatures_for_kind(
+    raw_payload: dict[str, object] | None,
+    source_kind: str,
+) -> set[tuple[str | None, int | None]]:
+    if not isinstance(raw_payload, dict):
+        return set()
+    merged_sources = raw_payload.get('merged_sources')
+    if not isinstance(merged_sources, list):
+        return set()
+
+    signatures: set[tuple[str | None, int | None]] = set()
+    for item in merged_sources:
+        if not isinstance(item, dict):
+            continue
+        if item.get('source_kind') != source_kind:
+            continue
+        source_file_name = _normalize_export_text(item.get('source_file_name'))
+        source_row_number = item.get('source_row_number')
+        if isinstance(source_row_number, str) and source_row_number.isdigit():
+            source_row_number = int(source_row_number)
+        signatures.add((source_file_name, source_row_number if isinstance(source_row_number, int) else None))
+    return signatures
+
+
+def _source_signature_count_for_kind(
+    raw_payload: dict[str, object] | None,
+    source_kind: str,
+) -> int:
+    return len(_source_signatures_for_kind(raw_payload, source_kind))
 
 
 def _region_label(value: str | None) -> str:

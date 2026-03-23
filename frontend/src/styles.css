@@ -1421,6 +1421,60 @@ button {
   background: rgba(248, 250, 254, 0.96);
 }
 
+.simple-artifact-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(31, 42, 61, 0.08);
+  background: rgba(248, 250, 254, 0.96);
+}
+
+.simple-artifact-card--success {
+  border-color: rgba(51, 135, 76, 0.2);
+  background: rgba(229, 247, 236, 0.96);
+}
+
+.simple-artifact-card--warning {
+  border-color: rgba(191, 95, 40, 0.2);
+  background: rgba(255, 241, 224, 0.96);
+}
+
+.simple-artifact-card--error {
+  border-color: rgba(198, 82, 61, 0.2);
+  background: rgba(255, 230, 228, 0.96);
+}
+
+.simple-artifact-card__body {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+}
+
+.simple-artifact-card__body strong {
+  font-size: 0.98rem;
+}
+
+.simple-artifact-card__body span {
+  color: #55637b;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.simple-artifact-card__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.simple-artifact-card__status {
+  color: #6a778d;
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+
 .upload-board,
 .upload-support-grid {
   display: grid;
@@ -1610,6 +1664,15 @@ button {
   .status-grid,
   .simple-result-summary {
     grid-template-columns: 1fr;
+  }
+
+  .simple-artifact-card {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .simple-artifact-card__actions {
+    justify-content: flex-start;
   }
 }
 

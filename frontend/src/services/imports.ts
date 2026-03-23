@@ -81,6 +81,10 @@ export interface CreateImportBatchInput {
   companyName?: string;
 }
 
+export interface FetchImportBatchPreviewOptions {
+  sourceFileId?: string;
+}
+
 export async function fetchImportBatches(): Promise<ImportBatchSummary[]> {
   const response = await apiClient.get<ApiSuccessResponse<ImportBatchSummary[]>>('/imports');
   return response.data.data;
@@ -122,8 +126,9 @@ export async function parseImportBatch(batchId: string): Promise<ImportBatchPrev
   return response.data.data;
 }
 
-export async function fetchImportBatchPreview(batchId: string): Promise<ImportBatchPreview> {
+export async function fetchImportBatchPreview(batchId: string, options: FetchImportBatchPreviewOptions = {}): Promise<ImportBatchPreview> {
   const response = await apiClient.get<ApiSuccessResponse<ImportBatchPreview>>(`/imports/${batchId}/preview`, {
+    params: options.sourceFileId ? { source_file_id: options.sourceFileId } : undefined,
     timeout: LONG_RUNNING_REQUEST_TIMEOUT_MS,
   });
   return response.data.data;

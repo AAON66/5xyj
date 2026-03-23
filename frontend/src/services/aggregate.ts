@@ -96,6 +96,7 @@ export interface AggregateInput {
   files: File[];
   housingFundFiles?: File[];
   employeeMasterFile?: File | null;
+  employeeMasterMode?: 'none' | 'upload' | 'existing';
   batchName?: string;
 }
 
@@ -105,6 +106,9 @@ function buildAggregateFormData(input: AggregateInput): FormData {
   (input.housingFundFiles ?? []).forEach((file) => formData.append('housing_fund_files', file));
   if (input.employeeMasterFile) {
     formData.append('employee_master_file', input.employeeMasterFile);
+  }
+  if (input.employeeMasterMode) {
+    formData.append('employee_master_mode', input.employeeMasterMode);
   }
   if (input.batchName?.trim()) {
     formData.append('batch_name', input.batchName.trim());

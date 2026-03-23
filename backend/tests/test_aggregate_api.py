@@ -245,6 +245,87 @@ def test_aggregate_endpoint_imports_employee_master_and_matches_records() -> Non
 
 
 
+def test_aggregate_endpoint_can_use_existing_employee_master_without_reupload() -> None:
+    salary_template = find_template('\u85aa\u916c')
+    tool_template = find_template('\u6700\u7ec8\u7248')
+    sample_path = find_sample(SAMPLE_KEYWORD)
+    employee_csv = make_employee_master_csv(sample_path)
+    client, _settings, _session_factory = build_test_context(
+        'aggregate_with_existing_master',
+        salary_template=salary_template,
+        final_tool_template=tool_template,
+    )
+
+    with client:
+        employee_import_response = client.post(
+            '/api/v1/employees/import',
+            files=[('file', ('employee_master.csv', employee_csv, 'text/csv'))],
+        )
+        assert employee_import_response.status_code == 201
+
+        response = client.post(
+            '/api/v1/aggregate',
+            data={'batch_name': 'quick-aggregate-existing-master', 'employee_master_mode': 'existing'},
+            files=[
+                (
+                    'files',
+                    (
+                        sample_path.name,
+                        sample_path.read_bytes(),
+                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    ),
+                )
+            ],
+        )
+
+    assert response.status_code == 201
+    payload = response.json()['data']
+    assert payload['employee_master'] is None
+    assert payload['matched_count'] >= 1
+    assert payload['export_status'] == 'completed'
+
+
+def test_aggregate_endpoint_can_skip_existing_employee_master_explicitly() -> None:
+    salary_template = find_template('\u85aa\u916c')
+    tool_template = find_template('\u6700\u7ec8\u7248')
+    sample_path = find_sample(SAMPLE_KEYWORD)
+    employee_csv = make_employee_master_csv(sample_path)
+    client, _settings, _session_factory = build_test_context(
+        'aggregate_skip_existing_master',
+        salary_template=salary_template,
+        final_tool_template=tool_template,
+    )
+
+    with client:
+        employee_import_response = client.post(
+            '/api/v1/employees/import',
+            files=[('file', ('employee_master.csv', employee_csv, 'text/csv'))],
+        )
+        assert employee_import_response.status_code == 201
+
+        response = client.post(
+            '/api/v1/aggregate',
+            data={'batch_name': 'quick-aggregate-skip-master', 'employee_master_mode': 'none'},
+            files=[
+                (
+                    'files',
+                    (
+                        sample_path.name,
+                        sample_path.read_bytes(),
+                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    ),
+                )
+            ],
+        )
+
+    assert response.status_code == 201
+    payload = response.json()['data']
+    assert payload['employee_master'] is None
+    assert payload['matched_count'] == 0
+    assert payload['unmatched_count'] >= 1
+    assert payload['export_status'] == 'completed'
+
+
 def test_aggregate_download_endpoint_returns_generated_artifacts() -> None:
     salary_template = find_template('\u85aa\u916c')
     tool_template = find_template('\u6700\u7ec8\u7248')
@@ -328,7 +409,9 @@ def test_aggregate_endpoint_merges_housing_fund_into_dual_exports() -> None:
     assert target_row is not None
     assert float(salary_sheet[f'H{target_row}'].value) > 0
     assert float(salary_sheet[f'P{target_row}'].value) > 0
-    assert float(salary_sheet[f'R{target_row}'].value) > 0
+    assert float(salary_sheet[f'R{target_row}'].value) >= 0
+    assert float(salary_sheet[f'R{target_row}'].value) <= float(salary_sheet[f'P{target_row}'].value)
+    assert float(salary_sheet[f'R{target_row}'].value) != float(salary_sheet[f'H{target_row}'].value)
     salary_wb.close()
 
     tool_wb = load_workbook(tool_artifact['file_path'], data_only=False)
@@ -341,6 +424,9 @@ def test_aggregate_endpoint_merges_housing_fund_into_dual_exports() -> None:
     assert tool_row is not None
     assert float(tool_sheet[f'N{tool_row}'].value) > 0
     assert float(tool_sheet[f'V{tool_row}'].value) > 0
+    assert float(tool_sheet[f'X{tool_row}'].value) >= 0
+    assert float(tool_sheet[f'X{tool_row}'].value) <= float(tool_sheet[f'V{tool_row}'].value)
+    assert float(tool_sheet[f'X{tool_row}'].value) != float(tool_sheet[f'N{tool_row}'].value)
     tool_wb.close()
 
 

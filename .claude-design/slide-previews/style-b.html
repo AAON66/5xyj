@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Style B — Swiss Modern</title>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;800;900&family=Nunito:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; overflow: hidden; background: #fff; }
+:root {
+  --red: #ff3300;
+  --black: #0a0a0a;
+  --white: #ffffff;
+  --gray: #f0f0f0;
+}
+.slide {
+  width: 100vw; height: 100vh; height: 100dvh;
+  overflow: hidden;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  font-family: 'Archivo', sans-serif;
+  background: var(--white);
+  position: relative;
+}
+/* Grid overlay */
+.slide::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(rgba(0,0,0,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,0,0,0.04) 1px, transparent 1px);
+  background-size: clamp(30px, 5vw, 60px) clamp(30px, 5vw, 60px);
+  pointer-events: none;
+}
+.top-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: clamp(1rem, 2.5vw, 2rem) clamp(1.5rem, 4vw, 4rem);
+  border-bottom: 2px solid var(--black);
+  position: relative; z-index: 1;
+  opacity: 0;
+  animation: fadeIn 0.4s ease forwards 0.1s;
+}
+.logo-text {
+  font-size: clamp(0.7rem, 1.2vw, 0.9rem);
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.date-tag {
+  font-size: clamp(0.6rem, 1vw, 0.75rem);
+  font-weight: 500;
+  color: #666;
+  letter-spacing: 0.05em;
+}
+.main-content {
+  display: grid;
+  grid-template-columns: 1fr 2px 1fr;
+  position: relative; z-index: 1;
+  overflow: hidden;
+}
+.col-divider { background: var(--black); }
+.col-left {
+  padding: clamp(1.5rem, 4vw, 4rem);
+  display: flex; flex-direction: column; justify-content: center;
+}
+.col-right {
+  padding: clamp(1.5rem, 4vw, 4rem);
+  display: flex; flex-direction: column; justify-content: center;
+  gap: clamp(0.75rem, 2vh, 1.5rem);
+}
+.red-label {
+  display: inline-block;
+  background: var(--red);
+  color: white;
+  font-size: clamp(0.55rem, 0.9vw, 0.7rem);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 0.3em 0.7em;
+  margin-bottom: clamp(0.75rem, 2vh, 1.5rem);
+  opacity: 0;
+  animation: fadeIn 0.5s ease forwards 0.3s;
+}
+h1 {
+  font-size: clamp(2rem, 5vw, 4.5rem);
+  font-weight: 900;
+  line-height: 0.95;
+  color: var(--black);
+  text-transform: uppercase;
+  opacity: 0;
+  animation: fadeIn 0.5s ease forwards 0.5s;
+}
+h1 span { color: var(--red); }
+.desc {
+  font-family: 'Nunito', sans-serif;
+  font-size: clamp(0.75rem, 1.3vw, 0.95rem);
+  color: #444;
+  line-height: 1.6;
+  margin-top: clamp(0.75rem, 2vh, 1.5rem);
+  opacity: 0;
+  animation: fadeIn 0.5s ease forwards 0.7s;
+}
+.feature-row {
+  display: flex; align-items: flex-start; gap: 0.75rem;
+  opacity: 0;
+  animation: slideIn 0.5s ease forwards;
+}
+.feature-row:nth-child(1) { animation-delay: 0.4s; }
+.feature-row:nth-child(2) { animation-delay: 0.55s; }
+.feature-row:nth-child(3) { animation-delay: 0.7s; }
+.feature-row:nth-child(4) { animation-delay: 0.85s; }
+.feat-num {
+  font-size: clamp(1.2rem, 2.5vw, 2rem);
+  font-weight: 900;
+  color: var(--red);
+  line-height: 1;
+  min-width: 2ch;
+}
+.feat-text {
+  font-family: 'Nunito', sans-serif;
+  font-size: clamp(0.7rem, 1.2vw, 0.875rem);
+  color: var(--black);
+  line-height: 1.4;
+  padding-top: 0.2em;
+}
+.feat-text strong { font-weight: 700; display: block; }
+.bottom-bar {
+  border-top: 2px solid var(--black);
+  padding: clamp(0.5rem, 1.5vw, 1rem) clamp(1.5rem, 4vw, 4rem);
+  display: flex; align-items: center; gap: 2rem;
+  position: relative; z-index: 1;
+  opacity: 0;
+  animation: fadeIn 0.4s ease forwards 1s;
+}
+.tech-tag {
+  font-size: clamp(0.55rem, 0.9vw, 0.7rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #888;
+  border: 1.5px solid #ccc;
+  padding: 0.2em 0.6em;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes slideIn { from { opacity: 0; transform: translateX(-15px); } to { opacity: 1; transform: translateX(0); } }
+</style>
+</head>
+<body>
+<div class="slide">
+  <div class="top-bar">
+    <span class="logo-text">社保聚合工具</span>
+    <span class="date-tag">2026.03 内部汇报</span>
+  </div>
+  <div class="main-content">
+    <div class="col-left">
+      <span class="red-label">项目概览</span>
+      <h1>社保<br>表格<br><span>聚合</span></h1>
+      <p class="desc">多地区 · 多格式 · 自动识别<br>统一标准字段 · 双模板导出</p>
+    </div>
+    <div class="col-divider"></div>
+    <div class="col-right">
+      <div class="feature-row">
+        <span class="feat-num">01</span>
+        <div class="feat-text"><strong>智能表头识别</strong>自动定位有效工作表与数据起始行</div>
+      </div>
+      <div class="feature-row">
+        <span class="feat-num">02</span>
+        <div class="feat-text"><strong>标准字段映射</strong>规则优先，DeepSeek LLM 兜底</div>
+      </div>
+      <div class="feature-row">
+        <span class="feat-num">03</span>
+        <div class="feat-text"><strong>工号精确匹配</strong>基于员工主数据，可追溯可回溯</div>
+      </div>
+      <div class="feature-row">
+        <span class="feat-num">04</span>
+        <div class="feat-text"><strong>双模板同步导出</strong>薪酬模板 + 工具表最终版</div>
+      </div>
+    </div>
+  </div>
+  <div class="bottom-bar">
+    <span class="tech-tag">React</span>
+    <span class="tech-tag">FastAPI</span>
+    <span class="tech-tag">Python</span>
+    <span class="tech-tag">DeepSeek</span>
+  </div>
+</div>
+</body>
+</html>

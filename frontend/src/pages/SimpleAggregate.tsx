@@ -5,6 +5,7 @@ import { PageContainer, SectionState, SurfaceNotice } from '../components';
 import { useAggregateSession } from '../hooks';
 import { type AggregateArtifact, type AggregateProgressEvent, getAggregateArtifactDownloadUrl } from '../services/aggregate';
 import { cancelAggregateSession, clearAggregateSession, startAggregateSession } from '../services/aggregateSessionStore';
+import { fetchEmployeeMasters } from '../services/employees';
 import { fetchSystemHealth, type SystemHealth } from '../services/system';
 
 const TEXT = {
@@ -33,6 +34,14 @@ const TEXT = {
   employeeEyebrow: '员工主档',
   employeeTitle: '可选主数据',
   employeeHint: '可以与本次聚合一起上传，用于工号匹配。',
+  employeeMode: '\u4e3b\u6863\u6765\u6e90',
+  employeeModeNone: '\u672c\u6b21\u4e0d\u4f7f\u7528',
+  employeeModeExisting: '\u4f7f\u7528\u670d\u52a1\u5668\u5df2\u6709\u4e3b\u6863',
+  employeeModeUpload: '\u4e0a\u4f20\u65b0\u4e3b\u6863',
+  employeeExistingLoading: '\u6b63\u5728\u8bfb\u53d6\u670d\u52a1\u5668\u5df2\u6709\u4e3b\u6863...',
+  employeeExistingEmpty: '\u5f53\u524d\u670d\u52a1\u5668\u8fd8\u6ca1\u6709\u53ef\u7528\u7684\u5458\u5de5\u4e3b\u6863\u3002',
+  employeeExistingReady: '\u672c\u6b21\u5c06\u76f4\u63a5\u4f7f\u7528\u670d\u52a1\u5668\u73b0\u6709\u7684\u5728\u804c\u5458\u5de5\u4e3b\u6863\u8fdb\u884c\u5de5\u53f7\u5339\u914d\u3002',
+  employeeNoneMessage: '\u672c\u6b21\u5c06\u4e0d\u4f7f\u7528\u5458\u5de5\u4e3b\u6863\uff0c\u4ecd\u53ef\u4ee5\u7ee7\u7eed\u805a\u5408\u5e76\u5bfc\u51fa\u7ed3\u679c\u3002',
   metaTitle: '批次设置',
   addFiles: '添加文件',
   clearFiles: '清空列表',
@@ -48,6 +57,8 @@ const TEXT = {
   batchPlaceholder: '例如：2026-02 社保公积金聚合',
   batchTip: '聚合开始后可以切换到其他页面，这里会保留本次记录，直到你主动取消或清除。',
   selectionRequired: '请至少选择一个社保或公积金 Excel 文件。',
+  employeeExistingRequired: '\u5f53\u524d\u8fd8\u6ca1\u6709\u53ef\u7528\u7684\u670d\u52a1\u5668\u5458\u5de5\u4e3b\u6863\uff0c\u8bf7\u5148\u4e0a\u4f20\u65b0\u4e3b\u6863\u6216\u5207\u6362\u4e3a\u4e0d\u4f7f\u7528\u3002',
+  employeeUploadRequired: '\u4f60\u5df2\u9009\u62e9\u201c\u4e0a\u4f20\u65b0\u4e3b\u6863\u201d\uff0c\u8bf7\u5148\u9009\u62e9\u4e00\u4e2a\u5458\u5de5\u4e3b\u6863\u6587\u4ef6\u3002',
   waitingTitle: '等你开始聚合',
   waitingMessage: '上传社保、公积金文件后，这里会直接显示进度、双模板结果和下载入口。',
   exportStatus: '导出状态',
@@ -303,9 +314,12 @@ function UploadPanel({ eyebrow, title, entries, onAdd, onClear, onRemove, emptyM
 export function SimpleAggregatePage() {
   const aggregateSession = useAggregateSession();
   const [health, setHealth] = useState<SystemHealth | null>(null);
+  const [existingEmployeeMasterCount, setExistingEmployeeMasterCount] = useState(0);
+  const [loadingEmployeeMasters, setLoadingEmployeeMasters] = useState(true);
   const [socialFiles, setSocialFiles] = useState<File[]>([]);
   const [housingFundFiles, setHousingFundFiles] = useState<File[]>([]);
   const [employeeMasterFile, setEmployeeMasterFile] = useState<File | null>(null);
+  const [employeeMasterMode, setEmployeeMasterMode] = useState<'none' | 'upload' | 'existing'>('none');
   const [batchName, setBatchName] = useState('');
   const [selectionError, setSelectionError] = useState<string | null>(null);
 
@@ -331,12 +345,37 @@ export function SimpleAggregatePage() {
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    setLoadingEmployeeMasters(true);
+    fetchEmployeeMasters({ activeOnly: true })
+      .then((payload) => {
+        if (active) {
+          setExistingEmployeeMasterCount(payload.total);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setExistingEmployeeMasterCount(0);
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoadingEmployeeMasters(false);
+        }
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const running = aggregateSession.status === 'running';
   const hasSessionRecord = aggregateSession.status !== 'idle';
   const progress = aggregateSession.progress;
   const result = aggregateSession.result;
   const pageError = selectionError ?? aggregateSession.error;
   const lockSelection = hasSessionRecord;
+  const effectiveEmployeeMasterMode = hasSessionRecord ? aggregateSession.selection.employeeMasterMode : employeeMasterMode;
 
   const outputArtifacts = useMemo(() => result?.artifacts ?? [], [result]);
   const normalizedCount = useMemo(() => result?.source_files.reduce((sum, item) => sum + item.normalized_record_count, 0) ?? 0, [result]);
@@ -381,6 +420,9 @@ export function SimpleAggregatePage() {
     event.target.value = '';
     setSelectionError(null);
     setEmployeeMasterFile(selectedFile);
+    if (selectedFile) {
+      setEmployeeMasterMode('upload');
+    }
   }
 
   function removeSocialFile(targetId: string) {
@@ -396,13 +438,22 @@ export function SimpleAggregatePage() {
       setSelectionError(TEXT.selectionRequired);
       return;
     }
+    if (employeeMasterMode === 'existing' && existingEmployeeMasterCount <= 0) {
+      setSelectionError(TEXT.employeeExistingRequired);
+      return;
+    }
+    if (employeeMasterMode === 'upload' && !employeeMasterFile) {
+      setSelectionError(TEXT.employeeUploadRequired);
+      return;
+    }
 
     setSelectionError(null);
     try {
       await startAggregateSession({
         files: socialFiles,
         housingFundFiles,
-        employeeMasterFile,
+        employeeMasterFile: employeeMasterMode === 'upload' ? employeeMasterFile : null,
+        employeeMasterMode,
         batchName,
       });
     } catch {
@@ -416,7 +467,8 @@ export function SimpleAggregatePage() {
   }
 
   const canStart = !running && !hasSessionRecord && (socialFiles.length > 0 || housingFundFiles.length > 0);
-  const employeeDisplayName = employeeMasterFile?.name ?? aggregateSession.selection.employeeMasterFile;
+  const employeeDisplayName =
+    effectiveEmployeeMasterMode === 'upload' ? (employeeMasterFile?.name ?? aggregateSession.selection.employeeMasterFile) : null;
 
   return (
     <PageContainer
@@ -452,7 +504,7 @@ export function SimpleAggregatePage() {
       }
     >
       {health ? (
-        <SurfaceNotice tone="success" title={TEXT.backendReady} message={`${health.app_name} ${health.version} | /api/v1/system/health 响应正常`} />
+        <SurfaceNotice tone="success" title={'后端已就绪'} message={`社保表格聚合工具 ${health.version} | /api/v1/system/health 响应正常`} />
       ) : null}
       {pageError ? <SurfaceNotice tone="error" title={TEXT.failedTitle} message={pageError} /> : null}
       {result && result.export_status === 'completed' ? (
@@ -509,23 +561,68 @@ export function SimpleAggregatePage() {
                   <h3>{TEXT.employeeTitle}</h3>
                 </div>
               </div>
-              <div className="upload-panel__actions button-row">
-                <button type="button" className="button button--primary" onClick={() => employeeInputRef.current?.click()} disabled={lockSelection}>
-                  {employeeMasterFile ? TEXT.replaceMaster : TEXT.addMaster}
-                </button>
-                <button type="button" className="button button--ghost" disabled={lockSelection || !employeeDisplayName} onClick={() => setEmployeeMasterFile(null)}>
-                  {TEXT.removeMaster}
-                </button>
-              </div>
-              {employeeDisplayName ? (
+              <label className="form-field form-field--compact">
+                <span>{TEXT.employeeMode}</span>
+                <select
+                  value={effectiveEmployeeMasterMode}
+                  onChange={(event) => {
+                    const nextMode = event.target.value as 'none' | 'upload' | 'existing';
+                    setEmployeeMasterMode(nextMode);
+                    if (nextMode !== 'upload') {
+                      setEmployeeMasterFile(null);
+                    }
+                    setSelectionError(null);
+                  }}
+                  disabled={lockSelection}
+                >
+                  <option value="none">{TEXT.employeeModeNone}</option>
+                  <option value="existing" disabled={loadingEmployeeMasters || existingEmployeeMasterCount <= 0}>
+                    {TEXT.employeeModeExisting}
+                  </option>
+                  <option value="upload">{TEXT.employeeModeUpload}</option>
+                </select>
+              </label>
+              {effectiveEmployeeMasterMode === 'upload' ? (
+                <>
+                  <div className="upload-panel__actions button-row">
+                    <button type="button" className="button button--primary" onClick={() => employeeInputRef.current?.click()} disabled={lockSelection}>
+                      {employeeMasterFile ? TEXT.replaceMaster : TEXT.addMaster}
+                    </button>
+                    <button
+                      type="button"
+                      className="button button--ghost"
+                      disabled={lockSelection || !employeeDisplayName}
+                      onClick={() => setEmployeeMasterFile(null)}
+                    >
+                      {TEXT.removeMaster}
+                    </button>
+                  </div>
+                  {employeeDisplayName ? (
+                    <div className="upload-file-chip upload-file-chip--single">
+                      <div className="upload-file-chip__meta">
+                        <strong>{employeeDisplayName}</strong>
+                        <span>{employeeMasterFile ? formatFileSize(employeeMasterFile.size) : TEXT.persistedRecord}</span>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="upload-panel__empty">{TEXT.noEmployee}</div>
+                  )}
+                </>
+              ) : effectiveEmployeeMasterMode === 'existing' ? (
                 <div className="upload-file-chip upload-file-chip--single">
                   <div className="upload-file-chip__meta">
-                    <strong>{employeeDisplayName}</strong>
-                    <span>{employeeMasterFile ? formatFileSize(employeeMasterFile.size) : TEXT.persistedRecord}</span>
+                    <strong>
+                      {loadingEmployeeMasters
+                        ? TEXT.employeeExistingLoading
+                        : existingEmployeeMasterCount > 0
+                          ? `${existingEmployeeMasterCount} 条在职员工主档`
+                          : TEXT.employeeExistingEmpty}
+                    </strong>
+                    <span>{existingEmployeeMasterCount > 0 ? TEXT.employeeExistingReady : TEXT.employeeExistingEmpty}</span>
                   </div>
                 </div>
               ) : (
-                <div className="upload-panel__empty">{TEXT.noEmployee}</div>
+                <div className="upload-panel__empty">{TEXT.employeeNoneMessage}</div>
               )}
             </article>
 
@@ -678,19 +775,21 @@ export function SimpleAggregatePage() {
               </div>
               <div className="simple-artifact-list">
                 {outputArtifacts.map((artifact) => (
-                  <SurfaceNotice
-                    key={artifact.template_type}
-                    tone={artifactTone(artifact)}
-                    title={artifactLabel(artifact.template_type)}
-                    message={formatArtifactMessage(artifact)}
-                    action={
-                      artifact.status === 'completed' && result.batch_id ? (
+                  <article key={artifact.template_type} className={`simple-artifact-card simple-artifact-card--${artifactTone(artifact)}`}>
+                    <div className="simple-artifact-card__body">
+                      <strong>{artifactLabel(artifact.template_type)}</strong>
+                      <span>{formatArtifactMessage(artifact)}</span>
+                    </div>
+                    <div className="simple-artifact-card__actions">
+                      {artifact.status === 'completed' && result.batch_id ? (
                         <a className="button button--ghost button--download" href={getAggregateArtifactDownloadUrl(result.batch_id, artifact.template_type)} target="_blank" rel="noreferrer">
                           {TEXT.download}
                         </a>
-                      ) : null
-                    }
-                  />
+                      ) : (
+                        <span className="simple-artifact-card__status">{artifact.status}</span>
+                      )}
+                    </div>
+                  </article>
                 ))}
               </div>
               <div className="simple-source-list">

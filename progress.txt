@@ -1142,6 +1142,35 @@ ormalization_service.py backendpp\services\import_service.py backendpp\service
 ### Notes:
 - The runtime employee master database has already been refreshed from the real roster, so subsequent aggregates in this workspace no longer depend on the old null-ID imports.
 
+## [2026-03-23] - Task: Fix housing-fund burden export mismatch in salary/final_tool
+
+### What was done:
+- Traced the user's workbook mismatch to a concrete exporter bug: `salary` column `R` (`个人公积金承担额`) was being written directly from `housing_fund_personal`, which caused the generated file to mirror column `H` instead of writing the burden amount.
+- Updated `template_exporter.py` so salary/tool export rows now derive housing-fund burden from source-aware housing records rather than blindly copying the personal housing contribution.
+- Added a housing-fund baseline inference layer that groups records by housing-fund source file, learns repeated low-value monthly employer baselines, and computes burden as `company_housing - inferred_baseline` when the source pattern is reliable.
+- Added a conservative fallback that writes `0` when no reliable baseline can be inferred, preventing the previous high-impact failure mode where the full housing contribution leaked into the burden column.
+- Preserved exporter-side `raw_payload.merged_sources` during duplicate-record consolidation so the export layer still knows which housing-fund workbook a merged record came from.
+- Tightened the aggregate regression to validate the new behavior instead of the old incorrect assumption that merged housing rows should always produce a positive burden amount.
+
+### Testing:
+- `.\.venv\Scripts\python.exe -m compileall backend`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_template_exporter.py::test_export_dual_templates_derives_housing_burden_from_repeated_source_baseline -p no:cacheprovider -q`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_template_exporter.py::test_export_dual_templates_zeroes_housing_burden_when_no_reliable_baseline_exists -p no:cacheprovider -q`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_aggregate_api.py::test_aggregate_endpoint_merges_housing_fund_into_dual_exports -p no:cacheprovider -q`
+- Real-data verification against the desktop reference workbook and `data/external/housing_fund` confirmed the new logic matches expected burden values for representative rows such as:
+  - `蔡晓珊: 975 -> 800`
+  - `张玮婷: 500 -> 325`
+  - `李卓航: 720 -> 545`
+  - `范洁灵: 1100 -> 925`
+  - `郑辉煌: 1000 -> 825`
+
+### Risks / Open Questions:
+- A small number of source workbooks can contain multiple valid baseline buckets in the same housing-fund file. The current logic handles the repeated-bucket cases conservatively and falls back to `0` when it cannot infer a safe baseline, which is intentionally safer than the previous incorrect copy-through behavior.
+- Export-template tests remain slow on Windows because `openpyxl` has to save full production templates; this is a test-runtime concern rather than a correctness blocker.
+
+### Notes:
+- This fix is specifically aimed at the mismatch the user reported between the generated `salary` workbook and the manually verified reference workbook, and the critical correction is that `个人公积金承担额` is no longer sourced from `个人公积金`.
+
 ## [2026-03-22] - Task: Merge duplicate salary/final_tool rows by matched employee identity before export
 
 ### What was done:
@@ -1164,3 +1193,145 @@ ormalization_service.py backendpp\services\import_service.py backendpp\service
 
 ### Notes:
 - This fix specifically addresses the user-observed symptom of duplicate rows with the same工号 but complementary社保/公积金信息 in the final salary export.
+## [2026-03-23] - Task: Align salary export closer to the verified reference workbook
+
+### What was done:
+- Tightened `template_exporter.py` so duplicate social-security records for the same employee are accumulated by source signature instead of being flattened with a simple max-value rule. This fixes real补缴/重复来源场景 where one employee should export as one row with summed社保金额.
+- Added an exporter-side fix for Changsha so `large_medical_personal` is written with the verified doubled rule used by the target salary template.
+- Added a housing-fund normalization fix in the exporter so mixed-format records that expose one side as a ratio like `0.07` or `0.12` now recover the real personal amount from `total - company`, instead of exporting the ratio itself into the salary sheet.
+- Added a Xiamen header alias for `职工基本医疗保险(生育) / 单位应缴` so the value is no longer silently lost during标准化.
+- Restricted the previously speculative `Q列 个人社保承担额` inference so it no longer mass-produces false positives across Shenzhen files without an explicit rule flag.
+- Updated the housing-burden baseline selector so repeated baseline buckets are picked more safely, which corrected several previously wrong burden values in the real salary output.
+
+### Testing:
+- `.\.venv\Scripts\python.exe -m compileall backend`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_normalization_service.py::test_standardize_workbook_on_real_xiamen_sample -p no:cacheprovider -q`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_template_exporter.py::test_export_dual_templates_defaults_social_burden_to_zero_without_explicit_rule -p no:cacheprovider -vv -s`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_template_exporter.py::test_export_dual_templates_sums_duplicate_social_records_from_distinct_sources -p no:cacheprovider -q`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_template_exporter.py::test_export_dual_templates_uses_highest_repeated_housing_baseline_for_large_amounts -p no:cacheprovider -q`
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_aggregate_api.py::test_aggregate_endpoint_merges_housing_fund_into_dual_exports -p no:cacheprovider -q`
+- Ran two full real-data aggregate replays with `data/external/allin + data/external/housing_fund + data/external/roster` and compared the generated salary workbook against the copied desktop reference workbook.
+
+### Risks / Open Questions:
+- After the fixes, the real-data diff is much smaller but not fully zeroed. Remaining mismatches are concentrated in:
+- `Q列 个人社保承担额` for 13 Shenzhen employees, where the reference workbook appears to use an additional business rule that is not directly recoverable from current source files.
+- A handful of `R列 个人公积金承担额` cases, mainly in Hangzhou and one mixed Shanghai/深圳 file, where the reference workbook uses multiple baseline buckets that are not yet fully inferable from raw housing rows alone.
+- A very small number of rows with housing values in the reference workbook that do not exist in the currently replayed source set, so they cannot be reconstructed safely by rule alone.
+
+### Notes:
+- The end-to-end real-data comparison improved substantially. Before this round there were broad mismatches across `Q/J/H/R` and duplicated social rows; after this round the diff was reduced to a much smaller tail concentrated in a few business-rule edge cases instead of widespread export corruption.
+## [2026-03-23] - Task: Speed up page data synchronization for import pages
+
+### What was done:
+- Optimized `backend/app/services/import_service.py` so batch list and batch detail queries eagerly load only the source-file fields they actually need, reducing ORM-side lazy loading and list-page overhead.
+- Extended `/api/v1/imports/{batch_id}/preview` in `backend/app/api/v1/imports.py` to support `source_file_id`, allowing the frontend to request preview data for just one file instead of the whole batch.
+- Updated `frontend/src/services/imports.ts` to pass the new single-file preview parameter.
+- Refactored `frontend/src/pages/Imports.tsx` so batch switching first loads lightweight batch detail, then only fetches the first file preview when the batch has already been parsed.
+- Refactored `frontend/src/pages/ImportBatchDetail.tsx` to lazy-load previews per selected file and cache them locally, instead of pulling the full batch preview payload every time the page opens or a file is switched.
+
+### Testing:
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_import_batches_api.py backend\tests\test_mapping_api.py -p no:cacheprovider`
+- `.\.venv\Scripts\python.exe -m compileall backend`
+- `cmd /c npm.cmd run build`
+
+### Risks / Open Questions:
+- The parse endpoint still returns the full preview payload after an explicit parse action. That path is intentionally left unchanged because users usually expect a full fresh parse result there, but if needed it can be split into summary + file-level preview in a later pass.
+- Results / Exports pages still refresh their own status payloads independently; this round focused on the heaviest import-preview synchronization path first.
+
+### Notes:
+- The largest practical win is that page synchronization no longer recomputes and transfers all file previews for a batch just to render one selected file.
+## [2026-03-23] - Task: Add existing employee master selection to quick aggregate
+
+### What was done:
+- Added `employee_master_mode` support to the quick aggregate API and stream API so the aggregate flow can now explicitly choose between `upload`, `existing`, and `none`.
+- Updated `backend/app/services/aggregate_service.py` so quick aggregate only uses server-side employee masters when the mode explicitly allows it, and so “do not use employee master” no longer silently falls back to existing active records.
+- Updated the quick aggregate page to provide a clear employee-master source selector: upload a new master file, use existing server-side active masters, or skip master usage for this run.
+- Persisted the selected employee-master mode in the aggregate session snapshot so page switching and restored quick-aggregate records keep showing the same source choice.
+- Added aggregate API coverage for two new behaviors: using already-imported employee masters without re-uploading, and explicitly skipping existing employee masters even when they are present on the server.
+
+### Testing:
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_aggregate_api.py backend\tests\test_aggregate_service.py -p no:cacheprovider`
+- `.\.venv\Scripts\python.exe -m compileall backend`
+- `cmd /c npm.cmd run build`
+
+### Risks / Open Questions:
+- The “use existing employee master” option currently uses the active employee-master pool already stored on the server, not a historical imported dataset/version selector. If later we need per-import master datasets, that will require an additional grouping model.
+- The quick aggregate page currently fetches active employee-master count via the existing list API. If server-side employee masters grow much larger, a dedicated lightweight summary endpoint may be worthwhile.
+
+### Notes:
+- This change makes the quick aggregate behavior explicit and user-controlled instead of implicitly using whatever active employee masters happen to exist in the database.
+## [2026-03-23] - Task: Restore visible download buttons for quick aggregate outputs
+
+### What was done:
+- Reworked the quick aggregate result area in `frontend/src/pages/SimpleAggregate.tsx` so exported artifacts now render as dedicated result cards instead of relying on the `SurfaceNotice` action slot.
+- Kept the same download URL behavior, but made the button a first-class visible control per exported artifact, so completed salary / final_tool outputs always show a clear download entry.
+- Added dedicated styling for the new artifact cards in `frontend/src/styles.css`, including desktop and mobile layouts.
+
+### Testing:
+- `cmd /c npm.cmd run build`
+
+### Risks / Open Questions:
+- This fixes the quick aggregate page download visibility specifically. If the user wants the same stronger artifact-card pattern on other export/result pages, that can be aligned later.
+
+### Notes:
+- The download action is now visually decoupled from notice-banner layout, which makes it much less likely to disappear after future layout tweaks.
+## [2026-03-23] - Task: Fix failed quick-aggregate downloads caused by missing templates
+
+### What was done:
+- Identified that recent quick-aggregate failures were genuine backend export failures, not a frontend download-button issue: both salary and final-tool exports were failing because the configured template paths no longer existed.
+- Updated `backend/app/exporters/template_exporter.py` so template resolution no longer stops at a stale configured path. It now keeps searching for matching templates in the project template directory and recursively under the Desktop when the configured path is invalid.
+- Rewrote `.env` template paths to the real current desktop template location under `C:\Users\AAON\Desktop\公积金\202602社保公积金台账\202602社保公积金汇总\...`.
+- Added export API regression coverage proving that export can still succeed when configured template paths are broken but discoverable templates exist in the fallback search roots.
+
+### Testing:
+- `.\.venv\Scripts\python.exe -m pytest backend\tests\test_export_api.py::test_export_batch_endpoint_writes_both_template_outputs backend\tests\test_export_api.py::test_export_batch_endpoint_falls_back_to_discovered_templates_when_configured_paths_are_missing -p no:cacheprovider`
+- `.\.venv\Scripts\python.exe -m compileall backend`
+- Verified at runtime that `get_settings().salary_template_file` and `get_settings().final_tool_template_file` now resolve to existing files.
+
+### Risks / Open Questions:
+- Existing batches that already failed remain failed in the database; they need a fresh export run or a full re-aggregate to produce downloadable files.
+- Desktop recursive discovery is intentionally a fallback. If multiple same-keyword templates exist across months, the exporter now prefers the newest match, which is safer than failing but still depends on filename / modified-time ordering.
+
+### Notes:
+- The user-visible `failed` state was caused by missing source templates, so restoring the download path required fixing template discovery rather than the UI download action.
+## [2026-03-23] - Task: Restore failed aggregate downloads in the running app
+
+### What was done:
+- Restarted the backend so the template-path fix and template-discovery fallback would take effect in the live service instead of only in tests.
+- Re-ran export for the two newest failed batches (`test4` and `import-batch-20260323-153310`) after the restart; both batches now have fresh completed export jobs and generated salary/final-tool artifacts.
+- Verified the live export status endpoint now reports `exported` with completed artifacts for those batches.
+
+### Testing:
+- `Invoke-WebRequest http://127.0.0.1:8000/api/v1/system/health`
+- `POST /api/v1/imports/edbdd03c602f4643bce249549b6af874/export`
+- `GET /api/v1/imports/edbdd03c602f4643bce249549b6af874/export`
+- `GET /api/v1/imports/edbdd03c602f4643bce249549b6af874/export/salary/download`
+- `GET /api/v1/imports/edbdd03c602f4643bce249549b6af874/export/final_tool/download`
+- `POST /api/v1/imports/2ff29d32662743869257c2de20496958/export`
+- `GET /api/v1/imports/2ff29d32662743869257c2de20496958/export`
+
+### Risks / Open Questions:
+- Browser tabs that still hold old aggregate status in memory may need a manual refresh to pull the new completed export job from the server.
+
+### Notes:
+- The first sequential runtime validation batch (`test4`) was confirmed end-to-end downloadable with HTTP 200 for both templates.
+## [2026-03-23] - Task: Fix backend-ready mojibake in aggregate page
+
+### What was done:
+- Corrected `.env` so `APP_NAME` is stored as `社保表格聚合工具` instead of a mojibake value.
+- Hardened backend startup scripts to prefer UTF-8 console I/O on Windows (`chcp 65001`, `PYTHONUTF8=1`, `PYTHONIOENCODING=utf-8`).
+- Updated API JSON responses to explicitly return `application/json; charset=utf-8`.
+- Changed the quick aggregate health notice to use a stable Chinese app name in the UI, so this banner no longer depends on a potentially mojibake runtime label.
+- Restarted the backend so the runtime health endpoint picked up the corrected configuration.
+
+### Testing:
+- `.\\.venv\\Scripts\\python.exe -m compileall backend`
+- `cmd /c npm.cmd run build`
+- Verified `GET http://127.0.0.1:8000/api/v1/system/health` returns `application/json; charset=utf-8`
+- Verified the health payload now contains `\"app_name\":\"社保表格聚合工具\"`
+
+### Risks / Open Questions:
+- `frontend/src/pages/SimpleAggregate.tsx` still contains older mojibake literals in other copy blocks from earlier edits; this fix removes the backend-ready banner issue specifically, but the remaining text debt should be cleaned separately.
+
+### Notes:
+- This issue turned out to be a mix of one corrupted `.env` value and missing charset signaling on the backend response path.
