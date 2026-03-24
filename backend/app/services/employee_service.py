@@ -7,10 +7,10 @@ from typing import Any
 
 import pandas as pd
 from fastapi import UploadFile
-from sqlalchemy import or_
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
-from backend.app.models import EmployeeMaster, EmployeeMasterAudit
+from backend.app.models import EmployeeMaster, EmployeeMasterAudit, ImportBatch, MatchResult, NormalizedRecord
 from backend.app.models.enums import EmployeeAuditAction
 from backend.app.schemas.employees import (
     EmployeeImportRead,
@@ -20,6 +20,10 @@ from backend.app.schemas.employees import (
     EmployeeMasterRead,
     EmployeeMasterStatusInput,
     EmployeeMasterUpdateInput,
+    EmployeeSelfServiceProfileRead,
+    EmployeeSelfServiceQueryInput,
+    EmployeeSelfServiceRead,
+    EmployeeSelfServiceRecordRead,
 )
 
 
@@ -69,6 +73,10 @@ class EmployeeMasterNotFoundError(Exception):
 
 class EmployeeDeleteBlockedError(Exception):
     """Raised when an employee master record cannot be deleted safely."""
+
+
+class EmployeeSelfServiceNotFoundError(Exception):
+    """Raised when no employee self-service result can be found."""
 
 
 async def import_employee_master_file(db: Session, upload_file: UploadFile) -> EmployeeImportRead:
@@ -204,6 +212,64 @@ def list_employee_master_audits(db: Session, employee_id: str) -> EmployeeMaster
         .all()
     )
     return EmployeeMasterAuditListRead(total=len(items), items=[_to_audit_read(item) for item in items])
+
+
+def lookup_employee_self_service(db: Session, payload: EmployeeSelfServiceQueryInput) -> EmployeeSelfServiceRead:
+    person_name = _clean_text(payload.person_name)
+    normalized_id_number = _normalize_identity_lookup(payload.id_number)
+    if not person_name or not normalized_id_number:
+        raise EmployeeSelfServiceNotFoundError("Employee identity did not match any records.")
+
+    employee = (
+        db.query(EmployeeMaster)
+        .filter(EmployeeMaster.person_name == person_name)
+        .filter(_normalized_identity_expression(EmployeeMaster.id_number) == normalized_id_number)
+        .order_by(EmployeeMaster.active.desc(), EmployeeMaster.updated_at.desc())
+        .first()
+    )
+
+    conditions = [
+        and_(
+            NormalizedRecord.person_name == person_name,
+            _normalized_identity_expression(NormalizedRecord.id_number) == normalized_id_number,
+        )
+    ]
+    if employee is not None:
+        conditions.append(MatchResult.employee_master_id == employee.id)
+        conditions.append(NormalizedRecord.employee_id == employee.employee_id)
+
+    rows = (
+        db.query(NormalizedRecord, ImportBatch)
+        .join(ImportBatch, ImportBatch.id == NormalizedRecord.batch_id)
+        .outerjoin(MatchResult, MatchResult.normalized_record_id == NormalizedRecord.id)
+        .filter(or_(*conditions))
+        .order_by(ImportBatch.created_at.desc(), NormalizedRecord.created_at.desc(), NormalizedRecord.source_row_number.asc())
+        .all()
+    )
+
+    unique_records: list[tuple[NormalizedRecord, ImportBatch]] = []
+    seen_record_ids: set[str] = set()
+    for record, batch in rows:
+        if record.id in seen_record_ids:
+            continue
+        seen_record_ids.add(record.id)
+        unique_records.append((record, batch))
+
+    if employee is None and not unique_records:
+        raise EmployeeSelfServiceNotFoundError("Employee identity did not match any records.")
+
+    profile = (
+        _to_self_service_profile_from_employee(employee)
+        if employee is not None
+        else _to_self_service_profile_from_record(unique_records[0][0], normalized_id_number)
+    )
+    records = [_to_self_service_record(record, batch) for record, batch in unique_records]
+    return EmployeeSelfServiceRead(
+        matched_employee_master=employee is not None,
+        profile=profile,
+        record_count=len(records),
+        records=records,
+    )
 
 
 def _parse_employee_rows(file_name: str, raw_bytes: bytes) -> list[_EmployeeImportRow]:
@@ -357,6 +423,17 @@ def _normalize_header(value: str) -> str:
     )
 
 
+def _normalize_identity_lookup(value: object) -> str | None:
+    cleaned = _clean_text(value)
+    if not cleaned:
+        return None
+    return cleaned.replace(" ", "").upper()
+
+
+def _normalized_identity_expression(column):
+    return func.upper(func.replace(func.coalesce(column, ""), " ", ""))
+
+
 def _clean_text(value: object) -> str | None:
     if value is None:
         return None
@@ -371,6 +448,17 @@ def _nullable_text(value: str | None) -> str | None:
         return None
     stripped = value.strip()
     return stripped or None
+
+
+def _mask_id_number(value: str | None) -> str:
+    cleaned = _clean_text(value)
+    if not cleaned:
+        return ""
+    if len(cleaned) <= 4:
+        return "*" * len(cleaned)
+    if len(cleaned) <= 8:
+        return f"{cleaned[:2]}{'*' * (len(cleaned) - 4)}{cleaned[-2:]}"
+    return f"{cleaned[:4]}{'*' * (len(cleaned) - 8)}{cleaned[-4:]}"
 
 
 def _get_employee_or_raise(db: Session, employee_id: str) -> EmployeeMaster:
@@ -409,6 +497,57 @@ def _to_employee_read(item: EmployeeMaster) -> EmployeeMasterRead:
         active=item.active,
         created_at=item.created_at,
         updated_at=item.updated_at,
+    )
+
+
+def _to_self_service_profile_from_employee(employee: EmployeeMaster) -> EmployeeSelfServiceProfileRead:
+    return EmployeeSelfServiceProfileRead(
+        employee_id=employee.employee_id,
+        person_name=employee.person_name,
+        masked_id_number=_mask_id_number(employee.id_number),
+        company_name=employee.company_name,
+        department=employee.department,
+        active=employee.active,
+        source="employee_master",
+    )
+
+
+def _to_self_service_profile_from_record(
+    record: NormalizedRecord,
+    normalized_id_number: str,
+) -> EmployeeSelfServiceProfileRead:
+    return EmployeeSelfServiceProfileRead(
+        employee_id=record.employee_id,
+        person_name=record.person_name or "",
+        masked_id_number=_mask_id_number(record.id_number or normalized_id_number),
+        company_name=record.company_name,
+        department=None,
+        active=None,
+        source="normalized_record",
+    )
+
+
+def _to_self_service_record(record: NormalizedRecord, batch: ImportBatch) -> EmployeeSelfServiceRecordRead:
+    return EmployeeSelfServiceRecordRead(
+        normalized_record_id=record.id,
+        batch_id=batch.id,
+        batch_name=batch.batch_name,
+        batch_status=batch.status.value,
+        employee_id=record.employee_id,
+        region=record.region,
+        company_name=record.company_name,
+        billing_period=record.billing_period,
+        period_start=record.period_start,
+        period_end=record.period_end,
+        source_file_name=record.source_file_name,
+        source_row_number=record.source_row_number,
+        total_amount=record.total_amount,
+        company_total_amount=record.company_total_amount,
+        personal_total_amount=record.personal_total_amount,
+        housing_fund_personal=record.housing_fund_personal,
+        housing_fund_company=record.housing_fund_company,
+        housing_fund_total=record.housing_fund_total,
+        created_at=record.created_at,
     )
 
 

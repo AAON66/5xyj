@@ -57,6 +57,45 @@ export interface EmployeeMasterAuditList {
   items: EmployeeMasterAuditItem[];
 }
 
+export interface EmployeeSelfServiceProfile {
+  employee_id: string | null;
+  person_name: string;
+  masked_id_number: string;
+  company_name: string | null;
+  department: string | null;
+  active: boolean | null;
+  source: string;
+}
+
+export interface EmployeeSelfServiceRecord {
+  normalized_record_id: string;
+  batch_id: string;
+  batch_name: string;
+  batch_status: string;
+  employee_id: string | null;
+  region: string | null;
+  company_name: string | null;
+  billing_period: string | null;
+  period_start: string | null;
+  period_end: string | null;
+  source_file_name: string | null;
+  source_row_number: number;
+  total_amount: string | number | null;
+  company_total_amount: string | number | null;
+  personal_total_amount: string | number | null;
+  housing_fund_personal: string | number | null;
+  housing_fund_company: string | number | null;
+  housing_fund_total: string | number | null;
+  created_at: string;
+}
+
+export interface EmployeeSelfServiceResult {
+  matched_employee_master: boolean;
+  profile: EmployeeSelfServiceProfile;
+  record_count: number;
+  records: EmployeeSelfServiceRecord[];
+}
+
 export async function fetchEmployeeMasters(params?: { query?: string; activeOnly?: boolean }): Promise<EmployeeMasterList> {
   const response = await apiClient.get<ApiSuccessResponse<EmployeeMasterList>>('/employees', {
     params: {
@@ -93,5 +132,10 @@ export async function deleteEmployeeMaster(employeeId: string): Promise<void> {
 
 export async function fetchEmployeeMasterAudits(employeeId: string): Promise<EmployeeMasterAuditList> {
   const response = await apiClient.get<ApiSuccessResponse<EmployeeMasterAuditList>>(`/employees/${employeeId}/audits`);
+  return response.data.data;
+}
+
+export async function queryEmployeeSelfService(input: { person_name: string; id_number: string }): Promise<EmployeeSelfServiceResult> {
+  const response = await apiClient.post<ApiSuccessResponse<EmployeeSelfServiceResult>>('/employees/self-service/query', input);
   return response.data.data;
 }

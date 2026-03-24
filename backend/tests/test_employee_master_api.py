@@ -342,6 +342,77 @@ def test_imported_employee_master_records_are_used_by_match_endpoint() -> None:
     assert persisted['matched_count'] >= 1
 
 
+def test_employee_self_service_query_returns_profile_and_records_from_employee_master() -> None:
+    client, _settings, _session_factory = build_test_context('employee_self_service_with_master')
+    sample_path = find_sample(GUANGZHOU_KEYWORD)
+    standardized = standardize_workbook(sample_path, region='guangzhou', company_name=GUANGZHOU_COMPANY)
+    first = standardized.records[0]
+    employee_csv = (
+        '工号,姓名,身份证号,公司名称,部门,是否在职\n'
+        f"E9101,{first.values['person_name']},{first.values['id_number']},{GUANGZHOU_COMPANY},运营,是\n"
+    ).encode('utf-8-sig')
+
+    with client:
+        import_response = client.post(
+            '/api/v1/employees/import',
+            files=[('file', ('self_service_master.csv', employee_csv, 'text/csv'))],
+        )
+        batch_id = create_batch(client, sample_path)
+        match_response = client.post(f'/api/v1/imports/{batch_id}/match')
+        query_response = client.post(
+            '/api/v1/employees/self-service/query',
+            json={'person_name': first.values['person_name'], 'id_number': first.values['id_number']},
+        )
+
+    assert import_response.status_code == 201
+    assert match_response.status_code == 200
+    assert query_response.status_code == 200
+    payload = query_response.json()['data']
+    assert payload['matched_employee_master'] is True
+    assert payload['profile']['employee_id'] == 'E9101'
+    assert payload['profile']['person_name'] == first.values['person_name']
+    assert payload['profile']['source'] == 'employee_master'
+    assert payload['record_count'] >= 1
+    assert payload['records'][0]['batch_id'] == batch_id
+
+
+def test_employee_self_service_query_can_fallback_to_normalized_records_without_employee_master() -> None:
+    client, _settings, _session_factory = build_test_context('employee_self_service_without_master')
+    sample_path = find_sample(GUANGZHOU_KEYWORD)
+    standardized = standardize_workbook(sample_path, region='guangzhou', company_name=GUANGZHOU_COMPANY)
+    first = standardized.records[0]
+
+    with client:
+        batch_id = create_batch(client, sample_path)
+        match_response = client.post(f'/api/v1/imports/{batch_id}/match')
+        query_response = client.post(
+            '/api/v1/employees/self-service/query',
+            json={'person_name': first.values['person_name'], 'id_number': first.values['id_number']},
+        )
+
+    assert match_response.status_code == 200
+    assert query_response.status_code == 200
+    payload = query_response.json()['data']
+    assert payload['matched_employee_master'] is False
+    assert payload['profile']['source'] == 'normalized_record'
+    assert payload['profile']['person_name'] == first.values['person_name']
+    assert payload['record_count'] >= 1
+    assert payload['records'][0]['batch_id'] == batch_id
+
+
+def test_employee_self_service_query_returns_not_found_for_unknown_identity() -> None:
+    client, _settings, _session_factory = build_test_context('employee_self_service_not_found')
+
+    with client:
+        response = client.post(
+            '/api/v1/employees/self-service/query',
+            json={'person_name': '不存在员工', 'id_number': '440101199001019999'},
+        )
+
+    assert response.status_code == 404
+    assert response.json()['error']['code'] == 'not_found'
+
+
 @pytest.mark.parametrize(
     ('filename', 'content_type', 'payload'),
     [

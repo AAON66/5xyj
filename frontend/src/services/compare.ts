@@ -1,0 +1,104 @@
+import { getApiBaseUrl } from "../config/env";
+import { ApiClientError, type ApiSuccessResponse, apiClient } from "./api";
+
+export type CompareCellValue = string | number | null;
+
+export interface CompareBatchMeta {
+  id: string;
+  batch_name: string;
+  status: string;
+  record_count: number;
+}
+
+export interface CompareRecordSide {
+  record_id: string | null;
+  source_file_id: string | null;
+  source_file_name: string | null;
+  source_row_number: number | null;
+  values: Record<string, CompareCellValue>;
+}
+
+export interface CompareRow {
+  compare_key: string;
+  match_basis: string;
+  diff_status: string;
+  different_fields: string[];
+  left: CompareRecordSide;
+  right: CompareRecordSide;
+}
+
+export interface BatchCompareResult {
+  left_batch: CompareBatchMeta;
+  right_batch: CompareBatchMeta;
+  fields: string[];
+  total_row_count: number;
+  same_row_count: number;
+  changed_row_count: number;
+  left_only_count: number;
+  right_only_count: number;
+  rows: CompareRow[];
+}
+
+export interface CompareExportPayload {
+  left_batch_name: string;
+  right_batch_name: string;
+  fields: string[];
+  rows: CompareRow[];
+}
+
+export async function fetchBatchCompare(leftBatchId: string, rightBatchId: string): Promise<BatchCompareResult> {
+  const response = await apiClient.get<ApiSuccessResponse<BatchCompareResult>>("/compare", {
+    params: {
+      left_batch_id: leftBatchId,
+      right_batch_id: rightBatchId,
+    },
+  });
+  return response.data.data;
+}
+
+export async function exportBatchCompare(payload: CompareExportPayload): Promise<{ blob: Blob; fileName: string }> {
+  const response = await fetch(`${getApiBaseUrl()}/compare/export`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!response.ok) {
+    let message = `Request failed with status ${response.status}.`;
+    try {
+      const errorPayload = (await response.json()) as { error?: { message?: string } };
+      if (errorPayload.error?.message) {
+        message = errorPayload.error.message;
+      }
+    } catch {
+      // Ignore response parse errors and keep the generic message.
+    }
+    throw new ApiClientError(message, { statusCode: response.status });
+  }
+
+  const blob = await response.blob();
+  return {
+    blob,
+    fileName: resolveDownloadFileName(response.headers.get("content-disposition")) ?? "compare.xlsx",
+  };
+}
+
+function resolveDownloadFileName(contentDisposition: string | null): string | null {
+  if (!contentDisposition) {
+    return null;
+  }
+
+  const encodedMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (encodedMatch?.[1]) {
+    return decodeURIComponent(encodedMatch[1]);
+  }
+
+  const plainMatch = contentDisposition.match(/filename="([^"]+)"/i);
+  if (plainMatch?.[1]) {
+    return plainMatch[1];
+  }
+
+  return null;
+}

@@ -13,15 +13,38 @@ from backend.app.services import build_normalized_models, standardize_workbook
 
 ARTIFACTS_ROOT = ROOT_DIR / '.test_artifacts' / 'template_exporter'
 DESKTOP_ROOT = Path.home() / 'Desktop' / '202602社保公积金台账' / '202602社保公积金汇总'
+SOCIAL_AMOUNT_FIELDS = (
+    'total_amount',
+    'company_total_amount',
+    'personal_total_amount',
+    'pension_company',
+    'pension_personal',
+    'medical_company',
+    'medical_personal',
+    'medical_maternity_company',
+    'maternity_amount',
+    'unemployment_company',
+    'unemployment_personal',
+    'injury_company',
+    'supplementary_medical_company',
+    'supplementary_pension_company',
+    'large_medical_personal',
+    'late_fee',
+    'interest',
+)
 
 
 def find_template(keyword: str) -> Path:
-    if not DESKTOP_ROOT.exists():
-        pytest.skip(f'Template root was not found: {DESKTOP_ROOT}')
-    for path in sorted(DESKTOP_ROOT.glob('*.xlsx')):
-        if keyword in path.name:
+    settings = get_settings()
+    configured = [settings.salary_template_file, settings.final_tool_template_file]
+    for path in configured:
+        if path is not None and path.exists() and keyword in path.name:
             return path
-    pytest.skip(f'Template containing {keyword!r} was not found in {DESKTOP_ROOT}.')
+    if DESKTOP_ROOT.exists():
+        for path in sorted(DESKTOP_ROOT.glob('*.xlsx')):
+            if keyword in path.name:
+                return path
+    pytest.skip(f'Template containing {keyword!r} was not found in configured paths or {DESKTOP_ROOT}.')
 
 
 def find_sample(keyword: str) -> Path:
@@ -30,6 +53,11 @@ def find_sample(keyword: str) -> Path:
         if keyword in path.name:
             return path
     pytest.skip(f'Sample containing {keyword!r} was not found in {samples_dir}.')
+
+
+def clear_social_amounts(record) -> None:
+    for field_name in SOCIAL_AMOUNT_FIELDS:
+        setattr(record, field_name, Decimal('0'))
 
 
 def test_export_dual_templates_writes_both_template_outputs() -> None:
@@ -256,7 +284,7 @@ def test_export_dual_templates_filters_zero_amount_rows_even_when_identity_exist
     tool_wb.close()
 
 
-def test_export_dual_templates_filters_housing_only_rows_when_split_is_only_inferred() -> None:
+def test_export_dual_templates_filters_inferred_housing_only_when_mixed_with_explicit_split_rows() -> None:
     salary_template = find_template('薪酬')
     tool_template = find_template('最终版')
     sample_path = find_sample('深圳创造欢乐')
@@ -275,6 +303,7 @@ def test_export_dual_templates_filters_housing_only_rows_when_split_is_only_infe
     inferred_only.person_name = '推导拆分'
     inferred_only.employee_id = 'E0002'
     inferred_only.id_number = '440100199001010022'
+    clear_social_amounts(inferred_only)
     inferred_only.housing_fund_personal = Decimal('175')
     inferred_only.housing_fund_company = Decimal('175')
     inferred_only.housing_fund_total = Decimal('350')
@@ -298,6 +327,7 @@ def test_export_dual_templates_filters_housing_only_rows_when_split_is_only_infe
     explicit_split.person_name = '显式拆分'
     explicit_split.employee_id = 'E0003'
     explicit_split.id_number = '440100199001010033'
+    clear_social_amounts(explicit_split)
     explicit_split.housing_fund_personal = Decimal('175')
     explicit_split.housing_fund_company = Decimal('175')
     explicit_split.housing_fund_total = Decimal('350')
@@ -385,6 +415,22 @@ def test_export_dual_templates_merges_records_with_same_employee_id_before_writi
     housing_record.housing_fund_personal = Decimal('500')
     housing_record.housing_fund_company = Decimal('500')
     housing_record.housing_fund_total = Decimal('1000')
+    housing_record.raw_payload = {
+        'merged_sources': [
+            {
+                'source_kind': 'housing_fund',
+                'source_file_name': '深圳创造欢乐202602公积金账单.xlsx',
+                'source_row_number': 12,
+                'raw_values': {
+                    '姓名': housing_record.person_name,
+                    '证件号码': housing_record.id_number,
+                    '单位': 500,
+                    '个人': 500,
+                    '金额合计（元）': '1000',
+                },
+            }
+        ]
+    }
 
     output_dir = ARTIFACTS_ROOT / 'merge_same_employee'
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -848,6 +894,7 @@ def test_export_dual_templates_filters_housing_only_rows_when_split_is_only_infe
     record.person_name = '推导公积金'
     record.employee_id = 'H3001'
     record.id_number = '440100199001013001'
+    clear_social_amounts(record)
     record.housing_fund_personal = Decimal('175')
     record.housing_fund_company = Decimal('175')
     record.housing_fund_total = Decimal('350')
@@ -906,6 +953,7 @@ def test_export_dual_templates_keeps_housing_only_rows_when_source_has_explicit_
     record.person_name = '显式公积金'
     record.employee_id = 'H3002'
     record.id_number = '440100199001013002'
+    clear_social_amounts(record)
     record.housing_fund_personal = Decimal('175')
     record.housing_fund_company = Decimal('175')
     record.housing_fund_total = Decimal('350')

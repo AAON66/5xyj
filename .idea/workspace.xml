@@ -4,17 +4,18 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a614a6ab-24b5-4f20-8229-5cf8b352ba3a" name="更改" comment="v4.0.0，聚合相关的Bug全部完善">
+    <list default="true" id="a614a6ab-24b5-4f20-8229-5cf8b352ba3a" name="更改" comment="v4.0.2，更新对比列表">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/api/v1/router.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/api/v1/router.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/app/exporters/template_exporter.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/exporters/template_exporter.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/services/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/__init__.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/services/matching_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/matching_service.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/tests/test_matching_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_matching_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/batch_export_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/batch_export_service.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/tests/test_template_exporter.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_template_exporter.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/app.db" beforeDir="false" afterPath="$PROJECT_DIR$/data/app.db" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/app.db-shm" beforeDir="false" afterPath="$PROJECT_DIR$/data/app.db-shm" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/app.db-wal" beforeDir="false" afterPath="$PROJECT_DIR$/data/app.db-wal" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/App.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/AppShell.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/AppShell.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/index.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/styles.css" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/styles.css" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/progress.txt" beforeDir="false" afterPath="$PROJECT_DIR$/progress.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -87,7 +88,7 @@
       <workItem from="1773977629742" duration="16517000" />
       <workItem from="1774108356380" duration="354000" />
       <workItem from="1774119102062" duration="2617000" />
-      <workItem from="1774181989524" duration="13025000" />
+      <workItem from="1774181989524" duration="16922000" />
     </task>
     <task id="LOCAL-00001" summary="v2.0.0">
       <option name="closed" value="true" />
@@ -129,7 +130,15 @@
       <option name="project" value="LOCAL" />
       <updated>1774256937622</updated>
     </task>
-    <option name="localTasksCounter" value="6" />
+    <task id="LOCAL-00006" summary="v4.0.2，更新对比列表">
+      <option name="closed" value="true" />
+      <created>1774310008715</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1774310008715</updated>
+    </task>
+    <option name="localTasksCounter" value="7" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -157,6 +166,7 @@
     <MESSAGE value="v3.0.0接入了LLM，并且有了并行解析功能" />
     <MESSAGE value="v3.0.2，修复没有工号的问题。" />
     <MESSAGE value="v4.0.0，聚合相关的Bug全部完善" />
-    <option name="LAST_COMMIT_MESSAGE" value="v4.0.0，聚合相关的Bug全部完善" />
+    <MESSAGE value="v4.0.2，更新对比列表" />
+    <option name="LAST_COMMIT_MESSAGE" value="v4.0.2，更新对比列表" />
   </component>
 </project>

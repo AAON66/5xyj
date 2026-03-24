@@ -1384,3 +1384,182 @@ ormalization_service.py backendpp\services\import_service.py backendpp\service
 
 ### Notes:
 - This is a business-rule fix at export time, not a parser failure fix: the inferred housing-only row was parsed correctly, but the reference behavior shows it should not participate in the final salary template.
+## 2026-03-24 - Task: 月度对比页面（左右分栏差异对比、在线修改、导出）
+
+### What was done:
+- 接入仓库里已有的 `/api/v1/compare` 与 `/api/v1/compare/export` 能力，新增前端“月度对比”页面和导航入口。
+- 新页面支持选择两个批次、左右 50% 分栏展示、差异整行标红、字段级输入框在线修改、关键词搜索、仅看差异行和导出当前修改结果。
+- 新增前端 `compare` 服务层，处理对比查询、导出请求和下载文件名解析。
+
+### Testing:
+- `.\.venv\Scripts\python -m pytest backend/tests/test_compare_api.py backend/tests/test_app_initialization.py backend/tests/test_health.py`
+- `npm.cmd run build`
+- `npm.cmd run lint`
+
+### Risks / Open Questions:
+- 当前对比键优先使用 `employee_id -> id_number -> social_security_number -> housing_fund_account -> person_name + company_name -> person_name`，如果同一员工在单月内出现多条业务记录，会按稳定排序逐条配对，后续如需更细粒度配对规则可继续增强。
+- 当前在线修改是前端会话内编辑，导出时会带上修改结果，但不会回写数据库。
+- `npm.cmd run lint` 通过，但仓库里已有一个与本次改动无关的既有 warning：`frontend/src/pages/SimpleAggregate.tsx` 的 `react-hooks/exhaustive-deps` 提示。
+
+### Notes:
+- 新页面路由为 `/compare`，适合直接做“本月新融合批次 vs 上月批次”的月度比对。
+- 当前导出走现有后端对比导出接口，前端负责传递在线修改后的最新数据快照。
+
+## 2026-03-24 - Task: 月度对比页面性能优化与本地上传对比
+
+### What was done:
+- 将对比页从“整页渲染全部差异行 + 全部左右输入框”调整为“左侧分页差异列表 + 右侧单行编辑器”，降低大批量对比时的渲染压力，避免页面长时间无响应。
+- 新增本地上传对比入口，支持分别上传左侧和右侧 Excel 文件，自动创建临时导入批次、执行解析，并切换到新生成的批次进行对比。
+- 保留原有在线修改和导出逻辑，导出时仍基于当前页面里的最新编辑结果。
+
+### Testing:
+- `npm.cmd run build`
+- `npm.cmd run lint`
+
+### Risks / Open Questions:
+- 当前本地上传对比会在系统里创建新的导入批次用于解析和对比，暂未增加“临时批次自动清理”机制。
+- `npm.cmd run lint` 仍有一个与本次修改无关的既有 warning：`frontend/src/pages/SimpleAggregate.tsx` 的 `react-hooks/exhaustive-deps` 提示。
+
+### Notes:
+- 当前对比页更适合大批量数据浏览：先在左侧快速定位差异行，再在右侧做左右对半的字段级修改。
+## 2026-03-24 - Task: 对比页支持左右混合数据源与 Excel 风格展示
+
+### What was done:
+- 重构 `frontend/src/pages/Compare.tsx`，让左侧和右侧各自独立选择“线上批次”或“本地 Excel”，支持本地对线上、线上对本地、本地对本地三种混合方式。
+- 本地文件不再要求两边一起上传，而是在点击开始对比时按侧边分别创建临时导入批次并调用现有解析接口，再复用已有对比 API 获取结果。
+- 将对比结果改为左右并排的 Excel 风格表格，保留来源文件、源行号、对比键，并支持直接在单元格内修改。
+- 差异行继续整行高亮，差异字段额外加深底色，导出时使用当前前端已编辑的数据生成结果文件。
+- 为新布局补充 `compare-source-grid`、`compare-sheet-grid`、`compare-sheet` 等样式，增强滚动、粘性表头和移动端折叠表现。
+
+### Testing:
+- `npm.cmd run build`
+- `npm.cmd run lint`
+
+### Risks / Open Questions:
+- 当前“本地 Excel”仍然会先创建临时线上批次再参与对比，这是为了复用现有后端解析链路；如果后续要做纯前端本地预览，需要额外补浏览器侧 Excel 解析能力。
+- 大数据量场景已经比之前更稳，但表格仍属于完整 DOM 渲染；如果后续单次对比达到数千行以上，建议继续做虚拟滚动。
+
+### Notes:
+- 这次只调整了对比页前端，不改动既有后端 compare API。
+- 页面入口仍然是 `/compare`，刷新前端即可看到新的“左右混合来源 + Excel 样式”界面。
+## 2026-03-24 - Task: 对比页改为拆分差异视图
+
+### What was done:
+- 将 `/compare` 的结果展示区从左右整表切换为按记录分块的拆分差异视图，每条记录都以左右并排的 diff 卡片展示。
+- 默认聚焦差异字段，新增“展开全部字段”开关；在仅左侧/仅右侧存在的场景下，会自动保留有值字段，减少无关空白。
+- 保留在线改单元格、混合来源对比、搜索、分页和导出逻辑，同时补充状态标签、来源文件、源行号等上下文信息，让视觉上更接近审阅式对比。
+- 微调工具栏和 diff 卡片样式，使左值/右值信息层次更清楚。
+
+### Testing:
+- `npm.cmd run build`
+- `npm.cmd run lint`
+
+### Risks / Open Questions:
+- 当前拆分差异视图更适合逐条审阅；如果后续仍需要整表横向扫读，可以考虑补一个“表格视图 / 差异视图”切换。
+- `npm.cmd run lint` 仍有一个与本次修改无关的既有 warning：`frontend/src/pages/SimpleAggregate.tsx` 的 `react-hooks/exhaustive-deps` 提示。
+
+### Notes:
+- 新视图仍然走现有 compare/export API，没有改变导出数据结构。
+## 2026-03-24 - Task: 合并对比源入口为统一配置区
+
+### What was done:
+- 将 `/compare` 页顶部原本分散的来源选择交互收拢为一个统一的“对比源配置”面板，内部再分左侧和右侧两列。
+- 保留每侧独立选择“系统已有批次”或“本地上传 Excel”的能力，让用户在同一套工具里完成左本地右云端、双云端、双本地等自由组合。
+- 同步调整页面文案和样式，弱化“两个入口”的感受，突出“一个入口配置两侧来源”的使用方式。
+
+### Testing:
+- `npm.cmd run build`
+- `npm.cmd run lint`
+
+### Risks / Open Questions:
+- 当前仍然是每侧通过下拉切换来源类型；如果后续希望再进一步降低理解成本，可以考虑改为更明显的分段切换按钮。
+- `npm.cmd run lint` 仍有一个与本次修改无关的既有 warning：`frontend/src/pages/SimpleAggregate.tsx` 的 `react-hooks/exhaustive-deps` 提示。
+
+### Notes:
+- 本次主要是交互整合，没有改变 compare API 或导出行为。
+## 2026-03-24 - Task: 对比请求增加步骤进度展示
+
+### What was done:
+- 为 `/compare` 页面新增本地进度卡，在发起对比时按步骤展示当前执行阶段，不再只依赖全局“当前有 N 个请求处理中”的提示。
+- 将对比流程拆成“检查数据源 / 上传本地文件 / 解析本地文件 / 拉取对比结果 / 同步页面数据”等可见步骤，并根据左右来源类型动态生成步骤列表。
+- 对于“左边本地 + 右边云端”这类混合场景，页面会明确显示当前卡在上传、解析还是同步阶段，方便判断慢点发生在哪一步。
+
+### Testing:
+- `npm.cmd run build`
+- `npm.cmd run lint`
+
+### Risks / Open Questions:
+- 当前展示的是前端可感知的阶段进度，不是后端解析服务的真实百分比；如果后续要做到更细粒度的实时百分比，需要后端补任务进度接口或流式事件。
+- `npm.cmd run lint` 仍有一个与本次修改无关的既有 warning：`frontend/src/pages/SimpleAggregate.tsx` 的 `react-hooks/exhaustive-deps` 提示。
+
+### Notes:
+- 本次仅修改对比页前端流程展示，没有改变 compare API 的请求协议。
+## 2026-03-24 - Task: 对比页补充 salary/tool 视图选择并拆出独立入口
+
+### What was done:
+- 为 `/compare` 页面新增独立的“对比表格”配置区，把 `salary` / `tool` 的选择从“使用线上批次”内部拆出来，改为全局单独控制。
+- 云端任务选中后，会额外读取历史导出快照，提示当前任务是否已有对应的 `salary` 或 `tool` 导出记录，方便判断要对比哪一种历史融合表格。
+- 对比结果展示会根据当前选择的表格视图过滤为对应字段范围，减少无关字段干扰，同时保留左右来源自由组合能力。
+
+### Testing:
+- `npm.cmd run build`
+- `npm.cmd run lint`
+
+### Risks / Open Questions:
+- 当前 salary/tool 视图切换仍然基于标准化字段做前端筛选，不是直接读取历史导出 Excel 内容；如果后续需要做到与最终导出表 100% 列结构一致，建议再补专门的模板视图 compare API。
+- `npm.cmd run lint` 仍有一个与本次修改无关的既有 warning：`frontend/src/pages/SimpleAggregate.tsx` 的 `react-hooks/exhaustive-deps` 提示。
+
+### Notes:
+- 这次主要解决“云端任务后无法继续选择 salary/tool”以及“表格类型不应塞在线上批次里面”的交互问题。
+## 2026-03-24 - Task: 后端双模板导出配置与回归测试修复
+
+### What was done:
+- 修复 `backend/app/exporters/template_exporter.py` 的模板解析逻辑，新增按当前请求 `settings` 解析模板的能力，避免导出时误读全局 `.env` 配置。
+- 调整显式模板路径语义：调用方明确传入模板路径但文件不存在时，立即按失败处理，不再静默回退到其他模板。
+- 收紧模板自动发现范围，只在当前 `settings.templates_path` 下搜索模板，避免测试环境和本机桌面模板互相串味。
+- 更新 `backend/app/services/batch_export_service.py`，仅在配置模板文件真实存在时才作为显式路径传入导出器；缺失时改走当前环境的模板发现逻辑。
+- 更新 `backend/tests/test_template_exporter.py`，让模板查找改为“配置优先、桌面兜底”，修复重复测试名覆盖，并补齐纯公积金过滤与同工号合并场景的测试前提。
+
+### Testing:
+- `.\.venv\Scripts\python -m pytest backend/tests/test_matching_service.py -q`
+- `.\.venv\Scripts\python -m pytest backend/tests/test_export_api.py -q`
+- `.\.venv\Scripts\python -m pytest backend/tests/test_template_exporter.py -q`
+
+### Risks / Open Questions:
+- 本次主要修复的是后端导出配置隔离与测试可靠性，没有改动前端，也没有重新跑前端 `lint/build`。
+- 当前仓库仍有其他未提交改动和本地数据库变化，不属于这次修复范围；后续提交时需要注意不要把无关文件一并提交。
+- 还没有运行整套 `backend/tests` 全量回归；之前全量执行耗时过长，当前以导出与匹配相关测试集为主完成验证。
+
+### Notes:
+- 现在导出服务会优先使用当前请求上下文里的模板配置，不会再因为本机 `.env` 或桌面模板存在而把本应失败的导出误判为成功。
+- 双模板导出相关核心回归当前已通过，适合后续继续补充更大范围的 API 或聚合链路验证。
+## 2026-03-24 - Task: 社保公积金管理系统分级入口与员工自助查询
+
+### What was done:
+- 将系统入口升级为“社保公积金管理系统”，新增统一门户页，区分管理员、HR、员工查询三类入口。
+- 新增管理员工作台与 HR 工作台页面，对原有聚合、看板、批次、映射、导出、员工主档等功能做分层导流，原有业务页面保持可用。
+- 新增员工免登录查询链路：
+- 后端新增 `POST /api/v1/employees/self-service/query`，支持按姓名 + 身份证号查询。
+- 查询优先命中员工主档，若无主档仍可直接从标准化记录回溯员工最近的社保公积金记录。
+- 返回员工概览、最近记录列表、批次状态与社保/公积金额度摘要。
+- 更新前端路由与导航：
+- `frontend/src/App.tsx` 拆分公共入口路由与原有业务工作区路由。
+- `frontend/src/components/AppShell.tsx` 更新系统品牌与导航结构。
+- 新增门户页、管理员工作台、HR 工作台、员工自助查询页。
+- 扩展 `frontend/src/services/employees.ts`，接入员工自助查询接口。
+
+### Testing:
+- `.\.venv\Scripts\python -m pytest backend/tests/test_employee_master_api.py -q`
+- `.\.venv\Scripts\python -m pytest backend/tests/test_export_api.py -q`
+- `.\.venv\Scripts\python -m pytest backend/tests/test_matching_service.py -q`
+- `npm.cmd run build`
+- `npm.cmd run lint`
+
+### Risks / Open Questions:
+- 当前管理员与 HR 入口是“分级导流”，不是登录态权限控制；如果后续要做真正权限隔离，需要再补认证、授权和菜单守卫。
+- 员工查询目前以姓名 + 身份证号精确匹配，适合当前免登录场景；如果后续要支持手机号、短信验证码或更细的历史账期筛选，需要再扩展接口。
+- `npm.cmd run lint` 仍保留一个与本次改动无关的既有 warning：`frontend/src/pages/SimpleAggregate.tsx` 的 `react-hooks/exhaustive-deps` 提示。
+
+### Notes:
+- 原有导入、识别、标准化、过滤、匹配、看板、双模板导出与月度对比页面都保留，只是入口层级调整为管理系统模式。
+- 员工自助查询优先读员工主档，但不会强依赖员工主档，便于在主档尚未补齐时先提供查询能力。

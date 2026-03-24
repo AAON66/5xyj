@@ -5,15 +5,17 @@ from sqlalchemy.orm import Session
 
 from backend.app.api.v1.responses import success_response
 from backend.app.dependencies import get_db
-from backend.app.schemas.employees import EmployeeMasterStatusInput, EmployeeMasterUpdateInput
+from backend.app.schemas.employees import EmployeeMasterStatusInput, EmployeeMasterUpdateInput, EmployeeSelfServiceQueryInput
 from backend.app.services.employee_service import (
     EmployeeDeleteBlockedError,
     EmployeeImportError,
     EmployeeMasterNotFoundError,
+    EmployeeSelfServiceNotFoundError,
     delete_employee_master,
     import_employee_master_file,
     list_employee_master_audits,
     list_employee_masters,
+    lookup_employee_self_service,
     update_employee_master,
     update_employee_master_status,
 )
@@ -42,6 +44,18 @@ async def import_employee_masters_endpoint(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     return success_response(payload.model_dump(mode='json'), message='Employee master file imported.', status_code=status.HTTP_201_CREATED)
+
+
+@router.post('/self-service/query')
+def employee_self_service_query_endpoint(
+    payload: EmployeeSelfServiceQueryInput = Body(...),
+    db: Session = Depends(get_db),
+):
+    try:
+        result = lookup_employee_self_service(db, payload)
+    except EmployeeSelfServiceNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return success_response(result.model_dump(mode='json'), message='Employee self-service result retrieved.')
 
 
 @router.patch('/{employee_id}')

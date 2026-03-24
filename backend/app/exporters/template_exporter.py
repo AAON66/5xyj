@@ -13,7 +13,7 @@ from openpyxl.formula.translate import Translator
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
-from backend.app.core.config import get_settings
+from backend.app.core.config import Settings, get_settings
 from backend.app.models.enums import TemplateType
 from backend.app.models.normalized_record import NormalizedRecord
 
@@ -184,10 +184,11 @@ def export_dual_templates(
     salary_template_path: str | Path | None = None,
     final_tool_template_path: str | Path | None = None,
     export_prefix: str | None = None,
+    settings: Settings | None = None,
 ) -> DualTemplateExportResult:
     normalized_records = _merge_export_records([record for record in records if _is_exportable_record(record)])
-    settings = get_settings()
-    output_root = Path(output_dir) if output_dir else settings.outputs_path
+    resolved_settings = settings or get_settings()
+    output_root = Path(output_dir) if output_dir else resolved_settings.outputs_path
     output_root.mkdir(parents=True, exist_ok=True)
 
     prefix = export_prefix or 'batch'
@@ -199,7 +200,7 @@ def export_dual_templates(
     artifacts: list[ExportArtifactResult] = []
     for template_type, explicit_path, output_path in template_inputs:
         try:
-            template_path = _resolve_template_path(explicit_path, template_type)
+            template_path = _resolve_template_path(explicit_path, template_type, settings=resolved_settings)
         except ExportServiceError as exc:
             artifacts.append(ExportArtifactResult(template_type.value, 'failed', None, str(exc), 0))
             continue
@@ -502,22 +503,35 @@ def _resolved_housing_fund_values(record: NormalizedRecord) -> tuple[Decimal, De
     return personal, company, total
 
 
-def _resolve_template_path(template_path: str | Path | None, template_type: TemplateType) -> Path:
+def _resolve_template_path(
+    template_path: str | Path | None,
+    template_type: TemplateType,
+    *,
+    settings: Settings | None = None,
+) -> Path:
     attempted_locations: list[str] = []
     if template_path:
         candidate = Path(template_path)
         if candidate.exists():
             return candidate
         attempted_locations.append(str(candidate))
+        attempted_message = f" Attempted: {', '.join(attempted_locations)}."
+        raise ExportServiceError(
+            f'Explicit template path for {template_type.value} does not exist.{attempted_message}'
+        )
 
-    settings = get_settings()
-    configured = settings.salary_template_file if template_type == TemplateType.SALARY else settings.final_tool_template_file
+    resolved_settings = settings or get_settings()
+    configured = (
+        resolved_settings.salary_template_file
+        if template_type == TemplateType.SALARY
+        else resolved_settings.final_tool_template_file
+    )
     if configured and configured.exists():
         return configured
     if configured is not None:
         attempted_locations.append(str(configured))
 
-    discovered = _discover_template_candidates(settings, template_type)
+    discovered = _discover_template_candidates(resolved_settings, template_type)
     if discovered:
         return discovered[0]
 
@@ -527,20 +541,19 @@ def _resolve_template_path(template_path: str | Path | None, template_type: Temp
 
 def _discover_template_candidates(settings, template_type: TemplateType) -> list[Path]:
     pattern = '*\u85aa\u916c*.xlsx' if template_type == TemplateType.SALARY else '*\u6700\u7ec8\u7248*.xlsx'
-    search_roots = [settings.templates_path, Path.home() / 'Desktop']
     candidates: dict[Path, tuple[float, str]] = {}
 
-    for root in search_roots:
-        if not root.exists():
+    root = settings.templates_path
+    if not root.exists():
+        return []
+    for match in root.rglob(pattern):
+        if not match.is_file():
             continue
-        for match in root.rglob(pattern):
-            if not match.is_file():
-                continue
-            try:
-                stat = match.stat()
-                candidates[match.resolve()] = (stat.st_mtime, match.name)
-            except OSError:
-                continue
+        try:
+            stat = match.stat()
+            candidates[match.resolve()] = (stat.st_mtime, match.name)
+        except OSError:
+            continue
 
     return [
         path
