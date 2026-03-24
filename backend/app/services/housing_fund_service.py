@@ -5,8 +5,7 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
 from typing import Any
 
-from openpyxl import load_workbook
-
+from backend.app.parsers.workbook_loader import load_workbook_compatible
 from backend.app.services.header_normalizer import HeaderMappingDecision, HeaderNormalizationResult
 from backend.app.services.normalization_service import NormalizedPreviewRecord, StandardizationResult
 
@@ -16,11 +15,11 @@ HEADER_PATTERNS: dict[str, tuple[str, ...]] = {
     "id_type": ("\u8bc1\u4ef6\u7c7b\u578b",),
     "company_name": ("\u5355\u4f4d\u540d\u79f0", "\u7528\u5de5\u5355\u4f4d\u540d\u79f0"),
     "billing_period": ("\u7f34\u5b58\u65f6\u6bb5", "\u4e1a\u52a1\u5e74\u6708", "\u6c47\u8865\u7f34\u5e74\u6708", "\u6c47\u7f34\u5e74\u6708"),
-    "housing_fund_account": ("\u516c\u79ef\u91d1\u8d26\u53f7", "\u4e2a\u4eba\u8d26\u53f7", "\u4e2a\u4eba\u5ba2\u6237\u53f7", "\u804c\u5de5\u8d26\u53f7"),
-    "housing_fund_base": ("\u7f34\u5b58\u57fa\u6570", "\u7f34\u5b58\u57fa\u6570\uff08\u5143\uff09"),
-    "housing_fund_personal": ("\u4e2a\u4eba\u7f34\u5b58\u989d", "\u4e2a\u4eba\u6708\u7f34\u5b58\u989d(\u5143)", "\u804c\u5de5\u6708\u7f34\u989d"),
-    "housing_fund_company": ("\u5355\u4f4d\u7f34\u5b58\u989d", "\u5355\u4f4d\u6708\u7f34\u5b58\u989d(\u5143)", "\u5355\u4f4d\u6708\u7f34\u989d"),
-    "housing_fund_total": ("\u91d1\u989d\u5408\u8ba1\uff08\u5143\uff09", "\u5408\u8ba1\u6708\u7f34\u5b58\u989d(\u5143)", "\u603b\u91d1\u989d", "\u53d1\u751f\u989d"),
+    "housing_fund_account": ("\u516c\u79ef\u91d1\u8d26\u53f7", "\u4e2a\u4eba\u516c\u79ef\u91d1\u8d26\u53f7", "\u4e2a\u4eba\u8d26\u53f7", "\u4e2a\u4eba\u5ba2\u6237\u53f7", "\u804c\u5de5\u8d26\u53f7"),
+    "housing_fund_base": ("\u7f34\u5b58\u57fa\u6570", "\u7f34\u5b58\u57fa\u6570\uff08\u5143\uff09", "\u6708\u5747\u5de5\u8d44"),
+    "housing_fund_personal": ("\u4e2a\u4eba\u7f34\u5b58\u989d", "\u4e2a\u4eba\u6708\u7f34\u5b58\u989d(\u5143)", "\u804c\u5de5\u6708\u7f34\u989d", "\u5e94\u7f34\u5b58\u989d\u589e\u52a0\u4e2a\u4eba", "\u5e94\u7f34\u5b58\u989d\u51cf\u5c11\u4e2a\u4eba"),
+    "housing_fund_company": ("\u5355\u4f4d\u7f34\u5b58\u989d", "\u5355\u4f4d\u6708\u7f34\u5b58\u989d(\u5143)", "\u5355\u4f4d\u6708\u7f34\u989d", "\u5e94\u7f34\u5b58\u989d\u589e\u52a0\u5355\u4f4d", "\u5e94\u7f34\u5b58\u989d\u51cf\u5c11\u5355\u4f4d"),
+    "housing_fund_total": ("\u91d1\u989d\u5408\u8ba1\uff08\u5143\uff09", "\u5408\u8ba1\u6708\u7f34\u5b58\u989d(\u5143)", "\u603b\u91d1\u989d", "\u53d1\u751f\u989d", "\u5e94\u7f34\u5b58\u989d\u589e\u52a0\u5408\u8ba1", "\u5e94\u7f34\u5b58\u989d\u51cf\u5c11\u5408\u8ba1"),
 }
 RATE_PATTERNS: dict[str, tuple[str, ...]] = {
     "company_rate": ("\u5355\u4f4d\u7f34\u5b58\u6bd4\u4f8b",),
@@ -40,6 +39,7 @@ class HousingFundWorkbookAnalysis:
 class _WorkbookCandidate:
     sheet_name: str
     header_row: int
+    data_start_row: int
     headers: list[str]
     raw_header_signature: str
 
@@ -52,7 +52,7 @@ def analyze_housing_fund_workbook(
     source_file_name: str | None = None,
 ) -> HousingFundWorkbookAnalysis:
     workbook_path = Path(path)
-    workbook = load_workbook(workbook_path, read_only=True, data_only=True)
+    workbook = load_workbook_compatible(workbook_path, read_only=True, data_only=True)
     try:
         candidate = _detect_workbook_candidate(workbook, workbook_path.name)
         sheet = workbook[candidate.sheet_name]
@@ -67,7 +67,7 @@ def analyze_housing_fund_workbook(
         )
 
         records: list[NormalizedPreviewRecord] = []
-        row_number = candidate.header_row + 1
+        row_number = candidate.data_start_row
         while row_number <= sheet.max_row:
             row_values = [sheet.cell(row_number, index + 1).value for index in range(len(candidate.headers))]
             preview = _build_preview_record(
@@ -117,22 +117,50 @@ def _detect_workbook_candidate(workbook, source_file_name: str) -> _WorkbookCand
     best_score = -1
     for sheet in workbook.worksheets:
         for row_number in range(1, min(sheet.max_row, 12) + 1):
-            headers = [_clean_text(cell.value) for cell in sheet[row_number]]
-            score = _score_headers(headers)
-            if score <= best_score:
-                continue
-            best_score = score
-            filtered_headers = [header or f"column_{index + 1}" for index, header in enumerate(headers)]
-            best_candidate = _WorkbookCandidate(
-                sheet_name=sheet.title,
-                header_row=row_number,
-                headers=filtered_headers,
-                raw_header_signature=" | ".join(filtered_headers),
-            )
+            primary_headers = [_clean_text(cell.value) for cell in sheet[row_number]]
+            candidate_options: list[tuple[list[str | None], int]] = [(primary_headers, row_number + 1)]
+            if row_number < sheet.max_row:
+                secondary_headers = [_clean_text(cell.value) for cell in sheet[row_number + 1]]
+                candidate_options.append((_compose_headers(primary_headers, secondary_headers), row_number + 2))
+
+            for headers, data_start_row in candidate_options:
+                score = _score_headers(headers)
+                if score <= best_score:
+                    continue
+                best_score = score
+                filtered_headers = [header or f"column_{index + 1}" for index, header in enumerate(headers)]
+                best_candidate = _WorkbookCandidate(
+                    sheet_name=sheet.title,
+                    header_row=row_number,
+                    data_start_row=data_start_row,
+                    headers=filtered_headers,
+                    raw_header_signature=" | ".join(filtered_headers),
+                )
 
     if best_candidate is None or best_score < 8:
         raise ValueError(f"Could not detect a valid housing fund header row in {source_file_name}.")
     return best_candidate
+
+
+def _compose_headers(primary_headers: list[str | None], secondary_headers: list[str | None]) -> list[str | None]:
+    composed: list[str | None] = []
+    current_primary: str | None = None
+    max_length = max(len(primary_headers), len(secondary_headers))
+
+    for index in range(max_length):
+        primary = primary_headers[index] if index < len(primary_headers) else None
+        secondary = secondary_headers[index] if index < len(secondary_headers) else None
+
+        if primary:
+            current_primary = primary
+
+        inherited_primary = current_primary if secondary else primary
+        if inherited_primary and secondary:
+            composed.append(f"{inherited_primary} {secondary}")
+        else:
+            composed.append(secondary or inherited_primary)
+
+    return composed
 
 
 def _score_headers(headers: list[str | None]) -> int:
@@ -142,6 +170,8 @@ def _score_headers(headers: list[str | None]) -> int:
         score += 4
     if any(_header_matches(header, HEADER_PATTERNS["id_number"]) for header in normalized):
         score += 4
+    if any(_header_matches(header, HEADER_PATTERNS["housing_fund_account"]) for header in normalized):
+        score += 3
     if any(_header_matches(header, HEADER_PATTERNS["housing_fund_total"]) for header in normalized):
         score += 3
     if any(_header_matches(header, HEADER_PATTERNS["housing_fund_personal"]) for header in normalized):

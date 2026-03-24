@@ -14,6 +14,7 @@ from backend.app.models import EmployeeMaster, EmployeeMasterAudit, ImportBatch,
 from backend.app.models.enums import EmployeeAuditAction
 from backend.app.schemas.employees import (
     EmployeeImportRead,
+    EmployeeMasterCreateInput,
     EmployeeMasterAuditListRead,
     EmployeeMasterAuditRead,
     EmployeeMasterListRead,
@@ -63,12 +64,30 @@ class _EmployeeImportRow:
     row_number: int
 
 
+@dataclass(slots=True)
+class HistoricalEmployeeIdentity:
+    employee_id: str
+    person_name: str
+    id_number: str | None
+    company_name: str | None
+    active: bool = True
+    id: str | None = None
+
+
 class EmployeeImportError(Exception):
     """Raised when employee master import input is invalid."""
 
 
 class EmployeeMasterNotFoundError(Exception):
     """Raised when an employee master record cannot be found."""
+
+
+class EmployeeMasterConflictError(Exception):
+    """Raised when an employee master record would conflict with an existing employee id."""
+
+
+class EmployeeMasterAuditNotFoundError(Exception):
+    """Raised when an employee audit record cannot be found."""
 
 
 class EmployeeDeleteBlockedError(Exception):
@@ -146,11 +165,40 @@ async def import_employee_master_file(db: Session, upload_file: UploadFile) -> E
     )
 
 
+def create_employee_master(db: Session, payload: EmployeeMasterCreateInput) -> EmployeeMasterRead:
+    employee_id = payload.employee_id.strip()
+    if db.query(EmployeeMaster.id).filter(EmployeeMaster.employee_id == employee_id).first() is not None:
+        raise EmployeeMasterConflictError(f"Employee master record already exists for employee_id: {employee_id}")
+
+    employee = EmployeeMaster(
+        employee_id=employee_id,
+        person_name=payload.person_name.strip(),
+        id_number=_nullable_text(payload.id_number),
+        company_name=_nullable_text(payload.company_name),
+        department=_nullable_text(payload.department),
+        active=payload.active,
+    )
+    db.add(employee)
+    db.flush()
+    db.add(
+        _build_audit(
+            employee,
+            action=EmployeeAuditAction.MANUAL_CREATE,
+            note="Created from employee master add page.",
+        )
+    )
+    db.commit()
+    db.refresh(employee)
+    return _to_employee_read(employee)
+
+
 def list_employee_masters(
     db: Session,
     *,
     query: str | None = None,
     active_only: bool = False,
+    limit: int | None = None,
+    offset: int = 0,
 ) -> EmployeeMasterListRead:
     statement = db.query(EmployeeMaster)
     if active_only:
@@ -165,8 +213,61 @@ def list_employee_masters(
                 EmployeeMaster.company_name.ilike(like_value),
             )
         )
-    items = statement.order_by(EmployeeMaster.employee_id.asc()).all()
-    return EmployeeMasterListRead(total=len(items), items=[_to_employee_read(item) for item in items])
+    total = statement.count()
+    statement = statement.order_by(EmployeeMaster.employee_id.asc())
+    if offset > 0:
+        statement = statement.offset(offset)
+    if limit is not None:
+        statement = statement.limit(limit)
+    items = statement.all()
+    return EmployeeMasterListRead(
+        total=total,
+        limit=limit,
+        offset=offset,
+        items=[_to_employee_read(item) for item in items],
+    )
+
+
+def list_employee_match_candidates(db: Session) -> list[EmployeeMaster | HistoricalEmployeeIdentity]:
+    active_masters = list(
+        db.query(EmployeeMaster).filter(EmployeeMaster.active.is_(True)).order_by(EmployeeMaster.employee_id.asc()).all()
+    )
+    active_employee_ids = {item.employee_id for item in active_masters}
+
+    historical_candidates: list[HistoricalEmployeeIdentity] = []
+    latest_audits = (
+        db.query(EmployeeMasterAudit)
+        .order_by(
+            EmployeeMasterAudit.employee_id_snapshot.asc(),
+            EmployeeMasterAudit.created_at.desc(),
+            EmployeeMasterAudit.id.desc(),
+        )
+        .all()
+    )
+    seen_employee_ids: set[str] = set()
+    for audit in latest_audits:
+        employee_id = _clean_text(audit.employee_id_snapshot)
+        if employee_id is None or employee_id in seen_employee_ids or employee_id in active_employee_ids:
+            continue
+        seen_employee_ids.add(employee_id)
+        if audit.action == EmployeeAuditAction.DELETE:
+            continue
+        snapshot = audit.snapshot or {}
+        person_name = _clean_text(snapshot.get('person_name'))
+        if person_name is None:
+            continue
+        if snapshot.get('active') is False:
+            continue
+        historical_candidates.append(
+            HistoricalEmployeeIdentity(
+                employee_id=employee_id,
+                person_name=person_name,
+                id_number=_clean_text(snapshot.get('id_number')),
+                company_name=_clean_text(snapshot.get('company_name')),
+            )
+        )
+
+    return [*active_masters, *historical_candidates]
 
 
 def update_employee_master(db: Session, employee_id: str, payload: EmployeeMasterUpdateInput) -> EmployeeMasterRead:
@@ -212,6 +313,25 @@ def list_employee_master_audits(db: Session, employee_id: str) -> EmployeeMaster
         .all()
     )
     return EmployeeMasterAuditListRead(total=len(items), items=[_to_audit_read(item) for item in items])
+
+
+def delete_employee_master_audit(db: Session, employee_id: str, audit_id: str) -> None:
+    employee = _get_employee_or_raise(db, employee_id)
+    audit = (
+        db.query(EmployeeMasterAudit)
+        .filter(
+            EmployeeMasterAudit.id == audit_id,
+            EmployeeMasterAudit.employee_master_id == employee.id,
+        )
+        .one_or_none()
+    )
+    if audit is None:
+        raise EmployeeMasterAuditNotFoundError(
+            f"Employee master audit record was not found: employee_id={employee_id}, audit_id={audit_id}"
+        )
+
+    db.delete(audit)
+    db.commit()
 
 
 def lookup_employee_self_service(db: Session, payload: EmployeeSelfServiceQueryInput) -> EmployeeSelfServiceRead:

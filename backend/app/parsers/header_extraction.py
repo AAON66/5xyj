@@ -4,12 +4,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
-from openpyxl import load_workbook
 from openpyxl.cell.cell import Cell, MergedCell
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
 from backend.app.parsers.workbook_discovery import WorkbookDiscoveryError, discover_workbook
+from backend.app.parsers.workbook_loader import load_workbook_compatible
 
 
 @dataclass(slots=True)
@@ -50,7 +50,7 @@ def extract_header_structure(path: str | Path) -> HeaderExtraction:
     if discovery.selected_sheet_name is None or discovery.selected_data_start_row is None:
         raise HeaderExtractionError(discovery.failure_reason or "Workbook discovery did not find a valid header region.")
 
-    workbook = load_workbook(workbook_path, read_only=False, data_only=True)
+    workbook = load_workbook_compatible(workbook_path, read_only=False, data_only=True)
     try:
         sheet = workbook[discovery.selected_sheet_name]
         header_rows = _infer_header_rows(sheet, discovery.selected_header_row_candidates, discovery.selected_data_start_row)

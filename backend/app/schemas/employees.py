@@ -20,7 +20,18 @@ class EmployeeMasterRead(BaseModel):
 
 class EmployeeMasterListRead(BaseModel):
     total: int
+    limit: int | None = None
+    offset: int = 0
     items: list[EmployeeMasterRead]
+
+
+class EmployeeMasterCreateInput(BaseModel):
+    employee_id: str = Field(min_length=1, max_length=100)
+    person_name: str = Field(min_length=1, max_length=255)
+    id_number: str | None = Field(default=None, max_length=100)
+    company_name: str | None = Field(default=None, max_length=255)
+    department: str | None = Field(default=None, max_length=255)
+    active: bool = True
 
 
 class EmployeeImportRead(BaseModel):

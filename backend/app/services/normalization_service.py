@@ -5,11 +5,10 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
-from openpyxl import load_workbook
-
 from backend.app.models.enums import SourceFileKind
 from backend.app.models.normalized_record import NormalizedRecord
 from backend.app.parsers import HeaderExtraction, extract_header_structure
+from backend.app.parsers.workbook_loader import load_workbook_compatible
 from backend.app.services.header_normalizer import (
     HeaderMappingDecision,
     HeaderNormalizationResult,
@@ -394,7 +393,7 @@ def _standardize_rows(
     company_name: str | None,
     source_file_name: str | None,
 ) -> StandardizationResult:
-    workbook = load_workbook(workbook_path, read_only=True, data_only=True)
+    workbook = load_workbook_compatible(workbook_path, read_only=True, data_only=True)
     try:
         sheet = workbook[extraction.sheet_name]
         max_column = max(column.column_index for column in extraction.columns)

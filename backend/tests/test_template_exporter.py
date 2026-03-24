@@ -469,7 +469,7 @@ def test_export_dual_templates_merges_records_with_same_employee_id_before_writi
     tool_wb.close()
 
 
-def test_export_dual_templates_derives_housing_burden_from_repeated_source_baseline() -> None:
+def test_export_dual_templates_keeps_housing_burden_zero_even_with_repeated_source_baseline() -> None:
     salary_template = find_template('薪酬')
     tool_template = find_template('最终版')
     sample_path = find_sample('深圳创造欢乐')
@@ -527,14 +527,14 @@ def test_export_dual_templates_derives_housing_burden_from_repeated_source_basel
     salary_sheet = salary_wb[salary_wb.sheetnames[0]]
     assert float(salary_sheet['H4'].value) == 2340.0
     assert float(salary_sheet['P4'].value) == 975.0
-    assert float(salary_sheet['R4'].value) == 800.0
+    assert float(salary_sheet['R4'].value) == 0.0
     salary_wb.close()
 
     tool_wb = load_workbook(tool_artifact.file_path, data_only=False)
     tool_sheet = tool_wb[tool_wb.sheetnames[0]]
     assert float(tool_sheet['N9'].value) == 2340.0
     assert float(tool_sheet['V9'].value) == 975.0
-    assert float(tool_sheet['X9'].value) == 800.0
+    assert float(tool_sheet['X9'].value) == 0.0
     tool_wb.close()
 
 
@@ -706,7 +706,90 @@ def test_export_dual_templates_sums_duplicate_social_records_from_distinct_sourc
     salary_wb.close()
 
 
-def test_export_dual_templates_uses_highest_repeated_housing_baseline_for_large_amounts() -> None:
+def test_export_dual_templates_uses_single_xiamen_company_medical_baseline_when_duplicate_sources_repeat_amounts() -> None:
+    salary_template = find_template('薪酬')
+    tool_template = find_template('最终版')
+    sample_path = find_sample('深圳创造欢乐')
+
+    standardized = standardize_workbook(sample_path, region='shenzhen', company_name='创造欢乐')
+    trimmed = type(standardized)(
+        source_file=standardized.source_file,
+        sheet_name=standardized.sheet_name,
+        raw_header_signature=standardized.raw_header_signature,
+        records=standardized.records[:1],
+        filtered_rows=standardized.filtered_rows,
+        unmapped_headers=standardized.unmapped_headers,
+    )
+
+    def build_xiamen_record(source_file_id: str, source_file_name: str, source_row_number: int):
+        record = build_normalized_models(trimmed, batch_id='batch-1', source_file_id=source_file_id)[0]
+        record.person_name = '厦门重复样本'
+        record.employee_id = 'S2002'
+        record.id_number = '440100199001012002'
+        record.region = 'xiamen'
+        record.pension_personal = Decimal('323.44')
+        record.pension_company = Decimal('646.88')
+        record.supplementary_pension_company = Decimal('0')
+        record.medical_personal = Decimal('88.66')
+        record.medical_company = Decimal('332.48')
+        record.unemployment_personal = Decimal('20.22')
+        record.unemployment_company = Decimal('20.22')
+        record.injury_company = Decimal('17.66')
+        record.maternity_amount = Decimal('31.03')
+        record.personal_total_amount = Decimal('432.32')
+        record.company_total_amount = Decimal('1048.27')
+        record.total_amount = Decimal('1480.59')
+        record.raw_payload = {
+            'merged_sources': [
+                {
+                    'source_kind': 'social_security',
+                    'source_file_name': source_file_name,
+                    'source_row_number': source_row_number,
+                    'raw_values': {
+                        '职工基本医疗保险费 / 单位应缴': '332.48',
+                        '职工基本医疗保险费（生育） / 单位应缴': '31.03',
+                    },
+                }
+            ]
+        }
+        return record
+
+    first = build_xiamen_record('source-1', '厦门202602社保账单.xlsx', 21)
+    second = build_xiamen_record('source-2', '厦门202602社保账单（补缴1月入职2人）.xlsx', 6)
+
+    output_dir = ARTIFACTS_ROOT / 'duplicate_xiamen_company_medical_baseline'
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    result = export_dual_templates(
+        [first, second],
+        output_dir=output_dir,
+        salary_template_path=salary_template,
+        final_tool_template_path=tool_template,
+        export_prefix='duplicate_xiamen_company_medical_baseline',
+    )
+
+    salary_artifact = next(item for item in result.artifacts if item.template_type == 'salary')
+    tool_artifact = next(item for item in result.artifacts if item.template_type == 'final_tool')
+
+    salary_wb = load_workbook(salary_artifact.file_path, data_only=False)
+    salary_sheet = salary_wb[salary_wb.sheetnames[0]]
+    assert float(salary_sheet['C2'].value) == 177.32
+    assert float(salary_sheet['D2'].value) == 40.44
+    assert float(salary_sheet['G2'].value) == 646.88
+    assert float(salary_sheet['I2'].value) == 1293.76
+    assert float(salary_sheet['J2'].value) == 363.51
+    salary_wb.close()
+
+    tool_wb = load_workbook(tool_artifact.file_path, data_only=False)
+    tool_sheet = tool_wb[tool_wb.sheetnames[0]]
+    assert float(tool_sheet['I7'].value) == 177.32
+    assert float(tool_sheet['J7'].value) == 40.44
+    assert float(tool_sheet['O7'].value) == 1293.76
+    assert float(tool_sheet['P7'].value) == 363.51
+    tool_wb.close()
+
+
+def test_export_dual_templates_keeps_large_housing_burden_zero_without_inference() -> None:
     salary_template = find_template('薪酬')
     tool_template = find_template('最终版')
     sample_path = find_sample('深圳创造欢乐')
@@ -762,7 +845,7 @@ def test_export_dual_templates_uses_highest_repeated_housing_baseline_for_large_
     salary_artifact = next(item for item in result.artifacts if item.template_type == 'salary')
     salary_wb = load_workbook(salary_artifact.file_path, data_only=False)
     salary_sheet = salary_wb[salary_wb.sheetnames[0]]
-    assert float(salary_sheet['R6'].value) == 1075.0
+    assert float(salary_sheet['R6'].value) == 0.0
     salary_wb.close()
 
 
@@ -990,3 +1073,120 @@ def test_export_dual_templates_keeps_housing_only_rows_when_source_has_explicit_
     tool_artifact = next(item for item in result.artifacts if item.template_type == 'final_tool')
     assert salary_artifact.row_count == 1
     assert tool_artifact.row_count == 1
+
+
+def test_export_dual_templates_keeps_housing_only_rows_when_prefixed_headers_include_explicit_split_columns() -> None:
+    salary_template = find_template('薪酬')
+    tool_template = find_template('最终版')
+    sample_path = find_sample('深圳创造欢乐')
+
+    standardized = standardize_workbook(sample_path, region='shenzhen', company_name='创造欢乐')
+    trimmed = type(standardized)(
+        source_file=standardized.source_file,
+        sheet_name=standardized.sheet_name,
+        raw_header_signature=standardized.raw_header_signature,
+        records=standardized.records[:1],
+        filtered_rows=standardized.filtered_rows,
+        unmapped_headers=standardized.unmapped_headers,
+    )
+    record = build_normalized_models(trimmed, batch_id='batch-1', source_file_id='source-1')[0]
+    record.person_name = '前缀显式公积金'
+    record.employee_id = 'H3003'
+    record.id_number = '440100199001013003'
+    clear_social_amounts(record)
+    record.housing_fund_personal = Decimal('175')
+    record.housing_fund_company = Decimal('175')
+    record.housing_fund_total = Decimal('350')
+    record.raw_payload = {
+        'housing_fund_inference_notes': ['split_from_total_and_rates'],
+        'merged_sources': [
+            {
+                'source_kind': 'housing_fund',
+                'source_file_name': '深圳无限增长202602公积金账单.xlsx',
+                'source_row_number': 6,
+                'raw_values': {
+                    '单位账号：1181339282 姓名': '前缀显式公积金',
+                    '单位账号：1181339282 证件号码': '440100199001013003',
+                    '单位账号：1181339282 个人账号': '20504850024',
+                    '单位账号：1181339282 缴存基数（元）': '3500',
+                    '单位账号：1181339282 单位缴存比例': '0.05',
+                    '单位账号：1181339282 个人缴存比例': '0.05',
+                    '单位账号：1181339282 金额合计（元）': '350',
+                    '单位账号：1181339282 单位': 175,
+                    '单位账号：1181339282 个人': 175,
+                },
+            }
+        ],
+    }
+
+    output_dir = ARTIFACTS_ROOT / 'housing_only_prefixed_explicit_keep'
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    result = export_dual_templates(
+        [record],
+        output_dir=output_dir,
+        salary_template_path=salary_template,
+        final_tool_template_path=tool_template,
+        export_prefix='housing_only_prefixed_explicit_keep',
+    )
+
+    salary_artifact = next(item for item in result.artifacts if item.template_type == 'salary')
+    tool_artifact = next(item for item in result.artifacts if item.template_type == 'final_tool')
+    assert salary_artifact.row_count == 1
+    assert tool_artifact.row_count == 1
+
+
+def test_export_dual_templates_zeroes_wuhan_large_medical_in_salary_and_tool_outputs() -> None:
+    salary_template = find_template('薪酬')
+    tool_template = find_template('最终版')
+    sample_path = find_sample('深圳创造欢乐')
+
+    standardized = standardize_workbook(sample_path, region='shenzhen', company_name='创造欢乐')
+    trimmed = type(standardized)(
+        source_file=standardized.source_file,
+        sheet_name=standardized.sheet_name,
+        raw_header_signature=standardized.raw_header_signature,
+        records=standardized.records[:1],
+        filtered_rows=standardized.filtered_rows,
+        unmapped_headers=standardized.unmapped_headers,
+    )
+    record = build_normalized_models(trimmed, batch_id='batch-1', source_file_id='source-1')[0]
+    record.person_name = '武汉大病样本'
+    record.employee_id = 'W3001'
+    record.id_number = '440100199001013004'
+    record.region = 'wuhan'
+    record.medical_personal = Decimal('89.96')
+    record.unemployment_personal = Decimal('13.49')
+    record.large_medical_personal = Decimal('7')
+    record.pension_personal = Decimal('359.84')
+    record.pension_company = Decimal('719.68')
+    record.medical_company = Decimal('391.33')
+    record.unemployment_company = Decimal('31.49')
+    record.injury_company = Decimal('9')
+    record.housing_fund_personal = Decimal('120')
+    record.housing_fund_company = Decimal('120')
+    record.housing_fund_total = Decimal('240')
+
+    output_dir = ARTIFACTS_ROOT / 'wuhan_large_medical_zero'
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    result = export_dual_templates(
+        [record],
+        output_dir=output_dir,
+        salary_template_path=salary_template,
+        final_tool_template_path=tool_template,
+        export_prefix='wuhan_large_medical_zero',
+    )
+
+    salary_artifact = next(item for item in result.artifacts if item.template_type == 'salary')
+    tool_artifact = next(item for item in result.artifacts if item.template_type == 'final_tool')
+
+    salary_wb = load_workbook(salary_artifact.file_path, data_only=False)
+    salary_sheet = salary_wb[salary_wb.sheetnames[0]]
+    assert float(salary_sheet['E2'].value) == 0.0
+    salary_wb.close()
+
+    tool_wb = load_workbook(tool_artifact.file_path, data_only=False)
+    tool_sheet = tool_wb[tool_wb.sheetnames[0]]
+    assert float(tool_sheet['K7'].value) == 0.0
+    tool_wb.close()

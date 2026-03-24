@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from copy import copy, deepcopy
 from dataclasses import dataclass
-from decimal import Decimal, ROUND_HALF_UP
+from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 from pathlib import Path
 import re
 from typing import Iterable
@@ -112,6 +112,33 @@ HOUSING_SOURCE_KIND = 'housing_fund'
 HOUSING_BURDEN_CANDIDATE_RATIO = Decimal('1.5')
 SOCIAL_SOURCE_KIND = 'social_security'
 SOCIAL_BURDEN_CANDIDATE_RATIO = Decimal('1.5')
+HEADER_NORMALIZATION_TRANSLATION = str.maketrans(
+    {
+        '\u3000': ' ',
+        '\uff08': '(',
+        '\uff09': ')',
+        '\u3010': '[',
+        '\u3011': ']',
+        '\uff1a': ':',
+        '\uff0f': '/',
+    }
+)
+HOUSING_METADATA_HEADER_MARKERS = (
+    '\u6bd4\u4f8b',
+    '\u57fa\u6570',
+    '\u8d26\u53f7',
+)
+EXPLICIT_HOUSING_COMBINED_HEADER_TOKENS = (
+    '\u5355\u4f4d\u53ca\u4e2a\u4eba',
+)
+XIAMEN_MEDICAL_COMPANY_HEADER = (
+    '\u804c\u5de5\u57fa\u672c\u533b\u7597\u4fdd\u9669\u8d39',
+    '\u5355\u4f4d\u5e94\u7f34',
+)
+XIAMEN_MATERNITY_HEADER = (
+    '\u804c\u5de5\u57fa\u672c\u533b\u7597\u4fdd\u9669\u8d39(\u751f\u80b2)',
+    '\u5355\u4f4d\u5e94\u7f34',
+)
 SOURCE_KIND_BY_AMOUNT_FIELD = {
     'housing_fund_personal': HOUSING_SOURCE_KIND,
     'housing_fund_company': HOUSING_SOURCE_KIND,
@@ -573,16 +600,72 @@ def _resolved_personal_large_medical(record: NormalizedRecord) -> Decimal:
     amount = _amount(record.large_medical_personal)
     if amount <= 0:
         return amount
+    if record.region == 'wuhan':
+        return Decimal('0')
     if record.region == 'changsha':
         return amount * Decimal('2')
     return amount
 
 
 def _resolved_company_medical(record: NormalizedRecord) -> Decimal:
+    if record.region == 'xiamen' and _source_signature_count_for_kind(record.raw_payload, SOCIAL_SOURCE_KIND) > 1:
+        medical_amounts = _extract_xiamen_social_amounts(record.raw_payload, target='medical')
+        maternity_amounts = _extract_xiamen_social_amounts(record.raw_payload, target='maternity')
+        if medical_amounts or maternity_amounts:
+            return max(medical_amounts, default=_amount(record.medical_company)) + max(
+                maternity_amounts,
+                default=_amount(record.maternity_amount),
+            )
+
     amount = _amount(record.medical_maternity_company or record.medical_company)
     if record.region == 'xiamen' and _source_signature_count_for_kind(record.raw_payload, SOCIAL_SOURCE_KIND) > 1:
         amount += _amount(record.maternity_amount)
     return amount
+
+
+def _extract_xiamen_social_amounts(
+    raw_payload: dict[str, object] | None,
+    *,
+    target: str,
+) -> list[Decimal]:
+    if not isinstance(raw_payload, dict):
+        return []
+    merged_sources = raw_payload.get('merged_sources')
+    if not isinstance(merged_sources, list):
+        return []
+
+    amounts: list[Decimal] = []
+    for source in merged_sources:
+        if not isinstance(source, dict) or source.get('source_kind') != SOCIAL_SOURCE_KIND:
+            continue
+        raw_values = source.get('raw_values')
+        if not isinstance(raw_values, dict):
+            continue
+        amount = _extract_xiamen_source_amount(raw_values, target=target)
+        if amount is not None and amount > 0:
+            amounts.append(amount)
+    return amounts
+
+
+def _extract_xiamen_source_amount(
+    raw_values: dict[object, object],
+    *,
+    target: str,
+) -> Decimal | None:
+    for raw_key, raw_value in raw_values.items():
+        normalized_header = _normalize_export_header(str(raw_key) if raw_key is not None else None)
+        if normalized_header is None:
+            continue
+        if target == 'medical':
+            if XIAMEN_MATERNITY_HEADER[0] in normalized_header:
+                continue
+            if XIAMEN_MEDICAL_COMPANY_HEADER[0] in normalized_header and XIAMEN_MEDICAL_COMPANY_HEADER[1] in normalized_header:
+                return _decimal_from_raw_value(raw_value)
+            continue
+        if target == 'maternity':
+            if XIAMEN_MATERNITY_HEADER[0] in normalized_header and XIAMEN_MATERNITY_HEADER[1] in normalized_header:
+                return _decimal_from_raw_value(raw_value)
+    return None
 
 
 def _build_social_burden_context(records: list[NormalizedRecord]) -> dict[str, tuple[Decimal, ...]]:
@@ -618,17 +701,7 @@ def _resolved_personal_social_burden(
     company_medical: Decimal,
     social_burden_context: dict[str, tuple[Decimal, ...]],
 ) -> Decimal:
-    if not bool((record.raw_payload or {}).get('enable_social_burden_inference')):
-        return Decimal('0')
-    if company_medical <= 0:
-        return Decimal('0')
-    source_key = _social_burden_source_key(record)
-    candidates = social_burden_context.get(source_key or '', ())
-    allowance = _select_burden_allowance(company_medical, candidates)
-    if allowance is None:
-        return Decimal('0')
-    burden = company_medical - allowance
-    return burden if burden > 0 else Decimal('0')
+    return Decimal('0')
 
 
 def _build_housing_burden_context(records: list[NormalizedRecord]) -> dict[str, tuple[Decimal, ...]]:
@@ -664,15 +737,7 @@ def _resolved_personal_housing_burden(
     company_housing: Decimal,
     housing_burden_context: dict[str, tuple[Decimal, ...]],
 ) -> Decimal:
-    if company_housing <= 0:
-        return Decimal('0')
-    source_key = _housing_burden_source_key(record)
-    candidates = housing_burden_context.get(source_key or '', ())
-    allowance = _select_burden_allowance(company_housing, candidates)
-    if allowance is None:
-        return Decimal('0')
-    burden = company_housing - allowance
-    return burden if burden > 0 else Decimal('0')
+    return Decimal('0')
 
 
 def _select_burden_allowance(
@@ -957,6 +1022,25 @@ def _normalize_export_text(value: str | None) -> str | None:
     return text or None
 
 
+def _normalize_export_header(value: str | None) -> str | None:
+    text = _normalize_export_text(value)
+    if text is None:
+        return None
+    return text.translate(HEADER_NORMALIZATION_TRANSLATION).replace(' ', '').lower()
+
+
+def _decimal_from_raw_value(value: object) -> Decimal | None:
+    if value in (None, ''):
+        return None
+    text = str(value).strip().replace(',', '')
+    if not text:
+        return None
+    try:
+        return Decimal(text)
+    except (InvalidOperation, ValueError):
+        return None
+
+
 def _normalize_id_number(value: str | None) -> str | None:
     text = _normalize_export_text(value)
     if text is None:
@@ -996,7 +1080,8 @@ def _has_explicit_housing_breakdown(record: NormalizedRecord) -> bool:
             continue
         has_company = _has_explicit_housing_amount_key(raw_values, EXPLICIT_HOUSING_COMPANY_HEADER_TOKENS)
         has_personal = _has_explicit_housing_amount_key(raw_values, EXPLICIT_HOUSING_PERSONAL_HEADER_TOKENS)
-        if has_company and has_personal:
+        has_combined = _has_explicit_housing_amount_key(raw_values, EXPLICIT_HOUSING_COMBINED_HEADER_TOKENS)
+        if (has_company and has_personal) or has_combined:
             return True
     return False
 
@@ -1013,4 +1098,28 @@ def _has_explicit_housing_amount_key(raw_values: dict[object, object], header_to
             continue
         if any(token.lower() == normalized_header or token.lower() in normalized_header for token in header_tokens):
             return True
+    return False
+
+
+def _has_explicit_housing_amount_key(raw_values: dict[object, object], header_tokens: tuple[str, ...]) -> bool:
+    normalized_tokens = tuple(
+        normalized
+        for normalized in (_normalize_export_header(token) for token in header_tokens)
+        if normalized is not None
+    )
+    for raw_key, raw_value in raw_values.items():
+        normalized_header = _normalize_export_header(str(raw_key) if raw_key is not None else None)
+        if normalized_header is None:
+            continue
+        if raw_value in (None, ''):
+            continue
+        header_candidates = {normalized_header, *filter(None, re.split(r'[:/\[\]()]+', normalized_header))}
+        if any(
+            candidate == token or candidate.endswith(token)
+            for candidate in header_candidates
+            for token in normalized_tokens
+        ):
+            return True
+        if any(marker in normalized_header for marker in HOUSING_METADATA_HEADER_MARKERS):
+            continue
     return False

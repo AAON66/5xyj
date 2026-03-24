@@ -11,13 +11,13 @@ from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
 from backend.app.core.config import Settings
-from backend.app.models import EmployeeMaster, MatchResult
+from backend.app.models import MatchResult
 from backend.app.models.enums import BatchStatus, SourceFileKind
 from backend.app.schemas.aggregate import AggregateEmployeeImportRead, AggregateRunRead, AggregateSourceFileRead
 from backend.app.schemas.imports import ExportArtifactRead
 from backend.app.services.batch_export_service import export_batch
 from backend.app.services.batch_runtime_service import match_batch, validate_batch
-from backend.app.services.employee_service import import_employee_master_file
+from backend.app.services.employee_service import import_employee_master_file, list_employee_match_candidates
 from backend.app.services.import_service import InvalidUploadError, create_import_batch, get_import_batch, parse_import_batch
 from backend.app.services.matching_service import apply_match_results_to_normalized_records, build_match_result_models, match_preview_records
 from backend.app.services.normalization_service import NormalizedPreviewRecord
@@ -97,14 +97,14 @@ async def run_simple_aggregate(
             percent=18,
         )
     elif resolved_employee_master_mode == 'existing':
-        available_count = db.query(EmployeeMaster).filter(EmployeeMaster.active.is_(True)).count()
+        available_count = len(list_employee_match_candidates(db))
         await _emit_progress(
             progress_callback,
             stage='employee_import',
             label='\u4f7f\u7528\u5df2\u6709\u4e3b\u6863',
             message=(
                 f'\u672c\u6b21\u5c06\u76f4\u63a5\u4f7f\u7528\u670d\u52a1\u5668\u5df2\u6709\u7684 {available_count} '
-                '\u6761\u5728\u804c\u5458\u5de5\u4e3b\u6863\u8bb0\u5f55\u7528\u4e8e\u5de5\u53f7\u5339\u914d\u3002'
+                '\u6761\u5458\u5de5\u8eab\u4efd\u8bc6\u522b\u8bb0\u5f55\u7528\u4e8e\u5de5\u53f7\u5339\u914d\u3002'
             ),
             percent=18,
         )
@@ -540,9 +540,7 @@ def _match_for_simple_aggregate(db: Session, batch_id: str, *, use_existing_empl
     batch = get_import_batch(db, batch_id)
     employee_masters = []
     if use_existing_employee_master:
-        employee_masters = list(
-            db.query(EmployeeMaster).filter(EmployeeMaster.active.is_(True)).order_by(EmployeeMaster.employee_id.asc()).all()
-        )
+        employee_masters = list_employee_match_candidates(db)
     if employee_masters:
         return match_batch(db, batch_id)
 

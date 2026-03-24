@@ -1,5 +1,6 @@
 import { getApiBaseUrl } from '../config/env';
 import { ApiClientError, type ApiSuccessResponse, apiClient } from './api';
+import { clearAuthSession, readAuthSession } from './authSession';
 
 export interface AggregateEmployeeImport {
   file_name: string;
@@ -116,6 +117,15 @@ function buildAggregateFormData(input: AggregateInput): FormData {
   return formData;
 }
 
+function buildAuthorizedHeaders(headers?: HeadersInit): Headers {
+  const resolvedHeaders = new Headers(headers);
+  const session = readAuthSession();
+  if (session?.accessToken) {
+    resolvedHeaders.set('Authorization', `Bearer ${session.accessToken}`);
+  }
+  return resolvedHeaders;
+}
+
 export async function runSimpleAggregate(input: AggregateInput): Promise<AggregateRunResult> {
   const response = await apiClient.post<ApiSuccessResponse<AggregateRunResult>>('/aggregate', buildAggregateFormData(input), {
     headers: { 'Content-Type': 'multipart/form-data' },
@@ -134,9 +144,13 @@ export async function runSimpleAggregateWithProgress(
     method: 'POST',
     body: buildAggregateFormData(input),
     signal: input.signal,
+    headers: buildAuthorizedHeaders(),
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      clearAuthSession();
+    }
     throw new ApiClientError(`Request failed with status ${response.status}.`, { statusCode: response.status });
   }
   if (!response.body) {
@@ -194,6 +208,35 @@ export async function runSimpleAggregateWithProgress(
   return finalResult;
 }
 
+export async function downloadAggregateArtifact(batchId: string, templateType: string): Promise<{ blob: Blob; fileName: string }> {
+  const response = await apiClient.get<Blob>(`/imports/${encodeURIComponent(batchId)}/export/${encodeURIComponent(templateType)}/download`, {
+    responseType: 'blob',
+  });
+
+  return {
+    blob: response.data,
+    fileName: resolveDownloadFileName(response.headers['content-disposition']) ?? `${templateType}.xlsx`,
+  };
+}
+
 export function getAggregateArtifactDownloadUrl(batchId: string, templateType: string): string {
   return `${getApiBaseUrl()}/imports/${encodeURIComponent(batchId)}/export/${encodeURIComponent(templateType)}/download`;
+}
+
+function resolveDownloadFileName(contentDisposition: string | null | undefined): string | null {
+  if (!contentDisposition) {
+    return null;
+  }
+
+  const encodedMatch = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (encodedMatch?.[1]) {
+    return decodeURIComponent(encodedMatch[1]);
+  }
+
+  const plainMatch = contentDisposition.match(/filename="([^"]+)"/i);
+  if (plainMatch?.[1]) {
+    return plainMatch[1];
+  }
+
+  return null;
 }

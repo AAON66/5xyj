@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from json import JSONDecodeError
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile, status
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
@@ -16,6 +16,8 @@ from backend.app.schemas.imports import ImportBatchDetailRead
 from backend.app.services import ExportBlockedError, export_batch, get_batch_export, get_batch_match, get_batch_validation, match_batch, validate_batch
 from backend.app.services.import_service import (
     BatchNotFoundError,
+    bulk_delete_import_batches,
+    delete_import_batch,
     InvalidUploadError,
     SourceFileNotFoundError,
     create_import_batch,
@@ -25,6 +27,7 @@ from backend.app.services.import_service import (
     preview_import_batch,
     serialize_import_batch,
 )
+from backend.app.schemas.imports import DeleteImportBatchesInput
 
 router = APIRouter(prefix='/imports', tags=['imports'])
 
@@ -70,6 +73,29 @@ def get_import_batch_endpoint(batch_id: str, db: Session = Depends(get_db)):
 
     payload = ImportBatchDetailRead.model_validate(serialize_import_batch(batch))
     return success_response(payload.model_dump(mode='json'), message='Import batch retrieved.')
+
+
+@router.delete('/{batch_id}', status_code=status.HTTP_204_NO_CONTENT)
+def delete_import_batch_endpoint(
+    request: Request,
+    batch_id: str,
+    db: Session = Depends(get_db),
+) -> Response:
+    try:
+        delete_import_batch(db, request.app.state.settings, batch_id)
+    except BatchNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post('/bulk-delete')
+def bulk_delete_import_batches_endpoint(
+    request: Request,
+    payload: DeleteImportBatchesInput,
+    db: Session = Depends(get_db),
+):
+    result = bulk_delete_import_batches(db, request.app.state.settings, payload.batch_ids)
+    return success_response(result.model_dump(mode='json'), message='Import batches deleted.')
 
 
 @router.post('/{batch_id}/parse')

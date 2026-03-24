@@ -1,6 +1,7 @@
-import axios, { AxiosError } from "axios";
+import axios, { AxiosError, AxiosHeaders } from "axios";
 
 import { getApiBaseUrl } from "../config/env";
+import { clearAuthSession, readAuthSession } from "./authSession";
 
 export const DEFAULT_REQUEST_TIMEOUT_MS = 180000;
 export const LONG_RUNNING_REQUEST_TIMEOUT_MS = 300000;
@@ -77,6 +78,14 @@ export function attachApiInterceptors(callbacks: ApiInterceptorCallbacks): () =>
   const requestInterceptor = apiClient.interceptors.request.use(
     (config) => {
       callbacks.onRequestStart?.();
+      const session = readAuthSession();
+
+      if (session?.accessToken) {
+        const headers = AxiosHeaders.from(config.headers ?? {});
+        headers.set("Authorization", `Bearer ${session.accessToken}`);
+        config.headers = headers;
+      }
+
       return config;
     },
     (error) => {
@@ -92,6 +101,9 @@ export function attachApiInterceptors(callbacks: ApiInterceptorCallbacks): () =>
     },
     (error) => {
       callbacks.onRequestEnd?.();
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        clearAuthSession();
+      }
       const normalized = normalizeApiError(error);
       callbacks.onError?.(normalized);
       return Promise.reject(normalized);

@@ -41,6 +41,14 @@ class Settings(BaseSettings):
     deepseek_model: str = 'deepseek-chat'
     enable_llm_fallback: bool = True
 
+    auth_enabled: bool = True
+    auth_secret_key: str = 'change-this-auth-secret'
+    auth_token_expire_minutes: int = 480
+    admin_login_username: str = 'admin'
+    admin_login_password: str = 'admin123'
+    hr_login_username: str = 'hr'
+    hr_login_password: str = 'hr123'
+
     log_level: Literal['DEBUG', 'INFO', 'WARNING', 'ERROR', 'CRITICAL'] = 'INFO'
     log_format: Literal['plain', 'json'] = 'json'
 

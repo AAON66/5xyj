@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal
 from typing import Iterable
 
 from sqlalchemy.orm import Session
 
-from backend.app.models import EmployeeMaster, MatchResult, NormalizedRecord, ValidationIssue
+from backend.app.models import MatchResult, NormalizedRecord, ValidationIssue
 from backend.app.models.enums import BatchStatus, MatchStatus
 from backend.app.schemas.imports import (
     BatchMatchRead,
@@ -16,6 +17,7 @@ from backend.app.schemas.imports import (
     ValidationIssueRead,
 )
 from backend.app.services.import_service import analyze_source_file, get_import_batch
+from backend.app.services.employee_service import list_employee_match_candidates
 from backend.app.services.matching_service import (
     MatchPreviewResult,
     apply_match_results_to_normalized_records,
@@ -34,6 +36,8 @@ from backend.app.services.validation_service import build_validation_issue_model
 
 CANONICAL_VALUE_FIELDS = MERGE_VALUE_FIELDS
 BLOCKED_REASON = 'Employee master data is required before batch matching can run.'
+MISSING_HOUSING_WARNING_COVERAGE_RATIO = Decimal('0.7')
+MISSING_HOUSING_WARNING_MIN_COMPANY_RECORDS = 3
 
 
 @dataclass(slots=True)
@@ -108,6 +112,29 @@ def validate_batch(db: Session, batch_id: str) -> BatchValidationRead:
             )
         )
 
+    extra_issue_contexts = _build_missing_housing_warning_contexts(batch.normalized_records)
+    if extra_issue_contexts:
+        extra_issue_models = [
+            ValidationIssue(
+                batch_id=batch.id,
+                normalized_record_id=context.normalized_record_id,
+                issue_type=context.issue.issue_type,
+                severity=context.issue.severity,
+                field_name=context.issue.field_name,
+                message=context.issue.message,
+                resolved=False,
+            )
+            for context in extra_issue_contexts
+        ]
+        db.add_all(extra_issue_models)
+        total_issue_count += len(extra_issue_models)
+        contexts_by_source_file_id = {context.source_file_id: context for context in source_file_contexts}
+        for extra_context in extra_issue_contexts:
+            source_context = contexts_by_source_file_id.get(extra_context.source_file_id)
+            if source_context is None:
+                continue
+            source_context.issues.append(extra_context.issue)
+
     batch.status = BatchStatus.VALIDATED
     db.commit()
     db.refresh(batch)
@@ -127,6 +154,90 @@ def validate_batch(db: Session, batch_id: str) -> BatchValidationRead:
             for context in source_file_contexts
         ],
     )
+
+
+@dataclass(slots=True)
+class _MissingHousingWarningContext:
+    source_file_id: str
+    normalized_record_id: str
+    issue: ValidationIssueRead
+
+
+def _build_missing_housing_warning_contexts(
+    records: Iterable[NormalizedRecord],
+) -> list[_MissingHousingWarningContext]:
+    social_records_by_key: dict[tuple[str, str], list[NormalizedRecord]] = {}
+    housing_keys: set[tuple[str, str]] = set()
+
+    for record in records:
+        source_file = record.source_file
+        if source_file is None:
+            continue
+        company_key = _source_company_key(source_file.region, source_file.company_name)
+        if source_file.source_kind == 'housing_fund':
+            housing_keys.add(company_key)
+            continue
+        if source_file.source_kind == 'social_security':
+            social_records_by_key.setdefault(company_key, []).append(record)
+
+    contexts: list[_MissingHousingWarningContext] = []
+    for company_key, company_records in social_records_by_key.items():
+        if company_key not in housing_keys:
+            continue
+        detail_records = [record for record in company_records if _is_detail_record(record)]
+        if len(detail_records) < MISSING_HOUSING_WARNING_MIN_COMPANY_RECORDS:
+            continue
+        with_housing = [record for record in detail_records if _record_has_housing_data(record)]
+        if Decimal(len(with_housing)) / Decimal(len(detail_records)) < MISSING_HOUSING_WARNING_COVERAGE_RATIO:
+            continue
+        for record in detail_records:
+            if _record_has_housing_data(record):
+                continue
+            company_name = record.source_file.company_name or record.company_name or 'unknown company'
+            contexts.append(
+                _MissingHousingWarningContext(
+                    source_file_id=record.source_file_id,
+                    normalized_record_id=record.id,
+                    issue=ValidationIssueRead(
+                        normalized_record_id=record.id,
+                        source_row_number=record.source_row_number,
+                        issue_type='missing_housing_match',
+                        severity='warning',
+                        field_name='housing_fund_total',
+                        message=(
+                            f"Company '{company_name}' has uploaded housing fund data and most employees merged successfully, "
+                            'but this employee still has no matched housing fund row.'
+                        ),
+                    ),
+                )
+            )
+    return contexts
+
+
+def _source_company_key(region: str | None, company_name: str | None) -> tuple[str, str]:
+    return ((region or '').strip().lower(), (company_name or '').strip().lower())
+
+
+def _is_detail_record(record: NormalizedRecord) -> bool:
+    person_name = (record.person_name or '').strip()
+    id_number = (record.id_number or '').strip()
+    if not person_name or person_name in {'合计', '总计', '小计'}:
+        return False
+    return bool(id_number)
+
+
+def _record_has_housing_data(record: NormalizedRecord) -> bool:
+    if any(_amount(getattr(record, field_name, None)) > Decimal('0') for field_name in ('housing_fund_personal', 'housing_fund_company', 'housing_fund_total')):
+        return True
+    raw_payload = record.raw_payload or {}
+    merged_sources = raw_payload.get('merged_sources')
+    if not isinstance(merged_sources, list):
+        return False
+    return any(isinstance(source, dict) and source.get('source_kind') == 'housing_fund' for source in merged_sources)
+
+
+def _amount(value: Decimal | None) -> Decimal:
+    return value if value is not None else Decimal('0')
 
 
 def get_batch_validation(db: Session, batch_id: str) -> BatchValidationRead:
@@ -174,9 +285,7 @@ def match_batch(db: Session, batch_id: str) -> BatchMatchRead:
     _ensure_normalized_records(db, batch_id)
     batch = get_import_batch(db, batch_id)
 
-    employee_masters = list(
-        db.query(EmployeeMaster).filter(EmployeeMaster.active.is_(True)).order_by(EmployeeMaster.employee_id.asc()).all()
-    )
+    employee_masters = list_employee_match_candidates(db)
     db.query(MatchResult).filter(MatchResult.batch_id == batch.id).delete(synchronize_session=False)
     for record in batch.normalized_records:
         record.employee_id = None
@@ -272,7 +381,7 @@ def match_batch(db: Session, batch_id: str) -> BatchMatchRead:
 
 def get_batch_match(db: Session, batch_id: str) -> BatchMatchRead:
     batch = get_import_batch(db, batch_id)
-    employee_master_count = db.query(EmployeeMaster).filter(EmployeeMaster.active.is_(True)).count()
+    employee_master_count = len(list_employee_match_candidates(db))
     results_by_record_id = {result.normalized_record_id: result for result in batch.match_results}
 
     source_files: list[SourceFileMatchRead] = []

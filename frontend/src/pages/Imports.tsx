@@ -2,8 +2,11 @@
 import { Link } from 'react-router-dom';
 
 import { PageContainer, SectionState, SurfaceNotice } from '../components';
+import { normalizeApiError } from '../services/api';
 import {
+  bulkDeleteImportBatches,
   createImportBatch,
+  deleteImportBatch,
   fetchImportBatches,
   fetchImportBatch,
   fetchImportBatchPreview,
@@ -68,6 +71,9 @@ export function ImportsPage() {
   const [pageLoading, setPageLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [parsing, setParsing] = useState(false);
+  const [deletingBatchId, setDeletingBatchId] = useState<string | null>(null);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [selectedBatchIds, setSelectedBatchIds] = useState<string[]>([]);
   const [refreshingPreview, setRefreshingPreview] = useState(false);
   const [localNotice, setLocalNotice] = useState<{ tone: 'success' | 'warning'; message: string } | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
@@ -156,16 +162,21 @@ export function ImportsPage() {
     return firstRecord ? Object.keys(firstRecord.values) : [];
   }, [selectedSourceFile]);
 
-  async function reloadBatches(selectBatchId?: string) {
+  async function reloadBatches(selectBatchId?: string | null) {
     const result = await fetchImportBatches();
     setBatches(result);
-    if (selectBatchId) {
-      setSelectedBatchId(selectBatchId);
+    const availableIds = new Set(result.map((batch) => batch.id));
+    setSelectedBatchIds((current) => current.filter((batchId) => availableIds.has(batchId)));
+    if (selectBatchId !== undefined) {
+      setSelectedBatchId(selectBatchId && availableIds.has(selectBatchId) ? selectBatchId : (result[0]?.id ?? null));
       return;
     }
-    if (!selectedBatchId && result[0]) {
-      setSelectedBatchId(result[0].id);
-    }
+    setSelectedBatchId((current) => {
+      if (current && availableIds.has(current)) {
+        return current;
+      }
+      return result[0]?.id ?? null;
+    });
   }
 
   async function handleCreateBatch() {
@@ -217,6 +228,58 @@ export function ImportsPage() {
     }
   }
 
+  async function handleDeleteBatch(batchId: string, batchName: string) {
+    const confirmed = window.confirm(`确认删除批次“${batchName}”吗？这会同时删除已上传文件和相关导出结果，且无法撤销。`);
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingBatchId(batchId);
+    setLocalNotice(null);
+    try {
+      await deleteImportBatch(batchId);
+      await reloadBatches(selectedBatchId === batchId ? null : undefined);
+      setSelectedBatchIds((current) => current.filter((currentId) => currentId !== batchId));
+      setLocalNotice({ tone: 'success', message: `批次已删除：${batchName}` });
+    } catch (error) {
+      setLocalNotice({ tone: 'warning', message: normalizeApiError(error).message || '批次删除失败，请稍后重试。' });
+    } finally {
+      setDeletingBatchId(null);
+    }
+  }
+
+  async function handleBulkDelete() {
+    if (selectedBatchIds.length === 0) {
+      setLocalNotice({ tone: 'warning', message: '请先勾选至少一个批次。' });
+      return;
+    }
+
+    const confirmed = window.confirm(`确认批量删除 ${selectedBatchIds.length} 个批次吗？这会同时删除已上传文件和相关导出结果，且无法撤销。`);
+    if (!confirmed) {
+      return;
+    }
+
+    setBulkDeleting(true);
+    setLocalNotice(null);
+    try {
+      const result = await bulkDeleteImportBatches(selectedBatchIds);
+      const removedSelectedBatch = selectedBatchId ? selectedBatchIds.includes(selectedBatchId) : false;
+      await reloadBatches(removedSelectedBatch ? null : undefined);
+      setSelectedBatchIds([]);
+
+      const missingMessage =
+        result.missing_ids.length > 0 ? ` 未找到 ${result.missing_ids.length} 个批次：${result.missing_ids.join('、')}。` : '';
+      setLocalNotice({
+        tone: 'success',
+        message: `已删除 ${result.deleted_count} 个批次。${missingMessage}`.trim(),
+      });
+    } catch (error) {
+      setLocalNotice({ tone: 'warning', message: normalizeApiError(error).message || '批量删除失败，请稍后重试。' });
+    } finally {
+      setBulkDeleting(false);
+    }
+  }
+
   return (
     <PageContainer
       eyebrow="Imports"
@@ -224,16 +287,24 @@ export function ImportsPage() {
       description="上传多个地区 Excel，创建导入批次，并快速查看首个文件的解析预览；更完整的文件级明细可进入批次详情页继续查看。"
       actions={
         <div className="button-row">
-          <button type="button" className="button button--primary" onClick={() => void handleCreateBatch()} disabled={submitting}>
+          <button type="button" className="button button--primary" onClick={() => void handleCreateBatch()} disabled={submitting || bulkDeleting}>
             {submitting ? '创建批次中...' : '创建导入批次'}
           </button>
           <button
             type="button"
             className="button button--ghost"
             onClick={() => (selectedBatchId ? void handleParseBatch(selectedBatchId) : undefined)}
-            disabled={!selectedBatchId || parsing}
+            disabled={!selectedBatchId || parsing || bulkDeleting || deletingBatchId !== null}
           >
             {parsing ? '刷新解析中...' : '刷新当前批次'}
+          </button>
+          <button
+            type="button"
+            className="button button--ghost"
+            onClick={() => void handleBulkDelete()}
+            disabled={selectedBatchIds.length === 0 || bulkDeleting || deletingBatchId !== null}
+          >
+            {bulkDeleting ? '批量删除中...' : `批量删除所选 (${selectedBatchIds.length})`}
           </button>
         </div>
       }
@@ -303,9 +374,34 @@ export function ImportsPage() {
                     <span>{batch.status}</span>
                     <small>{batch.file_count} 个文件 · {formatDateTime(batch.updated_at)}</small>
                   </button>
-                  <Link to={`/imports/${batch.id}`} className="batch-card__link">
-                    查看详情
-                  </Link>
+                  <div className="batch-card__footer">
+                    <label className="batch-card__check">
+                      <input
+                        type="checkbox"
+                        checked={selectedBatchIds.includes(batch.id)}
+                        onChange={(event) =>
+                          setSelectedBatchIds((current) =>
+                            event.target.checked ? Array.from(new Set([...current, batch.id])) : current.filter((item) => item !== batch.id),
+                          )
+                        }
+                        disabled={bulkDeleting}
+                      />
+                      <span>加入批量删除</span>
+                    </label>
+                    <div className="batch-card__actions">
+                      <Link to={`/imports/${batch.id}`} className="batch-card__link">
+                        查看详情
+                      </Link>
+                      <button
+                        type="button"
+                        className="batch-card__delete"
+                        onClick={() => void handleDeleteBatch(batch.id, batch.batch_name)}
+                        disabled={bulkDeleting || deletingBatchId !== null}
+                      >
+                        {deletingBatchId === batch.id ? '删除中...' : '删除批次'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>

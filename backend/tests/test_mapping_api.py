@@ -27,6 +27,7 @@ def build_test_client(test_name: str) -> tuple[TestClient, Settings]:
     settings = Settings(
         app_name='映射测试',
         app_version='0.2.0',
+        auth_enabled=False,
         database_url=f'sqlite:///{database_path.as_posix()}',
         upload_dir=str(artifacts_dir / 'uploads'),
         samples_dir=str(artifacts_dir / 'samples'),

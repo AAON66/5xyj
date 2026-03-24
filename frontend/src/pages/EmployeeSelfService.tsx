@@ -93,7 +93,7 @@ export function EmployeeSelfServicePage() {
               返回系统门户
             </Link>
             <Link className="portal-button portal-button--ghost" to="/workspace/hr">
-              转到 HR 工作台
+              前往 HR 工作台
             </Link>
           </div>
         </div>
@@ -109,7 +109,7 @@ export function EmployeeSelfServicePage() {
           <button type="submit" disabled={loading || !personName.trim() || !idNumber.trim()}>
             {loading ? '查询中...' : '开始查询'}
           </button>
-          <small>系统优先匹配员工主档；如未建档，也会尝试直接从标准化记录中检索。</small>
+          <small>当前入口只做查询，不做登录或身份验证。</small>
         </form>
       </section>
 
@@ -230,7 +230,7 @@ export function EmployeeSelfServicePage() {
       ) : (
         <div className="self-service-empty">
           <strong>输入姓名和身份证号后开始查询</strong>
-          <span>如果员工主档已维护，会优先显示主档信息；否则会直接展示标准化后的社保公积金记录。</span>
+          <span>当前入口只做查询，不做登录校验，也不会生成任何会话。</span>
         </div>
       )}
     </div>

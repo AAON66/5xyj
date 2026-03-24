@@ -1,8 +1,11 @@
 ﻿import { useEffect, useMemo, useState, type FormEvent } from 'react';
 
+import { Link } from 'react-router-dom';
+
 import { PageContainer, SectionState, SurfaceNotice } from '../components';
 import { normalizeApiError } from '../services/api';
 import {
+  deleteEmployeeMasterAudit,
   deleteEmployeeMaster,
   fetchEmployeeMasterAudits,
   fetchEmployeeMasters,
@@ -31,6 +34,8 @@ const EMPTY_FORM: EmployeeFormState = {
   active: true,
 };
 
+const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
+
 function formatDateTime(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -48,6 +53,8 @@ function describeAuditAction(action: string): string {
       return '导入新增';
     case 'import_update':
       return '导入更新';
+    case 'manual_create':
+      return '人工新增';
     case 'manual_update':
       return '人工编辑';
     case 'status_change':
@@ -74,9 +81,12 @@ function toFormState(employee: EmployeeMasterItem | null): EmployeeFormState {
 
 export function EmployeesPage() {
   const [employees, setEmployees] = useState<EmployeeMasterItem[]>([]);
+  const [totalEmployees, setTotalEmployees] = useState(0);
   const [query, setQuery] = useState('');
   const [draftQuery, setDraftQuery] = useState('');
   const [activeOnly, setActiveOnly] = useState(false);
+  const [pageSize, setPageSize] = useState<number>(10);
+  const [pageIndex, setPageIndex] = useState(0);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
@@ -91,11 +101,24 @@ export function EmployeesPage() {
   const [statusNote, setStatusNote] = useState('');
   const [audits, setAudits] = useState<EmployeeMasterAuditItem[]>([]);
   const [loadingAudits, setLoadingAudits] = useState(false);
+  const [deletingAuditId, setDeletingAuditId] = useState<string | null>(null);
   const [auditError, setAuditError] = useState<string | null>(null);
 
-  async function loadEmployees(nextQuery = query, nextActiveOnly = activeOnly, preferredEmployeeId?: string | null) {
-    const result = await fetchEmployeeMasters({ query: nextQuery, activeOnly: nextActiveOnly });
+  async function loadEmployees(
+    nextQuery = query,
+    nextActiveOnly = activeOnly,
+    nextPageSize = pageSize,
+    nextPageIndex = pageIndex,
+    preferredEmployeeId?: string | null,
+  ) {
+    const result = await fetchEmployeeMasters({
+      query: nextQuery,
+      activeOnly: nextActiveOnly,
+      limit: nextPageSize,
+      offset: nextPageIndex * nextPageSize,
+    });
     setEmployees(result.items);
+    setTotalEmployees(result.total);
     setPageError(null);
     setSelectedEmployeeId((current) => {
       const targetId = preferredEmployeeId ?? current;
@@ -111,11 +134,17 @@ export function EmployeesPage() {
 
     async function run() {
       try {
-        const result = await fetchEmployeeMasters({ query, activeOnly });
+        const result = await fetchEmployeeMasters({
+          query,
+          activeOnly,
+          limit: pageSize,
+          offset: pageIndex * pageSize,
+        });
         if (!active) {
           return;
         }
         setEmployees(result.items);
+        setTotalEmployees(result.total);
         setSelectedEmployeeId((current) => {
           if (current && result.items.some((item) => item.id === current)) {
             return current;
@@ -138,7 +167,7 @@ export function EmployeesPage() {
     return () => {
       active = false;
     };
-  }, [query, activeOnly]);
+  }, [query, activeOnly, pageIndex, pageSize]);
 
   const selectedEmployee = useMemo(
     () => employees.find((item) => item.id === selectedEmployeeId) ?? null,
@@ -187,12 +216,26 @@ export function EmployeesPage() {
 
   const summary = useMemo(
     () => ({
-      total: employees.length,
+      total: totalEmployees,
+      visible: employees.length,
       active: employees.filter((item) => item.active).length,
       companies: new Set(employees.map((item) => item.company_name).filter(Boolean)).size,
     }),
-    [employees],
+    [employees, totalEmployees],
   );
+
+  const totalPages = useMemo(
+    () => Math.max(1, Math.ceil(totalEmployees / pageSize)),
+    [pageSize, totalEmployees],
+  );
+
+  const currentRange = useMemo(() => {
+    if (!totalEmployees || !employees.length) {
+      return { start: 0, end: 0 };
+    }
+    const start = pageIndex * pageSize + 1;
+    return { start, end: start + employees.length - 1 };
+  }, [employees.length, pageIndex, pageSize, totalEmployees]);
 
   const isDirty = useMemo(() => {
     if (!selectedEmployee) {
@@ -207,6 +250,29 @@ export function EmployeesPage() {
     setAuditError(null);
   }
 
+  async function handleDeleteAudit(audit: EmployeeMasterAuditItem) {
+    if (!selectedEmployee) {
+      return;
+    }
+    const confirmed = window.confirm(`确认删除这条“${describeAuditAction(audit.action)}”留痕吗？删除后将不会再展示在审计列表中。`);
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingAuditId(audit.id);
+    setAuditError(null);
+    setPageError(null);
+    try {
+      await deleteEmployeeMasterAudit(selectedEmployee.id, audit.id);
+      await refreshAudits(selectedEmployee.id);
+      setActionNotice(`已删除 1 条${describeAuditAction(audit.action)}留痕。`);
+    } catch (error) {
+      setAuditError(normalizeApiError(error).message || '审计记录删除失败。');
+    } finally {
+      setDeletingAuditId(null);
+    }
+  }
+
   async function handleImport() {
     if (!selectedFile) {
       return;
@@ -218,7 +284,8 @@ export function EmployeesPage() {
       setImportResult(result);
       setActionNotice(`已导入 ${result.imported_count} 条员工主档，新增 ${result.created_count} 条，更新 ${result.updated_count} 条。`);
       setSelectedFile(null);
-      await loadEmployees(query, activeOnly, result.items[0]?.id ?? selectedEmployeeId);
+      setPageIndex(0);
+      await loadEmployees(query, activeOnly, pageSize, 0, result.items[0]?.id ?? selectedEmployeeId);
     } catch (error) {
       setPageError(normalizeApiError(error).message || '员工主档导入失败，请检查文件格式和必要字段后重试。');
     } finally {
@@ -291,7 +358,11 @@ export function EmployeesPage() {
       await deleteEmployeeMaster(deletingEmployeeId);
       setActionNotice(`员工 ${deletingEmployeeCode} 已删除。`);
       setAudits([]);
-      await loadEmployees(query, activeOnly, null);
+      const nextPageIndex = pageIndex > 0 && employees.length === 1 ? pageIndex - 1 : pageIndex;
+      if (nextPageIndex !== pageIndex) {
+        setPageIndex(nextPageIndex);
+      }
+      await loadEmployees(query, activeOnly, pageSize, nextPageIndex, null);
     } catch (error) {
       setPageError(normalizeApiError(error).message || '员工主档删除失败。');
     } finally {
@@ -302,6 +373,7 @@ export function EmployeesPage() {
   function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setLoading(true);
+    setPageIndex(0);
     setQuery(draftQuery.trim());
   }
 
@@ -312,6 +384,9 @@ export function EmployeesPage() {
       description="上传员工主档、人工修正基础信息、停用无效主档，并查看每次导入和手工调整留下的审计记录。"
       actions={
         <div className="button-row">
+          <Link to="/employees/new" className="button button--ghost">
+            新增员工主档
+          </Link>
           <button type="button" className="button button--primary" onClick={() => void handleImport()} disabled={!selectedFile || importing}>
             {importing ? '导入中...' : '导入主档文件'}
           </button>
@@ -348,15 +423,19 @@ export function EmployeesPage() {
         <section className="panel-card employee-summary-grid">
           <article className="status-item">
             <strong>{summary.total}</strong>
-            <div>当前主档记录</div>
+            <div>筛选结果总数</div>
+          </article>
+          <article className="status-item">
+            <strong>{summary.visible}</strong>
+            <div>当前页展示</div>
           </article>
           <article className="status-item">
             <strong>{summary.active}</strong>
-            <div>在职可匹配</div>
+            <div>当前页在职</div>
           </article>
           <article className="status-item">
             <strong>{summary.companies}</strong>
-            <div>覆盖公司</div>
+            <div>当前页覆盖公司</div>
           </article>
         </section>
       </div>
@@ -376,9 +455,33 @@ export function EmployeesPage() {
           </label>
           <label className="form-field employee-toolbar__toggle">
             <span>筛选范围</span>
-            <select value={activeOnly ? 'active' : 'all'} onChange={(event) => { setLoading(true); setActiveOnly(event.target.value === 'active'); }}>
+            <select
+              value={activeOnly ? 'active' : 'all'}
+              onChange={(event) => {
+                setLoading(true);
+                setPageIndex(0);
+                setActiveOnly(event.target.value === 'active');
+              }}
+            >
               <option value="all">全部主档</option>
               <option value="active">仅在职主档</option>
+            </select>
+          </label>
+          <label className="form-field employee-toolbar__toggle">
+            <span>每页展示</span>
+            <select
+              value={String(pageSize)}
+              onChange={(event) => {
+                setLoading(true);
+                setPageIndex(0);
+                setPageSize(Number(event.target.value));
+              }}
+            >
+              {PAGE_SIZE_OPTIONS.map((value) => (
+                <option key={value} value={value}>
+                  {value} 条
+                </option>
+              ))}
             </select>
           </label>
           <button type="submit" className="button button--ghost">
@@ -390,46 +493,79 @@ export function EmployeesPage() {
           <SectionState title="正在加载员工主档" message="系统正在同步当前可用于匹配的员工主档记录。" />
         ) : employees.length ? (
           <div className="employee-management-grid">
-            <div className="preview-table-wrap">
-              <table className="preview-table">
-                <thead>
-                  <tr>
-                    <th>工号</th>
-                    <th>姓名</th>
-                    <th>公司</th>
-                    <th>部门</th>
-                    <th>状态</th>
-                    <th>更新时间</th>
-                    <th>操作</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {employees.map((employee) => {
-                    const isSelected = employee.id === selectedEmployeeId;
-                    return (
-                      <tr key={employee.id} className={isSelected ? 'employee-table-row employee-table-row--active' : 'employee-table-row'}>
-                        <td>{employee.employee_id}</td>
-                        <td>{employee.person_name}</td>
-                        <td>{employee.company_name ?? '-'}</td>
-                        <td>{employee.department ?? '-'}</td>
-                        <td>
-                          <span className={`dashboard-pill ${employee.active ? 'dashboard-pill--ok' : 'dashboard-pill--warn'}`}>
-                            {employee.active ? '在职' : '停用'}
-                          </span>
-                        </td>
-                        <td>{formatDateTime(employee.updated_at)}</td>
-                        <td>
-                          <div className="employee-table-actions">
-                            <button type="button" className="button button--ghost" onClick={() => setSelectedEmployeeId(employee.id)}>
-                              {isSelected ? '已选中' : '管理'}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+            <div className="employee-table-panel">
+              <div className="preview-table-wrap">
+                <table className="preview-table">
+                  <thead>
+                    <tr>
+                      <th>工号</th>
+                      <th>姓名</th>
+                      <th>公司</th>
+                      <th>部门</th>
+                      <th>状态</th>
+                      <th>更新时间</th>
+                      <th>操作</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {employees.map((employee) => {
+                      const isSelected = employee.id === selectedEmployeeId;
+                      return (
+                        <tr key={employee.id} className={isSelected ? 'employee-table-row employee-table-row--active' : 'employee-table-row'}>
+                          <td>{employee.employee_id}</td>
+                          <td>{employee.person_name}</td>
+                          <td>{employee.company_name ?? '-'}</td>
+                          <td>{employee.department ?? '-'}</td>
+                          <td>
+                            <span className={`dashboard-pill ${employee.active ? 'dashboard-pill--ok' : 'dashboard-pill--warn'}`}>
+                              {employee.active ? '在职' : '停用'}
+                            </span>
+                          </td>
+                          <td>{formatDateTime(employee.updated_at)}</td>
+                          <td>
+                            <div className="employee-table-actions">
+                              <button type="button" className="button button--ghost" onClick={() => setSelectedEmployeeId(employee.id)}>
+                                {isSelected ? '已选中' : '管理'}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+
+              <div className="employee-pagination">
+                <div className="employee-pagination__summary">
+                  {summary.total ? `显示第 ${currentRange.start}-${currentRange.end} 条，共 ${summary.total} 条` : '当前没有可展示的主档记录'}
+                </div>
+                <div className="button-row employee-pagination__actions">
+                  <button
+                    type="button"
+                    className="button button--ghost"
+                    onClick={() => {
+                      setLoading(true);
+                      setPageIndex((current) => Math.max(0, current - 1));
+                    }}
+                    disabled={loading || pageIndex <= 0}
+                  >
+                    上一页
+                  </button>
+                  <span className="employee-pagination__page">{`第 ${Math.min(pageIndex + 1, totalPages)} / ${totalPages} 页`}</span>
+                  <button
+                    type="button"
+                    className="button button--ghost"
+                    onClick={() => {
+                      setLoading(true);
+                      setPageIndex((current) => (current + 1 < totalPages ? current + 1 : current));
+                    }}
+                    disabled={loading || pageIndex + 1 >= totalPages}
+                  >
+                    下一页
+                  </button>
+                </div>
+              </div>
             </div>
 
             <div className="employee-side-panels">
@@ -529,6 +665,16 @@ export function EmployeesPage() {
                         <div className="employee-audit-item__meta">
                           <span>工号快照：{audit.employee_id_snapshot}</span>
                           <span>{audit.note ?? '无备注'}</span>
+                        </div>
+                        <div className="employee-audit-item__actions">
+                          <button
+                            type="button"
+                            className="button button--ghost employee-audit-delete-button"
+                            onClick={() => void handleDeleteAudit(audit)}
+                            disabled={deletingAuditId === audit.id}
+                          >
+                            {deletingAuditId === audit.id ? '删除中...' : '删除记录'}
+                          </button>
                         </div>
                       </article>
                     ))}

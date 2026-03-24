@@ -35,6 +35,7 @@ def build_test_context(test_name: str):
     settings = Settings(
         app_name=APP_NAME,
         app_version='0.2.0',
+        auth_enabled=False,
         database_url=f'sqlite:///{database_path.as_posix()}',
         upload_dir=str(artifacts_dir / 'uploads'),
         samples_dir=str(artifacts_dir / 'samples'),
@@ -164,6 +165,60 @@ def test_import_employee_master_csv_and_list_records() -> None:
     assert search_items['items'][0]['person_name'] == '张三'
 
 
+def test_create_employee_master_endpoint_creates_record_and_writes_audit() -> None:
+    client, _settings, _session_factory = build_test_context('manual_create')
+
+    with client:
+        create_response = client.post(
+            '/api/v1/employees',
+            json={
+                'employee_id': 'E4001',
+                'person_name': '周七',
+                'id_number': '440101199505050055',
+                'company_name': '广分示例',
+                'department': '招聘',
+                'active': True,
+            },
+        )
+        employee = create_response.json()['data']
+        audits_response = client.get(f"/api/v1/employees/{employee['id']}/audits")
+
+    assert create_response.status_code == 201
+    assert employee['employee_id'] == 'E4001'
+    assert employee['person_name'] == '周七'
+    assert employee['department'] == '招聘'
+
+    audits = audits_response.json()['data']['items']
+    assert audits[0]['action'] == 'manual_create'
+    assert audits[0]['note'] == 'Created from employee master add page.'
+
+
+def test_list_employee_masters_supports_limit_and_offset() -> None:
+    client, _settings, _session_factory = build_test_context('list_pagination')
+
+    with client:
+        import_default_master(client)
+        client.post(
+            '/api/v1/employees',
+            json={
+                'employee_id': 'E1003',
+                'person_name': '王五',
+                'id_number': '440101199303030033',
+                'company_name': '广分示例',
+                'department': '运营',
+                'active': True,
+            },
+        )
+        page_response = client.get('/api/v1/employees', params={'active_only': 'false', 'limit': 2, 'offset': 1})
+
+    assert page_response.status_code == 200
+    payload = page_response.json()['data']
+    assert payload['total'] == 3
+    assert payload['limit'] == 2
+    assert payload['offset'] == 1
+    assert [item['employee_id'] for item in payload['items']] == ['E1002', 'E1003']
+
+
 def test_import_employee_master_xlsx_updates_existing_record_and_writes_audit() -> None:
     client, _settings, _session_factory = build_test_context('xlsx_update')
 
@@ -266,6 +321,31 @@ def test_update_and_status_endpoints_change_employee_and_write_audit() -> None:
     assert audits[0]['action'] == 'status_change'
     assert audits[0]['note'] == '手动停用测试'
     assert audits[1]['action'] == 'manual_update'
+
+
+def test_delete_employee_master_audit_removes_single_audit_record() -> None:
+    client, _settings, _session_factory = build_test_context('delete_audit')
+
+    with client:
+        import_default_master(client)
+        employee = client.get('/api/v1/employees', params={'query': 'E1001', 'active_only': 'false'}).json()['data']['items'][0]
+        client.patch(
+            f"/api/v1/employees/{employee['id']}",
+            json={
+                'person_name': '张三丰',
+                'id_number': employee['id_number'],
+                'company_name': '广分示例',
+                'department': '平台运营中心',
+                'active': True,
+            },
+        )
+        audits_before = client.get(f"/api/v1/employees/{employee['id']}/audits").json()['data']['items']
+        delete_response = client.delete(f"/api/v1/employees/{employee['id']}/audits/{audits_before[0]['id']}")
+        audits_after = client.get(f"/api/v1/employees/{employee['id']}/audits").json()['data']['items']
+
+    assert delete_response.status_code == 204
+    assert len(audits_after) == len(audits_before) - 1
+    assert all(item['id'] != audits_before[0]['id'] for item in audits_after)
 
 
 def test_delete_employee_master_removes_record_when_no_match_history() -> None:

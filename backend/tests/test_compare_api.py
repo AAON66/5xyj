@@ -29,6 +29,7 @@ def build_test_context(test_name: str):
     settings = Settings(
         app_name='对比测试',
         app_version='0.2.0',
+        auth_enabled=False,
         database_url=f'sqlite:///{database_path.as_posix()}',
         upload_dir=str(artifacts_dir / 'uploads'),
         samples_dir=str(artifacts_dir / 'samples'),

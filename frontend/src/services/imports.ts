@@ -74,6 +74,12 @@ export interface ImportBatchPreview {
   source_files: SourceFilePreview[];
 }
 
+export interface BulkDeleteImportBatchesResult {
+  deleted_count: number;
+  deleted_ids: string[];
+  missing_ids: string[];
+}
+
 export interface CreateImportBatchInput {
   files: File[];
   batchName?: string;
@@ -92,6 +98,17 @@ export async function fetchImportBatches(): Promise<ImportBatchSummary[]> {
 
 export async function fetchImportBatch(batchId: string): Promise<ImportBatchDetail> {
   const response = await apiClient.get<ApiSuccessResponse<ImportBatchDetail>>(`/imports/${batchId}`);
+  return response.data.data;
+}
+
+export async function deleteImportBatch(batchId: string): Promise<void> {
+  await apiClient.delete(`/imports/${batchId}`);
+}
+
+export async function bulkDeleteImportBatches(batchIds: string[]): Promise<BulkDeleteImportBatchesResult> {
+  const response = await apiClient.post<ApiSuccessResponse<BulkDeleteImportBatchesResult>>('/imports/bulk-delete', {
+    batch_ids: batchIds,
+  });
   return response.data.data;
 }
 

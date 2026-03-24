@@ -15,7 +15,18 @@ export interface EmployeeMasterItem {
 
 export interface EmployeeMasterList {
   total: number;
+  limit?: number | null;
+  offset?: number;
   items: EmployeeMasterItem[];
+}
+
+export interface EmployeeMasterCreateInput {
+  employee_id: string;
+  person_name: string;
+  id_number: string | null;
+  company_name: string | null;
+  department: string | null;
+  active: boolean;
 }
 
 export interface EmployeeImportResult {
@@ -96,13 +107,25 @@ export interface EmployeeSelfServiceResult {
   records: EmployeeSelfServiceRecord[];
 }
 
-export async function fetchEmployeeMasters(params?: { query?: string; activeOnly?: boolean }): Promise<EmployeeMasterList> {
+export async function fetchEmployeeMasters(params?: {
+  query?: string;
+  activeOnly?: boolean;
+  limit?: number;
+  offset?: number;
+}): Promise<EmployeeMasterList> {
   const response = await apiClient.get<ApiSuccessResponse<EmployeeMasterList>>('/employees', {
     params: {
       query: params?.query || undefined,
       active_only: params?.activeOnly ?? undefined,
+      limit: params?.limit ?? undefined,
+      offset: params?.offset ?? undefined,
     },
   });
+  return response.data.data;
+}
+
+export async function createEmployeeMaster(payload: EmployeeMasterCreateInput): Promise<EmployeeMasterItem> {
+  const response = await apiClient.post<ApiSuccessResponse<EmployeeMasterItem>>('/employees', payload);
   return response.data.data;
 }
 
@@ -133,6 +156,10 @@ export async function deleteEmployeeMaster(employeeId: string): Promise<void> {
 export async function fetchEmployeeMasterAudits(employeeId: string): Promise<EmployeeMasterAuditList> {
   const response = await apiClient.get<ApiSuccessResponse<EmployeeMasterAuditList>>(`/employees/${employeeId}/audits`);
   return response.data.data;
+}
+
+export async function deleteEmployeeMasterAudit(employeeId: string, auditId: string): Promise<void> {
+  await apiClient.delete(`/employees/${employeeId}/audits/${auditId}`);
 }
 
 export async function queryEmployeeSelfService(input: { person_name: string; id_number: string }): Promise<EmployeeSelfServiceResult> {

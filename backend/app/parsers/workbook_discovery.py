@@ -4,8 +4,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
-from openpyxl import load_workbook
 from openpyxl.worksheet.worksheet import Worksheet
+
+from backend.app.parsers.workbook_loader import load_workbook_compatible
 
 HEADER_KEYWORDS = {
     "姓名",
@@ -85,7 +86,7 @@ def discover_workbook(path: str | Path) -> WorkbookDiscovery:
     if not workbook_path.exists():
         raise WorkbookDiscoveryError(f"Workbook '{workbook_path}' does not exist.")
 
-    workbook = load_workbook(workbook_path, read_only=True, data_only=True)
+    workbook = load_workbook_compatible(workbook_path, read_only=True, data_only=True)
     try:
         discoveries = [_discover_sheet(sheet) for sheet in workbook.worksheets]
     finally:

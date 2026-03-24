@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SourceFileRead(BaseModel):
@@ -32,6 +32,16 @@ class ImportBatchSummaryRead(BaseModel):
 
 class ImportBatchDetailRead(ImportBatchSummaryRead):
     source_files: list[SourceFileRead]
+
+
+class DeleteImportBatchesInput(BaseModel):
+    batch_ids: list[str] = Field(min_length=1)
+
+
+class DeleteImportBatchesRead(BaseModel):
+    deleted_count: int
+    deleted_ids: list[str]
+    missing_ids: list[str]
 
 
 class HeaderMappingPreviewRead(BaseModel):

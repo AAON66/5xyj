@@ -13,7 +13,8 @@ from backend.app.core.config import ROOT_DIR, Settings, get_settings
 from backend.app.core.database import create_database_engine, create_session_factory
 from backend.app.dependencies import get_db
 from backend.app.main import create_app
-from backend.app.models import Base
+from backend.app.models import Base, EmployeeMasterAudit
+from backend.app.models.enums import EmployeeAuditAction
 from backend.app.services import infer_region_from_filename, standardize_housing_fund_workbook, standardize_workbook
 
 ARTIFACTS_ROOT = ROOT_DIR / '.test_artifacts' / 'aggregate_api'
@@ -57,6 +58,7 @@ def build_test_context(test_name: str, *, salary_template: Path, final_tool_temp
     settings = Settings(
         app_name=APP_NAME,
         app_version='0.2.0',
+        auth_enabled=False,
         database_url=f'sqlite:///{database_path.as_posix()}',
         upload_dir=str(artifacts_dir / 'uploads'),
         samples_dir=str(artifacts_dir / 'samples'),
@@ -283,6 +285,65 @@ def test_aggregate_endpoint_can_use_existing_employee_master_without_reupload() 
     assert payload['employee_master'] is None
     assert payload['matched_count'] >= 1
     assert payload['export_status'] == 'completed'
+
+
+def test_aggregate_endpoint_can_match_from_historical_employee_audit_snapshot() -> None:
+    salary_template = find_template('\u85aa\u916c')
+    tool_template = find_template('\u6700\u7ec8\u7248')
+    sample_path = find_sample(SAMPLE_KEYWORD)
+    standardized = standardize_workbook(sample_path, region='shenzhen', company_name=COMPANY_NAME)
+    first = standardized.records[0]
+    client, _settings, session_factory = build_test_context(
+        'aggregate_with_historical_master_snapshot',
+        salary_template=salary_template,
+        final_tool_template=tool_template,
+    )
+
+    db: Session = session_factory()
+    try:
+        db.add(
+            EmployeeMasterAudit(
+                employee_master_id=None,
+                employee_id_snapshot='H9001',
+                action=EmployeeAuditAction.MANUAL_CREATE,
+                note='Recovered historical employee identity.',
+                snapshot={
+                    'employee_id': 'H9001',
+                    'person_name': first.values['person_name'],
+                    'id_number': first.values['id_number'],
+                    'company_name': COMPANY_NAME,
+                    'active': True,
+                },
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    with client:
+        response = client.post(
+            '/api/v1/aggregate',
+            data={'batch_name': 'quick-aggregate-historical-master', 'employee_master_mode': 'existing'},
+            files=[
+                (
+                    'files',
+                    (
+                        sample_path.name,
+                        sample_path.read_bytes(),
+                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    ),
+                )
+            ],
+        )
+
+    assert response.status_code == 201
+    payload = response.json()['data']
+    assert payload['matched_count'] >= 1
+    salary_artifact = next(item for item in payload['artifacts'] if item['template_type'] == 'salary')
+    salary_wb = load_workbook(salary_artifact['file_path'], data_only=False)
+    salary_sheet = salary_wb[salary_wb.sheetnames[0]]
+    assert salary_sheet['B2'].value == 'H9001'
+    salary_wb.close()
 
 
 def test_aggregate_endpoint_can_skip_existing_employee_master_explicitly() -> None:

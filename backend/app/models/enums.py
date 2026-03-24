@@ -40,6 +40,7 @@ class SourceFileKind(str, Enum):
 class EmployeeAuditAction(str, Enum):
     IMPORT_CREATE = "import_create"
     IMPORT_UPDATE = "import_update"
+    MANUAL_CREATE = "manual_create"
     MANUAL_UPDATE = "manual_update"
     STATUS_CHANGE = "status_change"
     DELETE = "delete"

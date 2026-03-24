@@ -16,10 +16,11 @@ from fastapi import UploadFile
 from sqlalchemy.orm import Session, load_only, selectinload
 
 from backend.app.core.config import Settings
-from backend.app.models import HeaderMapping, ImportBatch, SourceFile
+from backend.app.models import ExportJob, HeaderMapping, ImportBatch, SourceFile
 from backend.app.models.enums import BatchStatus, MappingSource, SourceFileKind
 from backend.app.parsers import HeaderExtraction, extract_header_structure
 from backend.app.schemas.imports import (
+    DeleteImportBatchesRead,
     FilteredRowPreviewRead,
     HeaderMappingPreviewRead,
     ImportBatchDetailRead,
@@ -242,6 +243,41 @@ def list_import_batches(db: Session) -> list[ImportBatchSummaryRead]:
     return [_to_summary_schema(batch) for batch in batches]
 
 
+def delete_import_batch(db: Session, settings: Settings, batch_id: str) -> None:
+    batch = _get_import_batch_for_delete(db, batch_id)
+    cleanup_paths = _collect_batch_cleanup_paths(batch, settings.outputs_path)
+    db.delete(batch)
+    db.commit()
+    _cleanup_batch_artifacts(cleanup_paths, upload_batch_dir=settings.upload_path / batch_id)
+
+
+def bulk_delete_import_batches(db: Session, settings: Settings, batch_ids: list[str]) -> DeleteImportBatchesRead:
+    normalized_ids: list[str] = []
+    seen_ids: set[str] = set()
+    for raw_batch_id in batch_ids:
+        cleaned = raw_batch_id.strip()
+        if not cleaned or cleaned in seen_ids:
+            continue
+        seen_ids.add(cleaned)
+        normalized_ids.append(cleaned)
+
+    deleted_ids: list[str] = []
+    missing_ids: list[str] = []
+    for batch_id in normalized_ids:
+        try:
+            delete_import_batch(db, settings, batch_id)
+        except BatchNotFoundError:
+            missing_ids.append(batch_id)
+            continue
+        deleted_ids.append(batch_id)
+
+    return DeleteImportBatchesRead(
+        deleted_count=len(deleted_ids),
+        deleted_ids=deleted_ids,
+        missing_ids=missing_ids,
+    )
+
+
 def get_import_batch(db: Session, batch_id: str) -> ImportBatch:
     batch = (
         db.query(ImportBatch)
@@ -258,6 +294,21 @@ def get_import_batch(db: Session, batch_id: str) -> ImportBatch:
                 SourceFile.uploaded_at,
                 SourceFile.raw_sheet_name,
             )
+        )
+        .filter(ImportBatch.id == batch_id)
+        .first()
+    )
+    if batch is None:
+        raise BatchNotFoundError(f"Import batch '{batch_id}' was not found.")
+    return batch
+
+
+def _get_import_batch_for_delete(db: Session, batch_id: str) -> ImportBatch:
+    batch = (
+        db.query(ImportBatch)
+        .options(
+            selectinload(ImportBatch.source_files).load_only(SourceFile.file_path),
+            selectinload(ImportBatch.export_jobs).selectinload(ExportJob.artifacts),
         )
         .filter(ImportBatch.id == batch_id)
         .first()
@@ -398,6 +449,45 @@ def serialize_import_batch(batch: ImportBatch) -> ImportBatchDetailRead:
             for source_file in batch.source_files
         ],
     )
+
+
+def _collect_batch_cleanup_paths(batch: ImportBatch, outputs_root: Path) -> list[Path]:
+    cleanup_paths: list[Path] = []
+    for source_file in batch.source_files:
+        file_path = Path(source_file.file_path)
+        if file_path not in cleanup_paths:
+            cleanup_paths.append(file_path)
+
+    for export_job in batch.export_jobs:
+        for artifact in export_job.artifacts:
+            resolved = _resolve_export_artifact_cleanup_path(outputs_root, artifact.file_path)
+            if resolved is not None and resolved not in cleanup_paths:
+                cleanup_paths.append(resolved)
+    return cleanup_paths
+
+
+def _resolve_export_artifact_cleanup_path(outputs_root: Path, raw_path: str | None) -> Path | None:
+    if not raw_path:
+        return None
+
+    candidate = Path(raw_path)
+    resolved = candidate.resolve() if candidate.is_absolute() else (outputs_root / candidate).resolve()
+    allowed_root = outputs_root.resolve()
+    if resolved != allowed_root and allowed_root not in resolved.parents:
+        return None
+    return resolved
+
+
+def _cleanup_batch_artifacts(cleanup_paths: list[Path], *, upload_batch_dir: Path) -> None:
+    for path in cleanup_paths:
+        try:
+            if path.exists():
+                path.unlink()
+        except OSError:
+            continue
+
+    if upload_batch_dir.exists():
+        shutil.rmtree(upload_batch_dir, ignore_errors=True)
 
 
 def _resolve_parse_worker_count(total_files: int) -> int:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from contextlib import suppress
 from io import BytesIO
 from json import JSONDecodeError
@@ -17,6 +18,7 @@ from backend.app.services.employee_service import EmployeeImportError
 from backend.app.services.import_service import InvalidUploadError
 
 router = APIRouter(prefix='/aggregate', tags=['aggregate'])
+logger = logging.getLogger(__name__)
 
 
 @router.post('', status_code=status.HTTP_201_CREATED)
@@ -124,12 +126,13 @@ async def run_simple_aggregate_stream_endpoint(
                 )
             except (InvalidUploadError, EmployeeImportError, ValueError) as exc:
                 await queue.put({'event': 'error', 'code': 'bad_request', 'message': str(exc)})
-            except Exception:
+            except Exception as exc:
+                logger.exception('Aggregate stream failed unexpectedly.')
                 await queue.put(
                     {
                         'event': 'error',
                         'code': 'internal_server_error',
-                        'message': 'An unexpected server error occurred.',
+                        'message': str(exc) or 'An unexpected server error occurred.',
                     }
                 )
             else:

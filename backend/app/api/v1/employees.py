@@ -4,13 +4,22 @@ from fastapi import APIRouter, Body, Depends, File, HTTPException, Query, Respon
 from sqlalchemy.orm import Session
 
 from backend.app.api.v1.responses import success_response
-from backend.app.dependencies import get_db
-from backend.app.schemas.employees import EmployeeMasterStatusInput, EmployeeMasterUpdateInput, EmployeeSelfServiceQueryInput
+from backend.app.dependencies import get_db, require_authenticated_user
+from backend.app.schemas.employees import (
+    EmployeeMasterCreateInput,
+    EmployeeMasterStatusInput,
+    EmployeeMasterUpdateInput,
+    EmployeeSelfServiceQueryInput,
+)
 from backend.app.services.employee_service import (
     EmployeeDeleteBlockedError,
+    EmployeeMasterAuditNotFoundError,
+    EmployeeMasterConflictError,
     EmployeeImportError,
     EmployeeMasterNotFoundError,
     EmployeeSelfServiceNotFoundError,
+    create_employee_master,
+    delete_employee_master_audit,
     delete_employee_master,
     import_employee_master_file,
     list_employee_master_audits,
@@ -27,16 +36,33 @@ router = APIRouter(prefix='/employees', tags=['employees'])
 def list_employee_masters_endpoint(
     query: str | None = Query(default=None),
     active_only: bool = Query(default=False),
+    limit: int | None = Query(default=None, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
+    _user=Depends(require_authenticated_user),
 ):
-    payload = list_employee_masters(db, query=query, active_only=active_only)
+    payload = list_employee_masters(db, query=query, active_only=active_only, limit=limit, offset=offset)
     return success_response(payload.model_dump(mode='json'), message='Employee master records retrieved.')
+
+
+@router.post('', status_code=status.HTTP_201_CREATED)
+def create_employee_master_endpoint(
+    payload: EmployeeMasterCreateInput = Body(...),
+    db: Session = Depends(get_db),
+    _user=Depends(require_authenticated_user),
+):
+    try:
+        result = create_employee_master(db, payload)
+    except EmployeeMasterConflictError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    return success_response(result.model_dump(mode='json'), message='Employee master record created.', status_code=status.HTTP_201_CREATED)
 
 
 @router.post('/import', status_code=status.HTTP_201_CREATED)
 async def import_employee_masters_endpoint(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
+    _user=Depends(require_authenticated_user),
 ):
     try:
         payload = await import_employee_master_file(db, file)
@@ -63,6 +89,7 @@ def update_employee_master_endpoint(
     employee_id: str,
     payload: EmployeeMasterUpdateInput = Body(...),
     db: Session = Depends(get_db),
+    _user=Depends(require_authenticated_user),
 ):
     try:
         result = update_employee_master(db, employee_id, payload)
@@ -76,6 +103,7 @@ def update_employee_master_status_endpoint(
     employee_id: str,
     payload: EmployeeMasterStatusInput = Body(...),
     db: Session = Depends(get_db),
+    _user=Depends(require_authenticated_user),
 ):
     try:
         result = update_employee_master_status(db, employee_id, payload)
@@ -85,7 +113,11 @@ def update_employee_master_status_endpoint(
 
 
 @router.delete('/{employee_id}', status_code=status.HTTP_204_NO_CONTENT)
-def delete_employee_master_endpoint(employee_id: str, db: Session = Depends(get_db)) -> Response:
+def delete_employee_master_endpoint(
+    employee_id: str,
+    db: Session = Depends(get_db),
+    _user=Depends(require_authenticated_user),
+) -> Response:
     try:
         delete_employee_master(db, employee_id)
     except EmployeeMasterNotFoundError as exc:
@@ -96,9 +128,29 @@ def delete_employee_master_endpoint(employee_id: str, db: Session = Depends(get_
 
 
 @router.get('/{employee_id}/audits')
-def list_employee_master_audits_endpoint(employee_id: str, db: Session = Depends(get_db)):
+def list_employee_master_audits_endpoint(
+    employee_id: str,
+    db: Session = Depends(get_db),
+    _user=Depends(require_authenticated_user),
+):
     try:
         payload = list_employee_master_audits(db, employee_id)
     except EmployeeMasterNotFoundError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     return success_response(payload.model_dump(mode='json'), message='Employee master audits retrieved.')
+
+
+@router.delete('/{employee_id}/audits/{audit_id}', status_code=status.HTTP_204_NO_CONTENT)
+def delete_employee_master_audit_endpoint(
+    employee_id: str,
+    audit_id: str,
+    db: Session = Depends(get_db),
+    _user=Depends(require_authenticated_user),
+) -> Response:
+    try:
+        delete_employee_master_audit(db, employee_id, audit_id)
+    except EmployeeMasterNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except EmployeeMasterAuditNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

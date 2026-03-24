@@ -30,6 +30,7 @@ def build_test_client(test_name: str) -> tuple[TestClient, Settings]:
     settings = Settings(
         app_name='导入测试',
         app_version='0.2.0',
+        auth_enabled=False,
         database_url=f'sqlite:///{database_path.as_posix()}',
         upload_dir=str(artifacts_dir / 'uploads'),
         samples_dir=str(artifacts_dir / 'samples'),
@@ -122,6 +123,62 @@ def test_list_and_detail_import_batches_return_saved_batch() -> None:
     assert detail_response.json()['data']['id'] == batch_id
     assert detail_response.json()['data']['source_files'][0]['region'] == 'wuhan'
     assert detail_response.json()['data']['source_files'][0]['company_name'] == '武汉公司'
+
+
+def test_delete_import_batch_removes_batch_and_uploaded_files() -> None:
+    client, settings = build_test_client('delete_batch')
+
+    with client:
+        created = client.post(
+            '/api/v1/imports',
+            files=[('files', ('wuhan.xlsx', b'row-data', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))],
+            data={'regions': 'wuhan', 'company_names': '武汉公司'},
+        )
+        batch_id = created.json()['data']['id']
+        batch_dir = settings.upload_path / batch_id
+
+        delete_response = client.delete(f'/api/v1/imports/{batch_id}')
+        list_response = client.get('/api/v1/imports')
+        detail_response = client.get(f'/api/v1/imports/{batch_id}')
+
+    assert delete_response.status_code == 204
+    assert not batch_dir.exists()
+    assert list_response.status_code == 200
+    assert list_response.json()['data'] == []
+    assert detail_response.status_code == 404
+
+
+def test_bulk_delete_import_batches_removes_multiple_batches_and_reports_missing_ids() -> None:
+    client, settings = build_test_client('bulk_delete_batches')
+
+    with client:
+        created_a = client.post(
+            '/api/v1/imports',
+            files=[('files', ('a.xlsx', b'a-data', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))],
+            data={'regions': 'guangzhou', 'company_names': 'A'},
+        )
+        created_b = client.post(
+            '/api/v1/imports',
+            files=[('files', ('b.xlsx', b'b-data', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))],
+            data={'regions': 'hangzhou', 'company_names': 'B'},
+        )
+        batch_a = created_a.json()['data']['id']
+        batch_b = created_b.json()['data']['id']
+
+        batch_a_dir = settings.upload_path / batch_a
+        batch_b_dir = settings.upload_path / batch_b
+
+        delete_response = client.post('/api/v1/imports/bulk-delete', json={'batch_ids': [batch_a, 'missing-batch', batch_b]})
+        list_response = client.get('/api/v1/imports')
+
+    assert delete_response.status_code == 200
+    payload = delete_response.json()['data']
+    assert payload['deleted_count'] == 2
+    assert payload['deleted_ids'] == [batch_a, batch_b]
+    assert payload['missing_ids'] == ['missing-batch']
+    assert not batch_a_dir.exists()
+    assert not batch_b_dir.exists()
+    assert list_response.json()['data'] == []
 
 
 def test_parse_and_preview_import_batch_return_normalized_preview() -> None:

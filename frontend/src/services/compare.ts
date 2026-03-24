@@ -1,5 +1,6 @@
 import { getApiBaseUrl } from "../config/env";
 import { ApiClientError, type ApiSuccessResponse, apiClient } from "./api";
+import { clearAuthSession, readAuthSession } from "./authSession";
 
 export type CompareCellValue = string | number | null;
 
@@ -57,15 +58,20 @@ export async function fetchBatchCompare(leftBatchId: string, rightBatchId: strin
 }
 
 export async function exportBatchCompare(payload: CompareExportPayload): Promise<{ blob: Blob; fileName: string }> {
+  const session = readAuthSession();
   const response = await fetch(`${getApiBaseUrl()}/compare/export`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      ...(session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : {}),
     },
     body: JSON.stringify(payload),
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      clearAuthSession();
+    }
     let message = `Request failed with status ${response.status}.`;
     try {
       const errorPayload = (await response.json()) as { error?: { message?: string } };

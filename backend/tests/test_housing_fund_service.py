@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from decimal import Decimal
+from io import BytesIO
 from pathlib import Path
 
 import pytest
+from openpyxl import Workbook
 
 from backend.app.core.config import ROOT_DIR
 from backend.app.services.housing_fund_service import standardize_housing_fund_workbook
@@ -79,3 +81,48 @@ def test_standardize_housing_fund_workbook_changsha_reads_total_and_period() -> 
     assert first.values['housing_fund_personal'] == Decimal('175')
     assert first.values['housing_fund_company'] == Decimal('175')
     assert first.values['housing_fund_total'] == Decimal('350')
+
+
+def test_standardize_housing_fund_workbook_wuhan_two_level_headers() -> None:
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = '武汉202602公积金台账'
+    sheet.append(
+        [
+            '序号',
+            '个人公积金账号',
+            '职工姓名',
+            '摘要',
+            '月均工资',
+            '新开户、启封本月应缴存额增加',
+            None,
+            None,
+            '销户、封存本月应缴存额减少',
+            None,
+            None,
+        ]
+    )
+    sheet.append([None, None, None, None, None, '合计', '个人', '单位', '合计', '个人', '单位'])
+    sheet.append([1, '847209617', '崔亚鑫', '202602汇缴登记', 2400, 240, 120, 120, 0, 0, 0])
+    sheet.append(['本页小计', None, None, None, None, 240, 120, 120, 0, 0, 0])
+    sheet.append(['合计', None, None, None, None, 240, 120, 120, 0, 0, 0])
+
+    buffer = BytesIO()
+    workbook.save(buffer)
+    workbook.close()
+
+    temp_path = ROOT_DIR / '.test_artifacts' / 'housing_fund_service' / 'wuhan_two_level_headers.xlsx'
+    temp_path.parent.mkdir(parents=True, exist_ok=True)
+    temp_path.write_bytes(buffer.getvalue())
+
+    result = standardize_housing_fund_workbook(temp_path, region='wuhan', company_name='武汉示例公司')
+
+    assert result.sheet_name == '武汉202602公积金台账'
+    assert len(result.records) == 1
+    first = result.records[0]
+    assert first.values['person_name'] == '崔亚鑫'
+    assert first.values['housing_fund_account'] == '847209617'
+    assert first.values['housing_fund_base'] == Decimal('2400')
+    assert first.values['housing_fund_personal'] == Decimal('120')
+    assert first.values['housing_fund_company'] == Decimal('120')
+    assert first.values['housing_fund_total'] == Decimal('240')

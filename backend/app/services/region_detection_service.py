@@ -7,9 +7,9 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from openpyxl import load_workbook
 
 from backend.app.core.config import get_settings
+from backend.app.parsers.workbook_loader import load_workbook_compatible
 
 DEEPSEEK_COMPLETIONS_PATH = "/chat/completions"
 DEFAULT_REGION_LLM_TIMEOUT = 45.0
@@ -259,7 +259,7 @@ def build_workbook_region_context(
     source_kind: str | None = None,
 ) -> WorkbookRegionContext:
     path = Path(workbook_path)
-    workbook = load_workbook(path, read_only=True, data_only=True)
+    workbook = load_workbook_compatible(path, read_only=True, data_only=True)
     try:
         sheet_names = [sheet.title for sheet in workbook.worksheets[:6]]
         fragments: list[str] = []

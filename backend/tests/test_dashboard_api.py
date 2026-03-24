@@ -52,6 +52,7 @@ def build_test_context(test_name: str) -> tuple[TestClient, Settings, object]:
     settings = Settings(
         app_name=APP_NAME,
         app_version='0.2.0',
+        auth_enabled=False,
         database_url=f'sqlite:///{database_path.as_posix()}',
         upload_dir=str(artifacts_dir / 'uploads'),
         samples_dir=str(artifacts_dir / 'samples'),

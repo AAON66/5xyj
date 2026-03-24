@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 
 import { PageContainer, SectionState, SurfaceNotice } from '../components';
 import { useAggregateSession } from '../hooks';
-import { type AggregateArtifact, type AggregateProgressEvent, getAggregateArtifactDownloadUrl } from '../services/aggregate';
+import { downloadAggregateArtifact, type AggregateArtifact, type AggregateProgressEvent } from '../services/aggregate';
 import { cancelAggregateSession, clearAggregateSession, startAggregateSession } from '../services/aggregateSessionStore';
 import { fetchEmployeeMasters } from '../services/employees';
 import { fetchSystemHealth, type SystemHealth } from '../services/system';
@@ -269,6 +269,17 @@ function mapNamesToEntries(names: string[]): UploadEntry[] {
   return names.map((name, index) => ({ id: `${name}_${index}`, name, meta: TEXT.persistedRecord }));
 }
 
+function triggerBlobDownload(blob: Blob, fileName: string): void {
+  const url = window.URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = fileName;
+  document.body.appendChild(anchor);
+  anchor.click();
+  document.body.removeChild(anchor);
+  window.URL.revokeObjectURL(url);
+}
+
 function UploadPanel({ eyebrow, title, entries, onAdd, onClear, onRemove, emptyMessage, tone, disabled }: UploadPanelProps) {
   return (
     <article className={`upload-panel upload-panel--${tone}`}>
@@ -322,6 +333,7 @@ export function SimpleAggregatePage() {
   const [employeeMasterMode, setEmployeeMasterMode] = useState<'none' | 'upload' | 'existing'>('none');
   const [batchName, setBatchName] = useState('');
   const [selectionError, setSelectionError] = useState<string | null>(null);
+  const [downloadingTemplate, setDownloadingTemplate] = useState<string | null>(null);
 
   const socialInputRef = useRef<HTMLInputElement | null>(null);
   const housingInputRef = useRef<HTMLInputElement | null>(null);
@@ -464,6 +476,23 @@ export function SimpleAggregatePage() {
   function handleClearRecord() {
     clearAggregateSession();
     setSelectionError(null);
+  }
+
+  async function handleDownloadArtifact(templateType: string) {
+    if (!result?.batch_id) {
+      return;
+    }
+
+    setDownloadingTemplate(templateType);
+    setSelectionError(null);
+    try {
+      const { blob, fileName } = await downloadAggregateArtifact(result.batch_id, templateType);
+      triggerBlobDownload(blob, fileName);
+    } catch (error) {
+      setSelectionError(error instanceof Error ? error.message : '下载失败，请稍后重试。');
+    } finally {
+      setDownloadingTemplate(null);
+    }
   }
 
   const canStart = !running && !hasSessionRecord && (socialFiles.length > 0 || housingFundFiles.length > 0);
@@ -782,9 +811,14 @@ export function SimpleAggregatePage() {
                     </div>
                     <div className="simple-artifact-card__actions">
                       {artifact.status === 'completed' && result.batch_id ? (
-                        <a className="button button--ghost button--download" href={getAggregateArtifactDownloadUrl(result.batch_id, artifact.template_type)} target="_blank" rel="noreferrer">
-                          {TEXT.download}
-                        </a>
+                        <button
+                          type="button"
+                          className="button button--ghost button--download"
+                          onClick={() => void handleDownloadArtifact(artifact.template_type)}
+                          disabled={downloadingTemplate === artifact.template_type}
+                        >
+                          {downloadingTemplate === artifact.template_type ? '下载中...' : TEXT.download}
+                        </button>
                       ) : (
                         <span className="simple-artifact-card__status">{artifact.status}</span>
                       )}
