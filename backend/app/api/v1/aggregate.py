@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 import asyncio
 import json
 import logging
@@ -26,11 +28,11 @@ async def run_simple_aggregate_endpoint(
     request: Request,
     files: list[UploadFile] = File(default=[]),
     housing_fund_files: list[UploadFile] = File(default=[]),
-    employee_master_file: UploadFile | None = File(default=None),
-    employee_master_mode: str | None = Form(default=None),
-    batch_name: str | None = Form(default=None),
-    regions: str | None = Form(default=None),
-    company_names: str | None = Form(default=None),
+    employee_master_file: Optional[UploadFile] = File(default=None),
+    employee_master_mode: Optional[str] = Form(default=None),
+    batch_name: Optional[str] = Form(default=None),
+    regions: Optional[str] = Form(default=None),
+    company_names: Optional[str] = Form(default=None),
     db: Session = Depends(get_db),
 ):
     try:
@@ -56,11 +58,11 @@ async def run_simple_aggregate_stream_endpoint(
     request: Request,
     files: list[UploadFile] = File(default=[]),
     housing_fund_files: list[UploadFile] = File(default=[]),
-    employee_master_file: UploadFile | None = File(default=None),
-    employee_master_mode: str | None = Form(default=None),
-    batch_name: str | None = Form(default=None),
-    regions: str | None = Form(default=None),
-    company_names: str | None = Form(default=None),
+    employee_master_file: Optional[UploadFile] = File(default=None),
+    employee_master_mode: Optional[str] = Form(default=None),
+    batch_name: Optional[str] = Form(default=None),
+    regions: Optional[str] = Form(default=None),
+    company_names: Optional[str] = Form(default=None),
     db: Session = Depends(get_db),
 ):
     parsed_regions = _parse_metadata_values(regions)
@@ -156,7 +158,7 @@ async def run_simple_aggregate_stream_endpoint(
     return StreamingResponse(event_stream(), media_type='application/x-ndjson')
 
 
-def _parse_metadata_values(raw_value: str | None) -> list[str] | None:
+def _parse_metadata_values(raw_value: Optional[str]) -> Optional[list[str]]:
     if raw_value is None:
         return None
     stripped = raw_value.strip()

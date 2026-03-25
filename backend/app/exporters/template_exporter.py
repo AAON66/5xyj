@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 from pathlib import Path
 import re
-from typing import Iterable
+from typing import Iterable, Optional
 
 from openpyxl import Workbook, load_workbook
 from openpyxl.cell.cell import MergedCell
@@ -193,8 +193,8 @@ class ExportServiceError(Exception):
 class ExportArtifactResult:
     template_type: str
     status: str
-    file_path: str | None
-    error_message: str | None
+    file_path: Optional[str]
+    error_message: Optional[str]
     row_count: int = 0
 
 
@@ -210,8 +210,8 @@ def export_dual_templates(
     output_dir: str | Path | None = None,
     salary_template_path: str | Path | None = None,
     final_tool_template_path: str | Path | None = None,
-    export_prefix: str | None = None,
-    settings: Settings | None = None,
+    export_prefix: Optional[str] = None,
+    settings: Optional[Settings] = None,
 ) -> DualTemplateExportResult:
     normalized_records = _merge_export_records([record for record in records if _is_exportable_record(record)])
     resolved_settings = settings or get_settings()
@@ -381,7 +381,7 @@ def _populate_output_row(
     snapshot: dict[str, object],
     *,
     target_row: int,
-    values: list[object] | None,
+    values: Optional[list[object]],
 ) -> None:
     cell_snapshots = snapshot['cells']
     for cell_snapshot in cell_snapshots:
@@ -534,7 +534,7 @@ def _resolve_template_path(
     template_path: str | Path | None,
     template_type: TemplateType,
     *,
-    settings: Settings | None = None,
+    settings: Optional[Settings] = None,
 ) -> Path:
     attempted_locations: list[str] = []
     if template_path:
@@ -592,7 +592,7 @@ def _discover_template_candidates(settings, template_type: TemplateType) -> list
     ]
 
 
-def _amount(value: Decimal | None) -> Decimal:
+def _amount(value: Optional[Decimal]) -> Decimal:
     return value if value is not None else Decimal('0')
 
 
@@ -602,8 +602,6 @@ def _resolved_personal_large_medical(record: NormalizedRecord) -> Decimal:
         return amount
     if record.region == 'wuhan':
         return Decimal('0')
-    if record.region == 'changsha':
-        return amount * Decimal('2')
     return amount
 
 
@@ -651,7 +649,7 @@ def _extract_xiamen_source_amount(
     raw_values: dict[object, object],
     *,
     target: str,
-) -> Decimal | None:
+) -> Optional[Decimal]:
     for raw_key, raw_value in raw_values.items():
         normalized_header = _normalize_export_header(str(raw_key) if raw_key is not None else None)
         if normalized_header is None:
@@ -743,7 +741,7 @@ def _resolved_personal_housing_burden(
 def _select_burden_allowance(
     current_amount: Decimal,
     candidates: tuple[Decimal, ...],
-) -> Decimal | None:
+) -> Optional[Decimal]:
     if not candidates:
         return None
     eligible = [candidate for candidate in candidates if candidate <= current_amount]
@@ -752,11 +750,11 @@ def _select_burden_allowance(
     return candidates[0]
 
 
-def _social_burden_source_key(record: NormalizedRecord) -> str | None:
+def _social_burden_source_key(record: NormalizedRecord) -> Optional[str]:
     return _source_key_for_kind(record, SOCIAL_SOURCE_KIND, ('medical_company', 'medical_maternity_company'))
 
 
-def _housing_burden_source_key(record: NormalizedRecord) -> str | None:
+def _housing_burden_source_key(record: NormalizedRecord) -> Optional[str]:
     return _source_key_for_kind(record, HOUSING_SOURCE_KIND, ('housing_fund_personal', 'housing_fund_company', 'housing_fund_total'))
 
 
@@ -764,7 +762,7 @@ def _source_key_for_kind(
     record: NormalizedRecord,
     source_kind: str,
     amount_fields: tuple[str, ...],
-) -> str | None:
+) -> Optional[str]:
     raw_payload = record.raw_payload or {}
     merged_sources = raw_payload.get('merged_sources')
     if isinstance(merged_sources, list):
@@ -888,12 +886,12 @@ def _merge_raw_payloads(
 
 
 def _merge_text_value(
-    current: str | None,
-    incoming: str | None,
+    current: Optional[str],
+    incoming: Optional[str],
     *,
     prefer_longer: bool = False,
     prefer_valid_id: bool = False,
-) -> str | None:
+) -> Optional[str]:
     normalized_current = _normalize_export_text(current)
     normalized_incoming = _normalize_export_text(incoming)
     if normalized_current is None:
@@ -919,13 +917,13 @@ def _merge_text_value(
 
 
 def _merge_amount_value(
-    current: Decimal | None,
-    incoming: Decimal | None,
+    current: Optional[Decimal],
+    incoming: Optional[Decimal],
     *,
     field_name: str,
     current_payload: dict[str, object] | None,
     incoming_payload: dict[str, object] | None,
-) -> Decimal | None:
+) -> Optional[Decimal]:
     current_amount = _amount(current)
     incoming_amount = _amount(incoming)
     if current is None or current_amount == Decimal('0'):
@@ -962,14 +960,14 @@ def _should_accumulate_amount(
 def _source_signatures_for_kind(
     raw_payload: dict[str, object] | None,
     source_kind: str,
-) -> set[tuple[str | None, int | None]]:
+) -> Optional[set[tuple[str], int | None]]:
     if not isinstance(raw_payload, dict):
         return set()
     merged_sources = raw_payload.get('merged_sources')
     if not isinstance(merged_sources, list):
         return set()
 
-    signatures: set[tuple[str | None, int | None]] = set()
+    signatures: Optional[set[tuple[str], int | None]] = set()
     for item in merged_sources:
         if not isinstance(item, dict):
             continue
@@ -990,7 +988,7 @@ def _source_signature_count_for_kind(
     return len(_source_signatures_for_kind(raw_payload, source_kind))
 
 
-def _region_label(value: str | None) -> str:
+def _region_label(value: Optional[str]) -> str:
     if value is None:
         return ''
     return REGION_LABELS.get(value, value)
@@ -1015,21 +1013,21 @@ def _has_any_business_value(record: NormalizedRecord) -> bool:
     return any(_amount(getattr(record, field_name)) != Decimal('0') for field_name in EXPORT_AMOUNT_FIELDS)
 
 
-def _normalize_export_text(value: str | None) -> str | None:
+def _normalize_export_text(value: Optional[str]) -> Optional[str]:
     if value is None:
         return None
     text = str(value).strip()
     return text or None
 
 
-def _normalize_export_header(value: str | None) -> str | None:
+def _normalize_export_header(value: Optional[str]) -> Optional[str]:
     text = _normalize_export_text(value)
     if text is None:
         return None
     return text.translate(HEADER_NORMALIZATION_TRANSLATION).replace(' ', '').lower()
 
 
-def _decimal_from_raw_value(value: object) -> Decimal | None:
+def _decimal_from_raw_value(value: object) -> Optional[Decimal]:
     if value in (None, ''):
         return None
     text = str(value).strip().replace(',', '')
@@ -1041,7 +1039,7 @@ def _decimal_from_raw_value(value: object) -> Decimal | None:
         return None
 
 
-def _normalize_id_number(value: str | None) -> str | None:
+def _normalize_id_number(value: Optional[str]) -> Optional[str]:
     text = _normalize_export_text(value)
     if text is None:
         return None

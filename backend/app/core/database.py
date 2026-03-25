@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from collections.abc import Generator
 
 from sqlalchemy import create_engine, event
@@ -34,7 +36,7 @@ def _configure_sqlite_engine(engine: Engine) -> None:
         cursor.close()
 
 
-def create_database_engine(settings: Settings | None = None) -> Engine:
+def create_database_engine(settings: Optional[Settings] = None) -> Engine:
     runtime_settings = settings or get_settings()
     engine_kwargs: dict[str, object] = {
         "future": True,
@@ -50,7 +52,7 @@ def create_database_engine(settings: Settings | None = None) -> Engine:
     return engine
 
 
-def create_session_factory(settings: Settings | None = None) -> sessionmaker[Session]:
+def create_session_factory(settings: Optional[Settings] = None) -> sessionmaker[Session]:
     engine = create_database_engine(settings)
     return sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
 

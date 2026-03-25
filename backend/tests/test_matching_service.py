@@ -1,5 +1,7 @@
 ﻿from __future__ import annotations
 
+from typing import Optional
+
 from pathlib import Path
 
 import pytest
@@ -30,10 +32,10 @@ def make_employee(
     employee_id: str,
     person_name: str,
     *,
-    id_number: str | None = None,
-    company_name: str | None = None,
+    id_number: Optional[str] = None,
+    company_name: Optional[str] = None,
     active: bool = True,
-    record_id: str | None = None,
+    record_id: Optional[str] = None,
 ) -> EmployeeMaster:
     return EmployeeMaster(
         id=record_id or f'emp-{employee_id}',

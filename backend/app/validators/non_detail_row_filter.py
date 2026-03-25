@@ -1,7 +1,7 @@
 ﻿from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Iterable, Optional
 
 NON_DETAIL_TOKENS = {
     "\u5408\u8ba1": "summary_total",
@@ -108,7 +108,7 @@ def filter_candidate_rows(rows: Iterable[tuple[int, list[object]]]) -> FilteredR
     return FilteredRowsResult(kept_rows=kept_rows, filtered_rows=filtered_rows)
 
 
-def _match_non_detail_token(value: str) -> str | None:
+def _match_non_detail_token(value: str) -> Optional[str]:
     stripped = value.strip()
     if stripped in NON_DETAIL_TOKENS:
         return NON_DETAIL_TOKENS[stripped]

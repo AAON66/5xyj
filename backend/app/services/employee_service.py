@@ -3,7 +3,7 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from io import BytesIO
-from typing import Any
+from typing import Any, Optional
 
 import pandas as pd
 from fastapi import UploadFile
@@ -57,9 +57,9 @@ FALSE_VALUES = {"0", "false", "no", "n", "否", "离职", "停用", "inactive"}
 class _EmployeeImportRow:
     employee_id: str
     person_name: str
-    id_number: str | None
-    company_name: str | None
-    department: str | None
+    id_number: Optional[str]
+    company_name: Optional[str]
+    department: Optional[str]
     active: bool
     row_number: int
 
@@ -68,10 +68,10 @@ class _EmployeeImportRow:
 class HistoricalEmployeeIdentity:
     employee_id: str
     person_name: str
-    id_number: str | None
-    company_name: str | None
+    id_number: Optional[str]
+    company_name: Optional[str]
     active: bool = True
-    id: str | None = None
+    id: Optional[str] = None
 
 
 class EmployeeImportError(Exception):
@@ -195,9 +195,9 @@ def create_employee_master(db: Session, payload: EmployeeMasterCreateInput) -> E
 def list_employee_masters(
     db: Session,
     *,
-    query: str | None = None,
+    query: Optional[str] = None,
     active_only: bool = False,
-    limit: int | None = None,
+    limit: Optional[int] = None,
     offset: int = 0,
 ) -> EmployeeMasterListRead:
     statement = db.query(EmployeeMaster)
@@ -452,7 +452,7 @@ def _detect_employee_header_row(dataframe: pd.DataFrame) -> int:
     return best_index
 
 
-def _score_employee_header_row(values: list[str | None]) -> int:
+def _score_employee_header_row(values: Optional[list[str]]) -> int:
     normalized = [_normalize_header(value or "") for value in values]
     score = 0
     for field_name, aliases in HEADER_ALIASES.items():
@@ -490,7 +490,7 @@ def _resolve_column_map(columns: list[object]) -> dict[str, str]:
     return resolved
 
 
-def _parse_employee_row(row: dict[str, Any], column_map: dict[str, str], *, row_number: int) -> _EmployeeImportRow | None:
+def _parse_employee_row(row: dict[str, Any], column_map: dict[str, str], *, row_number: int) -> Optional[_EmployeeImportRow]:
     employee_id = _clean_text(row.get(column_map["employee_id"]))
     person_name = _clean_text(row.get(column_map["person_name"]))
     id_number = _clean_text(row.get(column_map.get("id_number", ""))) if column_map.get("id_number") else None
@@ -543,7 +543,7 @@ def _normalize_header(value: str) -> str:
     )
 
 
-def _normalize_identity_lookup(value: object) -> str | None:
+def _normalize_identity_lookup(value: object) -> Optional[str]:
     cleaned = _clean_text(value)
     if not cleaned:
         return None
@@ -554,7 +554,7 @@ def _normalized_identity_expression(column):
     return func.upper(func.replace(func.coalesce(column, ""), " ", ""))
 
 
-def _clean_text(value: object) -> str | None:
+def _clean_text(value: object) -> Optional[str]:
     if value is None:
         return None
     text = str(value).strip()
@@ -563,14 +563,14 @@ def _clean_text(value: object) -> str | None:
     return text
 
 
-def _nullable_text(value: str | None) -> str | None:
+def _nullable_text(value: Optional[str]) -> Optional[str]:
     if value is None:
         return None
     stripped = value.strip()
     return stripped or None
 
 
-def _mask_id_number(value: str | None) -> str:
+def _mask_id_number(value: Optional[str]) -> str:
     cleaned = _clean_text(value)
     if not cleaned:
         return ""
@@ -588,7 +588,7 @@ def _get_employee_or_raise(db: Session, employee_id: str) -> EmployeeMaster:
     return employee
 
 
-def _build_audit(employee: EmployeeMaster, *, action: EmployeeAuditAction, note: str | None) -> EmployeeMasterAudit:
+def _build_audit(employee: EmployeeMaster, *, action: EmployeeAuditAction, note: Optional[str]) -> EmployeeMasterAudit:
     return EmployeeMasterAudit(
         employee_master_id=employee.id,
         employee_id_snapshot=employee.employee_id,

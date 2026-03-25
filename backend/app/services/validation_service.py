@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
-from typing import Iterable
+from typing import Iterable, Optional
 
 from backend.app.models.validation_issue import ValidationIssue
 from backend.app.services.normalization_service import NormalizedPreviewRecord, StandardizationResult
@@ -22,7 +22,7 @@ class ValidationPreviewIssue:
     source_row_number: int
     issue_type: str
     severity: str
-    field_name: str | None
+    field_name: Optional[str]
     message: str
 
 

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import BigInteger, DateTime, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -33,10 +33,10 @@ class SourceFile(UUIDPrimaryKeyMixin, Base):
         server_default=SourceFileKind.SOCIAL_SECURITY.value,
         index=True,
     )
-    region: Mapped[str | None] = mapped_column(String(100))
-    company_name: Mapped[str | None] = mapped_column(String(255), index=True)
-    raw_sheet_name: Mapped[str | None] = mapped_column(String(255))
-    file_hash: Mapped[str | None] = mapped_column(String(128), index=True)
+    region: Mapped[Optional[str]] = mapped_column(String(100))
+    company_name: Mapped[Optional[str]] = mapped_column(String(255), index=True)
+    raw_sheet_name: Mapped[Optional[str]] = mapped_column(String(255))
+    file_hash: Mapped[Optional[str]] = mapped_column(String(128), index=True)
     uploaded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

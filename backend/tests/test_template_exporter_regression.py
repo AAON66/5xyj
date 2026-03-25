@@ -1,5 +1,7 @@
 ﻿from __future__ import annotations
 
+from typing import Optional
+
 import shutil
 from dataclasses import dataclass
 from decimal import Decimal
@@ -57,7 +59,7 @@ def find_sample(keyword: str) -> Path:
 
 
 
-def decimal_or_zero(value: Decimal | None) -> Decimal:
+def decimal_or_zero(value: Optional[Decimal]) -> Decimal:
     return value if value is not None else Decimal("0")
 
 

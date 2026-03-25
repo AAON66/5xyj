@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional
 
 import httpx
 
@@ -15,7 +15,7 @@ DEEPSEEK_COMPLETIONS_PATH = "/chat/completions"
 DEFAULT_LLM_TIMEOUT = 45.0
 
 
-def _coerce_confidence(value: Any) -> float | None:
+def _coerce_confidence(value: Any) -> Optional[float]:
     if value is None:
         return None
     if isinstance(value, bool):
@@ -49,7 +49,7 @@ def _coerce_confidence(value: Any) -> float | None:
     return _normalize_confidence(numeric)
 
 
-def _normalize_confidence(value: float) -> float | None:
+def _normalize_confidence(value: float) -> Optional[float]:
     if value < 0:
         return 0.0
     if value > 1.0:
@@ -60,8 +60,8 @@ def _normalize_confidence(value: float) -> float | None:
 @dataclass(slots=True)
 class LLMMappingResult:
     raw_header_signature: str
-    canonical_field: str | None
-    confidence: float | None
+    canonical_field: Optional[str]
+    confidence: Optional[float]
     candidate_fields: list[str]
     status: str
     reason: str
@@ -69,7 +69,7 @@ class LLMMappingResult:
 
 async def map_header_with_llm(
     raw_header_signature: str,
-    region: str | None = None,
+    region: Optional[str] = None,
 ) -> LLMMappingResult:
     settings = get_settings()
     skipped = _build_skip_result(raw_header_signature, settings)
@@ -93,7 +93,7 @@ async def map_header_with_llm(
 
 def map_header_with_llm_sync(
     raw_header_signature: str,
-    region: str | None = None,
+    region: Optional[str] = None,
 ) -> LLMMappingResult:
     settings = get_settings()
     skipped = _build_skip_result(raw_header_signature, settings)
@@ -115,7 +115,7 @@ def map_header_with_llm_sync(
     return _parse_llm_response(raw_header_signature, response.json())
 
 
-def _build_request_payload(raw_header_signature: str, *, region: str | None, model: str) -> dict[str, Any]:
+def _build_request_payload(raw_header_signature: str, *, region: Optional[str], model: str) -> dict[str, Any]:
     return {
         "model": model,
         "temperature": 0.0,
@@ -157,7 +157,7 @@ def _extract_json_content(content: Any) -> str:
     return stripped
 
 
-def _build_skip_result(raw_header_signature: str, settings) -> LLMMappingResult | None:
+def _build_skip_result(raw_header_signature: str, settings) -> Optional[LLMMappingResult]:
     if not settings.enable_llm_fallback:
         return LLMMappingResult(
             raw_header_signature=raw_header_signature,

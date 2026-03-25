@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import Enum, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -26,8 +26,8 @@ class ExportArtifact(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
         nullable=False,
         index=True,
     )
-    file_path: Mapped[str | None] = mapped_column(String(1024))
+    file_path: Mapped[Optional[str]] = mapped_column(String(1024))
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="pending", index=True)
-    error_message: Mapped[str | None] = mapped_column(Text)
+    error_message: Mapped[Optional[str]] = mapped_column(Text)
 
     export_job: Mapped["ExportJob"] = relationship(back_populates="artifacts")

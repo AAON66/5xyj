@@ -1,6 +1,6 @@
 ﻿from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -17,9 +17,9 @@ class EmployeeMaster(UUIDPrimaryKeyMixin, TimestampMixin, Base):
 
     employee_id: Mapped[str] = mapped_column(String(100), nullable=False, unique=True, index=True)
     person_name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    id_number: Mapped[str | None] = mapped_column(String(100), index=True)
-    company_name: Mapped[str | None] = mapped_column(String(255), index=True)
-    department: Mapped[str | None] = mapped_column(String(255))
+    id_number: Mapped[Optional[str]] = mapped_column(String(100), index=True)
+    company_name: Mapped[Optional[str]] = mapped_column(String(255), index=True)
+    department: Mapped[Optional[str]] = mapped_column(String(255))
     active: Mapped[bool] = mapped_column(nullable=False, default=True, index=True)
 
     match_results: Mapped[list["MatchResult"]] = relationship(back_populates="employee_master")

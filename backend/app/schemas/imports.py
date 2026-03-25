@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -13,9 +15,9 @@ class SourceFileRead(BaseModel):
     file_path: str
     file_size: int
     source_kind: str
-    region: str | None
-    company_name: str | None
-    file_hash: str | None
+    region: Optional[str]
+    company_name: Optional[str]
+    file_hash: Optional[str]
     uploaded_at: datetime
 
 
@@ -47,9 +49,9 @@ class DeleteImportBatchesRead(BaseModel):
 class HeaderMappingPreviewRead(BaseModel):
     raw_header: str
     raw_header_signature: str
-    canonical_field: str | None
+    canonical_field: Optional[str]
     mapping_source: str
-    confidence: float | None
+    confidence: Optional[float]
     candidate_fields: list[str]
     matched_rules: list[str]
     llm_attempted: bool
@@ -75,8 +77,8 @@ class SourceFilePreviewRead(BaseModel):
     source_file_id: str
     file_name: str
     source_kind: str
-    region: str | None
-    company_name: str | None
+    region: Optional[str]
+    company_name: Optional[str]
     raw_sheet_name: str
     raw_header_signature: str
     normalized_record_count: int
@@ -95,11 +97,11 @@ class ImportBatchPreviewRead(BaseModel):
 
 
 class ValidationIssueRead(BaseModel):
-    normalized_record_id: str | None
+    normalized_record_id: Optional[str]
     source_row_number: int
     issue_type: str
     severity: str
-    field_name: str | None
+    field_name: Optional[str]
     message: str
 
 
@@ -120,15 +122,15 @@ class BatchValidationRead(BaseModel):
 
 
 class MatchRecordRead(BaseModel):
-    normalized_record_id: str | None
+    normalized_record_id: Optional[str]
     source_row_number: int
-    person_name: str | None
-    id_number: str | None
-    employee_id: str | None
-    employee_master_id: str | None
+    person_name: Optional[str]
+    id_number: Optional[str]
+    employee_id: Optional[str]
+    employee_master_id: Optional[str]
     match_status: str
-    match_basis: str | None
-    confidence: float | None
+    match_basis: Optional[str]
+    confidence: Optional[float]
     candidate_employee_ids: list[str]
 
 
@@ -146,7 +148,7 @@ class BatchMatchRead(BaseModel):
     status: str
     employee_master_available: bool
     employee_master_count: int
-    blocked_reason: str | None
+    blocked_reason: Optional[str]
     total_records: int
     matched_count: int
     unmatched_count: int
@@ -158,8 +160,8 @@ class BatchMatchRead(BaseModel):
 class ExportArtifactRead(BaseModel):
     template_type: str
     status: str
-    file_path: str | None
-    error_message: str | None
+    file_path: Optional[str]
+    error_message: Optional[str]
     row_count: int
 
 
@@ -167,8 +169,8 @@ class BatchExportRead(BaseModel):
     batch_id: str
     batch_name: str
     status: str
-    export_job_id: str | None
-    export_status: str | None
-    blocked_reason: str | None
+    export_job_id: Optional[str]
+    export_status: Optional[str]
+    blocked_reason: Optional[str]
     artifacts: list[ExportArtifactRead]
-    completed_at: datetime | None
+    completed_at: Optional[datetime]

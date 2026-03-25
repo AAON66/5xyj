@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from backend.app.models.enums import SourceFileKind
 from backend.app.models.normalized_record import NormalizedRecord
@@ -44,6 +44,17 @@ AMOUNT_FIELDS = {
 }
 
 PLACEHOLDER_STRINGS = {"", "-", "--", "??", "none", "null", "(??)"}
+CHANGSHA_TRANSACTION_ITEM_FIELD_MAP = {
+    "职工基本养老保险(单位缴纳)": "pension_company",
+    "职工基本养老保险(个人缴纳)": "pension_personal",
+    "职工基本医疗保险(单位缴纳)": "medical_company",
+    "职工基本医疗保险(个人缴纳)": "medical_personal",
+    "失业保险(单位缴纳)": "unemployment_company",
+    "失业保险(个人缴纳)": "unemployment_personal",
+    "工伤保险": "injury_company",
+    "生育保险(单位缴纳)": "maternity_amount",
+    "职工大额医疗互助保险(个人缴纳)": "large_medical_personal",
+}
 MERGE_VALUE_FIELDS = (
     "person_name",
     "id_type",
@@ -123,11 +134,11 @@ class _MergedRecordEntry:
 def standardize_workbook(
     path: str | Path,
     *,
-    region: str | None = None,
-    company_name: str | None = None,
-    source_file_name: str | None = None,
-    extraction: HeaderExtraction | None = None,
-    normalization: HeaderNormalizationResult | None = None,
+    region: Optional[str] = None,
+    company_name: Optional[str] = None,
+    source_file_name: Optional[str] = None,
+    extraction: Optional[HeaderExtraction] = None,
+    normalization: Optional[HeaderNormalizationResult] = None,
 ) -> StandardizationResult:
     workbook_path = Path(path)
     runtime_extraction = extraction or extract_header_structure(workbook_path)
@@ -145,12 +156,12 @@ def standardize_workbook(
 async def standardize_workbook_with_fallback(
     path: str | Path,
     *,
-    region: str | None = None,
-    company_name: str | None = None,
-    source_file_name: str | None = None,
+    region: Optional[str] = None,
+    company_name: Optional[str] = None,
+    source_file_name: Optional[str] = None,
     confidence_threshold: float = 0.8,
-    extraction: HeaderExtraction | None = None,
-    normalization: HeaderNormalizationResult | None = None,
+    extraction: Optional[HeaderExtraction] = None,
+    normalization: Optional[HeaderNormalizationResult] = None,
 ) -> StandardizationResult:
     workbook_path = Path(path)
     runtime_extraction = extraction or extract_header_structure(workbook_path)
@@ -371,13 +382,13 @@ def _find_fallback_merge_matches(
     return []
 
 
-def _values_match(left: str | None, right: str | None) -> bool:
+def _values_match(left: Optional[str], right: Optional[str]) -> bool:
     if left is None or right is None:
         return False
     return left == right
 
 
-def _normalize_identity_value(value: Any) -> str | None:
+def _normalize_identity_value(value: Any) -> Optional[str]:
     if value is None:
         return None
     text = str(value).strip().lower()
@@ -389,9 +400,9 @@ def _standardize_rows(
     extraction: HeaderExtraction,
     normalization: HeaderNormalizationResult,
     *,
-    region: str | None,
-    company_name: str | None,
-    source_file_name: str | None,
+    region: Optional[str],
+    company_name: Optional[str],
+    source_file_name: Optional[str],
 ) -> StandardizationResult:
     workbook = load_workbook_compatible(workbook_path, read_only=True, data_only=True)
     try:
@@ -447,8 +458,8 @@ def _build_preview_record(
     *,
     extraction: HeaderExtraction,
     decisions: list[HeaderMappingDecision],
-    region: str | None,
-    company_name: str | None,
+    region: Optional[str],
+    company_name: Optional[str],
     source_file_name: str,
     row_number: int,
 ) -> NormalizedPreviewRecord:
@@ -476,6 +487,12 @@ def _build_preview_record(
             continue
         _assign_canonical_value(values, field_conflicts, decision.canonical_field, canonical_value)
 
+    _apply_region_specific_row_mappings(
+        values,
+        raw_values,
+        field_conflicts,
+        region=region,
+    )
     _derive_period_fields(values)
     raw_payload = {
         "raw_values": {key: _json_safe(value) for key, value in raw_values.items()},
@@ -511,6 +528,39 @@ def _assign_canonical_value(
     field_conflicts.setdefault(field_name, [existing]).append(value)
 
 
+def _apply_region_specific_row_mappings(
+    values: dict[str, Any],
+    raw_values: dict[str, Any],
+    field_conflicts: dict[str, list[Any]],
+    *,
+    region: Optional[str],
+) -> None:
+    if region == "changsha":
+        _apply_changsha_transaction_item_mapping(values, raw_values, field_conflicts)
+
+
+def _apply_changsha_transaction_item_mapping(
+    values: dict[str, Any],
+    raw_values: dict[str, Any],
+    field_conflicts: dict[str, list[Any]],
+) -> None:
+    item_name = _normalize_business_text(_find_raw_value_by_header(raw_values, "征收品目"))
+    if item_name is None:
+        return
+
+    field_name = CHANGSHA_TRANSACTION_ITEM_FIELD_MAP.get(item_name)
+    if field_name is None:
+        return
+
+    amount = _to_decimal(values.get("total_amount"))
+    if amount is None:
+        amount = _to_decimal(_find_raw_value_by_header(raw_values, "应缴费额"))
+    if amount is None:
+        return
+
+    _assign_canonical_value(values, field_conflicts, field_name, amount)
+
+
 def _derive_period_fields(values: dict[str, Any]) -> None:
     billing_period = values.get("billing_period")
     period_start = values.get("period_start")
@@ -526,6 +576,14 @@ def _derive_period_fields(values: dict[str, Any]) -> None:
         values["period_start"] = billing_period
     if not period_end and isinstance(billing_period, str):
         values["period_end"] = billing_period
+
+
+def _find_raw_value_by_header(raw_values: dict[str, Any], header_name: str) -> Any:
+    target = _normalize_business_text(header_name)
+    for raw_key, raw_value in raw_values.items():
+        if _normalize_business_text(raw_key) == target:
+            return raw_value
+    return None
 
 
 def _coerce_canonical_value(field_name: str, value: Any) -> Any:
@@ -550,7 +608,16 @@ def _clean_cell_value(value: object) -> Any:
     return value
 
 
-def _to_decimal(value: Any) -> Decimal | None:
+def _normalize_business_text(value: Any) -> Optional[str]:
+    if value is None:
+        return None
+    text = str(value).strip()
+    if not text:
+        return None
+    return text.replace(" ", "").replace("（", "(").replace("）", ")")
+
+
+def _to_decimal(value: Any) -> Optional[Decimal]:
     if value is None:
         return None
     if isinstance(value, Decimal):

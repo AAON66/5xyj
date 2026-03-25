@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -147,7 +149,7 @@ def _ensure_exportable(batch) -> None:
 
 
 
-def _derive_non_export_reason(batch) -> str | None:
+def _derive_non_export_reason(batch) -> Optional[str]:
     if batch.status == BatchStatus.BLOCKED:
         return BLOCKED_REASON_MATCH_BLOCKED
     if not batch.match_results:
@@ -155,7 +157,7 @@ def _derive_non_export_reason(batch) -> str | None:
     return NO_EXPORT_JOB_REASON
 
 
-def _build_export_prefix(batch, *, exported_at: datetime | None = None) -> str:
+def _build_export_prefix(batch, *, exported_at: Optional[datetime] = None) -> str:
     timestamp_source = exported_at or datetime.now().astimezone()
     timestamp_prefix = timestamp_source.strftime('%Y%m%d-%H%M%S')
     raw_batch_name = (batch.batch_name or '').strip()

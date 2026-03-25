@@ -1190,3 +1190,50 @@ def test_export_dual_templates_zeroes_wuhan_large_medical_in_salary_and_tool_out
     tool_sheet = tool_wb[tool_wb.sheetnames[0]]
     assert float(tool_sheet['K7'].value) == 0.0
     tool_wb.close()
+
+
+def test_export_dual_templates_keeps_changsha_large_medical_at_source_amount() -> None:
+    salary_template = find_template('薪酬')
+    tool_template = find_template('最终版')
+    sample_path = find_sample('深圳创造欢乐')
+
+    standardized = standardize_workbook(sample_path, region='shenzhen', company_name='创造欢乐')
+    trimmed = type(standardized)(
+        source_file=standardized.source_file,
+        sheet_name=standardized.sheet_name,
+        raw_header_signature=standardized.raw_header_signature,
+        records=standardized.records[:1],
+        filtered_rows=standardized.filtered_rows,
+        unmapped_headers=standardized.unmapped_headers,
+    )
+    record = build_normalized_models(trimmed, batch_id='batch-1', source_file_id='source-1')[0]
+    clear_social_amounts(record)
+    record.person_name = '长沙大病样本'
+    record.employee_id = 'C3001'
+    record.id_number = '430100199001013009'
+    record.region = 'changsha'
+    record.large_medical_personal = Decimal('15')
+
+    output_dir = ARTIFACTS_ROOT / 'changsha_large_medical_keep'
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    result = export_dual_templates(
+        [record],
+        output_dir=output_dir,
+        salary_template_path=salary_template,
+        final_tool_template_path=tool_template,
+        export_prefix='changsha_large_medical_keep',
+    )
+
+    salary_artifact = next(item for item in result.artifacts if item.template_type == 'salary')
+    tool_artifact = next(item for item in result.artifacts if item.template_type == 'final_tool')
+
+    salary_wb = load_workbook(salary_artifact.file_path, data_only=False)
+    salary_sheet = salary_wb[salary_wb.sheetnames[0]]
+    assert float(salary_sheet['E2'].value) == 15.0
+    salary_wb.close()
+
+    tool_wb = load_workbook(tool_artifact.file_path, data_only=False)
+    tool_sheet = tool_wb[tool_wb.sheetnames[0]]
+    assert float(tool_sheet['K7'].value) == 15.0
+    tool_wb.close()

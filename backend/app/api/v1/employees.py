@@ -1,5 +1,7 @@
 ﻿from __future__ import annotations
 
+from typing import Optional
+
 from fastapi import APIRouter, Body, Depends, File, HTTPException, Query, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
@@ -34,9 +36,9 @@ router = APIRouter(prefix='/employees', tags=['employees'])
 
 @router.get('')
 def list_employee_masters_endpoint(
-    query: str | None = Query(default=None),
+    query: Optional[str] = Query(default=None),
     active_only: bool = Query(default=False),
-    limit: int | None = Query(default=None, ge=1, le=200),
+    limit: Optional[int] = Query(default=None, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     _user=Depends(require_authenticated_user),

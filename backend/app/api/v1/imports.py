@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 import json
 from datetime import datetime, timezone
 from json import JSONDecodeError
@@ -36,9 +38,9 @@ router = APIRouter(prefix='/imports', tags=['imports'])
 async def create_import_batch_endpoint(
     request: Request,
     files: list[UploadFile] = File(...),
-    batch_name: str | None = Form(None),
-    regions: str | None = Form(None),
-    company_names: str | None = Form(None),
+    batch_name: Optional[str] = Form(None),
+    regions: Optional[str] = Form(None),
+    company_names: Optional[str] = Form(None),
     db: Session = Depends(get_db),
 ):
     settings = request.app.state.settings
@@ -109,7 +111,7 @@ def parse_import_batch_endpoint(batch_id: str, db: Session = Depends(get_db)):
 
 
 @router.get('/{batch_id}/preview')
-def preview_import_batch_endpoint(batch_id: str, source_file_id: str | None = None, db: Session = Depends(get_db)):
+def preview_import_batch_endpoint(batch_id: str, source_file_id: Optional[str] = None, db: Session = Depends(get_db)):
     try:
         payload = preview_import_batch(db, batch_id, source_file_id=source_file_id)
     except BatchNotFoundError as exc:
@@ -198,7 +200,7 @@ def download_batch_export_artifact_endpoint(request: Request, batch_id: str, tem
     )
 
 
-def _parse_metadata_values(raw_value: str | None, field_name: str) -> list[str] | None:
+def _parse_metadata_values(raw_value: Optional[str], field_name: str) -> Optional[list[str]]:
     if raw_value is None:
         return None
 
@@ -241,7 +243,7 @@ def _resolve_downloadable_artifact(batch, raw_template_type: str):
     return artifact
 
 
-def _resolve_downloadable_artifact_path(outputs_root: Path, raw_path: str | None) -> Path:
+def _resolve_downloadable_artifact_path(outputs_root: Path, raw_path: Optional[str]) -> Path:
     if not raw_path:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail='The requested export artifact does not have a file path.')
 

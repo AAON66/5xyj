@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Optional
 
 from openpyxl.worksheet.worksheet import Worksheet
 
@@ -60,7 +60,7 @@ class SheetDiscovery:
     sheet_name: str
     score: int
     header_row_candidates: list[int]
-    data_start_row: int | None
+    data_start_row: Optional[int]
     non_empty_rows: int
     preview_rows: list[list[str]]
     reasoning: list[str]
@@ -70,11 +70,11 @@ class SheetDiscovery:
 class WorkbookDiscovery:
     source_file: str
     sheet_names: list[str]
-    selected_sheet_name: str | None
-    selected_data_start_row: int | None
+    selected_sheet_name: Optional[str]
+    selected_data_start_row: Optional[int]
     selected_header_row_candidates: list[int]
     discoveries: list[SheetDiscovery]
-    failure_reason: str | None = None
+    failure_reason: Optional[str] = None
 
 
 class WorkbookDiscoveryError(Exception):
@@ -284,7 +284,7 @@ def _calculate_header_score(row_profiles: list[dict[str, int]], header_row_candi
     return score
 
 
-def _detect_data_start_row(rows: list[list[str]], header_row_candidates: list[int]) -> int | None:
+def _detect_data_start_row(rows: list[list[str]], header_row_candidates: list[int]) -> Optional[int]:
     if not header_row_candidates:
         return None
 

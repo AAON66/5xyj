@@ -1,7 +1,16 @@
 {
   "permissions": {
     "allow": [
-      "Bash(ping -n 2 github.com)"
+      "Bash(ping -n 2 github.com)",
+      "Bash(git clone:*)",
+      "Bash(cp -r everything-claude-code/rules/common/* ~/.claude/rules/)",
+      "Bash(cp -r everything-claude-code/rules/typescript/* ~/.claude/rules/)",
+      "Bash(cp -r everything-claude-code/rules/python/* ~/.claude/rules/)",
+      "Bash(cp -r everything-claude-code/rules/golang/* ~/.claude/rules/)",
+      "Bash(cp -r everything-claude-code/rules/perl/* ~/.claude/rules/)"
     ]
+  },
+  "enabledPlugins": {
+    "claude-hud@claude-hud": true
   }
 }

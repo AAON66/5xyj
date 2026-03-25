@@ -1,5 +1,7 @@
 ﻿from __future__ import annotations
 
+from typing import Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -11,9 +13,9 @@ class HeaderMappingRead(BaseModel):
     source_file_name: str
     raw_header: str
     raw_header_signature: str
-    canonical_field: str | None
+    canonical_field: Optional[str]
     mapping_source: str
-    confidence: float | None
+    confidence: Optional[float]
     candidate_fields: list[str]
     manually_overridden: bool
 
@@ -24,4 +26,4 @@ class HeaderMappingListRead(BaseModel):
 
 
 class HeaderMappingUpdateRequest(BaseModel):
-    canonical_field: str | None = Field(default=None)
+    canonical_field: Optional[str] = Field(default=None)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -20,13 +20,13 @@ class ValidationIssue(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
         nullable=False,
         index=True,
     )
-    normalized_record_id: Mapped[str | None] = mapped_column(
+    normalized_record_id: Mapped[Optional[str]] = mapped_column(
         ForeignKey("normalized_records.id", ondelete="CASCADE"),
         index=True,
     )
     issue_type: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     severity: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
-    field_name: Mapped[str | None] = mapped_column(String(100), index=True)
+    field_name: Mapped[Optional[str]] = mapped_column(String(100), index=True)
     message: Mapped[str] = mapped_column(Text, nullable=False)
     resolved: Mapped[bool] = mapped_column(nullable=False, default=False, index=True)
 

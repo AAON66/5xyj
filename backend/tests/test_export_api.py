@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 import json
 import re
 import shutil
@@ -47,7 +49,7 @@ def find_template(keyword: str) -> Path:
     pytest.skip(f'Template containing {keyword!r} was not found in configured paths or {DESKTOP_ROOT}.')
 
 
-def build_test_context(test_name: str, *, salary_template: Path | None, final_tool_template: Path | None):
+def build_test_context(test_name: str, *, salary_template: Optional[Path], final_tool_template: Optional[Path]):
     artifacts_dir = ARTIFACTS_ROOT / test_name
     if artifacts_dir.exists():
         shutil.rmtree(artifacts_dir)
@@ -85,7 +87,7 @@ def build_test_context(test_name: str, *, salary_template: Path | None, final_to
     return TestClient(app), settings, session_factory
 
 
-def create_batch(client: TestClient, sample_path: Path, *, batch_name: str | None = 'export-batch') -> str:
+def create_batch(client: TestClient, sample_path: Path, *, batch_name: Optional[str] = 'export-batch') -> str:
     data = {
         'regions': json.dumps(['shenzhen'], ensure_ascii=False),
         'company_names': json.dumps([COMPANY_NAME], ensure_ascii=False),

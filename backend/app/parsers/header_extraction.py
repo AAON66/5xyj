@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Optional
 
 from openpyxl.cell.cell import Cell, MergedCell
 from openpyxl.utils import get_column_letter
@@ -162,7 +162,7 @@ def _build_header_tree(sheet: Worksheet, header_rows: list[int], column_indexes:
 
     parent_row, child_row = header_rows[0], header_rows[-1]
     nodes: list[HeaderTreeNode] = []
-    current_node: HeaderTreeNode | None = None
+    current_node: Optional[HeaderTreeNode] = None
     for column_index in column_indexes:
         parent_label = _normalize(_effective_cell_value(sheet, parent_row, column_index))
         child_label = _normalize(_effective_cell_value(sheet, child_row, column_index))

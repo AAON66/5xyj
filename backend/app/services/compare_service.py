@@ -4,7 +4,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from decimal import Decimal
 from io import BytesIO
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
@@ -223,7 +223,7 @@ def _build_compare_identity(record: NormalizedRecord) -> CompareIdentity:
     return CompareIdentity(basis='source_row', value=fallback)
 
 
-def _normalize_identity_value(value: str | None) -> str:
+def _normalize_identity_value(value: Optional[str]) -> str:
     if value is None:
         return ''
     return str(value).strip().lower()
@@ -238,7 +238,7 @@ def _record_sort_key(record: NormalizedRecord) -> tuple[str, int, str]:
     return source_name, record.source_row_number, record.person_name or ''
 
 
-def _collect_fields(left_record: NormalizedRecord | None, right_record: NormalizedRecord | None) -> list[str]:
+def _collect_fields(left_record: Optional[NormalizedRecord], right_record: Optional[NormalizedRecord]) -> list[str]:
     fields: list[str] = []
     for field in PREFERRED_COMPARE_FIELDS:
         if _record_has_value(left_record, field) or _record_has_value(right_record, field):
@@ -246,14 +246,14 @@ def _collect_fields(left_record: NormalizedRecord | None, right_record: Normaliz
     return fields
 
 
-def _record_has_value(record: NormalizedRecord | None, field: str) -> bool:
+def _record_has_value(record: Optional[NormalizedRecord], field: str) -> bool:
     if record is None:
         return False
     value = getattr(record, field, None)
     return _normalize_compare_value(value) is not None
 
 
-def _different_fields(fields: list[str], left_record: NormalizedRecord | None, right_record: NormalizedRecord | None) -> list[str]:
+def _different_fields(fields: list[str], left_record: Optional[NormalizedRecord], right_record: Optional[NormalizedRecord]) -> list[str]:
     if left_record is None or right_record is None:
         return fields
     return [
@@ -264,7 +264,7 @@ def _different_fields(fields: list[str], left_record: NormalizedRecord | None, r
     ]
 
 
-def _serialize_record_side(record: NormalizedRecord | None, fields: list[str]) -> CompareRecordSideRead:
+def _serialize_record_side(record: Optional[NormalizedRecord], fields: list[str]) -> CompareRecordSideRead:
     if record is None:
         return CompareRecordSideRead(
             record_id=None,
@@ -303,7 +303,7 @@ def _build_compare_row_key(identity: CompareIdentity, index: int) -> str:
     return f'{identity.basis}:{identity.value}:{index + 1}'
 
 
-def _serialize_value(value: object | None) -> object | None:
+def _serialize_value(value: Optional[object]) -> Optional[object]:
     if value is None:
         return None
     if isinstance(value, Decimal):
@@ -311,7 +311,7 @@ def _serialize_value(value: object | None) -> object | None:
     return value
 
 
-def _normalize_compare_value(value: object | None) -> str | None:
+def _normalize_compare_value(value: Optional[object]) -> Optional[str]:
     serialized = _serialize_value(value)
     if serialized is None:
         return None
@@ -374,7 +374,7 @@ def _write_data_sheet(sheet, rows: list[CompareRowInput], fields: list[str], *, 
         sheet.column_dimensions[get_column_letter(index)].width = width
 
 
-def _serialize_export_cell(value: object | None) -> object | None:
+def _serialize_export_cell(value: Optional[object]) -> Optional[object]:
     if value is None:
         return None
     if isinstance(value, (str, int, float)):

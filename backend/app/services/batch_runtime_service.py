@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from decimal import Decimal
-from typing import Iterable
+from typing import Iterable, Optional
 
 from sqlalchemy.orm import Session
 
@@ -214,7 +214,7 @@ def _build_missing_housing_warning_contexts(
     return contexts
 
 
-def _source_company_key(region: str | None, company_name: str | None) -> tuple[str, str]:
+def _source_company_key(region: Optional[str], company_name: Optional[str]) -> tuple[str, str]:
     return ((region or '').strip().lower(), (company_name or '').strip().lower())
 
 
@@ -236,7 +236,7 @@ def _record_has_housing_data(record: NormalizedRecord) -> bool:
     return any(isinstance(source, dict) and source.get('source_kind') == 'housing_fund' for source in merged_sources)
 
 
-def _amount(value: Decimal | None) -> Decimal:
+def _amount(value: Optional[Decimal]) -> Decimal:
     return value if value is not None else Decimal('0')
 
 

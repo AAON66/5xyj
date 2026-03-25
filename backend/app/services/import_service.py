@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 import hashlib
 import inspect
 import shutil
@@ -107,8 +109,8 @@ class AnalyzedSourceFile:
 @dataclass(frozen=True, slots=True)
 class ManualMappingSnapshot:
     raw_header_signature: str
-    canonical_field: str | None
-    confidence: float | None
+    canonical_field: Optional[str]
+    confidence: Optional[float]
     candidate_fields: list[str]
     manually_overridden: bool
 
@@ -119,8 +121,8 @@ class SourceFileAnalysisContext:
     file_name: str
     file_path: str
     source_kind: str
-    region: str | None
-    company_name: str | None
+    region: Optional[str]
+    company_name: Optional[str]
     file_index: int
     total_files: int
     worker_count: int
@@ -131,11 +133,11 @@ async def create_import_batch(
     db: Session,
     settings: Settings,
     files: list[UploadFile],
-    batch_name: str | None = None,
-    regions: list[str] | None = None,
-    company_names: list[str] | None = None,
-    file_kinds: list[str] | None = None,
-    progress_callback: ImportProgressCallback | None = None,
+    batch_name: Optional[str] = None,
+    regions: Optional[list[str]] = None,
+    company_names: Optional[list[str]] = None,
+    file_kinds: Optional[list[str]] = None,
+    progress_callback: Optional[ImportProgressCallback] = None,
 ) -> ImportBatch:
     if not files:
         raise InvalidUploadError('At least one Excel file is required.')
@@ -318,7 +320,7 @@ def _get_import_batch_for_delete(db: Session, batch_id: str) -> ImportBatch:
     return batch
 
 
-def preview_import_batch(db: Session, batch_id: str, *, source_file_id: str | None = None) -> ImportBatchPreviewRead:
+def preview_import_batch(db: Session, batch_id: str, *, source_file_id: Optional[str] = None) -> ImportBatchPreviewRead:
     batch = get_import_batch(db, batch_id)
     source_files = _resolve_preview_source_files(batch, source_file_id)
     file_previews = [_build_source_file_preview(source_file) for source_file in source_files]
@@ -333,7 +335,7 @@ def preview_import_batch(db: Session, batch_id: str, *, source_file_id: str | No
 def parse_import_batch(
     db: Session,
     batch_id: str,
-    progress_callback: ImportProgressCallback | None = None,
+    progress_callback: Optional[ImportProgressCallback] = None,
 ) -> ImportBatchPreviewRead:
     batch = get_import_batch(db, batch_id)
     batch.status = BatchStatus.PARSING
@@ -466,7 +468,7 @@ def _collect_batch_cleanup_paths(batch: ImportBatch, outputs_root: Path) -> list
     return cleanup_paths
 
 
-def _resolve_export_artifact_cleanup_path(outputs_root: Path, raw_path: str | None) -> Path | None:
+def _resolve_export_artifact_cleanup_path(outputs_root: Path, raw_path: Optional[str]) -> Optional[Path]:
     if not raw_path:
         return None
 
@@ -548,7 +550,7 @@ def _emit_parse_queued_events(
     *,
     batch_id: str,
     batch_name: str,
-    progress_callback: ImportProgressCallback | None,
+    progress_callback: Optional[ImportProgressCallback],
 ) -> None:
     for context in contexts:
         _run_progress_callback(
@@ -569,7 +571,7 @@ def _persist_analyzed_source_file(
     batch_id: str,
     batch_name: str,
     previews_by_id: dict[str, SourceFilePreviewRead],
-    progress_callback: ImportProgressCallback | None,
+    progress_callback: Optional[ImportProgressCallback],
 ) -> None:
     _persist_source_file_mappings(db, source_file, analyzed.normalization.decisions)
     source_file.raw_sheet_name = analyzed.standardized.sheet_name
@@ -592,7 +594,7 @@ def _analyze_source_file_context(
     context: SourceFileAnalysisContext,
     batch_id: str,
     batch_name: str,
-    progress_callback: ImportProgressCallback | None = None,
+    progress_callback: Optional[ImportProgressCallback] = None,
 ) -> AnalyzedSourceFile:
     progress_base_payload = _build_parse_progress_payload(batch_id, batch_name, context)
     _run_progress_callback(
@@ -826,7 +828,7 @@ def _to_summary_schema(batch: ImportBatch) -> ImportBatchSummaryRead:
     )
 
 
-def _resolve_preview_source_files(batch: ImportBatch, source_file_id: str | None) -> list[SourceFile]:
+def _resolve_preview_source_files(batch: ImportBatch, source_file_id: Optional[str]) -> list[SourceFile]:
     source_files = list(batch.source_files)
     if source_file_id is None:
         return source_files
@@ -840,7 +842,7 @@ def _resolve_preview_source_files(batch: ImportBatch, source_file_id: str | None
 
 
 async def _notify_progress(
-    progress_callback: ImportProgressCallback | None,
+    progress_callback: Optional[ImportProgressCallback],
     payload: dict[str, object],
 ) -> None:
     if progress_callback is None:
@@ -851,7 +853,7 @@ async def _notify_progress(
 
 
 def _run_progress_callback(
-    progress_callback: ImportProgressCallback | None,
+    progress_callback: Optional[ImportProgressCallback],
     payload: dict[str, object],
 ) -> None:
     if progress_callback is None:
@@ -865,7 +867,7 @@ def _build_batch_name() -> str:
     return f"import-batch-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
 
 
-def _infer_company_name_from_filename(filename: str, region: str | None) -> str | None:
+def _infer_company_name_from_filename(filename: str, region: Optional[str]) -> Optional[str]:
     stem = Path(filename).stem
     if '--' in stem:
         tail = stem.split('--')[-1].strip()
@@ -881,7 +883,7 @@ def _infer_company_name_from_filename(filename: str, region: str | None) -> str 
     return cleaned or (REGION_LABELS.get(region) if region else None)
 
 
-def _normalize_metadata_list(values: list[str] | None, file_count: int, field_name: str) -> list[str | None]:
+def _normalize_metadata_list(values: Optional[list[str]], file_count: int, field_name: str) -> Optional[list[str]]:
     if not values:
         return [None] * file_count
 
@@ -893,7 +895,7 @@ def _normalize_metadata_list(values: list[str] | None, file_count: int, field_na
     return normalized
 
 
-def _normalize_file_kinds(values: list[str] | None, file_count: int) -> list[str]:
+def _normalize_file_kinds(values: Optional[list[str]], file_count: int) -> list[str]:
     if not values:
         return [SourceFileKind.SOCIAL_SECURITY.value] * file_count
     normalized = [((value or '').strip() or SourceFileKind.SOCIAL_SECURITY.value) for value in values]

@@ -1,7 +1,7 @@
 ﻿from __future__ import annotations
 
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
+from typing import AsyncIterator, Optional
 
 from fastapi import FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
@@ -54,7 +54,7 @@ def register_exception_handlers(app: FastAPI) -> None:
 
 
 
-def create_app(settings: Settings | None = None) -> FastAPI:
+def create_app(settings: Optional[Settings] = None) -> FastAPI:
     runtime_settings = settings or get_settings()
     app = FastAPI(
         title=runtime_settings.app_name,

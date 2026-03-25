@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import Enum, Float, ForeignKey, JSON, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -22,15 +22,15 @@ class HeaderMapping(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     )
     raw_header: Mapped[str] = mapped_column(String(500), nullable=False)
     raw_header_signature: Mapped[str] = mapped_column(String(500), nullable=False, index=True)
-    canonical_field: Mapped[str | None] = mapped_column(String(100), index=True)
+    canonical_field: Mapped[Optional[str]] = mapped_column(String(100), index=True)
     mapping_source: Mapped[MappingSource] = mapped_column(
         Enum(MappingSource, native_enum=False),
         nullable=False,
         default=MappingSource.RULE,
         index=True,
     )
-    confidence: Mapped[float | None] = mapped_column(Float)
+    confidence: Mapped[Optional[float]] = mapped_column(Float)
     manually_overridden: Mapped[bool] = mapped_column(nullable=False, default=False)
-    candidate_fields: Mapped[list[str] | None] = mapped_column(JSON)
+    candidate_fields: Mapped[Optional[list[str]]] = mapped_column(JSON)
 
     source_file: Mapped["SourceFile"] = relationship(back_populates="header_mappings")

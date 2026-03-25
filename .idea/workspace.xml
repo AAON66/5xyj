@@ -5,44 +5,64 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="a614a6ab-24b5-4f20-8229-5cf8b352ba3a" name="更改" comment="v4.0.2&#10;更新对比表&#10;更新多用户权限。">
+      <change beforePath="$PROJECT_DIR$/.claude/settings.local.json" beforeDir="false" afterPath="$PROJECT_DIR$/.claude/settings.local.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/DEPLOYMENT.md" beforeDir="false" afterPath="$PROJECT_DIR$/DEPLOYMENT.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/README.md" beforeDir="false" afterPath="$PROJECT_DIR$/README.md" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/api/v1/aggregate.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/api/v1/aggregate.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/app/api/v1/employees.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/api/v1/employees.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/api/v1/router.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/api/v1/router.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/api/v1/imports.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/api/v1/imports.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/api/v1/mappings.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/api/v1/mappings.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/bootstrap.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/bootstrap.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/app/core/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/core/config.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/core/database.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/core/database.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/app/dependencies.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/dependencies.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/app/exporters/template_exporter.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/exporters/template_exporter.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/app/models/enums.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/enums.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/mappings/manual_field_aliases.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/mappings/manual_field_aliases.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/models/employee_master.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/employee_master.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/models/employee_master_audit.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/employee_master_audit.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/models/export_artifact.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/export_artifact.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/models/export_job.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/export_job.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/models/header_mapping.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/header_mapping.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/models/match_result.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/match_result.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/models/normalized_record.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/normalized_record.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/models/source_file.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/source_file.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/models/validation_issue.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/validation_issue.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/parsers/header_extraction.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/parsers/header_extraction.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/parsers/workbook_discovery.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/parsers/workbook_discovery.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/schemas/aggregate.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/schemas/aggregate.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/schemas/compare.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/schemas/compare.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/app/schemas/employees.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/schemas/employees.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/schemas/imports.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/schemas/imports.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/schemas/mappings.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/schemas/mappings.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/aggregate_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/aggregate_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/batch_export_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/batch_export_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/batch_runtime_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/batch_runtime_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/compare_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/compare_service.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/app/services/employee_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/employee_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/header_normalizer.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/header_normalizer.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/app/services/housing_fund_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/housing_fund_service.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/tests/test_aggregate_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_aggregate_api.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/tests/test_compare_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_compare_api.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/tests/test_dashboard_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_dashboard_api.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/tests/test_employee_master_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_employee_master_api.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/import_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/import_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/llm_mapping_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/llm_mapping_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/mapping_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/mapping_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/matching_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/matching_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/normalization_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/normalization_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/region_detection_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/region_detection_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/validation_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/validation_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/validators/non_detail_row_filter.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/validators/non_detail_row_filter.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/tests/test_export_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_export_api.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/tests/test_housing_fund_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_housing_fund_service.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/tests/test_import_batches_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_import_batches_api.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/tests/test_mapping_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_mapping_api.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_header_normalizer.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_header_normalizer.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_llm_mapping_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_llm_mapping_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_matching_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_matching_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_normalization_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_normalization_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_region_detection_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_region_detection_service.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/backend/tests/test_template_exporter.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_template_exporter.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/backend/tests/test_validation_matching_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_validation_matching_api.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_template_exporter_regression.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_template_exporter_regression.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/app.db" beforeDir="false" afterPath="$PROJECT_DIR$/data/app.db" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/app.db-shm" beforeDir="false" afterPath="$PROJECT_DIR$/data/app.db-shm" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/app.db-wal" beforeDir="false" afterPath="$PROJECT_DIR$/data/app.db-wal" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/App.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/App.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/AppShell.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/AppShell.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/components/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/index.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/hooks/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/hooks/index.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/main.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/main.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/EmployeeSelfService.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/EmployeeSelfService.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Employees.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Employees.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/SimpleAggregate.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/SimpleAggregate.tsx" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/pages/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/index.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/services/aggregate.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/services/aggregate.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/services/api.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/services/api.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/services/compare.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/services/compare.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/services/employees.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/services/employees.ts" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/frontend/src/styles.css" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/styles.css" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/progress.txt" beforeDir="false" afterPath="$PROJECT_DIR$/progress.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -116,6 +136,7 @@
       <workItem from="1774119102062" duration="2617000" />
       <workItem from="1774181989524" duration="16922000" />
       <workItem from="1774319631006" duration="2106000" />
+      <workItem from="1774403312088" duration="10117000" />
     </task>
     <task id="LOCAL-00001" summary="v2.0.0">
       <option name="closed" value="true" />

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from collections.abc import Generator
 
 from fastapi import Depends, HTTPException, Request, status
@@ -24,7 +26,7 @@ def get_db() -> Generator[Session, None, None]:
 
 def require_authenticated_user(
     request: Request,
-    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_scheme),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
 ) -> AuthUser:
     settings: Settings = request.app.state.settings
     if not settings.auth_enabled:

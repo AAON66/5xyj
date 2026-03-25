@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 import re
-from typing import Iterable
+from typing import Iterable, Optional
 
 from backend.app.models.employee_master import EmployeeMaster
 from backend.app.models.enums import MatchStatus
@@ -28,10 +28,10 @@ NON_MAINLAND_ID_NUMBER_PATTERN = re.compile(r'^[A-Z]{1,2}\d{6,10}[A-Z0-9]?$')
 class MatchPreviewResult:
     source_row_number: int
     match_status: str
-    employee_id: str | None
-    employee_master_id: str | None
-    match_basis: str | None
-    confidence: float | None
+    employee_id: Optional[str]
+    employee_master_id: Optional[str]
+    match_basis: Optional[str]
+    confidence: Optional[float]
     candidate_employee_ids: list[str]
 
 
@@ -152,7 +152,7 @@ def _resolve_candidates(
     match_status: str,
     match_basis: str,
     confidence: float,
-) -> MatchPreviewResult | None:
+) -> Optional[MatchPreviewResult]:
     if not matches:
         return None
     if len(matches) > 1:
@@ -177,14 +177,14 @@ def _resolve_candidates(
     )
 
 
-def _normalize(value: object) -> str | None:
+def _normalize(value: object) -> Optional[str]:
     if value is None:
         return None
     text = str(value).strip()
     return text or None
 
 
-def _normalize_id_number(value: object) -> str | None:
+def _normalize_id_number(value: object) -> Optional[str]:
     text = _normalize(value)
     if text is None:
         return None

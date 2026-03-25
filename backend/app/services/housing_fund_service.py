@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from backend.app.parsers.workbook_loader import load_workbook_compatible
 from backend.app.services.header_normalizer import HeaderMappingDecision, HeaderNormalizationResult
@@ -47,9 +47,9 @@ class _WorkbookCandidate:
 def analyze_housing_fund_workbook(
     path: str | Path,
     *,
-    region: str | None = None,
-    company_name: str | None = None,
-    source_file_name: str | None = None,
+    region: Optional[str] = None,
+    company_name: Optional[str] = None,
+    source_file_name: Optional[str] = None,
 ) -> HousingFundWorkbookAnalysis:
     workbook_path = Path(path)
     workbook = load_workbook_compatible(workbook_path, read_only=True, data_only=True)
@@ -101,9 +101,9 @@ def analyze_housing_fund_workbook(
 def standardize_housing_fund_workbook(
     path: str | Path,
     *,
-    region: str | None = None,
-    company_name: str | None = None,
-    source_file_name: str | None = None,
+    region: Optional[str] = None,
+    company_name: Optional[str] = None,
+    source_file_name: Optional[str] = None,
 ) -> StandardizationResult:
     return analyze_housing_fund_workbook(
         path,
@@ -114,12 +114,12 @@ def standardize_housing_fund_workbook(
 
 
 def _detect_workbook_candidate(workbook, source_file_name: str) -> _WorkbookCandidate:
-    best_candidate: _WorkbookCandidate | None = None
+    best_candidate: Optional[_WorkbookCandidate] = None
     best_score = -1
     for sheet in workbook.worksheets:
         for row_number in range(1, min(sheet.max_row, 12) + 1):
             primary_headers = _read_row_texts(sheet, row_number)
-            candidate_options: list[tuple[list[str | None], int]] = [(primary_headers, row_number + 1)]
+            candidate_options: Optional[list[tuple[list[str]], int]] = [(primary_headers, row_number + 1)]
             if row_number < sheet.max_row:
                 secondary_headers = _read_row_texts(sheet, row_number + 1)
                 candidate_options.append((_compose_headers(primary_headers, secondary_headers), row_number + 2))
@@ -143,9 +143,9 @@ def _detect_workbook_candidate(workbook, source_file_name: str) -> _WorkbookCand
     return best_candidate
 
 
-def _compose_headers(primary_headers: list[str | None], secondary_headers: list[str | None]) -> list[str | None]:
-    composed: list[str | None] = []
-    current_primary: str | None = None
+def _compose_headers(primary_headers: Optional[list[str]], secondary_headers: Optional[list[str]]) -> Optional[list[str]]:
+    composed: Optional[list[str]] = []
+    current_primary: Optional[str] = None
     max_length = max(len(primary_headers), len(secondary_headers))
 
     for index in range(max_length):
@@ -164,7 +164,7 @@ def _compose_headers(primary_headers: list[str | None], secondary_headers: list[
     return composed
 
 
-def _score_headers(headers: list[str | None]) -> int:
+def _score_headers(headers: Optional[list[str]]) -> int:
     score = 0
     normalized = [item or "" for item in headers]
     if any(_header_matches(header, HEADER_PATTERNS["person_name"]) for header in normalized):
@@ -201,7 +201,7 @@ def _build_decision(header: str) -> HeaderMappingDecision:
     )
 
 
-def _extract_company_name(sheet, header_row: int) -> str | None:
+def _extract_company_name(sheet, header_row: int) -> Optional[str]:
     for row_number in range(1, min(header_row, 6) + 1):
         values = _read_row_texts(sheet, row_number)
         for index, value in enumerate(values):
@@ -224,9 +224,9 @@ def _build_preview_record(
     sheet_name: str,
     raw_header_signature: str,
     row_number: int,
-    region: str | None,
-    company_name: str | None,
-) -> NormalizedPreviewRecord | None:
+    region: Optional[str],
+    company_name: Optional[str],
+) -> Optional[NormalizedPreviewRecord]:
     raw_values = {header: _clean_cell_value(value) for header, value in zip(headers, values, strict=True)}
     person_name = _find_first_value(raw_values, HEADER_PATTERNS["person_name"])
     id_number = _find_first_value(raw_values, HEADER_PATTERNS["id_number"])
@@ -291,7 +291,7 @@ def _build_preview_record(
     )
 
 
-def _looks_like_non_detail_record(person_name: str | None, id_number: str | None) -> bool:
+def _looks_like_non_detail_record(person_name: Optional[str], id_number: Optional[str]) -> bool:
     normalized_name = str(person_name or '').replace(' ', '')
     normalized_id = str(id_number or '').strip()
     if any(pattern in normalized_name for pattern in NON_DETAIL_NAME_PATTERNS):
@@ -303,14 +303,14 @@ def _looks_like_non_detail_record(person_name: str | None, id_number: str | None
 
 def _resolve_housing_amounts(
     *,
-    personal_amount: Decimal | None,
-    company_amount: Decimal | None,
-    total_amount: Decimal | None,
-    base_amount: Decimal | None,
-    personal_rate: Decimal | None,
-    company_rate: Decimal | None,
+    personal_amount: Optional[Decimal],
+    company_amount: Optional[Decimal],
+    total_amount: Optional[Decimal],
+    base_amount: Optional[Decimal],
+    personal_rate: Optional[Decimal],
+    company_rate: Optional[Decimal],
     inference_notes: list[str],
-) -> tuple[Decimal | None, Decimal | None, Decimal | None]:
+) -> Optional[tuple[Decimal], Decimal | None, Decimal | None]:
     quant = Decimal("0.01")
 
     if total_amount is None and personal_amount is not None and company_amount is not None:
@@ -353,12 +353,12 @@ def _find_first_value(raw_values: dict[str, Any], patterns: tuple[str, ...]) -> 
     return None
 
 
-def _header_matches(header: str | None, patterns: tuple[str, ...]) -> bool:
+def _header_matches(header: Optional[str], patterns: tuple[str, ...]) -> bool:
     normalized = _normalize_header_text(header)
     return any(_normalize_header_text(pattern) in normalized for pattern in patterns)
 
 
-def _normalize_period(value: Any) -> str | None:
+def _normalize_period(value: Any) -> Optional[str]:
     if value is None:
         return None
     text = str(value).strip()
@@ -374,7 +374,7 @@ def _normalize_period(value: Any) -> str | None:
     return text
 
 
-def _derive_period_bounds(value: Any) -> tuple[str | None, str | None]:
+def _derive_period_bounds(value: Any) -> Optional[tuple[str], str | None]:
     if value is None:
         return None, None
     text = str(value).strip()
@@ -389,21 +389,21 @@ def _derive_period_bounds(value: Any) -> tuple[str | None, str | None]:
     return normalized, normalized
 
 
-def _clean_text(value: object) -> str | None:
+def _clean_text(value: object) -> Optional[str]:
     if value is None:
         return None
     text = str(value).strip()
     return text or None
 
 
-def _read_row_texts(sheet, row_number: int) -> list[str | None]:
+def _read_row_texts(sheet, row_number: int) -> Optional[list[str]]:
     max_column = getattr(sheet, "max_column", 0) or 0
     if max_column <= 0:
         return []
     return [_clean_text(sheet.cell(row=row_number, column=column_index).value) for column_index in range(1, max_column + 1)]
 
 
-def _normalize_header_text(value: str | None) -> str:
+def _normalize_header_text(value: Optional[str]) -> str:
     return (
         (value or "")
         .replace(" ", "")
@@ -478,7 +478,7 @@ def _clean_cell_value(value: object) -> Any:
     return value
 
 
-def _to_decimal(value: Any) -> Decimal | None:
+def _to_decimal(value: Any) -> Optional[Decimal]:
     if value is None:
         return None
     if isinstance(value, Decimal):

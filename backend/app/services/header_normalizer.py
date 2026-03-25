@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -56,9 +58,9 @@ EXPLICIT_SKIP_SIGNATURE_KEYWORDS = EXPLICIT_SKIP_SIGNATURE_KEYWORDS + (
 class HeaderMappingDecision:
     raw_header: str
     raw_header_signature: str
-    canonical_field: str | None
+    canonical_field: Optional[str]
     mapping_source: str
-    confidence: float | None
+    confidence: Optional[float]
     candidate_fields: list[str]
     matched_rules: list[str]
     llm_attempted: bool = False
@@ -75,12 +77,12 @@ class HeaderNormalizationResult:
     unmapped_headers: list[str]
 
 
-def normalize_headers(path: str | Path, region: str | None = None) -> HeaderNormalizationResult:
+def normalize_headers(path: str | Path, region: Optional[str] = None) -> HeaderNormalizationResult:
     extraction = extract_header_structure(path)
     return normalize_header_extraction(extraction, region=region)
 
 
-def normalize_header_extraction(extraction: HeaderExtraction, region: str | None = None) -> HeaderNormalizationResult:
+def normalize_header_extraction(extraction: HeaderExtraction, region: Optional[str] = None) -> HeaderNormalizationResult:
     decisions = [normalize_header_column(column, region=region) for column in extraction.columns]
     return HeaderNormalizationResult(
         source_file=extraction.source_file,
@@ -93,7 +95,7 @@ def normalize_header_extraction(extraction: HeaderExtraction, region: str | None
 
 async def normalize_header_extraction_with_fallback(
     extraction: HeaderExtraction,
-    region: str | None = None,
+    region: Optional[str] = None,
     *,
     confidence_threshold: float = 0.8,
 ) -> HeaderNormalizationResult:
@@ -122,7 +124,7 @@ async def normalize_header_extraction_with_fallback(
 
 def normalize_header_extraction_with_sync_fallback(
     extraction: HeaderExtraction,
-    region: str | None = None,
+    region: Optional[str] = None,
     *,
     confidence_threshold: float = 0.8,
 ) -> HeaderNormalizationResult:
@@ -151,7 +153,7 @@ def normalize_header_extraction_with_sync_fallback(
 
 async def normalize_headers_with_fallback(
     path: str | Path,
-    region: str | None = None,
+    region: Optional[str] = None,
     *,
     confidence_threshold: float = 0.8,
 ) -> HeaderNormalizationResult:
@@ -165,7 +167,7 @@ async def normalize_headers_with_fallback(
 
 def normalize_headers_with_sync_fallback(
     path: str | Path,
-    region: str | None = None,
+    region: Optional[str] = None,
     *,
     confidence_threshold: float = 0.8,
 ) -> HeaderNormalizationResult:
@@ -177,7 +179,7 @@ def normalize_headers_with_sync_fallback(
     )
 
 
-def normalize_header_column(column: HeaderColumn, region: str | None = None) -> HeaderMappingDecision:
+def normalize_header_column(column: HeaderColumn, region: Optional[str] = None) -> HeaderMappingDecision:
     matches: list[tuple[AliasRule, float]] = []
     for rule in MANUAL_ALIAS_RULES:
         if rule.matches(column.signature, region=region):
@@ -202,7 +204,7 @@ def normalize_header_column(column: HeaderColumn, region: str | None = None) -> 
 
 async def normalize_header_column_with_fallback(
     column: HeaderColumn,
-    region: str | None = None,
+    region: Optional[str] = None,
     *,
     confidence_threshold: float = 0.8,
 ) -> HeaderMappingDecision:
@@ -218,7 +220,7 @@ async def normalize_header_column_with_fallback(
 
 def normalize_header_column_with_sync_fallback(
     column: HeaderColumn,
-    region: str | None = None,
+    region: Optional[str] = None,
     *,
     confidence_threshold: float = 0.8,
 ) -> HeaderMappingDecision:

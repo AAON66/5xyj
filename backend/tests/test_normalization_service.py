@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from decimal import Decimal
+import sqlite3
 
 import pytest
 
@@ -18,6 +19,7 @@ from backend.app.services import (
 
 SAMPLES_DIR = ROOT_DIR / 'data' / 'samples'
 HOUSING_SAMPLES_DIR = SAMPLES_DIR / '公积金'
+APP_DB = ROOT_DIR / 'data' / 'app.db'
 
 
 def find_sample(keyword: str) -> Path:
@@ -32,6 +34,28 @@ def find_housing_sample(keyword: str) -> Path:
         if keyword in path.name:
             return path
     pytest.skip(f'Housing sample containing {keyword!r} was not found in {HOUSING_SAMPLES_DIR}.')
+
+
+def find_uploaded_sample(filename: str) -> Path:
+    if not APP_DB.exists():
+        pytest.skip(f'Application database was not found at {APP_DB}.')
+
+    connection = sqlite3.connect(APP_DB)
+    try:
+        row = connection.execute(
+            'select file_path from source_files where file_name = ? order by uploaded_at desc limit 1',
+            (filename,),
+        ).fetchone()
+    finally:
+        connection.close()
+
+    if row is None:
+        pytest.skip(f'Uploaded sample {filename!r} was not found in {APP_DB}.')
+
+    sample_path = Path(row[0])
+    if not sample_path.exists():
+        pytest.skip(f'Uploaded sample path no longer exists: {sample_path}.')
+    return sample_path
 
 
 def test_standardize_workbook_on_real_guangzhou_sample() -> None:
@@ -143,6 +167,21 @@ def test_standardize_workbook_on_real_changsha_sample() -> None:
     assert first.values['unemployment_personal'] is not None
     assert first.values['large_medical_personal'] is not None
     assert first.values['total_amount'] is not None
+
+
+def test_standardize_workbook_on_uploaded_changsha_transactional_sample_maps_large_medical() -> None:
+    sample_path = find_uploaded_sample('长沙202602社保账单.xlsx')
+
+    result = standardize_workbook(sample_path, region='changsha')
+
+    match = next(
+        record
+        for record in result.records
+        if record.raw_values.get('征收品目') == '职工大额医疗互助保险(个人缴纳)'
+    )
+    assert match.values['person_name'] == '余宸瑶'
+    assert match.values['total_amount'] == Decimal('15')
+    assert match.values['large_medical_personal'] == Decimal('15')
 
 
 def test_build_normalized_models_preserves_provenance() -> None:

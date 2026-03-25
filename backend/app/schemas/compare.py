@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from pydantic import BaseModel
 
 
@@ -11,10 +13,10 @@ class CompareBatchMetaRead(BaseModel):
 
 
 class CompareRecordSideRead(BaseModel):
-    record_id: str | None
-    source_file_id: str | None
-    source_file_name: str | None
-    source_row_number: int | None
+    record_id: Optional[str]
+    source_file_id: Optional[str]
+    source_file_name: Optional[str]
+    source_row_number: Optional[int]
     values: dict[str, object | None]
 
 
@@ -40,10 +42,10 @@ class BatchCompareRead(BaseModel):
 
 
 class CompareRecordSideInput(BaseModel):
-    record_id: str | None = None
-    source_file_id: str | None = None
-    source_file_name: str | None = None
-    source_row_number: int | None = None
+    record_id: Optional[str] = None
+    source_file_id: Optional[str] = None
+    source_file_name: Optional[str] = None
+    source_row_number: Optional[int] = None
     values: dict[str, object | None] = {}
 
 

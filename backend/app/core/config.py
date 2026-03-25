@@ -2,7 +2,7 @@
 
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import Field, computed_field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -32,8 +32,8 @@ class Settings(BaseSettings):
     samples_dir: str = './data/samples'
     templates_dir: str = './data/templates'
     outputs_dir: str = './data/outputs'
-    salary_template_path: str | None = None
-    final_tool_template_path: str | None = None
+    salary_template_path: Optional[str] = None
+    final_tool_template_path: Optional[str] = None
     max_upload_size_mb: int = 25
 
     deepseek_api_key: str = ''
@@ -79,12 +79,12 @@ class Settings(BaseSettings):
 
     @computed_field
     @property
-    def salary_template_file(self) -> Path | None:
+    def salary_template_file(self) -> Optional[Path]:
         return self._resolve_optional_file(self.salary_template_path)
 
     @computed_field
     @property
-    def final_tool_template_file(self) -> Path | None:
+    def final_tool_template_file(self) -> Optional[Path]:
         return self._resolve_optional_file(self.final_tool_template_path)
 
     @computed_field
@@ -98,7 +98,7 @@ class Settings(BaseSettings):
             return path
         return (self.root_dir / path).resolve()
 
-    def _resolve_optional_file(self, value: str | None) -> Path | None:
+    def _resolve_optional_file(self, value: Optional[str]) -> Optional[Path]:
         if not value:
             return None
         path = Path(value)

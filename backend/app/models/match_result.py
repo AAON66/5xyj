@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import Enum, Float, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -28,7 +28,7 @@ class MatchResult(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
         nullable=False,
         index=True,
     )
-    employee_master_id: Mapped[str | None] = mapped_column(
+    employee_master_id: Mapped[Optional[str]] = mapped_column(
         ForeignKey("employee_master.id", ondelete="SET NULL"),
         index=True,
     )
@@ -38,8 +38,8 @@ class MatchResult(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
         default=MatchStatus.UNMATCHED,
         index=True,
     )
-    match_basis: Mapped[str | None] = mapped_column(String(255))
-    confidence: Mapped[float | None] = mapped_column(Float)
+    match_basis: Mapped[Optional[str]] = mapped_column(String(255))
+    confidence: Mapped[Optional[float]] = mapped_column(Float)
 
     batch: Mapped["ImportBatch"] = relationship(back_populates="match_results")
     normalized_record: Mapped["NormalizedRecord"] = relationship(back_populates="match_results")

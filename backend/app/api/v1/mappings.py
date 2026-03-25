@@ -1,5 +1,7 @@
 ﻿from __future__ import annotations
 
+from typing import Optional
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
@@ -18,8 +20,8 @@ router = APIRouter(prefix='/mappings', tags=['mappings'])
 
 @router.get('')
 def list_header_mappings_endpoint(
-    batch_id: str | None = Query(default=None),
-    source_file_id: str | None = Query(default=None),
+    batch_id: Optional[str] = Query(default=None),
+    source_file_id: Optional[str] = Query(default=None),
     db: Session = Depends(get_db),
 ):
     payload = list_header_mappings(db, batch_id=batch_id, source_file_id=source_file_id)

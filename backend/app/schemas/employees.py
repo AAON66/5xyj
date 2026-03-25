@@ -1,5 +1,7 @@
 ﻿from __future__ import annotations
 
+from typing import Optional
+
 from datetime import datetime
 from decimal import Decimal
 
@@ -10,9 +12,9 @@ class EmployeeMasterRead(BaseModel):
     id: str
     employee_id: str
     person_name: str
-    id_number: str | None
-    company_name: str | None
-    department: str | None
+    id_number: Optional[str]
+    company_name: Optional[str]
+    department: Optional[str]
     active: bool
     created_at: datetime
     updated_at: datetime
@@ -20,7 +22,7 @@ class EmployeeMasterRead(BaseModel):
 
 class EmployeeMasterListRead(BaseModel):
     total: int
-    limit: int | None = None
+    limit: Optional[int] = None
     offset: int = 0
     items: list[EmployeeMasterRead]
 
@@ -28,9 +30,9 @@ class EmployeeMasterListRead(BaseModel):
 class EmployeeMasterCreateInput(BaseModel):
     employee_id: str = Field(min_length=1, max_length=100)
     person_name: str = Field(min_length=1, max_length=255)
-    id_number: str | None = Field(default=None, max_length=100)
-    company_name: str | None = Field(default=None, max_length=255)
-    department: str | None = Field(default=None, max_length=255)
+    id_number: Optional[str] = Field(default=None, max_length=100)
+    company_name: Optional[str] = Field(default=None, max_length=255)
+    department: Optional[str] = Field(default=None, max_length=255)
     active: bool = True
 
 
@@ -47,23 +49,23 @@ class EmployeeImportRead(BaseModel):
 
 class EmployeeMasterUpdateInput(BaseModel):
     person_name: str = Field(min_length=1, max_length=255)
-    id_number: str | None = Field(default=None, max_length=100)
-    company_name: str | None = Field(default=None, max_length=255)
-    department: str | None = Field(default=None, max_length=255)
+    id_number: Optional[str] = Field(default=None, max_length=100)
+    company_name: Optional[str] = Field(default=None, max_length=255)
+    department: Optional[str] = Field(default=None, max_length=255)
     active: bool = True
 
 
 class EmployeeMasterStatusInput(BaseModel):
     active: bool
-    note: str | None = Field(default=None, max_length=255)
+    note: Optional[str] = Field(default=None, max_length=255)
 
 
 class EmployeeMasterAuditRead(BaseModel):
     id: str
-    employee_master_id: str | None
+    employee_master_id: Optional[str]
     employee_id_snapshot: str
     action: str
-    note: str | None
+    note: Optional[str]
     snapshot: dict[str, object] | None
     created_at: datetime
 
@@ -79,12 +81,12 @@ class EmployeeSelfServiceQueryInput(BaseModel):
 
 
 class EmployeeSelfServiceProfileRead(BaseModel):
-    employee_id: str | None
+    employee_id: Optional[str]
     person_name: str
     masked_id_number: str
-    company_name: str | None
-    department: str | None
-    active: bool | None
+    company_name: Optional[str]
+    department: Optional[str]
+    active: Optional[bool]
     source: str
 
 
@@ -93,20 +95,20 @@ class EmployeeSelfServiceRecordRead(BaseModel):
     batch_id: str
     batch_name: str
     batch_status: str
-    employee_id: str | None
-    region: str | None
-    company_name: str | None
-    billing_period: str | None
-    period_start: str | None
-    period_end: str | None
-    source_file_name: str | None
+    employee_id: Optional[str]
+    region: Optional[str]
+    company_name: Optional[str]
+    billing_period: Optional[str]
+    period_start: Optional[str]
+    period_end: Optional[str]
+    source_file_name: Optional[str]
     source_row_number: int
-    total_amount: Decimal | None
-    company_total_amount: Decimal | None
-    personal_total_amount: Decimal | None
-    housing_fund_personal: Decimal | None
-    housing_fund_company: Decimal | None
-    housing_fund_total: Decimal | None
+    total_amount: Optional[Decimal]
+    company_total_amount: Optional[Decimal]
+    personal_total_amount: Optional[Decimal]
+    housing_fund_personal: Optional[Decimal]
+    housing_fund_company: Optional[Decimal]
+    housing_fund_total: Optional[Decimal]
     created_at: datetime
 
 

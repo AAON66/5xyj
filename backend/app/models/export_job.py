@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -22,7 +22,7 @@ class ExportJob(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
         index=True,
     )
     status: Mapped[str] = mapped_column(String(50), nullable=False, default="pending", index=True)
-    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
     batch: Mapped["ImportBatch"] = relationship(back_populates="export_jobs")
     artifacts: Mapped[list["ExportArtifact"]] = relationship(

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 import asyncio
 import inspect
 import re
@@ -52,13 +54,13 @@ async def run_simple_aggregate(
     settings: Settings,
     *,
     files: list[UploadFile],
-    housing_fund_files: list[UploadFile] | None = None,
-    employee_master_file: UploadFile | None = None,
-    employee_master_mode: str | None = None,
-    batch_name: str | None = None,
-    regions: list[str] | None = None,
-    company_names: list[str] | None = None,
-    progress_callback: ProgressCallback | None = None,
+    housing_fund_files: Optional[list[UploadFile]] = None,
+    employee_master_file: Optional[UploadFile] = None,
+    employee_master_mode: Optional[str] = None,
+    batch_name: Optional[str] = None,
+    regions: Optional[list[str]] = None,
+    company_names: Optional[list[str]] = None,
+    progress_callback: Optional[ProgressCallback] = None,
 ) -> AggregateRunRead:
     all_files = [*files, *(housing_fund_files or [])]
     if not all_files:
@@ -73,7 +75,7 @@ async def run_simple_aggregate(
     )
 
     resolved_employee_master_mode = _resolve_employee_master_mode(employee_master_mode, employee_master_file)
-    employee_summary: AggregateEmployeeImportRead | None = None
+    employee_summary: Optional[AggregateEmployeeImportRead] = None
     if resolved_employee_master_mode == 'upload':
         await _emit_progress(
             progress_callback,
@@ -344,7 +346,7 @@ async def _stream_parse_progress(
     *,
     parse_task: asyncio.Task,
     parse_progress_queue: Queue[dict[str, object]],
-    progress_callback: ProgressCallback | None,
+    progress_callback: Optional[ProgressCallback],
     batch_id: str,
     batch_name: str,
 ):
@@ -518,7 +520,7 @@ def _build_parse_progress_event(
     }
 
 
-def _build_parse_descriptor(*, source_kind: str | None, region: str | None, company_name: str | None) -> str:
+def _build_parse_descriptor(*, source_kind: Optional[str], region: Optional[str], company_name: Optional[str]) -> str:
     kind_label = _source_kind_label(source_kind)
     qualifiers: list[str] = []
     if region:
@@ -530,7 +532,7 @@ def _build_parse_descriptor(*, source_kind: str | None, region: str | None, comp
     return kind_label
 
 
-def _source_kind_label(source_kind: str | None) -> str:
+def _source_kind_label(source_kind: Optional[str]) -> str:
     if source_kind == SourceFileKind.HOUSING_FUND.value:
         return '公积金文件'
     return '社保文件'
@@ -596,7 +598,7 @@ def _match_for_simple_aggregate(db: Session, batch_id: str, *, use_existing_empl
     })
 
 
-def _resolve_employee_master_mode(employee_master_mode: str | None, employee_master_file: UploadFile | None) -> str:
+def _resolve_employee_master_mode(employee_master_mode: Optional[str], employee_master_file: Optional[UploadFile]) -> str:
     normalized_mode = (employee_master_mode or '').strip().lower() or None
     has_uploaded_file = employee_master_file is not None and bool((employee_master_file.filename or '').strip())
 
@@ -639,7 +641,7 @@ def _preview_from_model(record) -> NormalizedPreviewRecord:
     )
 
 
-def _resolve_metadata_values(files: list[UploadFile], values: list[str] | None, *, kind: str) -> list[str | None]:
+def _resolve_metadata_values(files: list[UploadFile], values: Optional[list[str]], *, kind: str) -> Optional[list[str]]:
     if values:
         cleaned = [(value or '').strip() or None for value in values]
         if len(cleaned) == 1 and len(files) > 1:
@@ -650,7 +652,7 @@ def _resolve_metadata_values(files: list[UploadFile], values: list[str] | None, 
     if kind == 'region':
         return [None] * len(files)
 
-    inferred: list[str | None] = []
+    inferred: Optional[list[str]] = []
     for upload in files:
         filename = Path(upload.filename or 'upload.xlsx').name
         region = infer_region_from_filename(filename)
@@ -658,11 +660,11 @@ def _resolve_metadata_values(files: list[UploadFile], values: list[str] | None, 
     return inferred
 
 
-def infer_region_from_filename(filename: str) -> str | None:
+def infer_region_from_filename(filename: str) -> Optional[str]:
     return detect_region_from_filename_by_rules(filename)
 
 
-def infer_company_name_from_filename(filename: str, region: str | None) -> str | None:
+def infer_company_name_from_filename(filename: str, region: Optional[str]) -> Optional[str]:
     stem = Path(filename).stem
     if '--' in stem:
         tail = stem.split('--')[-1].strip()
@@ -679,14 +681,14 @@ def infer_company_name_from_filename(filename: str, region: str | None) -> str |
 
 
 async def _emit_progress(
-    progress_callback: ProgressCallback | None,
+    progress_callback: Optional[ProgressCallback],
     *,
     stage: str,
     label: str,
     message: str,
     percent: int,
-    batch_id: str | None = None,
-    batch_name: str | None = None,
+    batch_id: Optional[str] = None,
+    batch_name: Optional[str] = None,
     **extras: object,
 ) -> None:
     if progress_callback is None:

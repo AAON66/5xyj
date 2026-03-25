@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from pathlib import Path
 
 import pytest
@@ -26,7 +28,7 @@ class DummyResponse:
 
 
 class DummyClient:
-    def __init__(self, response_payload: dict | None = None, status_code: int = 200, error: Exception | None = None, **_: object):
+    def __init__(self, response_payload: Optional[dict] = None, status_code: int = 200, error: Optional[Exception] = None, **_: object):
         self.response_payload = response_payload
         self.status_code = status_code
         self.error = error

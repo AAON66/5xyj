@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from dataclasses import dataclass
 
 
@@ -70,7 +72,7 @@ class AliasRule:
     regions: tuple[str, ...] = ()
     excludes: tuple[str, ...] = ()
 
-    def matches(self, signature: str, region: str | None = None) -> bool:
+    def matches(self, signature: str, region: Optional[str] = None) -> bool:
         normalized_signature = normalize_signature(signature)
         normalized_patterns = tuple(normalize_signature(pattern) for pattern in self.patterns)
         normalized_excludes = tuple(normalize_signature(pattern) for pattern in self.excludes)
@@ -210,4 +212,8 @@ MANUAL_ALIAS_RULES: tuple[AliasRule, ...] = (
 
 MANUAL_ALIAS_RULES = MANUAL_ALIAS_RULES + (
     AliasRule("total_amount", ("\u5e94\u7f34\u8d39\u989d",), confidence=0.93, regions=("changsha",)),
+)
+
+MANUAL_ALIAS_RULES = MANUAL_ALIAS_RULES + (
+    AliasRule("large_medical_personal", ("\u804c\u5de5\u5927\u989d\u533b\u7597\u4e92\u52a9\u4fdd\u9669(\u4e2a\u4eba\u7f34\u7eb3)",), confidence=0.99, regions=("changsha",)),
 )

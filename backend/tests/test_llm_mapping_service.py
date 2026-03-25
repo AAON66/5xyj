@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 import json
 
 import pytest
@@ -34,7 +36,7 @@ class DummyResponse:
 
 
 class DummyAsyncClient:
-    def __init__(self, response_payload: dict | None = None, status_code: int = 200, error: Exception | None = None, **_: object):
+    def __init__(self, response_payload: Optional[dict] = None, status_code: int = 200, error: Optional[Exception] = None, **_: object):
         self.response_payload = response_payload
         self.status_code = status_code
         self.error = error
@@ -54,7 +56,7 @@ class DummyAsyncClient:
 
 
 class DummyClient:
-    def __init__(self, response_payload: dict | None = None, status_code: int = 200, error: Exception | None = None, **_: object):
+    def __init__(self, response_payload: Optional[dict] = None, status_code: int = 200, error: Optional[Exception] = None, **_: object):
         self.response_payload = response_payload
         self.status_code = status_code
         self.error = error
@@ -205,7 +207,7 @@ async def test_llm_fallback_handles_http_error(monkeypatch) -> None:
 
 @pytest.mark.anyio
 async def test_normalize_header_extraction_with_fallback_preserves_rule_and_unmapped_columns(monkeypatch) -> None:
-    async def fake_llm(signature: str, region: str | None = None):
+    async def fake_llm(signature: str, region: Optional[str] = None):
         if signature == "神秘单位金额":
             return llm_mapping_module.LLMMappingResult(
                 raw_header_signature=signature,

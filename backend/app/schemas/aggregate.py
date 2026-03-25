@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from pydantic import BaseModel
 
 from backend.app.schemas.imports import ExportArtifactRead
@@ -16,8 +18,8 @@ class AggregateSourceFileRead(BaseModel):
     source_file_id: str
     file_name: str
     source_kind: str
-    region: str | None
-    company_name: str | None
+    region: Optional[str]
+    company_name: Optional[str]
     normalized_record_count: int
     filtered_row_count: int
 
@@ -26,9 +28,9 @@ class AggregateRunRead(BaseModel):
     batch_id: str
     batch_name: str
     status: str
-    export_status: str | None
-    blocked_reason: str | None
-    employee_master: AggregateEmployeeImportRead | None
+    export_status: Optional[str]
+    blocked_reason: Optional[str]
+    employee_master: Optional[AggregateEmployeeImportRead]
     total_issue_count: int
     matched_count: int
     unmatched_count: int

@@ -1,5 +1,7 @@
 ﻿from __future__ import annotations
 
+from typing import Optional
+
 from sqlalchemy.orm import Session, joinedload
 
 from backend.app.mappings import CANONICAL_FIELDS
@@ -19,8 +21,8 @@ class InvalidCanonicalFieldError(Exception):
 def list_header_mappings(
     db: Session,
     *,
-    batch_id: str | None = None,
-    source_file_id: str | None = None,
+    batch_id: Optional[str] = None,
+    source_file_id: Optional[str] = None,
 ) -> HeaderMappingListRead:
     query = (
         db.query(HeaderMapping)
@@ -39,7 +41,7 @@ def list_header_mappings(
     )
 
 
-def update_header_mapping(db: Session, mapping_id: str, canonical_field: str | None) -> HeaderMappingRead:
+def update_header_mapping(db: Session, mapping_id: str, canonical_field: Optional[str]) -> HeaderMappingRead:
     if canonical_field is not None and canonical_field not in CANONICAL_FIELDS:
         raise InvalidCanonicalFieldError(f"Canonical field '{canonical_field}' is not supported.")
 

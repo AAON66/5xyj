@@ -4,7 +4,7 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import httpx
 
@@ -98,7 +98,7 @@ REGION_SHEET_HINTS = {
 PLACEHOLDER_TEXT = {"", "none", "null", "nan"}
 
 
-def _coerce_confidence(value: Any) -> float | None:
+def _coerce_confidence(value: Any) -> Optional[float]:
     if value is None:
         return None
     if isinstance(value, bool):
@@ -132,7 +132,7 @@ def _coerce_confidence(value: Any) -> float | None:
     return _normalize_confidence(numeric)
 
 
-def _normalize_confidence(value: float) -> float | None:
+def _normalize_confidence(value: float) -> Optional[float]:
     if value < 0:
         return 0.0
     if value > 1.0:
@@ -142,18 +142,18 @@ def _normalize_confidence(value: float) -> float | None:
 
 @dataclass(slots=True)
 class RegionDetectionResult:
-    region: str | None
+    region: Optional[str]
     confidence: float
     source: str
     reason: str
-    local_confidence: float | None = None
-    llm_confidence: float | None = None
+    local_confidence: Optional[float] = None
+    llm_confidence: Optional[float] = None
 
 
 @dataclass(slots=True)
 class LLMRegionResult:
-    region: str | None
-    confidence: float | None
+    region: Optional[str]
+    confidence: Optional[float]
     candidate_regions: list[str]
     status: str
     reason: str
@@ -162,20 +162,20 @@ class LLMRegionResult:
 @dataclass(slots=True)
 class WorkbookRegionContext:
     filename: str
-    source_kind: str | None
+    source_kind: Optional[str]
     sheet_names: list[str]
     sample_text: str
 
 
-def detect_region_from_filename(filename: str) -> str | None:
+def detect_region_from_filename(filename: str) -> Optional[str]:
     return detect_region_with_local_rules(filename).region
 
 
 def detect_region_for_workbook(
     workbook_path: str | Path,
     *,
-    filename: str | None = None,
-    source_kind: str | None = None,
+    filename: Optional[str] = None,
+    source_kind: Optional[str] = None,
 ) -> RegionDetectionResult:
     workbook_context = build_workbook_region_context(workbook_path, filename=filename, source_kind=source_kind)
     local_result = detect_region_with_local_rules(workbook_context.filename, workbook_context=workbook_context)
@@ -188,7 +188,7 @@ def detect_region_for_workbook(
 def detect_region_with_local_rules(
     filename: str,
     *,
-    workbook_context: WorkbookRegionContext | None = None,
+    workbook_context: Optional[WorkbookRegionContext] = None,
 ) -> RegionDetectionResult:
     scores = {region: 0.0 for region in REGION_LABELS}
     reasons = {region: [] for region in REGION_LABELS}
@@ -255,8 +255,8 @@ def detect_region_with_local_rules(
 def build_workbook_region_context(
     workbook_path: str | Path,
     *,
-    filename: str | None = None,
-    source_kind: str | None = None,
+    filename: Optional[str] = None,
+    source_kind: Optional[str] = None,
 ) -> WorkbookRegionContext:
     path = Path(workbook_path)
     workbook = load_workbook_compatible(path, read_only=True, data_only=True)
@@ -415,7 +415,7 @@ def _extract_json_content(content: Any) -> str:
     return stripped
 
 
-def _clean_cell_text(value: Any) -> str | None:
+def _clean_cell_text(value: Any) -> Optional[str]:
     if value is None:
         return None
     text = str(value).strip()

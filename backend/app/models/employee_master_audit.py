@@ -1,6 +1,6 @@
 ﻿from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import Enum, ForeignKey, JSON, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 class EmployeeMasterAudit(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     __tablename__ = "employee_master_audits"
 
-    employee_master_id: Mapped[str | None] = mapped_column(
+    employee_master_id: Mapped[Optional[str]] = mapped_column(
         ForeignKey("employee_master.id", ondelete="SET NULL"),
         index=True,
     )
@@ -25,7 +25,7 @@ class EmployeeMasterAudit(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
         nullable=False,
         index=True,
     )
-    note: Mapped[str | None] = mapped_column(String(255))
-    snapshot: Mapped[dict[str, object] | None] = mapped_column(JSON)
+    note: Mapped[Optional[str]] = mapped_column(String(255))
+    snapshot: Mapped[Optional[dict[str, object]]] = mapped_column(JSON)
 
     employee_master: Mapped["EmployeeMaster | None"] = relationship(back_populates="audits")

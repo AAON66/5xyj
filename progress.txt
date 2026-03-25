@@ -1903,3 +1903,25 @@ ormalization_service.py backendpp\services\import_service.py backendpp\service
 
 ### Notes:
 - 长沙上传件在修复前仅表头归一化就耗时约 243 秒；修复后同一步骤降到约 0.04 秒。
+
+## 2026-03-25 - Task: 修复长沙社保明细“职工大额医疗互助保险(个人缴纳)”未进入薪酬模板个人大病医疗
+
+### What was done:
+- 定位到最新 202602 聚合批次中，长沙社保上传件 `长沙202602社保账单.xlsx` 采用的是交易明细结构：金额统一落在 `应缴费额` 列，具体险种依赖同一行的 `征收品目` 判断，而现有标准化逻辑只按表头映射，导致 `职工大额医疗互助保险(个人缴纳)` 这一行只写进了 `total_amount`，没有落到 `large_medical_personal`。
+- 更新 `backend/app/services/normalization_service.py`，为长沙社保交易明细增加“按征收品目分流”的行级规则，把 `职工基本养老保险(单位/个人缴纳)`、`职工基本医疗保险(单位/个人缴纳)`、`失业保险(单位/个人缴纳)`、`工伤保险`、`生育保险(单位缴纳)`、`职工大额医疗互助保险(个人缴纳)` 等项目从 `应缴费额` 正确写入对应标准字段。
+- 更新 `backend/app/exporters/template_exporter.py`，移除长沙 `large_medical_personal` 在导出薪酬/工具表时被错误乘以 2 的旧逻辑，改为按源值原样输出。
+- 更新 `backend/tests/test_normalization_service.py`，新增基于真实上传件 `长沙202602社保账单.xlsx` 的回归测试，验证 `职工大额医疗互助保险(个人缴纳)` 可标准化为 `large_medical_personal = 15`。
+- 更新 `backend/tests/test_template_exporter.py`，新增回归测试，验证长沙 `large_medical_personal = 15` 导出到薪酬模板与工具表时保持 15，不再是 0 或 30。
+
+### Testing:
+- `..venv\Scripts\python -m pytest backend/tests/test_normalization_service.py -k uploaded_changsha_transactional_sample_maps_large_medical -q`
+- `..venv\Scripts\python -m pytest backend/tests/test_template_exporter.py::test_export_dual_templates_keeps_changsha_large_medical_at_source_amount -q`
+- 直接使用最新批次中的真实上传件 `长沙202602社保账单.xlsx` 执行 `standardize_workbook(...)`，确认多条记录已带出 `large_medical_personal = 15`
+- 直接使用同一真实长沙明细导出双模板，确认薪酬模板第 E 列“个人大病医疗”和工具表第 K 列均为 15
+
+### Risks / Open Questions:
+- 长沙这类交易明细会继续把 `应缴费额` 保留在 `total_amount` 中，同时再写入按险种分流后的标准字段；这是为了保留原始溯源信息，不影响当前导出结果。
+- 如果后续还有新的长沙 `征收品目` 变体命名，需要继续在行级映射表中补充别名。
+
+### Notes:
+- 本次修复后，真实长沙员工 `余宸瑶` 的导出验证结果为：薪酬模板“个人大病医疗” = 15，工具表对应字段 = 15。

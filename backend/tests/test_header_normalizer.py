@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from backend.app.core.config import ROOT_DIR
-from backend.app.parsers import extract_header_structure
+from backend.app.parsers import HeaderColumn, extract_header_structure
 from backend.app.services import normalize_header_column, normalize_header_extraction
 
 
@@ -109,3 +109,17 @@ def test_normalize_headers_on_real_changsha_sample() -> None:
     assert decisions["失业保险(个人缴纳)"].canonical_field == "unemployment_personal"
     assert decisions["职工大额医疗互助保险(个人缴纳)"].canonical_field == "large_medical_personal"
     assert decisions["总计"].canonical_field == "total_amount"
+
+
+def test_normalize_header_column_maps_changsha_large_medical_personal_explicitly() -> None:
+    column = HeaderColumn(
+        column_index=1,
+        excel_column="A",
+        raw_header_parts=["\u804c\u5de5\u5927\u989d\u533b\u7597\u4e92\u52a9\u4fdd\u9669(\u4e2a\u4eba\u7f34\u7eb3)"],
+        signature="\u804c\u5de5\u5927\u989d\u533b\u7597\u4e92\u52a9\u4fdd\u9669(\u4e2a\u4eba\u7f34\u7eb3)",
+    )
+
+    decision = normalize_header_column(column, region="changsha")
+
+    assert decision.canonical_field == "large_medical_personal"
+    assert decision.mapping_source == "rule"
