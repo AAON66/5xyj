@@ -236,7 +236,12 @@ def _select_header_candidates(rows: list[list[str]], row_profiles: list[dict[str
         continuity_bonus = 0
         if index < len(row_profiles):
             next_profile = row_profiles[index]
-            if next_profile["width"] >= max(2, profile["width"] // 2) and next_profile["keywords"] > 0:
+            next_row = rows[index]
+            if (
+                next_profile["width"] >= max(2, profile["width"] // 2)
+                and next_profile["keywords"] > 0
+                and not _is_detail_like_row(next_row)
+            ):
                 continuity_bonus = 18
 
         rank_score = profile["score"] + profile["width"] * 3 + continuity_bonus
@@ -250,7 +255,12 @@ def _select_header_candidates(rows: list[list[str]], row_profiles: list[dict[str
     candidates = [best_row]
     if best_row < len(row_profiles):
         next_profile = row_profiles[best_row]
-        if next_profile["width"] >= max(2, row_profiles[best_row - 1]["width"] // 2) and next_profile["keywords"] > 0:
+        next_row = rows[best_row]
+        if (
+            next_profile["width"] >= max(2, row_profiles[best_row - 1]["width"] // 2)
+            and next_profile["keywords"] > 0
+            and not _is_detail_like_row(next_row)
+        ):
             candidates.append(best_row + 1)
     return candidates
 

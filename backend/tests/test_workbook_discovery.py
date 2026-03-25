@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sqlite3
 import shutil
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from backend.app.parsers import discover_workbook
 
 ARTIFACTS_ROOT = ROOT_DIR / ".test_artifacts" / "workbook_discovery"
 SAMPLES_DIR = ROOT_DIR / "data" / "samples"
+APP_DB = ROOT_DIR / "data" / "app.db"
 
 
 def create_artifact_dir(test_name: str) -> Path:
@@ -27,6 +29,28 @@ def find_sample(keyword: str) -> Path:
         if keyword in path.name:
             return path
     pytest.skip(f"Sample containing '{keyword}' was not found in {SAMPLES_DIR}.")
+
+
+def find_uploaded_sample(filename: str) -> Path:
+    if not APP_DB.exists():
+        pytest.skip(f"Application database was not found at {APP_DB}.")
+
+    connection = sqlite3.connect(APP_DB)
+    try:
+        row = connection.execute(
+            "select file_path from source_files where file_name = ? order by uploaded_at desc limit 1",
+            (filename,),
+        ).fetchone()
+    finally:
+        connection.close()
+
+    if row is None:
+        pytest.skip(f"Uploaded sample '{filename}' was not found in {APP_DB}.")
+
+    sample_path = Path(row[0])
+    if not sample_path.exists():
+        pytest.skip(f"Uploaded sample path no longer exists: {sample_path}.")
+    return sample_path
 
 
 def test_discover_workbook_prefers_sheet_with_header_and_data_region() -> None:
@@ -148,3 +172,21 @@ def test_discover_workbook_on_real_changsha_sample() -> None:
     assert discovery.selected_header_row_candidates == [4]
     assert discovery.selected_data_start_row == 5
     assert discovery.discoveries[0].sheet_name == "Sheet4"
+def test_discover_workbook_uploaded_changsha_detail_sheet_keeps_single_header_row() -> None:
+    sample_path = find_uploaded_sample("长沙社保202512.xlsx")
+
+    discovery = discover_workbook(sample_path)
+
+    assert discovery.selected_sheet_name == "Sheet1"
+    assert discovery.selected_header_row_candidates == [1]
+    assert discovery.selected_data_start_row == 2
+
+
+def test_discover_workbook_uploaded_changsha_detail_sheet_keeps_single_header_row() -> None:
+    sample_path = find_uploaded_sample("\u957f\u6c99\u793e\u4fdd\u0032\u0030\u0032\u0035\u0031\u0032.xlsx")
+
+    discovery = discover_workbook(sample_path)
+
+    assert discovery.selected_sheet_name == "Sheet1"
+    assert discovery.selected_header_row_candidates == [1]
+    assert discovery.selected_data_start_row == 2

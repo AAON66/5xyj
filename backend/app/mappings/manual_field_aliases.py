@@ -55,7 +55,6 @@ NORMALIZATION_REPLACEMENTS: tuple[tuple[str, str], ...] = (
     ("工伤保险费", "工伤保险"),
 )
 
-
 def normalize_signature(signature: str) -> str:
     normalized = signature.strip().lower().replace(" ", "")
     for source, target in NORMALIZATION_REPLACEMENTS:
@@ -207,4 +206,8 @@ MANUAL_ALIAS_RULES: tuple[AliasRule, ...] = (
     AliasRule("housing_fund_personal", ("公积金", "个人"), excludes=("基数", "补差"), confidence=0.92),
     AliasRule("housing_fund_company", ("公积金", "公司"), excludes=("基数", "补差"), confidence=0.92),
     AliasRule("housing_fund_personal", ("公积金个人汇缴",), confidence=0.97),
+)
+
+MANUAL_ALIAS_RULES = MANUAL_ALIAS_RULES + (
+    AliasRule("total_amount", ("\u5e94\u7f34\u8d39\u989d",), confidence=0.93, regions=("changsha",)),
 )

@@ -17,9 +17,9 @@ HEADER_PATTERNS: dict[str, tuple[str, ...]] = {
     "billing_period": ("\u7f34\u5b58\u65f6\u6bb5", "\u4e1a\u52a1\u5e74\u6708", "\u6c47\u8865\u7f34\u5e74\u6708", "\u6c47\u7f34\u5e74\u6708"),
     "housing_fund_account": ("\u516c\u79ef\u91d1\u8d26\u53f7", "\u4e2a\u4eba\u516c\u79ef\u91d1\u8d26\u53f7", "\u4e2a\u4eba\u8d26\u53f7", "\u4e2a\u4eba\u5ba2\u6237\u53f7", "\u804c\u5de5\u8d26\u53f7"),
     "housing_fund_base": ("\u7f34\u5b58\u57fa\u6570", "\u7f34\u5b58\u57fa\u6570\uff08\u5143\uff09", "\u6708\u5747\u5de5\u8d44"),
-    "housing_fund_personal": ("\u4e2a\u4eba\u7f34\u5b58\u989d", "\u4e2a\u4eba\u6708\u7f34\u5b58\u989d(\u5143)", "\u804c\u5de5\u6708\u7f34\u989d", "\u5e94\u7f34\u5b58\u989d\u589e\u52a0\u4e2a\u4eba", "\u5e94\u7f34\u5b58\u989d\u51cf\u5c11\u4e2a\u4eba"),
-    "housing_fund_company": ("\u5355\u4f4d\u7f34\u5b58\u989d", "\u5355\u4f4d\u6708\u7f34\u5b58\u989d(\u5143)", "\u5355\u4f4d\u6708\u7f34\u989d", "\u5e94\u7f34\u5b58\u989d\u589e\u52a0\u5355\u4f4d", "\u5e94\u7f34\u5b58\u989d\u51cf\u5c11\u5355\u4f4d"),
-    "housing_fund_total": ("\u91d1\u989d\u5408\u8ba1\uff08\u5143\uff09", "\u5408\u8ba1\u6708\u7f34\u5b58\u989d(\u5143)", "\u603b\u91d1\u989d", "\u53d1\u751f\u989d", "\u5e94\u7f34\u5b58\u989d\u589e\u52a0\u5408\u8ba1", "\u5e94\u7f34\u5b58\u989d\u51cf\u5c11\u5408\u8ba1"),
+    "housing_fund_personal": ("\u4e2a\u4eba\u7f34\u5b58\u989d", "\u4e2a\u4eba\u6708\u7f34\u5b58\u989d(\u5143)", "\u804c\u5de5\u6708\u7f34\u989d", "\u6708\u7f34\u5b58\u989d(\u5143)\u4e2a\u4eba", "\u5e94\u7f34\u5b58\u989d\u589e\u52a0\u4e2a\u4eba", "\u5e94\u7f34\u5b58\u989d\u51cf\u5c11\u4e2a\u4eba"),
+    "housing_fund_company": ("\u5355\u4f4d\u7f34\u5b58\u989d", "\u5355\u4f4d\u6708\u7f34\u5b58\u989d(\u5143)", "\u5355\u4f4d\u6708\u7f34\u989d", "\u6708\u7f34\u5b58\u989d(\u5143)\u5355\u4f4d", "\u5e94\u7f34\u5b58\u989d\u589e\u52a0\u5355\u4f4d", "\u5e94\u7f34\u5b58\u989d\u51cf\u5c11\u5355\u4f4d"),
+    "housing_fund_total": ("\u91d1\u989d\u5408\u8ba1\uff08\u5143\uff09", "\u5408\u8ba1\u6708\u7f34\u5b58\u989d(\u5143)", "\u6708\u7f34\u5b58\u989d(\u5143)\u5408\u8ba1", "\u603b\u91d1\u989d", "\u53d1\u751f\u989d", "\u5e94\u7f34\u5b58\u989d\u589e\u52a0\u5408\u8ba1", "\u5e94\u7f34\u5b58\u989d\u51cf\u5c11\u5408\u8ba1"),
 }
 RATE_PATTERNS: dict[str, tuple[str, ...]] = {
     "company_rate": ("\u5355\u4f4d\u7f34\u5b58\u6bd4\u4f8b",),
@@ -70,6 +70,7 @@ def analyze_housing_fund_workbook(
         row_number = candidate.data_start_row
         while row_number <= sheet.max_row:
             row_values = [sheet.cell(row_number, index + 1).value for index in range(len(candidate.headers))]
+            row_values = _align_row_values(candidate.headers, row_values)
             preview = _build_preview_record(
                 headers=candidate.headers,
                 values=row_values,
@@ -117,10 +118,10 @@ def _detect_workbook_candidate(workbook, source_file_name: str) -> _WorkbookCand
     best_score = -1
     for sheet in workbook.worksheets:
         for row_number in range(1, min(sheet.max_row, 12) + 1):
-            primary_headers = [_clean_text(cell.value) for cell in sheet[row_number]]
+            primary_headers = _read_row_texts(sheet, row_number)
             candidate_options: list[tuple[list[str | None], int]] = [(primary_headers, row_number + 1)]
             if row_number < sheet.max_row:
-                secondary_headers = [_clean_text(cell.value) for cell in sheet[row_number + 1]]
+                secondary_headers = _read_row_texts(sheet, row_number + 1)
                 candidate_options.append((_compose_headers(primary_headers, secondary_headers), row_number + 2))
 
             for headers, data_start_row in candidate_options:
@@ -202,7 +203,7 @@ def _build_decision(header: str) -> HeaderMappingDecision:
 
 def _extract_company_name(sheet, header_row: int) -> str | None:
     for row_number in range(1, min(header_row, 6) + 1):
-        values = [_clean_text(cell.value) for cell in sheet[row_number]]
+        values = _read_row_texts(sheet, row_number)
         for index, value in enumerate(values):
             if not value:
                 continue
@@ -291,8 +292,8 @@ def _build_preview_record(
 
 
 def _looks_like_non_detail_record(person_name: str | None, id_number: str | None) -> bool:
-    normalized_name = (person_name or '').replace(' ', '')
-    normalized_id = (id_number or '').strip()
+    normalized_name = str(person_name or '').replace(' ', '')
+    normalized_id = str(id_number or '').strip()
     if any(pattern in normalized_name for pattern in NON_DETAIL_NAME_PATTERNS):
         return True
     if normalized_name and len(normalized_name) > 20 and not normalized_id:
@@ -353,8 +354,8 @@ def _find_first_value(raw_values: dict[str, Any], patterns: tuple[str, ...]) -> 
 
 
 def _header_matches(header: str | None, patterns: tuple[str, ...]) -> bool:
-    normalized = (header or "").replace(" ", "")
-    return any(pattern.replace(" ", "") in normalized for pattern in patterns)
+    normalized = _normalize_header_text(header)
+    return any(_normalize_header_text(pattern) in normalized for pattern in patterns)
 
 
 def _normalize_period(value: Any) -> str | None:
@@ -393,6 +394,77 @@ def _clean_text(value: object) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _read_row_texts(sheet, row_number: int) -> list[str | None]:
+    max_column = getattr(sheet, "max_column", 0) or 0
+    if max_column <= 0:
+        return []
+    return [_clean_text(sheet.cell(row=row_number, column=column_index).value) for column_index in range(1, max_column + 1)]
+
+
+def _normalize_header_text(value: str | None) -> str:
+    return (
+        (value or "")
+        .replace(" ", "")
+        .replace("（", "(")
+        .replace("）", ")")
+        .replace("：", ":")
+        .strip()
+        .lower()
+    )
+
+
+def _align_row_values(headers: list[str], values: list[object]) -> list[object]:
+    if not _looks_like_leading_sequence_shift(headers, values):
+        return values
+    return [*values[1:], None]
+
+
+def _looks_like_leading_sequence_shift(headers: list[str], values: list[object]) -> bool:
+    if len(headers) < 4 or len(values) < 4:
+        return False
+    if not _header_matches(headers[0], HEADER_PATTERNS["housing_fund_account"]):
+        return False
+    if not _header_matches(headers[1], HEADER_PATTERNS["person_name"]):
+        return False
+    if _normalize_header_text(headers[2]) != _normalize_header_text("\u6458\u8981"):
+        return False
+    if not _is_sequence_value(values[0]):
+        return False
+    if not _looks_like_account_value(values[1]):
+        return False
+    if not _looks_like_person_name(values[2]):
+        return False
+    return _looks_like_summary_text(values[3])
+
+
+def _is_sequence_value(value: object) -> bool:
+    if isinstance(value, int):
+        return 0 < value < 100000
+    text = str(value or "").strip()
+    return text.isdigit() and 0 < int(text) < 100000
+
+
+def _looks_like_account_value(value: object) -> bool:
+    text = str(value or "").strip()
+    return text.isdigit() and len(text) >= 6
+
+
+def _looks_like_person_name(value: object) -> bool:
+    text = str(value or "").strip()
+    if not text or text.isdigit():
+        return False
+    return len(text) <= 20
+
+
+def _looks_like_summary_text(value: object) -> bool:
+    text = str(value or "").strip()
+    if not text:
+        return False
+    if text.isdigit():
+        return False
+    return any(token in text for token in ("登记", "汇缴", "补缴", "启封", "销户", "封存"))
 
 
 def _clean_cell_value(value: object) -> Any:

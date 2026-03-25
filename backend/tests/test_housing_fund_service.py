@@ -3,6 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 from io import BytesIO
 from pathlib import Path
+import sqlite3
 
 import pytest
 from openpyxl import Workbook
@@ -11,6 +12,7 @@ from backend.app.core.config import ROOT_DIR
 from backend.app.services.housing_fund_service import standardize_housing_fund_workbook
 
 SAMPLES_DIR = ROOT_DIR / 'data' / 'samples' / '\u516c\u79ef\u91d1'
+APP_DB = ROOT_DIR / 'data' / 'app.db'
 
 
 def find_sample(keyword: str) -> Path:
@@ -18,6 +20,28 @@ def find_sample(keyword: str) -> Path:
         if keyword in path.name:
             return path
     pytest.skip(f'Sample containing {keyword!r} was not found in {SAMPLES_DIR}.')
+
+
+def find_uploaded_sample(filename: str) -> Path:
+    if not APP_DB.exists():
+        pytest.skip(f'Application database was not found at {APP_DB}.')
+
+    connection = sqlite3.connect(APP_DB)
+    try:
+        row = connection.execute(
+            'select file_path from source_files where file_name = ? order by uploaded_at desc limit 1',
+            (filename,),
+        ).fetchone()
+    finally:
+        connection.close()
+
+    if row is None:
+        pytest.skip(f'Uploaded sample {filename!r} was not found in {APP_DB}.')
+
+    sample_path = Path(row[0])
+    if not sample_path.exists():
+        pytest.skip(f'Uploaded sample path no longer exists: {sample_path}.')
+    return sample_path
 
 
 def test_standardize_housing_fund_workbook_shenzhen_derives_company_and_personal_amounts() -> None:
@@ -44,6 +68,30 @@ def test_standardize_housing_fund_workbook_hangzhou_reads_explicit_amounts() -> 
     assert first.values['housing_fund_personal'] == Decimal('175.00')
     assert first.values['housing_fund_company'] == Decimal('175.00')
     assert first.values['housing_fund_total'] == Decimal('350.00')
+
+
+def test_standardize_housing_fund_workbook_uploaded_hangzhou_read_only_sheet_access() -> None:
+    sample = find_uploaded_sample('杭州聚变202512公积金台账.xlsx')
+    result = standardize_housing_fund_workbook(sample, region='hangzhou', company_name='杭州聚变')
+
+    assert result.records
+    match = next(record for record in result.records if record.values.get('person_name') == '王卓')
+    assert str(match.values['housing_fund_account']) == '100202102900'
+    assert match.values['housing_fund_personal'] == Decimal('175.00')
+    assert match.values['housing_fund_company'] == Decimal('175.00')
+
+
+def test_standardize_housing_fund_workbook_uploaded_wuhan_sequence_column_shift() -> None:
+    sample = find_uploaded_sample('武汉202512公积金台账.xlsx')
+    result = standardize_housing_fund_workbook(sample, region='wuhan', company_name='武汉')
+
+    assert len(result.records) == 3
+    match = next(record for record in result.records if record.values.get('person_name') == '崔亚鑫')
+    assert str(match.values['housing_fund_account']) == '847209617'
+    assert match.values['housing_fund_base'] == Decimal('2210')
+    assert match.values['housing_fund_personal'] == Decimal('110.5')
+    assert match.values['housing_fund_company'] == Decimal('110.5')
+    assert match.values['housing_fund_total'] == Decimal('221')
 
 
 def test_standardize_housing_fund_workbook_guangzhou_reads_account_and_company_name() -> None:

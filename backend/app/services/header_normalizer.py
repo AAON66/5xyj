@@ -35,6 +35,21 @@ EXPLICIT_SKIP_SIGNATURE_KEYWORDS = (
     '公务员补助应缴费额',
     '离休人员医疗保障',
 )
+EXPLICIT_SKIP_SIGNATURE_KEYWORDS = EXPLICIT_SKIP_SIGNATURE_KEYWORDS + (
+    '\u5e8f\u53f7',
+    '\u5206\u7ec4',
+    '\u4eba\u5458\u7f16\u53f7',
+    '\u5f81\u6536\u9879\u76ee',
+    '\u5f81\u6536\u54c1\u76ee',
+    '\u5f81\u6536\u5b50\u76ee',
+    '\u7533\u62a5\u65e5\u671f',
+    '\u6570\u636e\u6765\u6e90',
+    '\u7f34\u8d39\u7c7b\u578b',
+    '\u4e3b\u7ba1\u7a0e\u52a1\u673a\u5173',
+    '\u793e\u4fdd\u7ecf\u529e\u673a\u6784',
+    '\u5355\u4f4d\u7f16\u53f7',
+    '\u793e\u4fdd\u6d41\u6c34\u53f7',
+)
 
 
 @dataclass(slots=True)
