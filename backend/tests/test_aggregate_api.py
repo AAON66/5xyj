@@ -4,48 +4,27 @@ import json
 import shutil
 from pathlib import Path
 
-import pytest
 from fastapi.testclient import TestClient
 from openpyxl import load_workbook
 from sqlalchemy.orm import Session
 
-from backend.app.core.config import ROOT_DIR, Settings, get_settings
+from backend.app.core.config import ROOT_DIR, Settings
 from backend.app.core.database import create_database_engine, create_session_factory
 from backend.app.dependencies import get_db
 from backend.app.main import create_app
 from backend.app.models import Base, EmployeeMasterAudit
 from backend.app.models.enums import EmployeeAuditAction
 from backend.app.services import infer_region_from_filename, standardize_housing_fund_workbook, standardize_workbook
+from backend.tests.support.export_fixtures import (
+    create_placeholder_template_pair,
+    require_sample_workbook,
+    resolve_required_export_templates,
+)
 
 ARTIFACTS_ROOT = ROOT_DIR / '.test_artifacts' / 'aggregate_api'
-SAMPLES_DIR = ROOT_DIR / 'data' / 'samples'
-HOUSING_SAMPLES_DIR = ROOT_DIR / 'data' / 'samples' / '\u516c\u79ef\u91d1'
-DESKTOP_ROOT = Path.home() / 'Desktop' / '\u0032\u0030\u0032\u0036\u0030\u0032\u793e\u4fdd\u516c\u79ef\u91d1\u53f0\u8d26' / '\u0032\u0030\u0032\u0036\u0030\u0032\u793e\u4fdd\u516c\u79ef\u91d1\u6c47\u603b'
-
 SAMPLE_KEYWORD = '\u6df1\u5733\u521b\u9020\u6b22\u4e50'
 COMPANY_NAME = '\u521b\u9020\u6b22\u4e50'
 APP_NAME = '\u5feb\u901f\u805a\u5408\u6d4b\u8bd5'
-
-
-def find_sample(keyword: str, *, housing: bool = False) -> Path:
-    sample_root = HOUSING_SAMPLES_DIR if housing else SAMPLES_DIR
-    for path in sorted(sample_root.glob('*.xlsx')):
-        if keyword in path.name:
-            return path
-    pytest.skip(f'Sample containing {keyword!r} was not found in {sample_root}.')
-
-
-def find_template(keyword: str) -> Path:
-    settings = get_settings()
-    configured = [settings.salary_template_file, settings.final_tool_template_file]
-    for path in configured:
-        if path is not None and path.exists() and keyword in path.name:
-            return path
-    if DESKTOP_ROOT.exists():
-        for path in sorted(DESKTOP_ROOT.glob('*.xlsx')):
-            if keyword in path.name:
-                return path
-    pytest.skip(f'Template containing {keyword!r} was not found in configured paths or {DESKTOP_ROOT}.')
 
 
 def build_test_context(
@@ -115,13 +94,14 @@ def make_employee_master_csv_for_merged_files(social_sample: Path, housing_sampl
                 f"E9001,{social_record.values['person_name']},{id_number},{COMPANY_NAME},\u8fd0\u8425,\u662f\n"
             ).encode('utf-8-sig')
             return csv, str(id_number)
-    pytest.skip('Could not find a common employee between the Shenzhen social and housing fund samples.')
+    raise AssertionError('Expected a common employee between the Shenzhen social and housing fund samples.')
 
 
 def test_aggregate_endpoint_exports_both_templates_without_employee_master() -> None:
-    salary_template = find_template('\u85aa\u916c')
-    tool_template = find_template('\u6700\u7ec8\u7248')
-    sample_path = find_sample(SAMPLE_KEYWORD)
+    templates = resolve_required_export_templates()
+    sample_path = require_sample_workbook(SAMPLE_KEYWORD)
+    salary_template = templates.salary
+    tool_template = templates.final_tool
     client, _settings, _session_factory = build_test_context(
         'aggregate_without_master',
         salary_template=salary_template,
@@ -166,11 +146,11 @@ def test_aggregate_endpoint_exports_both_templates_without_employee_master() -> 
 
 
 def test_aggregate_endpoint_rejects_oversized_upload() -> None:
-    placeholder_template = ROOT_DIR / 'data' / 'templates' / 'placeholder.xlsx'
+    placeholder_templates = create_placeholder_template_pair(ARTIFACTS_ROOT / 'oversized_upload_fixtures' / 'templates')
     client, settings, _session_factory = build_test_context(
         'aggregate_oversized_upload',
-        salary_template=placeholder_template,
-        final_tool_template=placeholder_template,
+        salary_template=placeholder_templates.salary,
+        final_tool_template=placeholder_templates.final_tool,
         max_upload_size_mb=1,
     )
     oversized_body = b'z' * ((1024 * 1024) + 128)
@@ -203,9 +183,10 @@ def test_aggregate_endpoint_rejects_oversized_upload() -> None:
     assert list(settings.upload_path.iterdir()) == []
 
 def test_aggregate_endpoint_detects_region_from_workbook_when_filename_is_generic() -> None:
-    salary_template = find_template('\u85aa\u916c')
-    tool_template = find_template('\u6700\u7ec8\u7248')
-    sample_path = find_sample(SAMPLE_KEYWORD)
+    templates = resolve_required_export_templates()
+    sample_path = require_sample_workbook(SAMPLE_KEYWORD)
+    salary_template = templates.salary
+    tool_template = templates.final_tool
     client, _settings, _session_factory = build_test_context(
         'aggregate_region_from_workbook',
         salary_template=salary_template,
@@ -235,9 +216,10 @@ def test_aggregate_endpoint_detects_region_from_workbook_when_filename_is_generi
 
 
 def test_aggregate_endpoint_imports_employee_master_and_matches_records() -> None:
-    salary_template = find_template('\u85aa\u916c')
-    tool_template = find_template('\u6700\u7ec8\u7248')
-    sample_path = find_sample(SAMPLE_KEYWORD)
+    templates = resolve_required_export_templates()
+    sample_path = require_sample_workbook(SAMPLE_KEYWORD)
+    salary_template = templates.salary
+    tool_template = templates.final_tool
     employee_csv = make_employee_master_csv(sample_path)
     client, _settings, _session_factory = build_test_context(
         'aggregate_with_master',
@@ -294,9 +276,10 @@ def test_aggregate_endpoint_imports_employee_master_and_matches_records() -> Non
 
 
 def test_aggregate_endpoint_can_use_existing_employee_master_without_reupload() -> None:
-    salary_template = find_template('\u85aa\u916c')
-    tool_template = find_template('\u6700\u7ec8\u7248')
-    sample_path = find_sample(SAMPLE_KEYWORD)
+    templates = resolve_required_export_templates()
+    sample_path = require_sample_workbook(SAMPLE_KEYWORD)
+    salary_template = templates.salary
+    tool_template = templates.final_tool
     employee_csv = make_employee_master_csv(sample_path)
     client, _settings, _session_factory = build_test_context(
         'aggregate_with_existing_master',
@@ -334,9 +317,10 @@ def test_aggregate_endpoint_can_use_existing_employee_master_without_reupload() 
 
 
 def test_aggregate_endpoint_can_match_from_historical_employee_audit_snapshot() -> None:
-    salary_template = find_template('\u85aa\u916c')
-    tool_template = find_template('\u6700\u7ec8\u7248')
-    sample_path = find_sample(SAMPLE_KEYWORD)
+    templates = resolve_required_export_templates()
+    sample_path = require_sample_workbook(SAMPLE_KEYWORD)
+    salary_template = templates.salary
+    tool_template = templates.final_tool
     standardized = standardize_workbook(sample_path, region='shenzhen', company_name=COMPANY_NAME)
     first = standardized.records[0]
     client, _settings, session_factory = build_test_context(
@@ -393,9 +377,10 @@ def test_aggregate_endpoint_can_match_from_historical_employee_audit_snapshot() 
 
 
 def test_aggregate_endpoint_can_skip_existing_employee_master_explicitly() -> None:
-    salary_template = find_template('\u85aa\u916c')
-    tool_template = find_template('\u6700\u7ec8\u7248')
-    sample_path = find_sample(SAMPLE_KEYWORD)
+    templates = resolve_required_export_templates()
+    sample_path = require_sample_workbook(SAMPLE_KEYWORD)
+    salary_template = templates.salary
+    tool_template = templates.final_tool
     employee_csv = make_employee_master_csv(sample_path)
     client, _settings, _session_factory = build_test_context(
         'aggregate_skip_existing_master',
@@ -434,9 +419,10 @@ def test_aggregate_endpoint_can_skip_existing_employee_master_explicitly() -> No
 
 
 def test_aggregate_download_endpoint_returns_generated_artifacts() -> None:
-    salary_template = find_template('\u85aa\u916c')
-    tool_template = find_template('\u6700\u7ec8\u7248')
-    sample_path = find_sample(SAMPLE_KEYWORD)
+    templates = resolve_required_export_templates()
+    sample_path = require_sample_workbook(SAMPLE_KEYWORD)
+    salary_template = templates.salary
+    tool_template = templates.final_tool
     client, _settings, _session_factory = build_test_context(
         'aggregate_downloads',
         salary_template=salary_template,
@@ -476,10 +462,11 @@ def test_aggregate_download_endpoint_returns_generated_artifacts() -> None:
 
 
 def test_aggregate_endpoint_merges_housing_fund_into_dual_exports() -> None:
-    salary_template = find_template('\u85aa\u916c')
-    tool_template = find_template('\u6700\u7ec8\u7248')
-    social_sample = find_sample(SAMPLE_KEYWORD)
-    housing_sample = find_sample(SAMPLE_KEYWORD, housing=True)
+    templates = resolve_required_export_templates()
+    salary_template = templates.salary
+    tool_template = templates.final_tool
+    social_sample = require_sample_workbook(SAMPLE_KEYWORD)
+    housing_sample = require_sample_workbook(SAMPLE_KEYWORD, housing=True)
     employee_csv, matched_id_number = make_employee_master_csv_for_merged_files(social_sample, housing_sample)
     client, _settings, _session_factory = build_test_context(
         'aggregate_with_housing_fund',
@@ -538,9 +525,10 @@ def test_aggregate_endpoint_merges_housing_fund_into_dual_exports() -> None:
 
 
 def test_aggregate_stream_endpoint_emits_progress_events() -> None:
-    salary_template = find_template('\u85aa\u916c')
-    tool_template = find_template('\u6700\u7ec8\u7248')
-    sample_path = find_sample(SAMPLE_KEYWORD)
+    templates = resolve_required_export_templates()
+    sample_path = require_sample_workbook(SAMPLE_KEYWORD)
+    salary_template = templates.salary
+    tool_template = templates.final_tool
     client, _settings, _session_factory = build_test_context(
         'aggregate_stream',
         salary_template=salary_template,
@@ -592,9 +580,10 @@ def test_infer_region_from_filename_prefers_explicit_shenzhen_label() -> None:
 
 
 def test_aggregate_stream_endpoint_reports_intermediate_upload_and_parse_progress() -> None:
-    salary_template = find_template('薪酬')
-    tool_template = find_template('最终版')
-    sample_path = find_sample(SAMPLE_KEYWORD)
+    templates = resolve_required_export_templates()
+    sample_path = require_sample_workbook(SAMPLE_KEYWORD)
+    salary_template = templates.salary
+    tool_template = templates.final_tool
     client, _settings, _session_factory = build_test_context(
         'aggregate_stream_granular_progress',
         salary_template=salary_template,
@@ -642,9 +631,10 @@ def test_aggregate_stream_endpoint_reports_intermediate_upload_and_parse_progres
 
 
 def test_aggregate_stream_endpoint_reports_region_detection_for_generic_filename() -> None:
-    salary_template = find_template('\u85aa\u916c')
-    tool_template = find_template('\u6700\u7ec8\u7248')
-    sample_path = find_sample(SAMPLE_KEYWORD)
+    templates = resolve_required_export_templates()
+    sample_path = require_sample_workbook(SAMPLE_KEYWORD)
+    salary_template = templates.salary
+    tool_template = templates.final_tool
     client, _settings, _session_factory = build_test_context(
         'aggregate_stream_region_detection_progress',
         salary_template=salary_template,

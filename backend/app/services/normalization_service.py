@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date, datetime
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -54,6 +55,39 @@ CHANGSHA_TRANSACTION_ITEM_FIELD_MAP = {
     "工伤保险": "injury_company",
     "生育保险(单位缴纳)": "maternity_amount",
     "职工大额医疗互助保险(个人缴纳)": "large_medical_personal",
+}
+WUHAN_TRANSACTION_FILL_DOWN_HEADERS = {
+    "\u59d3\u540d",
+    "\u8bc1\u4ef6\u53f7\u7801",
+    "\u8d39\u6b3e\u6240\u5c5e\u671f",
+    "\u6570\u636e\u6765\u6e90",
+    "\u7f34\u8d39\u7c7b\u578b",
+    "\u4e3b\u7ba1\u7a0e\u52a1\u673a\u5173",
+    "\u793e\u4fdd\u7ecf\u529e\u673a\u6784",
+}
+WUHAN_TRANSACTION_COMMON_FIELDS = (
+    "person_name",
+    "id_type",
+    "id_number",
+    "employee_id",
+    "social_security_number",
+    "company_name",
+    "region",
+    "billing_period",
+    "period_start",
+    "period_end",
+    "payment_base",
+    "payment_salary",
+    "raw_sheet_name",
+    "raw_header_signature",
+    "source_file_name",
+)
+WUHAN_TRANSACTION_ITEM_FIELD_MAP = {
+    "\u4f01\u4e1a\u804c\u5de5\u57fa\u672c\u517b\u8001\u4fdd\u9669": ("pension_company", "pension_personal"),
+    "\u5931\u4e1a\u4fdd\u9669": ("unemployment_company", "unemployment_personal"),
+    "\u5de5\u4f24\u4fdd\u9669": ("injury_company", None),
+    "\u4f01\u4e1a\u804c\u5de5\u57fa\u672c\u533b\u7597\u4fdd\u9669": ("medical_company", "medical_personal"),
+    "\u804c\u5de5\u5927\u989d\u533b\u7597\u4e92\u52a9\u4fdd\u9669": (None, "large_medical_personal"),
 }
 MERGE_VALUE_FIELDS = (
     "person_name",
@@ -421,6 +455,8 @@ def _standardize_rows(
 
     records: list[NormalizedPreviewRecord] = []
     filtered_rows: list[RowFilterDecision] = []
+    wuhan_transactional = _is_wuhan_transactional_extraction(extraction, region=region)
+    carry_forward_values: dict[str, Any] = {}
     row_number = extraction.data_start_row
     for row in rows:
         selected_values = [row[column.column_index - 1] for column in extraction.columns]
@@ -429,6 +465,13 @@ def _standardize_rows(
             filtered_rows.append(filter_decision)
             row_number += 1
             continue
+
+        if wuhan_transactional:
+            selected_values = _fill_down_wuhan_transactional_values(
+                selected_values,
+                columns=extraction.columns,
+                carry_forward_values=carry_forward_values,
+            )
 
         records.append(
             _build_preview_record(
@@ -442,6 +485,9 @@ def _standardize_rows(
             )
         )
         row_number += 1
+
+    if wuhan_transactional:
+        records = _collapse_wuhan_transactional_records(records)
 
     return StandardizationResult(
         source_file=source_file_name or workbook_path.name,
@@ -539,6 +585,168 @@ def _apply_region_specific_row_mappings(
         _apply_changsha_transaction_item_mapping(values, raw_values, field_conflicts)
 
 
+def _is_wuhan_transactional_extraction(extraction: HeaderExtraction, *, region: Optional[str]) -> bool:
+    if region != "wuhan":
+        return False
+
+    normalized_signatures = {
+        _normalize_business_text(column.signature)
+        for column in extraction.columns
+    }
+    return (
+        "\u9669\u79cd" in normalized_signatures
+        and "\u5355\u4f4d\u90e8\u5206/\u5e94\u7f34\u8d39\u989d(\u5143)" in normalized_signatures
+        and "\u4e2a\u4eba\u90e8\u5206/\u5e94\u7f34\u8d39\u989d(\u5143)" in normalized_signatures
+    )
+
+
+def _fill_down_wuhan_transactional_values(
+    selected_values: list[object],
+    *,
+    columns: list[Any],
+    carry_forward_values: dict[str, Any],
+) -> list[object]:
+    filled_values = list(selected_values)
+    for index, (column, raw_value) in enumerate(zip(columns, selected_values, strict=True)):
+        normalized_signature = _normalize_business_text(column.signature)
+        if normalized_signature not in WUHAN_TRANSACTION_FILL_DOWN_HEADERS:
+            continue
+
+        cleaned_value = _clean_cell_value(raw_value)
+        if cleaned_value is None:
+            fallback_value = carry_forward_values.get(normalized_signature)
+            if fallback_value is not None:
+                filled_values[index] = fallback_value
+            continue
+
+        carry_forward_values[normalized_signature] = cleaned_value
+    return filled_values
+
+
+def _collapse_wuhan_transactional_records(records: list[NormalizedPreviewRecord]) -> list[NormalizedPreviewRecord]:
+    merged_records: dict[tuple[str, ...], dict[str, Any]] = {}
+    ordered_keys: list[tuple[str, ...]] = []
+
+    for record in records:
+        key = _build_wuhan_transactional_merge_key(record)
+        if key is None:
+            key = ("row", str(record.source_row_number))
+        if key not in merged_records:
+            ordered_keys.append(key)
+            merged_records[key] = {
+                "source_row_number": record.source_row_number,
+                "values": {},
+                "raw_values": dict(record.raw_values),
+                "unmapped_values": dict(record.unmapped_values),
+                "raw_payload": {
+                    "merge_strategy": "wuhan_transactional_by_insurance_item",
+                    "merged_sources": [],
+                },
+            }
+
+        aggregate = merged_records[key]
+        _merge_wuhan_common_values(aggregate["values"], record.values)
+        _merge_wuhan_unmapped_values(aggregate["unmapped_values"], record.unmapped_values)
+        _append_wuhan_merged_source(aggregate["raw_payload"], record)
+        _accumulate_wuhan_transactional_amounts(aggregate["values"], record)
+
+    return [
+        NormalizedPreviewRecord(
+            source_row_number=merged_records[key]["source_row_number"],
+            values=merged_records[key]["values"],
+            unmapped_values=merged_records[key]["unmapped_values"],
+            raw_values=merged_records[key]["raw_values"],
+            raw_payload=merged_records[key]["raw_payload"],
+        )
+        for key in ordered_keys
+    ]
+
+
+def _build_wuhan_transactional_merge_key(record: NormalizedPreviewRecord) -> tuple[str, ...] | None:
+    id_number = _normalize_identity_value(record.values.get("id_number"))
+    person_name = _normalize_identity_value(record.values.get("person_name"))
+    billing_period = _normalize_identity_value(record.values.get("billing_period"))
+
+    if id_number and billing_period:
+        return ("id_period", id_number, billing_period)
+    if person_name and billing_period:
+        return ("name_period", person_name, billing_period)
+    if id_number:
+        return ("id", id_number)
+    if person_name:
+        return ("name", person_name)
+    return None
+
+
+def _merge_wuhan_common_values(target: dict[str, Any], source: dict[str, Any]) -> None:
+    for field_name in WUHAN_TRANSACTION_COMMON_FIELDS:
+        value = source.get(field_name)
+        if value is None:
+            continue
+
+        if field_name in {"payment_base", "payment_salary"}:
+            existing = _to_decimal(target.get(field_name))
+            candidate = _to_decimal(value)
+            if candidate is None:
+                continue
+            if existing is None or candidate > existing:
+                target[field_name] = candidate
+            continue
+
+        if target.get(field_name) is None:
+            target[field_name] = value
+
+
+def _merge_wuhan_unmapped_values(target: dict[str, Any], source: dict[str, Any]) -> None:
+    for key, value in source.items():
+        if key not in target and value is not None:
+            target[key] = value
+
+
+def _append_wuhan_merged_source(raw_payload: dict[str, Any], record: NormalizedPreviewRecord) -> None:
+    merged_sources = raw_payload.setdefault("merged_sources", [])
+    merged_sources.append(
+        {
+            "source_row_number": record.source_row_number,
+            "raw_values": {key: _json_safe(value) for key, value in record.raw_values.items()},
+            "unmapped_values": {key: _json_safe(value) for key, value in record.unmapped_values.items()},
+        }
+    )
+
+
+def _accumulate_wuhan_transactional_amounts(target: dict[str, Any], record: NormalizedPreviewRecord) -> None:
+    total_amount = _to_decimal(record.values.get("total_amount"))
+    company_amount = _to_decimal(
+        _find_raw_value_by_header(record.raw_values, "\u5355\u4f4d\u90e8\u5206 / \u5e94\u7f34\u8d39\u989d(\u5143)")
+    )
+    personal_amount = _to_decimal(
+        _find_raw_value_by_header(record.raw_values, "\u4e2a\u4eba\u90e8\u5206 / \u5e94\u7f34\u8d39\u989d(\u5143)")
+    )
+
+    _sum_decimal_field(target, "total_amount", total_amount)
+    _sum_decimal_field(target, "company_total_amount", company_amount)
+    _sum_decimal_field(target, "personal_total_amount", personal_amount)
+
+    item_name = _normalize_business_text(_find_raw_value_by_header(record.raw_values, "\u9669\u79cd"))
+    field_mapping = WUHAN_TRANSACTION_ITEM_FIELD_MAP.get(item_name)
+    if field_mapping is None:
+        return
+
+    company_field, personal_field = field_mapping
+    if company_field is not None and company_amount is not None:
+        target[company_field] = company_amount
+    if personal_field is not None and personal_amount is not None:
+        target[personal_field] = personal_amount
+
+
+def _sum_decimal_field(values: dict[str, Any], field_name: str, amount: Optional[Decimal]) -> None:
+    if amount is None:
+        return
+
+    existing = _to_decimal(values.get(field_name))
+    values[field_name] = (existing or Decimal("0")) + amount
+
+
 def _apply_changsha_transaction_item_mapping(
     values: dict[str, Any],
     raw_values: dict[str, Any],
@@ -591,6 +799,14 @@ def _coerce_canonical_value(field_name: str, value: Any) -> Any:
         return None
     if field_name in AMOUNT_FIELDS:
         return _to_decimal(value)
+    if isinstance(value, datetime):
+        if field_name == "billing_period":
+            return value.strftime("%Y-%m")
+        return value.date().isoformat()
+    if isinstance(value, date):
+        if field_name == "billing_period":
+            return value.strftime("%Y-%m")
+        return value.isoformat()
     if isinstance(value, str):
         stripped = value.strip()
         return stripped or None
@@ -640,4 +856,8 @@ def _to_decimal(value: Any) -> Optional[Decimal]:
 def _json_safe(value: Any) -> Any:
     if isinstance(value, Decimal):
         return format(value, "f")
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, date):
+        return value.isoformat()
     return value

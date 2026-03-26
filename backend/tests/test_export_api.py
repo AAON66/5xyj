@@ -7,46 +7,29 @@ import re
 import shutil
 from pathlib import Path
 
-import pytest
 from fastapi.testclient import TestClient
+from openpyxl import load_workbook
 from sqlalchemy.orm import Session
 
-from backend.app.core.config import ROOT_DIR, Settings, get_settings
+from backend.app.core.config import ROOT_DIR, Settings
 from backend.app.core.database import create_database_engine, create_session_factory
 from backend.app.dependencies import get_db
 from backend.app.main import create_app
 from backend.app.models import Base
 from backend.app.models.employee_master import EmployeeMaster
 from backend.app.services import standardize_workbook
+from backend.tests.support.export_fixtures import (
+    create_placeholder_template_pair,
+    require_sample_workbook,
+    resolve_required_export_templates,
+)
 
 
 ARTIFACTS_ROOT = ROOT_DIR / '.test_artifacts' / 'export_api'
-SAMPLES_DIR = ROOT_DIR / 'data' / 'samples'
-DESKTOP_ROOT = Path.home() / 'Desktop' / '202602???????' / '202602???????'
 
 SAMPLE_KEYWORD = '\u6df1\u5733\u521b\u9020\u6b22\u4e50'
 COMPANY_NAME = '\u521b\u9020\u6b22\u4e50'
 APP_NAME = '\u5bfc\u51fa\u6d4b\u8bd5'
-
-
-def find_sample(keyword: str) -> Path:
-    for path in sorted(SAMPLES_DIR.glob('*.xlsx')):
-        if keyword in path.name:
-            return path
-    pytest.skip(f'Sample containing {keyword!r} was not found in {SAMPLES_DIR}.')
-
-
-def find_template(keyword: str) -> Path:
-    settings = get_settings()
-    configured = [settings.salary_template_file, settings.final_tool_template_file]
-    for path in configured:
-        if path is not None and path.exists() and keyword in path.name:
-            return path
-    if DESKTOP_ROOT.exists():
-        for path in sorted(DESKTOP_ROOT.glob('*.xlsx')):
-            if keyword in path.name:
-                return path
-    pytest.skip(f'Template containing {keyword!r} was not found in configured paths or {DESKTOP_ROOT}.')
 
 
 def build_test_context(test_name: str, *, salary_template: Optional[Path], final_tool_template: Optional[Path]):
@@ -124,13 +107,12 @@ def seed_employee_for_first_record(session_factory, sample_path: Path) -> None:
 
 
 def test_export_batch_endpoint_writes_both_template_outputs() -> None:
-    salary_template = find_template('\u85aa\u916c')
-    tool_template = find_template('\u6700\u7ec8\u7248')
-    sample_path = find_sample(SAMPLE_KEYWORD)
+    templates = resolve_required_export_templates()
+    sample_path = require_sample_workbook(SAMPLE_KEYWORD)
     client, _settings, session_factory = build_test_context(
         'export_success',
-        salary_template=salary_template,
-        final_tool_template=tool_template,
+        salary_template=templates.salary,
+        final_tool_template=templates.final_tool,
     )
     seed_employee_for_first_record(session_factory, sample_path)
 
@@ -161,13 +143,12 @@ def test_export_batch_endpoint_writes_both_template_outputs() -> None:
 
 
 def test_export_batch_endpoint_uses_timestamp_filename_when_batch_name_is_implicit() -> None:
-    salary_template = find_template('\u85aa\u916c')
-    tool_template = find_template('\u6700\u7ec8\u7248')
-    sample_path = find_sample(SAMPLE_KEYWORD)
+    templates = resolve_required_export_templates()
+    sample_path = require_sample_workbook(SAMPLE_KEYWORD)
     client, _settings, session_factory = build_test_context(
         'export_timestamp_name',
-        salary_template=salary_template,
-        final_tool_template=tool_template,
+        salary_template=templates.salary,
+        final_tool_template=templates.final_tool,
     )
     seed_employee_for_first_record(session_factory, sample_path)
 
@@ -191,13 +172,12 @@ def test_export_batch_endpoint_uses_timestamp_filename_when_batch_name_is_implic
 
 
 def test_export_batch_endpoint_sanitizes_and_truncates_batch_name_for_export_files() -> None:
-    salary_template = find_template('\u85aa\u916c')
-    tool_template = find_template('\u6700\u7ec8\u7248')
-    sample_path = find_sample(SAMPLE_KEYWORD)
+    templates = resolve_required_export_templates()
+    sample_path = require_sample_workbook(SAMPLE_KEYWORD)
     client, _settings, session_factory = build_test_context(
         'export_sanitized_name',
-        salary_template=salary_template,
-        final_tool_template=tool_template,
+        salary_template=templates.salary,
+        final_tool_template=templates.final_tool,
     )
     seed_employee_for_first_record(session_factory, sample_path)
 
@@ -224,13 +204,12 @@ def test_export_batch_endpoint_sanitizes_and_truncates_batch_name_for_export_fil
 
 
 def test_export_batch_endpoint_falls_back_to_timestamp_when_sanitized_batch_name_is_empty() -> None:
-    salary_template = find_template('\u85aa\u916c')
-    tool_template = find_template('\u6700\u7ec8\u7248')
-    sample_path = find_sample(SAMPLE_KEYWORD)
+    templates = resolve_required_export_templates()
+    sample_path = require_sample_workbook(SAMPLE_KEYWORD)
     client, _settings, session_factory = build_test_context(
         'export_empty_after_sanitize',
-        salary_template=salary_template,
-        final_tool_template=tool_template,
+        salary_template=templates.salary,
+        final_tool_template=templates.final_tool,
     )
     seed_employee_for_first_record(session_factory, sample_path)
 
@@ -248,21 +227,21 @@ def test_export_batch_endpoint_falls_back_to_timestamp_when_sanitized_batch_name
     assert re.fullmatch(r'\d{8}-\d{6}_final_tool\.xlsx', tool_name)
 
 
-def test_export_batch_endpoint_falls_back_to_discovered_templates_when_configured_paths_are_missing() -> None:
-    salary_template = find_template('\u85aa\u916c')
-    tool_template = find_template('\u6700\u7ec8\u7248')
-    sample_path = find_sample(SAMPLE_KEYWORD)
+def test_export_batch_endpoint_discovers_templates_from_templates_dir_when_config_is_omitted() -> None:
+    templates = resolve_required_export_templates()
+    sample_path = require_sample_workbook(SAMPLE_KEYWORD)
     client, settings, session_factory = build_test_context(
         'export_template_discovery_fallback',
-        salary_template=ARTIFACTS_ROOT / 'missing-salary.xlsx',
-        final_tool_template=ARTIFACTS_ROOT / 'missing-tool.xlsx',
+        salary_template=None,
+        final_tool_template=None,
     )
     seed_employee_for_first_record(session_factory, sample_path)
 
     discovered_dir = settings.templates_path / 'nested'
     discovered_dir.mkdir(parents=True, exist_ok=True)
-    shutil.copy2(salary_template, discovered_dir / salary_template.name)
-    shutil.copy2(tool_template, discovered_dir / tool_template.name)
+    shutil.copy2(templates.salary, discovered_dir / templates.salary.name)
+    shutil.copy2(templates.final_tool, discovered_dir / templates.final_tool.name)
+    shutil.copy2(templates.manifest, discovered_dir / templates.manifest.name)
 
     with client:
         batch_id = create_batch(client, sample_path, batch_name='export-template-discovery-fallback')
@@ -277,14 +256,60 @@ def test_export_batch_endpoint_falls_back_to_discovered_templates_when_configure
     assert all(Path(item['file_path']).exists() for item in payload['artifacts'])
 
 
+def test_export_batch_endpoint_prefers_valid_explicit_template_paths() -> None:
+    sample_path = require_sample_workbook(SAMPLE_KEYWORD)
+    explicit_templates = create_placeholder_template_pair(ARTIFACTS_ROOT / 'explicit_template_override')
+
+    salary_workbook = load_workbook(explicit_templates.salary)
+    salary_sheet = salary_workbook[salary_workbook.sheetnames[0]]
+    salary_sheet['A1'] = 'EXPLICIT SALARY TEMPLATE'
+    salary_workbook.save(explicit_templates.salary)
+    salary_workbook.close()
+
+    tool_workbook = load_workbook(explicit_templates.final_tool)
+    tool_sheet = tool_workbook[tool_workbook.sheetnames[0]]
+    tool_sheet['A6'] = 'EXPLICIT TOOL TEMPLATE'
+    tool_workbook.save(explicit_templates.final_tool)
+    tool_workbook.close()
+
+    client, _settings, session_factory = build_test_context(
+        'export_explicit_template_override',
+        salary_template=explicit_templates.salary,
+        final_tool_template=explicit_templates.final_tool,
+    )
+    seed_employee_for_first_record(session_factory, sample_path)
+
+    with client:
+        batch_id = create_batch(client, sample_path, batch_name='export-explicit-template-override')
+        match_response = client.post(f'/api/v1/imports/{batch_id}/match')
+        export_response = client.post(f'/api/v1/imports/{batch_id}/export')
+
+    assert match_response.status_code == 200
+    assert export_response.status_code == 200
+    payload = export_response.json()['data']
+    salary_artifact = next(item for item in payload['artifacts'] if item['template_type'] == 'salary')
+    tool_artifact = next(item for item in payload['artifacts'] if item['template_type'] == 'final_tool')
+    assert salary_artifact['status'] == 'completed'
+    assert tool_artifact['status'] == 'completed'
+
+    salary_output = load_workbook(salary_artifact['file_path'], data_only=False)
+    salary_output_sheet = salary_output[salary_output.sheetnames[0]]
+    assert salary_output_sheet['A1'].value == 'EXPLICIT SALARY TEMPLATE'
+    salary_output.close()
+
+    tool_output = load_workbook(tool_artifact['file_path'], data_only=False)
+    tool_output_sheet = tool_output[tool_output.sheetnames[0]]
+    assert tool_output_sheet['A6'].value == 'EXPLICIT TOOL TEMPLATE'
+    tool_output.close()
+
 
 def test_export_batch_endpoint_fails_when_any_template_is_missing() -> None:
-    salary_template = find_template('\u85aa\u916c')
-    sample_path = find_sample(SAMPLE_KEYWORD)
+    templates = resolve_required_export_templates()
+    sample_path = require_sample_workbook(SAMPLE_KEYWORD)
     missing_tool = ARTIFACTS_ROOT / 'missing-template.xlsx'
     client, _settings, session_factory = build_test_context(
         'export_failed',
-        salary_template=salary_template,
+        salary_template=templates.salary,
         final_tool_template=missing_tool,
     )
     seed_employee_for_first_record(session_factory, sample_path)
@@ -312,15 +337,13 @@ def test_export_batch_endpoint_fails_when_any_template_is_missing() -> None:
     assert detail_response.json()['data']['status'] == 'failed'
 
 
-
 def test_export_batch_endpoint_blocks_when_matching_has_not_run() -> None:
-    salary_template = find_template('\u85aa\u916c')
-    tool_template = find_template('\u6700\u7ec8\u7248')
-    sample_path = find_sample(SAMPLE_KEYWORD)
+    templates = resolve_required_export_templates()
+    sample_path = require_sample_workbook(SAMPLE_KEYWORD)
     client, _settings, _session_factory = build_test_context(
         'export_blocked',
-        salary_template=salary_template,
-        final_tool_template=tool_template,
+        salary_template=templates.salary,
+        final_tool_template=templates.final_tool,
     )
 
     with client:
@@ -334,3 +357,4 @@ def test_export_batch_endpoint_blocks_when_matching_has_not_run() -> None:
     assert get_response.status_code == 200
     assert get_response.json()['data']['export_job_id'] is None
     assert get_response.json()['data']['blocked_reason']
+

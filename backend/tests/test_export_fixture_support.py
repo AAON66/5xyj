@@ -7,8 +7,19 @@ import pytest
 from _pytest.outcomes import Failed
 from openpyxl import load_workbook
 
-from backend.app.core.config import Settings
+from backend.app.core.config import Settings, ROOT_DIR
 from backend.tests.support import export_fixtures
+
+
+ARTIFACTS_ROOT = ROOT_DIR / '.test_artifacts' / 'export_fixture_support'
+
+
+def _prepare_artifact_dir(name: str) -> Path:
+    target = ARTIFACTS_ROOT / name
+    if target.exists():
+        shutil.rmtree(target)
+    target.mkdir(parents=True, exist_ok=True)
+    return target
 
 
 def test_resolve_required_export_templates_uses_repo_manifest_defaults() -> None:
@@ -19,10 +30,11 @@ def test_resolve_required_export_templates_uses_repo_manifest_defaults() -> None
     assert templates.final_tool == export_fixtures.REGRESSION_TEMPLATE_DIR / 'final-tool-template.xlsx'
 
 
-def test_resolve_required_export_templates_prefers_valid_explicit_paths(tmp_path: Path) -> None:
-    defaults = export_fixtures.create_placeholder_template_pair(tmp_path / 'defaults')
-    explicit = export_fixtures.create_placeholder_template_pair(tmp_path / 'explicit')
-    manifest_copy = tmp_path / 'manifest.json'
+def test_resolve_required_export_templates_prefers_valid_explicit_paths() -> None:
+    artifacts_dir = _prepare_artifact_dir('explicit_paths')
+    defaults = export_fixtures.create_placeholder_template_pair(artifacts_dir / 'defaults')
+    explicit = export_fixtures.create_placeholder_template_pair(artifacts_dir / 'explicit')
+    manifest_copy = artifacts_dir / 'manifest.json'
     shutil.copy2(defaults.manifest, manifest_copy)
 
     settings = Settings(
@@ -45,9 +57,8 @@ def test_resolve_required_export_templates_prefers_valid_explicit_paths(tmp_path
     assert resolved.manifest == manifest_copy
 
 
-def test_resolve_required_export_templates_fails_loudly_when_manifest_assets_are_missing(tmp_path: Path) -> None:
-    fixture_dir = tmp_path / 'regression'
-    fixture_dir.mkdir(parents=True)
+def test_resolve_required_export_templates_fails_loudly_when_manifest_assets_are_missing() -> None:
+    fixture_dir = _prepare_artifact_dir('missing_manifest_assets')
     manifest = fixture_dir / 'manifest.json'
     manifest.write_text(
         '{"salary":"salary-template.xlsx","final_tool":"final-tool-template.xlsx"}',
@@ -71,8 +82,8 @@ def test_require_sample_workbook_fails_loudly_for_missing_sample() -> None:
         export_fixtures.require_sample_workbook('missing-sample-keyword')
 
 
-def test_create_placeholder_template_pair_creates_valid_workbooks(tmp_path: Path) -> None:
-    templates = export_fixtures.create_placeholder_template_pair(tmp_path / 'placeholder')
+def test_create_placeholder_template_pair_creates_valid_workbooks() -> None:
+    templates = export_fixtures.create_placeholder_template_pair(_prepare_artifact_dir('placeholder_pair'))
 
     assert templates.salary.exists()
     assert templates.final_tool.exists()

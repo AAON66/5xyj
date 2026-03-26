@@ -1,22 +1,19 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
-from typing import Optional
-
-import shutil
 from dataclasses import dataclass
-from decimal import Decimal
 from pathlib import Path
+from uuid import uuid4
 
 import pytest
 from openpyxl import load_workbook
 
-from backend.app.core.config import ROOT_DIR, get_settings
+from backend.app.core.config import ROOT_DIR
 from backend.app.exporters import export_dual_templates
 from backend.app.services import build_normalized_models, standardize_workbook
+from backend.tests.support.export_fixtures import require_sample_workbook, resolve_required_export_templates
+
 
 ARTIFACTS_ROOT = ROOT_DIR / ".test_artifacts" / "template_exporter_regression"
-DESKTOP_ROOT = Path.home() / "Desktop" / "202602社保公积金台账" / "202602社保公积金汇总"
-SAMPLES_DIR = ROOT_DIR / "data" / "samples"
 
 
 @dataclass(frozen=True, slots=True)
@@ -37,35 +34,15 @@ EXPORT_REGRESSION_CASES = [
 ]
 
 
-def find_template(keyword: str) -> Path:
-    settings = get_settings()
-    configured = [settings.salary_template_file, settings.final_tool_template_file]
-    for path in configured:
-        if path is not None and path.exists() and keyword in path.name:
-            return path
-    if DESKTOP_ROOT.exists():
-        for path in sorted(DESKTOP_ROOT.glob("*.xlsx")):
-            if keyword in path.name:
-                return path
-    pytest.skip(f"Template containing {keyword!r} was not found in configured paths or {DESKTOP_ROOT}.")
-
-
-
-def find_sample(keyword: str) -> Path:
-    for path in sorted(SAMPLES_DIR.glob("*.xlsx")):
-        if keyword in path.name:
-            return path
-    pytest.skip(f"Sample containing {keyword!r} was not found in {SAMPLES_DIR}.")
-
-
-
-def decimal_or_zero(value: Optional[Decimal]) -> Decimal:
-    return value if value is not None else Decimal("0")
-
+def _prepare_artifact_dir(name: str) -> Path:
+    ARTIFACTS_ROOT.mkdir(parents=True, exist_ok=True)
+    target = ARTIFACTS_ROOT / f'{name}-{uuid4().hex[:8]}'
+    target.mkdir(parents=True, exist_ok=False)
+    return target
 
 
 def build_export_records(case: ExportRegressionCase):
-    sample_path = find_sample(case.keyword)
+    sample_path = require_sample_workbook(case.keyword)
     standardized = standardize_workbook(sample_path, region=case.region, company_name=case.company_name)
     assert len(standardized.records) >= case.min_records
     trimmed = type(standardized)(
@@ -84,20 +61,16 @@ def build_export_records(case: ExportRegressionCase):
 
 @pytest.mark.parametrize("case", EXPORT_REGRESSION_CASES, ids=[case.region for case in EXPORT_REGRESSION_CASES])
 def test_export_dual_templates_on_cross_region_real_samples(case: ExportRegressionCase) -> None:
-    salary_template = find_template("\u85aa\u916c")
-    tool_template = find_template("\u6700\u7ec8\u7248")
+    templates = resolve_required_export_templates()
     _sample_path, records = build_export_records(case)
 
-    output_dir = ARTIFACTS_ROOT / case.region
-    if output_dir.exists():
-        shutil.rmtree(output_dir)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = _prepare_artifact_dir(case.region)
 
     result = export_dual_templates(
         records,
         output_dir=output_dir,
-        salary_template_path=salary_template,
-        final_tool_template_path=tool_template,
+        salary_template_path=templates.salary,
+        final_tool_template_path=templates.final_tool,
         export_prefix=f"regression_{case.region}",
     )
 

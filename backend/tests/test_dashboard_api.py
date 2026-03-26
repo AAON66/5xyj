@@ -2,44 +2,23 @@ from __future__ import annotations
 
 import json
 import shutil
-from pathlib import Path
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from backend.app.core.config import ROOT_DIR, Settings, get_settings
+from backend.app.core.config import ROOT_DIR, Settings
 from backend.app.core.database import create_database_engine, create_session_factory
 from backend.app.dependencies import get_db
 from backend.app.main import create_app
 from backend.app.models import Base
 from backend.app.models.employee_master import EmployeeMaster
+from backend.tests.support.export_fixtures import require_sample_workbook, resolve_required_export_templates
 
 
 ARTIFACTS_ROOT = ROOT_DIR / '.test_artifacts' / 'dashboard_api'
-SAMPLES_DIR = ROOT_DIR / 'data' / 'samples'
-DESKTOP_ROOT = Path.home() / 'Desktop' / '202602???????' / '202602???????'
 SAMPLE_KEYWORD = '\u6df1\u5733\u521b\u9020\u6b22\u4e50'
 COMPANY_NAME = '\u521b\u9020\u6b22\u4e50'
 APP_NAME = '\u770b\u677f\u6d4b\u8bd5'
-
-
-def find_sample(keyword: str) -> Path:
-    for path in sorted(SAMPLES_DIR.glob('*.xlsx')):
-        if keyword in path.name:
-            return path
-    raise AssertionError(f'Sample containing {keyword!r} was not found in {SAMPLES_DIR}.')
-
-
-def find_template(keyword: str) -> Path:
-    settings = get_settings()
-    configured = [settings.salary_template_file, settings.final_tool_template_file]
-    for path in configured:
-        if path is not None and path.exists() and keyword in path.name:
-            return path
-    for path in sorted(DESKTOP_ROOT.glob('*.xlsx')):
-        if keyword in path.name:
-            return path
-    raise AssertionError(f'Template containing {keyword!r} was not found.')
 
 
 def build_test_context(test_name: str) -> tuple[TestClient, Settings, object]:
@@ -48,6 +27,7 @@ def build_test_context(test_name: str) -> tuple[TestClient, Settings, object]:
         shutil.rmtree(artifacts_dir)
     artifacts_dir.mkdir(parents=True, exist_ok=True)
 
+    templates = resolve_required_export_templates()
     database_path = artifacts_dir / 'dashboard.db'
     settings = Settings(
         app_name=APP_NAME,
@@ -58,8 +38,8 @@ def build_test_context(test_name: str) -> tuple[TestClient, Settings, object]:
         samples_dir=str(artifacts_dir / 'samples'),
         templates_dir=str(artifacts_dir / 'templates'),
         outputs_dir=str(artifacts_dir / 'outputs'),
-        salary_template_path=str(find_template('\u85aa\u916c')),
-        final_tool_template_path=str(find_template('\u6700\u7ec8\u7248')),
+        salary_template_path=str(templates.salary),
+        final_tool_template_path=str(templates.final_tool),
         log_format='plain',
     )
 
@@ -80,7 +60,7 @@ def build_test_context(test_name: str) -> tuple[TestClient, Settings, object]:
     return TestClient(app), settings, session_factory
 
 
-def create_batch(client: TestClient, sample_path: Path) -> str:
+def create_batch(client: TestClient, sample_path) -> str:
     response = client.post(
         '/api/v1/imports',
         data={
@@ -134,7 +114,7 @@ def test_dashboard_overview_returns_zero_counts_for_empty_workspace() -> None:
 
 def test_dashboard_overview_aggregates_batch_runtime_counts() -> None:
     client, _settings, session_factory = build_test_context('populated')
-    sample_path = find_sample(SAMPLE_KEYWORD)
+    sample_path = require_sample_workbook(SAMPLE_KEYWORD)
 
     with client:
         batch_id = create_batch(client, sample_path)

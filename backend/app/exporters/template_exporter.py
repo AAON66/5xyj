@@ -4,6 +4,7 @@ from copy import copy, deepcopy
 from dataclasses import dataclass
 from decimal import Decimal, ROUND_HALF_UP, InvalidOperation
 from pathlib import Path
+import json
 import re
 from typing import Iterable, Optional
 
@@ -419,7 +420,7 @@ def _salary_row_values(
     company_unemployment = _amount(record.unemployment_company)
     company_injury = _amount(record.injury_company)
     company_maternity = _amount(record.maternity_amount)
-    company_large_medical = _amount(record.supplementary_medical_company)
+    company_large_medical = _resolved_company_large_medical(record)
     personal_social_burden = _resolved_personal_social_burden(
         record,
         company_medical=company_medical,
@@ -567,12 +568,21 @@ def _resolve_template_path(
 
 
 def _discover_template_candidates(settings, template_type: TemplateType) -> list[Path]:
-    pattern = '*\u85aa\u916c*.xlsx' if template_type == TemplateType.SALARY else '*\u6700\u7ec8\u7248*.xlsx'
+    pattern = '*薪酬*.xlsx' if template_type == TemplateType.SALARY else '*最终版*.xlsx'
     candidates: dict[Path, tuple[float, str]] = {}
 
     root = settings.templates_path
     if not root.exists():
         return []
+
+    for manifest_path in root.rglob('manifest.json'):
+        for manifest_match in _discover_template_candidates_from_manifest(manifest_path, template_type):
+            try:
+                stat = manifest_match.stat()
+                candidates[manifest_match.resolve()] = (stat.st_mtime, manifest_match.name)
+            except OSError:
+                continue
+
     for match in root.rglob(pattern):
         if not match.is_file():
             continue
@@ -592,6 +602,28 @@ def _discover_template_candidates(settings, template_type: TemplateType) -> list
     ]
 
 
+def _discover_template_candidates_from_manifest(
+    manifest_path: Path,
+    template_type: TemplateType,
+) -> list[Path]:
+    try:
+        payload = json.loads(manifest_path.read_text(encoding='utf-8'))
+    except (OSError, json.JSONDecodeError):
+        return []
+    if not isinstance(payload, dict):
+        return []
+
+    manifest_key = 'salary' if template_type == TemplateType.SALARY else 'final_tool'
+    relative_path = payload.get(manifest_key)
+    if not isinstance(relative_path, str) or not relative_path:
+        return []
+
+    candidate = (manifest_path.parent / relative_path).resolve()
+    if not candidate.is_file():
+        return []
+    return [candidate]
+
+
 def _amount(value: Optional[Decimal]) -> Decimal:
     return value if value is not None else Decimal('0')
 
@@ -600,8 +632,6 @@ def _resolved_personal_large_medical(record: NormalizedRecord) -> Decimal:
     amount = _amount(record.large_medical_personal)
     if amount <= 0:
         return amount
-    if record.region == 'wuhan':
-        return Decimal('0')
     return amount
 
 
@@ -619,6 +649,12 @@ def _resolved_company_medical(record: NormalizedRecord) -> Decimal:
     if record.region == 'xiamen' and _source_signature_count_for_kind(record.raw_payload, SOCIAL_SOURCE_KIND) > 1:
         amount += _amount(record.maternity_amount)
     return amount
+
+
+def _resolved_company_large_medical(record: NormalizedRecord) -> Decimal:
+    if record.region == 'wuhan':
+        return _amount(record.supplementary_medical_company)
+    return _amount(record.supplementary_medical_company)
 
 
 def _extract_xiamen_social_amounts(
@@ -1121,3 +1157,4 @@ def _has_explicit_housing_amount_key(raw_values: dict[object, object], header_to
         if any(marker in normalized_header for marker in HOUSING_METADATA_HEADER_MARKERS):
             continue
     return False
+

@@ -50,12 +50,8 @@ def export_batch(db: Session, batch_id: str, settings: Settings) -> BatchExportR
     result = export_dual_templates(
         batch.normalized_records,
         output_dir=output_dir,
-        salary_template_path=settings.salary_template_file if settings.salary_template_file and settings.salary_template_file.exists() else None,
-        final_tool_template_path=(
-            settings.final_tool_template_file
-            if settings.final_tool_template_file and settings.final_tool_template_file.exists()
-            else None
-        ),
+        salary_template_path=settings.salary_template_file,
+        final_tool_template_path=settings.final_tool_template_file,
         export_prefix=_build_export_prefix(batch, exported_at=export_started_at),
         settings=settings,
     )

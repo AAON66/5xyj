@@ -2,17 +2,17 @@
 
 from decimal import Decimal
 from pathlib import Path
+from uuid import uuid4
 
-import pytest
 from openpyxl import load_workbook
 
-from backend.app.core.config import ROOT_DIR, get_settings
+from backend.app.core.config import ROOT_DIR
 from backend.app.exporters import export_dual_templates
 from backend.app.services import build_normalized_models, standardize_workbook
+from backend.tests.support.export_fixtures import require_sample_workbook, resolve_required_export_templates
 
 
 ARTIFACTS_ROOT = ROOT_DIR / '.test_artifacts' / 'template_exporter'
-DESKTOP_ROOT = Path.home() / 'Desktop' / '202602社保公积金台账' / '202602社保公积金汇总'
 SOCIAL_AMOUNT_FIELDS = (
     'total_amount',
     'company_total_amount',
@@ -34,25 +34,16 @@ SOCIAL_AMOUNT_FIELDS = (
 )
 
 
-def find_template(keyword: str) -> Path:
-    settings = get_settings()
-    configured = [settings.salary_template_file, settings.final_tool_template_file]
-    for path in configured:
-        if path is not None and path.exists() and keyword in path.name:
-            return path
-    if DESKTOP_ROOT.exists():
-        for path in sorted(DESKTOP_ROOT.glob('*.xlsx')):
-            if keyword in path.name:
-                return path
-    pytest.skip(f'Template containing {keyword!r} was not found in configured paths or {DESKTOP_ROOT}.')
+def _prepare_artifact_dir(name: str) -> Path:
+    ARTIFACTS_ROOT.mkdir(parents=True, exist_ok=True)
+    target = ARTIFACTS_ROOT / f'{name}-{uuid4().hex[:8]}'
+    target.mkdir(parents=True, exist_ok=False)
+    return target
 
 
-def find_sample(keyword: str) -> Path:
-    samples_dir = ROOT_DIR / 'data' / 'samples'
-    for path in sorted(samples_dir.glob('*.xlsx')):
-        if keyword in path.name:
-            return path
-    pytest.skip(f'Sample containing {keyword!r} was not found in {samples_dir}.')
+def _load_default_export_inputs() -> tuple[Path, Path, Path]:
+    templates = resolve_required_export_templates()
+    return templates.salary, templates.final_tool, require_sample_workbook('\u6df1\u5733\u521b\u9020\u6b22\u4e50')
 
 
 def clear_social_amounts(record) -> None:
@@ -61,9 +52,7 @@ def clear_social_amounts(record) -> None:
 
 
 def test_export_dual_templates_writes_both_template_outputs() -> None:
-    salary_template = find_template('薪酬')
-    tool_template = find_template('最终版')
-    sample_path = find_sample('深圳创造欢乐')
+    salary_template, tool_template, sample_path = _load_default_export_inputs()
 
     standardized = standardize_workbook(sample_path, region='shenzhen', company_name='创造欢乐')
     trimmed = type(standardized)(
@@ -81,8 +70,7 @@ def test_export_dual_templates_writes_both_template_outputs() -> None:
     records[0].housing_fund_company = records[0].housing_fund_company or records[0].personal_total_amount
     records[0].housing_fund_total = records[0].housing_fund_personal + records[0].housing_fund_company
 
-    output_dir = ARTIFACTS_ROOT / 'successful_export'
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = _prepare_artifact_dir('successful_export')
 
     result = export_dual_templates(
         records,
@@ -129,8 +117,9 @@ def test_export_dual_templates_writes_both_template_outputs() -> None:
 
 
 def test_export_dual_templates_marks_overall_failure_when_any_template_is_missing() -> None:
-    salary_template = find_template('薪酬')
-    sample_path = find_sample('深圳创造欢乐')
+    templates = resolve_required_export_templates()
+    salary_template = templates.salary
+    sample_path = require_sample_workbook('\u6df1\u5733\u521b\u9020\u6b22\u4e50')
     standardized = standardize_workbook(sample_path, region='shenzhen', company_name='创造欢乐')
     trimmed = type(standardized)(
         source_file=standardized.source_file,
@@ -143,8 +132,7 @@ def test_export_dual_templates_marks_overall_failure_when_any_template_is_missin
     records = build_normalized_models(trimmed, batch_id='batch-1', source_file_id='source-1')
     records[0].employee_id = '01620'
 
-    output_dir = ARTIFACTS_ROOT / 'failed_export'
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = _prepare_artifact_dir('failed_export')
 
     result = export_dual_templates(
         records,
@@ -162,9 +150,7 @@ def test_export_dual_templates_marks_overall_failure_when_any_template_is_missin
 
 
 def test_export_dual_templates_filters_header_like_dirty_rows() -> None:
-    salary_template = find_template('薪酬')
-    tool_template = find_template('最终版')
-    sample_path = find_sample('深圳创造欢乐')
+    salary_template, tool_template, sample_path = _load_default_export_inputs()
 
     standardized = standardize_workbook(sample_path, region='shenzhen', company_name='创造欢乐')
     trimmed = type(standardized)(
@@ -186,8 +172,7 @@ def test_export_dual_templates_filters_header_like_dirty_rows() -> None:
     dirty.housing_fund_personal = None
     records.append(dirty)
 
-    output_dir = ARTIFACTS_ROOT / 'dirty_row_filter'
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = _prepare_artifact_dir('dirty_row_filter')
 
     result = export_dual_templates(
         records,
@@ -216,9 +201,7 @@ def test_export_dual_templates_filters_header_like_dirty_rows() -> None:
 
 
 def test_export_dual_templates_filters_zero_amount_rows_even_when_identity_exists() -> None:
-    salary_template = find_template('薪酬')
-    tool_template = find_template('最终版')
-    sample_path = find_sample('深圳创造欢乐')
+    salary_template, tool_template, sample_path = _load_default_export_inputs()
 
     standardized = standardize_workbook(sample_path, region='shenzhen', company_name='创造欢乐')
     trimmed = type(standardized)(
@@ -257,8 +240,7 @@ def test_export_dual_templates_filters_zero_amount_rows_even_when_identity_exist
     ):
         setattr(zero_amount, field_name, Decimal('0'))
 
-    output_dir = ARTIFACTS_ROOT / 'zero_amount_filter'
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = _prepare_artifact_dir('zero_amount_filter')
 
     result = export_dual_templates(
         [zero_amount],
@@ -285,9 +267,7 @@ def test_export_dual_templates_filters_zero_amount_rows_even_when_identity_exist
 
 
 def test_export_dual_templates_filters_inferred_housing_only_when_mixed_with_explicit_split_rows() -> None:
-    salary_template = find_template('薪酬')
-    tool_template = find_template('最终版')
-    sample_path = find_sample('深圳创造欢乐')
+    salary_template, tool_template, sample_path = _load_default_export_inputs()
 
     standardized = standardize_workbook(sample_path, region='shenzhen', company_name='创造欢乐')
     trimmed = type(standardized)(
@@ -346,8 +326,7 @@ def test_export_dual_templates_filters_inferred_housing_only_when_mixed_with_exp
         ]
     }
 
-    output_dir = ARTIFACTS_ROOT / 'housing_only_inference_filter'
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = _prepare_artifact_dir('housing_only_inference_filter')
 
     result = export_dual_templates(
         [inferred_only, explicit_split],
@@ -376,9 +355,7 @@ def test_export_dual_templates_filters_inferred_housing_only_when_mixed_with_exp
 
 
 def test_export_dual_templates_merges_records_with_same_employee_id_before_writing() -> None:
-    salary_template = find_template('薪酬')
-    tool_template = find_template('最终版')
-    sample_path = find_sample('深圳创造欢乐')
+    salary_template, tool_template, sample_path = _load_default_export_inputs()
 
     standardized = standardize_workbook(sample_path, region='shenzhen', company_name='创造欢乐')
     trimmed = type(standardized)(
@@ -432,8 +409,7 @@ def test_export_dual_templates_merges_records_with_same_employee_id_before_writi
         ]
     }
 
-    output_dir = ARTIFACTS_ROOT / 'merge_same_employee'
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = _prepare_artifact_dir('merge_same_employee')
 
     result = export_dual_templates(
         [social_record, housing_record],
@@ -470,9 +446,7 @@ def test_export_dual_templates_merges_records_with_same_employee_id_before_writi
 
 
 def test_export_dual_templates_keeps_housing_burden_zero_even_with_repeated_source_baseline() -> None:
-    salary_template = find_template('薪酬')
-    tool_template = find_template('最终版')
-    sample_path = find_sample('深圳创造欢乐')
+    salary_template, tool_template, sample_path = _load_default_export_inputs()
 
     standardized = standardize_workbook(sample_path, region='shenzhen', company_name='创造欢乐')
     trimmed = type(standardized)(
@@ -509,8 +483,7 @@ def test_export_dual_templates_keeps_housing_burden_zero_even_with_repeated_sour
     standard_b = build_record('E1002', person_name='标准乙', personal_housing=Decimal('175'), company_housing=Decimal('175'))
     target = build_record('E1003', person_name=seed.person_name or '目标员工', personal_housing=Decimal('2340'), company_housing=Decimal('975'))
 
-    output_dir = ARTIFACTS_ROOT / 'housing_burden_baseline'
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = _prepare_artifact_dir('housing_burden_baseline')
 
     result = export_dual_templates(
         [standard_a, standard_b, target],
@@ -539,9 +512,7 @@ def test_export_dual_templates_keeps_housing_burden_zero_even_with_repeated_sour
 
 
 def test_export_dual_templates_defaults_social_burden_to_zero_without_explicit_rule() -> None:
-    salary_template = find_template('薪酬')
-    tool_template = find_template('最终版')
-    sample_path = find_sample('深圳创造欢乐')
+    salary_template, tool_template, sample_path = _load_default_export_inputs()
 
     standardized = standardize_workbook(sample_path, region='shenzhen', company_name='创造欢乐')
     trimmed = type(standardized)(
@@ -584,8 +555,7 @@ def test_export_dual_templates_defaults_social_burden_to_zero_without_explicit_r
 
     target = build_record('S1003', person_name='社保目标', medical_company=Decimal('403.62'))
 
-    output_dir = ARTIFACTS_ROOT / 'social_burden_default_zero'
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = _prepare_artifact_dir('social_burden_default_zero')
 
     result = export_dual_templates(
         [target],
@@ -613,9 +583,7 @@ def test_export_dual_templates_defaults_social_burden_to_zero_without_explicit_r
 
 
 def test_export_dual_templates_sums_duplicate_social_records_from_distinct_sources() -> None:
-    salary_template = find_template('薪酬')
-    tool_template = find_template('最终版')
-    sample_path = find_sample('深圳创造欢乐')
+    salary_template, tool_template, sample_path = _load_default_export_inputs()
 
     standardized = standardize_workbook(sample_path, region='shenzhen', company_name='创造欢乐')
     trimmed = type(standardized)(
@@ -681,8 +649,7 @@ def test_export_dual_templates_sums_duplicate_social_records_from_distinct_sourc
         ]
     }
 
-    output_dir = ARTIFACTS_ROOT / 'duplicate_social_sum'
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = _prepare_artifact_dir('duplicate_social_sum')
 
     result = export_dual_templates(
         [base, supplement],
@@ -707,9 +674,7 @@ def test_export_dual_templates_sums_duplicate_social_records_from_distinct_sourc
 
 
 def test_export_dual_templates_uses_single_xiamen_company_medical_baseline_when_duplicate_sources_repeat_amounts() -> None:
-    salary_template = find_template('薪酬')
-    tool_template = find_template('最终版')
-    sample_path = find_sample('深圳创造欢乐')
+    salary_template, tool_template, sample_path = _load_default_export_inputs()
 
     standardized = standardize_workbook(sample_path, region='shenzhen', company_name='创造欢乐')
     trimmed = type(standardized)(
@@ -757,8 +722,7 @@ def test_export_dual_templates_uses_single_xiamen_company_medical_baseline_when_
     first = build_xiamen_record('source-1', '厦门202602社保账单.xlsx', 21)
     second = build_xiamen_record('source-2', '厦门202602社保账单（补缴1月入职2人）.xlsx', 6)
 
-    output_dir = ARTIFACTS_ROOT / 'duplicate_xiamen_company_medical_baseline'
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = _prepare_artifact_dir('duplicate_xiamen_company_medical_baseline')
 
     result = export_dual_templates(
         [first, second],
@@ -790,9 +754,7 @@ def test_export_dual_templates_uses_single_xiamen_company_medical_baseline_when_
 
 
 def test_export_dual_templates_keeps_large_housing_burden_zero_without_inference() -> None:
-    salary_template = find_template('薪酬')
-    tool_template = find_template('最终版')
-    sample_path = find_sample('深圳创造欢乐')
+    salary_template, tool_template, sample_path = _load_default_export_inputs()
 
     standardized = standardize_workbook(sample_path, region='shenzhen', company_name='创造欢乐')
     trimmed = type(standardized)(
@@ -831,8 +793,7 @@ def test_export_dual_templates_keeps_large_housing_burden_zero_without_inference
         build_record('H1005', company_housing=Decimal('1250')),
     ]
 
-    output_dir = ARTIFACTS_ROOT / 'housing_burden_highest_baseline'
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = _prepare_artifact_dir('housing_burden_highest_baseline')
 
     result = export_dual_templates(
         records,
@@ -850,9 +811,7 @@ def test_export_dual_templates_keeps_large_housing_burden_zero_without_inference
 
 
 def test_export_dual_templates_derives_housing_amount_from_total_when_personal_value_is_ratio() -> None:
-    salary_template = find_template('薪酬')
-    tool_template = find_template('最终版')
-    sample_path = find_sample('深圳创造欢乐')
+    salary_template, tool_template, sample_path = _load_default_export_inputs()
 
     standardized = standardize_workbook(sample_path, region='shenzhen', company_name='创造欢乐')
     trimmed = type(standardized)(
@@ -881,8 +840,7 @@ def test_export_dual_templates_derives_housing_amount_from_total_when_personal_v
         ]
     }
 
-    output_dir = ARTIFACTS_ROOT / 'housing_ratio_fix'
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = _prepare_artifact_dir('housing_ratio_fix')
 
     result = export_dual_templates(
         [record],
@@ -901,9 +859,7 @@ def test_export_dual_templates_derives_housing_amount_from_total_when_personal_v
 
 
 def test_export_dual_templates_zeroes_housing_burden_when_no_reliable_baseline_exists() -> None:
-    salary_template = find_template('薪酬')
-    tool_template = find_template('最终版')
-    sample_path = find_sample('深圳创造欢乐')
+    salary_template, tool_template, sample_path = _load_default_export_inputs()
 
     standardized = standardize_workbook(sample_path, region='shenzhen', company_name='创造欢乐')
     trimmed = type(standardized)(
@@ -932,8 +888,7 @@ def test_export_dual_templates_zeroes_housing_burden_when_no_reliable_baseline_e
         ]
     }
 
-    output_dir = ARTIFACTS_ROOT / 'housing_burden_fallback'
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = _prepare_artifact_dir('housing_burden_fallback')
 
     result = export_dual_templates(
         [record],
@@ -960,9 +915,7 @@ def test_export_dual_templates_zeroes_housing_burden_when_no_reliable_baseline_e
 
 
 def test_export_dual_templates_filters_housing_only_rows_when_split_is_only_inferred() -> None:
-    salary_template = find_template('薪酬')
-    tool_template = find_template('最终版')
-    sample_path = find_sample('深圳创造欢乐')
+    salary_template, tool_template, sample_path = _load_default_export_inputs()
 
     standardized = standardize_workbook(sample_path, region='shenzhen', company_name='创造欢乐')
     trimmed = type(standardized)(
@@ -1001,8 +954,7 @@ def test_export_dual_templates_filters_housing_only_rows_when_split_is_only_infe
         ],
     }
 
-    output_dir = ARTIFACTS_ROOT / 'housing_only_inferred_filter'
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = _prepare_artifact_dir('housing_only_inferred_filter')
 
     result = export_dual_templates(
         [record],
@@ -1019,9 +971,7 @@ def test_export_dual_templates_filters_housing_only_rows_when_split_is_only_infe
 
 
 def test_export_dual_templates_keeps_housing_only_rows_when_source_has_explicit_split_columns() -> None:
-    salary_template = find_template('薪酬')
-    tool_template = find_template('最终版')
-    sample_path = find_sample('深圳创造欢乐')
+    salary_template, tool_template, sample_path = _load_default_export_inputs()
 
     standardized = standardize_workbook(sample_path, region='shenzhen', company_name='创造欢乐')
     trimmed = type(standardized)(
@@ -1058,8 +1008,7 @@ def test_export_dual_templates_keeps_housing_only_rows_when_source_has_explicit_
         ],
     }
 
-    output_dir = ARTIFACTS_ROOT / 'housing_only_explicit_keep'
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = _prepare_artifact_dir('housing_only_explicit_keep')
 
     result = export_dual_templates(
         [record],
@@ -1076,9 +1025,7 @@ def test_export_dual_templates_keeps_housing_only_rows_when_source_has_explicit_
 
 
 def test_export_dual_templates_keeps_housing_only_rows_when_prefixed_headers_include_explicit_split_columns() -> None:
-    salary_template = find_template('薪酬')
-    tool_template = find_template('最终版')
-    sample_path = find_sample('深圳创造欢乐')
+    salary_template, tool_template, sample_path = _load_default_export_inputs()
 
     standardized = standardize_workbook(sample_path, region='shenzhen', company_name='创造欢乐')
     trimmed = type(standardized)(
@@ -1119,8 +1066,7 @@ def test_export_dual_templates_keeps_housing_only_rows_when_prefixed_headers_inc
         ],
     }
 
-    output_dir = ARTIFACTS_ROOT / 'housing_only_prefixed_explicit_keep'
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = _prepare_artifact_dir('housing_only_prefixed_explicit_keep')
 
     result = export_dual_templates(
         [record],
@@ -1136,10 +1082,8 @@ def test_export_dual_templates_keeps_housing_only_rows_when_prefixed_headers_inc
     assert tool_artifact.row_count == 1
 
 
-def test_export_dual_templates_zeroes_wuhan_large_medical_in_salary_and_tool_outputs() -> None:
-    salary_template = find_template('薪酬')
-    tool_template = find_template('最终版')
-    sample_path = find_sample('深圳创造欢乐')
+def test_export_dual_templates_routes_wuhan_large_medical_to_personal_output() -> None:
+    salary_template, tool_template, sample_path = _load_default_export_inputs()
 
     standardized = standardize_workbook(sample_path, region='shenzhen', company_name='创造欢乐')
     trimmed = type(standardized)(
@@ -1167,15 +1111,14 @@ def test_export_dual_templates_zeroes_wuhan_large_medical_in_salary_and_tool_out
     record.housing_fund_company = Decimal('120')
     record.housing_fund_total = Decimal('240')
 
-    output_dir = ARTIFACTS_ROOT / 'wuhan_large_medical_zero'
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = _prepare_artifact_dir('wuhan_large_medical_personal')
 
     result = export_dual_templates(
         [record],
         output_dir=output_dir,
         salary_template_path=salary_template,
         final_tool_template_path=tool_template,
-        export_prefix='wuhan_large_medical_zero',
+        export_prefix='wuhan_large_medical_personal',
     )
 
     salary_artifact = next(item for item in result.artifacts if item.template_type == 'salary')
@@ -1183,19 +1126,21 @@ def test_export_dual_templates_zeroes_wuhan_large_medical_in_salary_and_tool_out
 
     salary_wb = load_workbook(salary_artifact.file_path, data_only=False)
     salary_sheet = salary_wb[salary_wb.sheetnames[0]]
-    assert float(salary_sheet['E2'].value) == 0.0
+    assert float(salary_sheet['E2'].value) == 7.0
+    assert float(salary_sheet['J2'].value) == 391.33
+    assert float(salary_sheet['N2'].value) == 0.0
     salary_wb.close()
 
     tool_wb = load_workbook(tool_artifact.file_path, data_only=False)
     tool_sheet = tool_wb[tool_wb.sheetnames[0]]
-    assert float(tool_sheet['K7'].value) == 0.0
+    assert float(tool_sheet['K7'].value) == 7.0
+    assert float(tool_sheet['P7'].value) == 391.33
+    assert float(tool_sheet['T7'].value) == 0.0
     tool_wb.close()
 
 
 def test_export_dual_templates_keeps_changsha_large_medical_at_source_amount() -> None:
-    salary_template = find_template('薪酬')
-    tool_template = find_template('最终版')
-    sample_path = find_sample('深圳创造欢乐')
+    salary_template, tool_template, sample_path = _load_default_export_inputs()
 
     standardized = standardize_workbook(sample_path, region='shenzhen', company_name='创造欢乐')
     trimmed = type(standardized)(
@@ -1214,8 +1159,7 @@ def test_export_dual_templates_keeps_changsha_large_medical_at_source_amount() -
     record.region = 'changsha'
     record.large_medical_personal = Decimal('15')
 
-    output_dir = ARTIFACTS_ROOT / 'changsha_large_medical_keep'
-    output_dir.mkdir(parents=True, exist_ok=True)
+    output_dir = _prepare_artifact_dir('changsha_large_medical_keep')
 
     result = export_dual_templates(
         [record],

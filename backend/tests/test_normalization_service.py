@@ -1,10 +1,12 @@
 ﻿from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from decimal import Decimal
 import sqlite3
 
 import pytest
+from openpyxl import Workbook
 
 from backend.app.core.config import ROOT_DIR
 from backend.app.models.enums import SourceFileKind
@@ -151,6 +153,212 @@ def test_standardize_workbook_on_real_wuhan_sample() -> None:
     assert first.values['pension_personal'] is not None
     assert first.values['medical_company'] is not None
     assert first.values['medical_personal'] is not None
+
+
+def test_standardize_workbook_on_wuhan_transactional_sample() -> None:
+    artifacts_dir = ROOT_DIR / '.test_artifacts' / 'normalization_service'
+    artifacts_dir.mkdir(parents=True, exist_ok=True)
+    workbook_path = artifacts_dir / 'wuhan_transactional_202603.xlsx'
+
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = 'Sheet1'
+    sheet.append(
+        [
+            '\u59d3\u540d',
+            '\u8bc1\u4ef6\u53f7\u7801',
+            '\u8d39\u6b3e\u6240\u5c5e\u671f',
+            '\u9669\u79cd',
+            '\u5e94\u7f34\u8d39\u989d\u5408\u8ba1',
+            '\u5355\u4f4d\u90e8\u5206',
+            None,
+            None,
+            None,
+            None,
+            '\u4e2a\u4eba\u90e8\u5206',
+            None,
+            None,
+            None,
+            None,
+            '\u6570\u636e\u6765\u6e90',
+            '\u7f34\u8d39\u7c7b\u578b',
+            '\u4e3b\u7ba1\u7a0e\u52a1\u673a\u5173',
+            '\u793e\u4fdd\u7ecf\u529e\u673a\u6784',
+        ]
+    )
+    sheet.append(
+        [
+            None,
+            None,
+            None,
+            None,
+            None,
+            '\u7f34\u8d39\u4eba\u6570',
+            '\u7f34\u8d39\u5de5\u8d44',
+            '\u7f34\u8d39\u57fa\u6570',
+            '\u8d39\u7387',
+            '\u5e94\u7f34\u8d39\u989d\uff08\u5143\uff09',
+            '\u7f34\u8d39\u4eba\u6570',
+            '\u7f34\u8d39\u5de5\u8d44',
+            '\u7f34\u8d39\u57fa\u6570',
+            '\u8d39\u7387',
+            '\u5e94\u7f34\u8d39\u989d\uff08\u5143\uff09',
+            None,
+            None,
+            None,
+            None,
+        ]
+    )
+    sheet.append(
+        [
+            '\u5d14\u4e9a\u946b',
+            '411326199709232828',
+            datetime(2026, 3, 1),
+            '\u4f01\u4e1a\u804c\u5de5\u57fa\u672c\u517b\u8001\u4fdd\u9669',
+            1079.52,
+            1,
+            4498,
+            4498,
+            0.16,
+            719.68,
+            1,
+            4498,
+            4498,
+            0.08,
+            359.84,
+            '\u65e5\u5e38\u7f34\u8d39',
+            None,
+            '\u56fd\u5bb6\u7a0e\u52a1\u603b\u5c40\u6b66\u6c49\u4e1c\u6e56\u65b0\u6280\u672f\u5f00\u53d1\u533a\u7a0e\u52a1\u5c40',
+            '\u4e1c\u6e56\u9ad8\u65b0\u5f00\u53d1\u533a\u4eba\u529b\u8d44\u6e90\u548c\u793e\u4f1a\u4fdd\u969c\u5c40(\u517b\u8001\u5931\u4e1a\u5de5\u4f24)',
+        ]
+    )
+    sheet.append([None] * 19)
+    sheet.append(
+        [
+            None,
+            None,
+            datetime(2026, 3, 1),
+            '\u5931\u4e1a\u4fdd\u9669',
+            44.98,
+            1,
+            4498,
+            4498,
+            0.007,
+            31.49,
+            1,
+            4498,
+            4498,
+            0.003,
+            13.49,
+            '\u65e5\u5e38\u7f34\u8d39',
+            None,
+            '\u56fd\u5bb6\u7a0e\u52a1\u603b\u5c40\u6b66\u6c49\u4e1c\u6e56\u65b0\u6280\u672f\u5f00\u53d1\u533a\u7a0e\u52a1\u5c40',
+            '\u4e1c\u6e56\u9ad8\u65b0\u5f00\u53d1\u533a\u4eba\u529b\u8d44\u6e90\u548c\u793e\u4f1a\u4fdd\u969c\u5c40(\u517b\u8001\u5931\u4e1a\u5de5\u4f24)',
+        ]
+    )
+    sheet.append([None] * 19)
+    sheet.append(
+        [
+            None,
+            None,
+            datetime(2026, 3, 1),
+            '\u5de5\u4f24\u4fdd\u9669',
+            9,
+            1,
+            4498,
+            4498,
+            0.002,
+            9,
+            '--',
+            '--',
+            '--',
+            '--',
+            '--',
+            '\u65e5\u5e38\u7f34\u8d39',
+            None,
+            '\u56fd\u5bb6\u7a0e\u52a1\u603b\u5c40\u6b66\u6c49\u4e1c\u6e56\u65b0\u6280\u672f\u5f00\u53d1\u533a\u7a0e\u52a1\u5c40',
+            '\u4e1c\u6e56\u9ad8\u65b0\u5f00\u53d1\u533a\u4eba\u529b\u8d44\u6e90\u548c\u793e\u4f1a\u4fdd\u969c\u5c40(\u517b\u8001\u5931\u4e1a\u5de5\u4f24)',
+        ]
+    )
+    sheet.append([None] * 19)
+    sheet.append(
+        [
+            None,
+            None,
+            datetime(2026, 3, 1),
+            '\u4f01\u4e1a\u804c\u5de5\u57fa\u672c\u533b\u7597\u4fdd\u9669',
+            481.29,
+            1,
+            4498,
+            4498,
+            0.087,
+            391.33,
+            1,
+            4498,
+            4498,
+            0.02,
+            89.96,
+            '\u65e5\u5e38\u7f34\u8d39',
+            None,
+            '\u56fd\u5bb6\u7a0e\u52a1\u603b\u5c40\u6b66\u6c49\u4e1c\u6e56\u65b0\u6280\u672f\u5f00\u53d1\u533a\u7a0e\u52a1\u5c40',
+            '\u4e1c\u6e56\u9ad8\u65b0\u5f00\u53d1\u533a\u533b\u7597\u4fdd\u969c\u5c40(\u533b\u7597)',
+        ]
+    )
+    sheet.append([None] * 19)
+    sheet.append(
+        [
+            None,
+            None,
+            datetime(2026, 3, 1),
+            '\u804c\u5de5\u5927\u989d\u533b\u7597\u4e92\u52a9\u4fdd\u9669',
+            7,
+            1,
+            4498,
+            '--',
+            1,
+            '--',
+            1,
+            4498,
+            7,
+            1,
+            7,
+            '\u65e5\u5e38\u7f34\u8d39',
+            None,
+            '\u56fd\u5bb6\u7a0e\u52a1\u603b\u5c40\u6b66\u6c49\u4e1c\u6e56\u65b0\u6280\u672f\u5f00\u53d1\u533a\u7a0e\u52a1\u5c40',
+            '\u4e1c\u6e56\u9ad8\u65b0\u5f00\u53d1\u533a\u533b\u7597\u4fdd\u969c\u5c40(\u533b\u7597)',
+        ]
+    )
+    for column in ('A', 'B', 'C', 'D', 'E', 'P', 'Q', 'R', 'S'):
+        sheet.merge_cells(f'{column}1:{column}2')
+    sheet.merge_cells('F1:J1')
+    sheet.merge_cells('K1:O1')
+    workbook.save(workbook_path)
+
+    result = standardize_workbook(workbook_path, region='wuhan', company_name='\u6b66\u6c49\u793a\u4f8b\u516c\u53f8')
+
+    assert len(result.records) == 1
+    assert len(result.filtered_rows) == 4
+    first = result.records[0]
+    assert first.source_row_number == 3
+    assert first.values['person_name'] == '\u5d14\u4e9a\u946b'
+    assert first.values['id_number'] == '411326199709232828'
+    assert first.values['billing_period'] == '2026-03'
+    assert first.values['payment_base'] == Decimal('4498')
+    assert first.values['payment_salary'] == Decimal('4498')
+    assert first.values['company_total_amount'] == Decimal('1151.50')
+    assert first.values['personal_total_amount'] == Decimal('470.29')
+    assert first.values['total_amount'] == Decimal('1621.79')
+    assert first.values['pension_company'] == Decimal('719.68')
+    assert first.values['pension_personal'] == Decimal('359.84')
+    assert first.values['unemployment_company'] == Decimal('31.49')
+    assert first.values['unemployment_personal'] == Decimal('13.49')
+    assert first.values['injury_company'] == Decimal('9')
+    assert first.values['medical_company'] == Decimal('391.33')
+    assert first.values['medical_personal'] == Decimal('89.96')
+    assert first.values['large_medical_personal'] == Decimal('7')
+    assert first.raw_payload['merge_strategy'] == 'wuhan_transactional_by_insurance_item'
+    assert len(first.raw_payload['merged_sources']) == 5
+    assert first.raw_payload['merged_sources'][0]['raw_values']['费款所属期'] == '2026-03-01T00:00:00'
 
 
 def test_standardize_workbook_on_real_changsha_sample() -> None:

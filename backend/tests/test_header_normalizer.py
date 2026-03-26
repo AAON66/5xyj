@@ -7,6 +7,7 @@ import pytest
 from backend.app.core.config import ROOT_DIR
 from backend.app.parsers import HeaderColumn, extract_header_structure
 from backend.app.services import normalize_header_column, normalize_header_extraction
+from backend.app.services.header_normalizer import normalize_header_column_with_sync_fallback
 
 
 SAMPLES_DIR = ROOT_DIR / "data" / "samples"
@@ -123,3 +124,31 @@ def test_normalize_header_column_maps_changsha_large_medical_personal_explicitly
 
     assert decision.canonical_field == "large_medical_personal"
     assert decision.mapping_source == "rule"
+
+
+@pytest.mark.parametrize(
+    ("signature", "expected_status"),
+    [
+        ("\u9669\u79cd", "skipped_irrelevant"),
+        ("\u5355\u4f4d\u90e8\u5206 / \u5e94\u7f34\u8d39\u989d\uff08\u5143\uff09", "skipped_irrelevant"),
+        ("\u4e2a\u4eba\u90e8\u5206 / \u5e94\u7f34\u8d39\u989d\uff08\u5143\uff09", "skipped_irrelevant"),
+        ("\u6570\u636e\u6765\u6e90", "skipped_irrelevant"),
+        ("\u4e3b\u7ba1\u7a0e\u52a1\u673a\u5173", "skipped_irrelevant"),
+    ],
+)
+def test_normalize_header_column_skips_llm_for_wuhan_transactional_auxiliary_headers(
+    signature: str,
+    expected_status: str,
+) -> None:
+    column = HeaderColumn(
+        column_index=1,
+        excel_column="A",
+        raw_header_parts=[signature],
+        signature=signature,
+    )
+
+    decision = normalize_header_column_with_sync_fallback(column, region="wuhan", confidence_threshold=0.72)
+
+    assert decision.canonical_field is None
+    assert decision.llm_attempted is False
+    assert decision.llm_status == expected_status
