@@ -20,7 +20,7 @@ ARTIFACTS_ROOT = ROOT_DIR / '.test_artifacts' / 'import_batches_api'
 SAMPLES_DIR = ROOT_DIR / 'data' / 'samples'
 
 
-def build_test_client(test_name: str) -> tuple[TestClient, Settings]:
+def build_test_client(test_name: str, **overrides: object) -> tuple[TestClient, Settings]:
     artifacts_dir = ARTIFACTS_ROOT / test_name
     if artifacts_dir.exists():
         shutil.rmtree(artifacts_dir)
@@ -37,6 +37,7 @@ def build_test_client(test_name: str) -> tuple[TestClient, Settings]:
         templates_dir=str(artifacts_dir / 'templates'),
         outputs_dir=str(artifacts_dir / 'outputs'),
         log_format='plain',
+        **overrides,
     )
 
     engine = create_database_engine(settings)
@@ -377,3 +378,65 @@ def test_create_import_batch_falls_back_to_workbook_region_detection_when_filena
     assert response.status_code == 201
     payload = response.json()['data']
     assert payload['source_files'][0]['region'] == 'xiamen'
+
+def test_create_import_batch_rejects_oversized_upload_without_content_length() -> None:
+    client, settings = build_test_client(
+        'oversized_upload_without_content_length',
+        max_upload_size_mb=1,
+    )
+    oversized_body = b'x' * ((1024 * 1024) + 32)
+
+    with client:
+        request = client.build_request(
+            'POST',
+            '/api/v1/imports',
+            data={'regions': 'shenzhen', 'company_names': '????'},
+            files=[
+                (
+                    'files',
+                    ('oversized.xlsx', oversized_body, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
+                )
+            ],
+        )
+        del request.headers['content-length']
+        response = client.send(request)
+        list_response = client.get('/api/v1/imports')
+
+    assert response.status_code == 413
+    payload = response.json()
+    assert payload['error']['message'] == 'Upload exceeds the configured 1048576 byte limit.'
+    assert list_response.json()['data'] == []
+    assert settings.upload_path.exists()
+    assert list(settings.upload_path.iterdir()) == []
+
+
+def test_create_import_batch_rejects_oversized_upload_with_understated_content_length() -> None:
+    client, settings = build_test_client(
+        'oversized_upload_understated_content_length',
+        max_upload_size_mb=1,
+    )
+    oversized_body = b'y' * ((1024 * 1024) + 64)
+
+    with client:
+        request = client.build_request(
+            'POST',
+            '/api/v1/imports',
+            data={'regions': 'shenzhen', 'company_names': '????'},
+            files=[
+                (
+                    'files',
+                    ('oversized.xlsx', oversized_body, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
+                )
+            ],
+        )
+        request.headers['content-length'] = '256'
+        response = client.send(request)
+        list_response = client.get('/api/v1/imports')
+
+    assert response.status_code == 413
+    payload = response.json()
+    assert payload['error']['message'] == 'Upload exceeds the configured 1048576 byte limit.'
+    assert list_response.json()['data'] == []
+    assert settings.upload_path.exists()
+    assert list(settings.upload_path.iterdir()) == []
+

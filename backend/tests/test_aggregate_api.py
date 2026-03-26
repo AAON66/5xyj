@@ -48,7 +48,13 @@ def find_template(keyword: str) -> Path:
     pytest.skip(f'Template containing {keyword!r} was not found in configured paths or {DESKTOP_ROOT}.')
 
 
-def build_test_context(test_name: str, *, salary_template: Path, final_tool_template: Path):
+def build_test_context(
+    test_name: str,
+    *,
+    salary_template: Path,
+    final_tool_template: Path,
+    max_upload_size_mb: int = 25,
+):
     artifacts_dir = ARTIFACTS_ROOT / test_name
     if artifacts_dir.exists():
         shutil.rmtree(artifacts_dir)
@@ -66,6 +72,7 @@ def build_test_context(test_name: str, *, salary_template: Path, final_tool_temp
         outputs_dir=str(artifacts_dir / 'outputs'),
         salary_template_path=str(salary_template),
         final_tool_template_path=str(final_tool_template),
+        max_upload_size_mb=max_upload_size_mb,
         log_format='plain',
     )
 
@@ -155,6 +162,45 @@ def test_aggregate_endpoint_exports_both_templates_without_employee_master() -> 
     assert all(item['status'] == 'completed' for item in payload['artifacts'])
     assert all(Path(item['file_path']).exists() for item in payload['artifacts'])
 
+
+
+
+def test_aggregate_endpoint_rejects_oversized_upload() -> None:
+    placeholder_template = ROOT_DIR / 'data' / 'templates' / 'placeholder.xlsx'
+    client, settings, _session_factory = build_test_context(
+        'aggregate_oversized_upload',
+        salary_template=placeholder_template,
+        final_tool_template=placeholder_template,
+        max_upload_size_mb=1,
+    )
+    oversized_body = b'z' * ((1024 * 1024) + 128)
+
+    with client:
+        request = client.build_request(
+            'POST',
+            '/api/v1/aggregate',
+            data={
+                'batch_name': 'quick-aggregate-oversized',
+                'regions': 'shenzhen',
+                'company_names': '????',
+            },
+            files=[
+                (
+                    'files',
+                    ('oversized.xlsx', oversized_body, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'),
+                )
+            ],
+        )
+        del request.headers['content-length']
+        response = client.send(request)
+        list_response = client.get('/api/v1/imports')
+
+    assert response.status_code == 413
+    payload = response.json()
+    assert payload['error']['message'] == 'Upload exceeds the configured 1048576 byte limit.'
+    assert list_response.json()['data'] == []
+    assert settings.upload_path.exists()
+    assert list(settings.upload_path.iterdir()) == []
 
 def test_aggregate_endpoint_detects_region_from_workbook_when_filename_is_generic() -> None:
     salary_template = find_template('\u85aa\u916c')
