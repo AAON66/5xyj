@@ -38,7 +38,10 @@ Summary:
 1. An oversized upload is stopped during streaming even when `content-length` is missing or incorrect.
 2. An oversized or invalid upload returns an explainable API failure and does not leave ambiguous persisted artifacts behind.
 3. Existing regional regression samples still complete the supported import, normalization, validation, matching, and dual-template export flow after the hardening changes.
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 02-01-PLAN.md - Enforce shared streamed upload limits and extend import/aggregate regression coverage without changing the existing pipeline contract.
 
 ### Phase 3: Reproducible Export Verification
 **Goal**: Dual-template export confidence is reproducible from repo-controlled or explicitly configured inputs instead of one developer workstation.
