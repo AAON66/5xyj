@@ -4,7 +4,159 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a614a6ab-24b5-4f20-8229-5cf8b352ba3a" name="更改" comment="v4.0.2&#10;更新对比表&#10;更新多用户权限。">
+    <list default="true" id="a614a6ab-24b5-4f20-8229-5cf8b352ba3a" name="更改" comment="v4.2.2&#10;修复长沙个人大病医疗问题。">
+      <change afterPath="$PROJECT_DIR$/.claude/settings.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/DEPLOYMENT_SERVER.md" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/absolute_path_deploy.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/auto_deploy.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/auto_deploy.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/check_service.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/clean_cache_deploy.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/clean_deploy.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/clean_env_start.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/06baf0a12b144a9eb1468a9d555f62d4.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/0a7993c874da41f6ad2800d1c3251578.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/10d2eeea431647069c2e98561e8f4ee3.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/14308beebc544644a120b9b958faa823.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/1e397270e5c344a19b4371e9fdd58e1b.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/24eb0256e4a841e998d440fa816aa310.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/555b134e7e71447a98d0929be6b7f777.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/637d7e2a73f0432f916e8ea0a1df11c8.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/6547e75e99b945f5af93a637ba2495aa.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/6556ed94b4904bfd9c609fcdc7519e2d.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/6b61f46d636847e38381d62f32a161e0.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/6d5192023ff047808295b5d9415b8e19.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/6d877d67ca9b4bc0a28d502cb9948347.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/78b3d4f0e1a04c66825fb8baab57dacf.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/7b8b94b79e7b448d94c94124b3a225b1.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/7df98e52be92444aba0194cfc6ceea0d.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/823869b0e9fe448db72245f27b5fe85e.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/86909e277794446882a323bfeec93f1b.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/87f13c5b47ce4adc8dd0001c5aae29e9.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/98e60bad38324b229c04be75758373d5.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/a12e3f611712422f8c27f7cc98ee54f6.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/a525a03718dc40b5ab9223fbbe7c298b.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/b276c76475d6428c91f27a4b4b66af3e.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/b938ac2a09554000a303a86a35ccd2b4.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/c2afa9b355de40efbf8e512843bbe509.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/c33fba37697e4e92aea8799510e20d77.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/c6254337414445a09df6f7af5a9b22c5.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/caefceedd7a942f485d038fa88fa01a9.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/e47dd6629587444eb1bb9290446ed2b9.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/e4e17f1ff8104ed39e09fbb06be46dfe.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/ea838c2c4a0b45b187570e662c68a81a.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/f1492464f57b439b8b197711720a5c3b.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/7c70b563-5465-47ea-ba18-41793090f7da/f4d96337df9c449991491da53626f2a6.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/a6391e7b-d9ca-4fae-ac57-bfefae314a5b/1767b9ca00df47dfa3ba7879e4f8b79c.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/a6391e7b-d9ca-4fae-ac57-bfefae314a5b/19849a669bab4b8aa44f3422c78b323f.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/a6391e7b-d9ca-4fae-ac57-bfefae314a5b/52effd202b604e90a8267669f9fc9450.xls" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/a6391e7b-d9ca-4fae-ac57-bfefae314a5b/58180c905bb040529f7d178efacf443c.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/a6391e7b-d9ca-4fae-ac57-bfefae314a5b/b5d5ee48e0dc4dc38675ef8097eacdf0.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/a6391e7b-d9ca-4fae-ac57-bfefae314a5b/b8e37fbcc72d4218904d6d762418eb54.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/a6391e7b-d9ca-4fae-ac57-bfefae314a5b/eb1a36905b4642a4b282f81b8726f88c.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/a6391e7b-d9ca-4fae-ac57-bfefae314a5b/f786a4a8b6c94ff7a7666ce51ae7b547.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/0b822f208a824c8c91bb212f82d9560b.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/0f124cefc6a04069940277276eb10440.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/151f68e1a6b64e7c85a4249c7e1200a4.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/1cb4b91733414fe8b8e3b11fcf31cf85.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/1d403f7f340c438b8820f6653fb136de.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/29c8ec450f124864bcafa90d3d5b507d.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/2e96fa482d8146d9a492aa1e8714bfff.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/44723075d690418f9c5b3857527c0911.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/4c271299a14049c1a9d6e898f3b4604d.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/4c71b63e459e4ef1b86e867a28e986a7.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/4ffc10f0dbb24e77a15de87cd6b259ed.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/5922b10331074f34887d82333581dd19.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/5da740120c55462c9a4a28d574b35d47.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/6538e36b38e64e038ecb4da124e1d1fd.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/68e6986a10a44878b730b7b645dc7c55.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/69f22e7ed6134300b5080f52d497e67c.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/6d186928dd194062a04d6217081c26d3.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/6e05a969d6134be2b89888e73d825231.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/733263a8e80f4eefa8240f660bbc5c38.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/78cd46dbc23b4b2ab2a853e74a625297.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/873b03ec32aa4108b6696535c98dcda7.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/951afac7dd394bf0ab8045252fa0b65b.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/9b91acec14234c7ea7486fa62bce1821.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/ab7bf23348fa415292d5affae9c9c7cf.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/ac2d67aceee245c2833010daacfc6b16.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/bcb595c9dc964f4e8d82c6a42988b991.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/c0f2ea10e3cf431c82b7be784299f3c5.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/c224b093070d42eea529a40823425be7.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/cd210acf5b0c40cc8ed7e35030f2a99c.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/cfe448f6a3f74bba927a93e5763307c2.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/d8dba0f99de84cb98809d25f54b43252.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/dae20acdecc1498a990f2d80bdedf640.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/c482cdb1-4b25-43f4-9f2d-d77bb90c77d0/fa7ec0a17d5646c99b78ebd5a5ae5cfd.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/03b788d1e73443c3815d64c2cead6ade.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/03d0b32e26994bd696d4f85220f0fbb4.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/18dca7daf52046b58e4b5a9b4979b98c.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/1a86b46df0d74b3498f1de55e5007e01.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/4311e54c863a4ae0b75761ef60780f7e.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/483f7bcb1e034855a4f09027b1636be8.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/4b1ee31913a0429285f2d6db5200ca0f.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/50da72cc5fbc452a93ad3d33783e9d2a.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/5b196dfa56c2441f95f6bafff4f118bf.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/602846b6df3647f3a16f0ad24d74d459.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/64067c4067474096a4a83b4851e6dfc2.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/6870fb17521547878ec4126e91ec97fd.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/6a92414dbdc04636ac59dd98508f383e.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/6ad122cd31db4ca8a2f0fabf40f4bab5.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/7082e6e414cd494f8397866817e2cb55.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/8647e3528b824ccdb28f4d1a233080ce.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/8d1f148de06e4a7287aea56e26658b64.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/905da794a49a4922839bdc2c5f5868c3.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/9dd4eb7a955c4251a3335daae54d1859.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/a099536f457f4919a0e936aa06c892cd.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/a653f18428c94303ad185ae216dde654.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/ab9c1d1598fe444a9d8f0a575647d845.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/c13c5913888a4d05a9c0db10838d81ae.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/c34d06966a554655916a6fde1b72ad68.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/ca0dd9b8c92d4bee88b39f22cc6868a5.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/cec6caf77efa492e8504cb0615a6ced2.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/d09e27bed0934df09136f8de0087eb0b.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/d55c9da3d1cd48579c45d1f6443408ee.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/dbfa4fecb26e40f38153247156d76566.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/ed6f51c63db04a22b60f453a92b21f81.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/efe87c2d223b4199abfc1df5d6c57fbc.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/f4acabe1f8a4429b97a416d2a1095db8.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/data/uploads/cef89e0b-a584-49c2-9420-78936a7be340/f6e2cc9f1c764f119847f6f345a78de5.xlsx" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/debug_error.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/debug_venv.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/deploy.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/deploy_all.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/deploy_auto.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/deploy_complete.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/deploy_service.sh" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/final.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/final_deploy.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/final_deploy_clean.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/final_fix.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/final_start.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/fix_all_types.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/fix_deploy.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/fix_mapped.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/fix_nginx.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/fix_nginx_default.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/fix_on_server.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/fix_server_files.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/fix_types.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/force_rebuild.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/init_db.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/install_python311.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/install_python39.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/install_xlrd.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/kill_and_restart.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/manual_start.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/rebuild_venv.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/redeploy.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/restart_clean.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/setup_nginx.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/simple_start.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/start_service.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/upload_and_start.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/upload_fixed.py" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/venv_copies.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.claude/settings.local.json" beforeDir="false" afterPath="$PROJECT_DIR$/.claude/settings.local.json" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
@@ -63,6 +215,7 @@
       <change beforePath="$PROJECT_DIR$/data/app.db" beforeDir="false" afterPath="$PROJECT_DIR$/data/app.db" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/app.db-shm" beforeDir="false" afterPath="$PROJECT_DIR$/data/app.db-shm" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/data/app.db-wal" beforeDir="false" afterPath="$PROJECT_DIR$/data/app.db-wal" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/progress.txt" beforeDir="false" afterPath="$PROJECT_DIR$/progress.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -136,7 +289,7 @@
       <workItem from="1774119102062" duration="2617000" />
       <workItem from="1774181989524" duration="16922000" />
       <workItem from="1774319631006" duration="2106000" />
-      <workItem from="1774403312088" duration="10117000" />
+      <workItem from="1774403312088" duration="10436000" />
     </task>
     <task id="LOCAL-00001" summary="v2.0.0">
       <option name="closed" value="true" />
@@ -224,6 +377,7 @@
     <MESSAGE value="v4.0.0，聚合相关的Bug全部完善" />
     <MESSAGE value="v4.0.2，更新对比列表" />
     <MESSAGE value="v4.0.2&#10;更新对比表&#10;更新多用户权限。" />
-    <option name="LAST_COMMIT_MESSAGE" value="v4.0.2&#10;更新对比表&#10;更新多用户权限。" />
+    <MESSAGE value="v4.2.2&#10;修复长沙个人大病医疗问题。" />
+    <option name="LAST_COMMIT_MESSAGE" value="v4.2.2&#10;修复长沙个人大病医疗问题。" />
   </component>
 </project>
