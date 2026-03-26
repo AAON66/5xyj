@@ -8,6 +8,10 @@ This is a brownfield React + FastAPI system for payroll and HR operations teams 
 
 Turn messy monthly regional spreadsheets into reliable dual-template outputs with clear provenance and minimal manual cleanup.
 
+## Current State
+
+v1.0 is archived as a hardening baseline. The brownfield system still centers on the existing import -> normalize -> validate -> match -> dual-template export flow, but it now has stricter non-local auth startup rules, safer upload intake on the covered backend paths, repo-controlled export verification, and a clearer supported operations path.
+
 ## Requirements
 
 ### Validated
@@ -27,7 +31,11 @@ Turn messy monthly regional spreadsheets into reliable dual-template outputs wit
 
 ### Active
 
-- [ ] Define the next milestone scope after reviewing the completed hardening roadmap and remaining verification-runtime debt
+- [ ] Define the next milestone scope after reviewing the completed hardening roadmap
+- [ ] Fix the supported deployment env contract so Phase 1 guardrails activate on the documented path
+- [ ] Fix the supported quick-aggregate stream path so streamed upload enforcement holds on the primary UI entrypoint
+- [ ] Decide whether to backfill formal verification artifacts for Phase 1 and Phase 2
+- [ ] Reduce or split the Windows timeout-prone export regression reruns
 
 ### Out of Scope
 
@@ -37,7 +45,7 @@ Turn messy monthly regional spreadsheets into reliable dual-template outputs wit
 
 ## Context
 
-The repository already contains a working brownfield application with backend services under `backend/app/`, frontend flows under `frontend/src/`, region regression tests under `backend/tests/`, and codebase map documents under `.planning/codebase/`. `task.json` shows the original 32-task delivery chain marked complete, so the next useful GSD cycle is not first-build scope; it is hardening, verification, and operational cleanup around an already-functional system. The project also carries explicit business constraints from `AGENTS.md`: rules before LLM, provenance retention, non-detail row filtering, careful employee matching, and mandatory success on both export templates. Operator-facing runbook clarity now centers on `OPERATIONS.md` for supported workflows and `OPERATIONS_RESCUE.md` for demoted rescue or legacy helpers.
+The repository contains a working brownfield application with backend services under `backend/app/`, frontend flows under `frontend/src/`, region regression tests under `backend/tests/`, and codebase map documents under `.planning/codebase/`. `task.json` shows the original 32-task delivery chain marked complete, and v1.0 hardening work is now archived under `.planning/milestones/`. The project still carries explicit business constraints from `AGENTS.md`: rules before LLM, provenance retention, non-detail row filtering, careful employee matching, and mandatory success on both export templates. Operator-facing runbook clarity now centers on `OPERATIONS.md` for supported workflows and `OPERATIONS_RESCUE.md` for demoted rescue or legacy helpers. The main unresolved closeout issues are now explicit: the supported deployment docs drifted from the Phase 1 settings contract, the supported quick-aggregate stream path drifts from the intended Phase 2 enforcement guarantee, and the milestone evidence chain is incomplete for Phase 1 and Phase 2.
 
 ## Constraints
 
@@ -56,6 +64,13 @@ The repository already contains a working brownfield application with backend se
 | Preserve the current stack and workflow contracts | Existing code, tests, and operator expectations are already aligned to React + FastAPI and rules-first parsing | Good |
 | Delay new feature expansion until auth, upload, verification, and ops debt are tightened | The codebase map surfaced concrete concerns that are more urgent than adding surface area | Pending |
 | Document one supported local path and one supported deployment path, while relocating rescue helpers out of the repo root | Operators and future agents needed an obvious supported lane that matched existing brownfield behavior | Good |
+| Archive v1.0 with known audit gaps instead of reopening hardening work during closeout | The issues are real but now clearly bounded and can be planned explicitly into the next milestone | Revisit |
+
+## Next Milestone Goals
+
+- Repair the documented deployment path so it truly activates the Phase 1 production guardrails.
+- Repair the supported quick aggregate entrypath so upload-size enforcement is authoritative while client data streams.
+- Tighten verification discipline so future milestones do not close with missing phase verification artifacts.
 
 ## Evolution
 
@@ -75,4 +90,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-26 after Phase 4 completion*
+*Last updated: 2026-03-26 after v1.0 milestone archival*
