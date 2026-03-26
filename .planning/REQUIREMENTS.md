@@ -1,0 +1,75 @@
+# Requirements: Social Security Spreadsheet Aggregation Tool
+
+**Defined:** 2026-03-26
+**Core Value:** Turn messy monthly regional spreadsheets into reliable dual-template outputs with clear provenance and minimal manual cleanup.
+
+## v1 Requirements
+
+### Security
+
+- [ ] **SEC-01**: Operators cannot deploy the application with default admin or HR passwords in non-local environments
+- [ ] **SEC-02**: Operators cannot deploy the application with a predictable default authentication signing secret in non-local environments
+
+### Pipeline Hardening
+
+- [ ] **PIPE-01**: Upload size limits are enforced while file data is streamed, even when `content-length` is missing or incorrect
+- [ ] **PIPE-02**: Oversized or invalid uploads fail with explainable API responses and do not leave ambiguous persisted artifacts behind
+- [ ] **PIPE-03**: Hardening changes preserve the current import, normalization, validation, matching, and dual-template export behavior across existing regional regression samples
+
+### Verification
+
+- [ ] **VER-01**: Dual-template export regression tests can run from repository-controlled or explicitly configured template locations without depending on a developer desktop path
+- [ ] **VER-02**: Mandatory export verification fails loudly when required fixtures or templates are missing instead of silently weakening confidence through broad skips
+
+### Operations
+
+- [ ] **OPS-01**: The repository documents one canonical local run path and one canonical deployment path for the supported system workflow
+- [ ] **OPS-02**: Ad hoc repair or one-off deployment scripts are clearly separated from supported operator workflows
+- [ ] **OPS-03**: GSD planning state exists in-repo so future work can route cleanly into discuss, plan, execute, and verify phases
+
+## v2 Requirements
+
+### Matching
+
+- **MATCH-01**: Employee matching supports controlled fuzzy or alias-aware fallback beyond exact ID and exact name/company rules
+
+### Templates and Regions
+
+- **TPL-01**: New export templates can be onboarded without coupling logic directly to the current two-template implementation
+- **REG-01**: New region-specific parser rules can be added through clearer configuration and fixture workflows
+
+### Frontend Quality
+
+- **FE-01**: Critical frontend workflows have automated tests around auth restoration, imports, and export/result views
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Rewriting the existing app into a new stack | High churn with little value compared to targeted hardening |
+| LLM-first spreadsheet parsing | Conflicts with the project's explicit rules-first requirement |
+| Large new product areas unrelated to payroll spreadsheet processing | Would distract from the core operational pipeline |
+
+## Traceability
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| SEC-01 | Unmapped | Pending |
+| SEC-02 | Unmapped | Pending |
+| PIPE-01 | Unmapped | Pending |
+| PIPE-02 | Unmapped | Pending |
+| PIPE-03 | Unmapped | Pending |
+| VER-01 | Unmapped | Pending |
+| VER-02 | Unmapped | Pending |
+| OPS-01 | Unmapped | Pending |
+| OPS-02 | Unmapped | Pending |
+| OPS-03 | Unmapped | Pending |
+
+**Coverage:**
+- v1 requirements: 10 total
+- Mapped to phases: 0
+- Unmapped: 10
+
+---
+*Requirements defined: 2026-03-26*
+*Last updated: 2026-03-26 after initial brownfield GSD initialization*
