@@ -69,6 +69,6 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Deployment Security Guardrails | 1/1 | Complete | 2026-03-26 |
-| 2. Safe Upload Intake | 0/0 | Not started | - |
+| 2. Safe Upload Intake | 0/1 | Planned | - |
 | 3. Reproducible Export Verification | 0/0 | Not started | - |
 | 4. Supported Operations Path | 0/0 | Not started | - |
