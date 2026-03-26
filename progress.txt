@@ -2022,3 +2022,26 @@ ormalization_service.py backendpp\services\import_service.py backendpp\service
 ### Notes:
 - Phase 3 summaries were added at `.planning/phases/03-reproducible-export-verification/03-01-SUMMARY.md` and `.planning/phases/03-reproducible-export-verification/03-02-SUMMARY.md`.
 - Phase-level verification was recorded in `.planning/phases/03-reproducible-export-verification/03-VERIFICATION.md`.
+
+## 2026-03-26 - Task: Phase 4 supported operations path
+
+### What was done:
+- Added `OPERATIONS.md` as the canonical supported operations document and aligned `README.md` plus `DEPLOYMENT.md` to one supported local path and one supported Linux/systemd deployment path.
+- Added `.planning/README.md` as the in-repo planning handoff entrypoint and synchronized `.planning/PROJECT.md`, `.planning/ROADMAP.md`, `.planning/STATE.md`, and `.planning/REQUIREMENTS.md` to the completed Phase 4 state.
+- Moved root-level rescue, deploy, restart, upload, and repair helpers under `scripts/operations/rescue/`, added `OPERATIONS_RESCUE.md`, and demoted `DEPLOYMENT_SERVER.md` to legacy/server-specific notes.
+- Captured Phase 4 summaries and verification in `.planning/phases/04-supported-operations-path/`.
+
+### Testing:
+- `Select-String -Path README.md,OPERATIONS.md -Pattern ''start_project_local|127.0.0.1:8000|127.0.0.1:5173''`
+- `Select-String -Path DEPLOYMENT.md,OPERATIONS.md -Pattern ''systemd|AUTH_SECRET_KEY|ADMIN_PASSWORD|HR_PASSWORD|SALARY_TEMPLATE_PATH|FINAL_TOOL_TEMPLATE_PATH''`
+- `Get-ChildItem -Name *.py,*.sh,*.cmd,*.ps1`
+- `Select-String -Path OPERATIONS_RESCUE.md,DEPLOYMENT_SERVER.md,.planning/README.md,.planning/PROJECT.md,.planning/STATE.md -Pattern ''legacy|server-specific|OPERATIONS.md|PROJECT.md|ROADMAP.md|STATE.md|discuss|plan|execute|verify|OPERATIONS_RESCUE.md|rescue''`
+- Attempted prior Phase 3 regression rerun with `./.venv/Scripts/python.exe -m pytest ... -x -p no:cacheprovider`; both attempts timed out in this Windows environment without an observed assertion failure before timeout.
+
+### Risks / Open Questions:
+- The combined Phase 3 regression rerun remains slow enough in this Windows environment to time out at 120s and 600s; verification debt should carry into milestone closeout or the next planning cycle.
+- The worktree still contains unrelated local changes outside Phase 4 and they were intentionally left untouched.
+
+### Notes:
+- Supported workflows now start from `OPERATIONS.md`; rescue-only tooling now lives under `scripts/operations/rescue/` and is inventoried in `OPERATIONS_RESCUE.md`.
+- Future agents should start from `.planning/README.md`, `STATE.md`, and the current phase summaries rather than reaching for rescue scripts.

@@ -20,13 +20,14 @@ Turn messy monthly regional spreadsheets into reliable dual-template outputs wit
 - [x] Employee master import and record matching flows exist across backend APIs and frontend pages - existing
 - [x] Dual-template export is implemented and treated as an all-or-nothing outcome for the monthly processing flow - existing
 - [x] Dashboard, imports, mappings, results, compare, exports, and employee-facing routes already exist in the frontend and backend - existing
+- [x] Non-local deployments now fail fast on default credentials or predictable auth secrets - Phase 1
+- [x] Streamed upload-size enforcement now fails safely without leaving ambiguous persisted artifacts - Phase 2
+- [x] Dual-template export verification now runs from repo-controlled or explicit template paths and fails loudly when fixtures are missing - Phase 3
+- [x] Supported operator workflows are now explicit in `OPERATIONS.md`, while rescue tooling is demoted into `OPERATIONS_RESCUE.md` and `scripts/operations/rescue/` - Phase 4
 
 ### Active
 
-- [ ] Harden authentication so non-local environments cannot accidentally run with default credentials or predictable signing secrets
-- [ ] Enforce upload-size limits during streaming, not only from request headers, so oversized files fail safely and consistently
-- [ ] Make export verification self-contained and reproducible without depending on desktop-only template locations or skip-heavy test fallbacks
-- [ ] Consolidate canonical run, deploy, and recovery paths so operators can distinguish supported workflows in `OPERATIONS.md` from ad hoc rescue scripts inventoried in `OPERATIONS_RESCUE.md`
+- [ ] Define the next milestone scope after reviewing the completed hardening roadmap and remaining verification-runtime debt
 
 ### Out of Scope
 
@@ -54,6 +55,7 @@ The repository already contains a working brownfield application with backend se
 | Initialize GSD around hardening and maintainability rather than rebuilding completed scope | `task.json` marks the initial delivery sequence complete, so the next leverage is operational confidence | Good |
 | Preserve the current stack and workflow contracts | Existing code, tests, and operator expectations are already aligned to React + FastAPI and rules-first parsing | Good |
 | Delay new feature expansion until auth, upload, verification, and ops debt are tightened | The codebase map surfaced concrete concerns that are more urgent than adding surface area | Pending |
+| Document one supported local path and one supported deployment path, while relocating rescue helpers out of the repo root | Operators and future agents needed an obvious supported lane that matched existing brownfield behavior | Good |
 
 ## Evolution
 
@@ -73,4 +75,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-26 after GSD project initialization*
+*Last updated: 2026-03-26 after Phase 4 completion*
