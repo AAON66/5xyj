@@ -23,7 +23,7 @@
 
 ### Operations
 
-- [ ] **OPS-01**: The repository documents one canonical local run path and one canonical deployment path for the supported system workflow
+- [x] **OPS-01**: The repository documents one canonical local run path and one canonical deployment path for the supported system workflow
 - [ ] **OPS-02**: Ad hoc repair or one-off deployment scripts are clearly separated from supported operator workflows
 - [ ] **OPS-03**: GSD planning state exists in-repo so future work can route cleanly into discuss, plan, execute, and verify phases
 
@@ -61,7 +61,7 @@
 | PIPE-03 | Phase 2 | Complete |
 | VER-01 | Phase 3 | Pending |
 | VER-02 | Phase 3 | Pending |
-| OPS-01 | Phase 4 | Pending |
+| OPS-01 | Phase 4 | Complete |
 | OPS-02 | Phase 4 | Pending |
 | OPS-03 | Phase 4 | Pending |
 
@@ -72,4 +72,4 @@
 
 ---
 *Requirements defined: 2026-03-26*
-*Last updated: 2026-03-26 after Phase 2 execution*
+*Last updated: 2026-03-26 after Phase 4 Plan 1 execution*
