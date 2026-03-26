@@ -84,6 +84,10 @@ class InvalidUploadError(ImportServiceError):
     pass
 
 
+class UploadTooLargeError(InvalidUploadError):
+    pass
+
+
 class BatchNotFoundError(ImportServiceError):
     pass
 
@@ -170,7 +174,11 @@ async def create_import_batch(
                     'batch_name': batch.batch_name,
                 },
             )
-            stored = await _store_upload(batch_dir, upload)
+            stored = await _store_upload(
+                batch_dir,
+                upload,
+                max_upload_size_bytes=settings.max_upload_size_bytes,
+            )
             stored_paths.append(stored.storage_path)
             await _notify_progress(
                 progress_callback,
@@ -909,7 +917,7 @@ def _normalize_file_kinds(values: Optional[list[str]], file_count: int) -> list[
     return normalized
 
 
-async def _store_upload(batch_dir: Path, upload: UploadFile) -> StoredUpload:
+async def _store_upload(batch_dir: Path, upload: UploadFile, *, max_upload_size_bytes: int) -> StoredUpload:
     original_name = Path(upload.filename or 'upload.xlsx').name
     extension = Path(original_name).suffix.lower()
     if extension not in ALLOWED_EXTENSIONS:
@@ -926,9 +934,13 @@ async def _store_upload(batch_dir: Path, upload: UploadFile) -> StoredUpload:
                 chunk = await upload.read(UPLOAD_CHUNK_SIZE)
                 if not chunk:
                     break
+                file_size += len(chunk)
+                if file_size > max_upload_size_bytes:
+                    raise UploadTooLargeError(
+                        f'Upload exceeds the configured {max_upload_size_bytes} byte limit.'
+                    )
                 handle.write(chunk)
                 hasher.update(chunk)
-                file_size += len(chunk)
     except Exception:
         if storage_path.exists():
             storage_path.unlink()

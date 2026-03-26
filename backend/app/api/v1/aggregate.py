@@ -17,7 +17,7 @@ from backend.app.api.v1.responses import success_response
 from backend.app.dependencies import get_db
 from backend.app.services.aggregate_service import run_simple_aggregate
 from backend.app.services.employee_service import EmployeeImportError
-from backend.app.services.import_service import InvalidUploadError
+from backend.app.services.import_service import InvalidUploadError, UploadTooLargeError
 
 router = APIRouter(prefix='/aggregate', tags=['aggregate'])
 logger = logging.getLogger(__name__)
@@ -47,6 +47,8 @@ async def run_simple_aggregate_endpoint(
             regions=_parse_metadata_values(regions),
             company_names=_parse_metadata_values(company_names),
         )
+    except UploadTooLargeError as exc:
+        raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=str(exc)) from exc
     except (InvalidUploadError, EmployeeImportError, ValueError) as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
@@ -126,6 +128,8 @@ async def run_simple_aggregate_stream_endpoint(
                     company_names=parsed_companies,
                     progress_callback=emit_progress,
                 )
+            except UploadTooLargeError as exc:
+                await queue.put({'event': 'error', 'code': 'payload_too_large', 'message': str(exc)})
             except (InvalidUploadError, EmployeeImportError, ValueError) as exc:
                 await queue.put({'event': 'error', 'code': 'bad_request', 'message': str(exc)})
             except Exception as exc:
