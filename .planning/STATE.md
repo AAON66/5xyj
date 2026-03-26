@@ -10,8 +10,8 @@
 ## Current Position
 
 - **Phase**: 1 - Deployment Security Guardrails
-- **Plan**: Not started
-- **Status**: Ready for planning
+- **Plan**: 01-01-PLAN.md
+- **Status**: Ready for execution
 - **Progress**: [----] 0/4 phases complete
 
 ## Performance Metrics
@@ -32,7 +32,7 @@
 
 ### Todos
 
-- Create the executable plan for Phase 1.
+- Execute `01-01-PLAN.md` for Phase 1.
 - Preserve the rules-first parsing and dual-template export contracts while hardening the system.
 - Keep `AGENTS.md` unchanged and use `.planning/` as the project memory source for subsequent GSD steps.
 
@@ -43,6 +43,5 @@
 ## Session Continuity
 
 - **Last Updated**: 2026-03-26
-- **Next Recommended Step**: `/gsd:plan-phase 1`
-- **Resume Notes**: Start with auth configuration and startup validation, then move into upload streaming hardening and regression protection.
-
+- **Next Recommended Step**: `/gsd:execute-phase 1`
+- **Resume Notes**: Execute the single Phase 1 plan that adds non-local auth guardrails, startup validation, and regression tests before moving to upload streaming hardening in Phase 2.

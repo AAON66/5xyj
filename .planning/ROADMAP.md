@@ -22,7 +22,10 @@
 1. A non-local deployment refuses to start when the admin password is still the default value.
 2. A non-local deployment refuses to start when the HR password is still the default value.
 3. A non-local deployment refuses to start when the authentication signing secret is still predictable or unchanged from the default.
-**Plans**: TBD
+**Plans**: 1 plan
+
+Plans:
+- [ ] 01-01-PLAN.md - Enforce explicit non-local auth secret and password startup guardrails with regression tests.
 
 ### Phase 2: Safe Upload Intake
 **Goal**: File ingestion fails safely under oversized or invalid uploads without regressing the working import-to-export pipeline.
@@ -59,8 +62,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Deployment Security Guardrails | 0/0 | Not started | - |
+| 1. Deployment Security Guardrails | 0/1 | Not started | - |
 | 2. Safe Upload Intake | 0/0 | Not started | - |
 | 3. Reproducible Export Verification | 0/0 | Not started | - |
 | 4. Supported Operations Path | 0/0 | Not started | - |
-
