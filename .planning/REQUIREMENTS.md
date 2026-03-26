@@ -54,22 +54,22 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SEC-01 | Unmapped | Pending |
-| SEC-02 | Unmapped | Pending |
-| PIPE-01 | Unmapped | Pending |
-| PIPE-02 | Unmapped | Pending |
-| PIPE-03 | Unmapped | Pending |
-| VER-01 | Unmapped | Pending |
-| VER-02 | Unmapped | Pending |
-| OPS-01 | Unmapped | Pending |
-| OPS-02 | Unmapped | Pending |
-| OPS-03 | Unmapped | Pending |
+| SEC-01 | Phase 1 | Pending |
+| SEC-02 | Phase 1 | Pending |
+| PIPE-01 | Phase 2 | Pending |
+| PIPE-02 | Phase 2 | Pending |
+| PIPE-03 | Phase 2 | Pending |
+| VER-01 | Phase 3 | Pending |
+| VER-02 | Phase 3 | Pending |
+| OPS-01 | Phase 4 | Pending |
+| OPS-02 | Phase 4 | Pending |
+| OPS-03 | Phase 4 | Pending |
 
 **Coverage:**
 - v1 requirements: 10 total
-- Mapped to phases: 0
-- Unmapped: 10
+- Mapped to phases: 10
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-26*
-*Last updated: 2026-03-26 after initial brownfield GSD initialization*
+*Last updated: 2026-03-26 after roadmap initialization*
