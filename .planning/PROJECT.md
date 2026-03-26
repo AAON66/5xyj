@@ -26,7 +26,7 @@ Turn messy monthly regional spreadsheets into reliable dual-template outputs wit
 - [ ] Harden authentication so non-local environments cannot accidentally run with default credentials or predictable signing secrets
 - [ ] Enforce upload-size limits during streaming, not only from request headers, so oversized files fail safely and consistently
 - [ ] Make export verification self-contained and reproducible without depending on desktop-only template locations or skip-heavy test fallbacks
-- [ ] Consolidate canonical run, deploy, and recovery paths so operators can distinguish supported workflows from ad hoc rescue scripts
+- [ ] Consolidate canonical run, deploy, and recovery paths so operators can distinguish supported workflows in `OPERATIONS.md` from ad hoc rescue scripts inventoried in `OPERATIONS_RESCUE.md`
 
 ### Out of Scope
 
@@ -36,7 +36,7 @@ Turn messy monthly regional spreadsheets into reliable dual-template outputs wit
 
 ## Context
 
-The repository already contains a working brownfield application with backend services under `backend/app/`, frontend flows under `frontend/src/`, region regression tests under `backend/tests/`, and codebase map documents under `.planning/codebase/`. `task.json` shows the original 32-task delivery chain marked complete, so the next useful GSD cycle is not first-build scope; it is hardening, verification, and operational cleanup around an already-functional system. The project also carries explicit business constraints from `AGENTS.md`: rules before LLM, provenance retention, non-detail row filtering, careful employee matching, and mandatory success on both export templates.
+The repository already contains a working brownfield application with backend services under `backend/app/`, frontend flows under `frontend/src/`, region regression tests under `backend/tests/`, and codebase map documents under `.planning/codebase/`. `task.json` shows the original 32-task delivery chain marked complete, so the next useful GSD cycle is not first-build scope; it is hardening, verification, and operational cleanup around an already-functional system. The project also carries explicit business constraints from `AGENTS.md`: rules before LLM, provenance retention, non-detail row filtering, careful employee matching, and mandatory success on both export templates. Operator-facing runbook clarity now centers on `OPERATIONS.md` for supported workflows and `OPERATIONS_RESCUE.md` for demoted rescue or legacy helpers.
 
 ## Constraints
 

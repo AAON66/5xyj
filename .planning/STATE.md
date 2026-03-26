@@ -62,4 +62,4 @@ Plan: 04-01 complete, 04-02 pending
 
 - **Last Updated**: 2026-03-26
 - **Next Recommended Step**: Execute `04-02-PLAN.md`
-- **Resume Notes**: `04-01-SUMMARY.md` establishes the canonical local and Linux/systemd operator paths; continue Phase 4 by separating rescue and legacy tooling without changing those supported docs.
+- **Resume Notes**: Read `OPERATIONS.md` first for the supported path, treat `OPERATIONS_RESCUE.md` and `scripts/operations/rescue/` as non-canonical rescue material, and continue through the standard discuss -> plan -> execute -> verify loop instead of inventing new ad hoc operational paths.
