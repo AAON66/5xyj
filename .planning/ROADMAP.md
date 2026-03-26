@@ -54,7 +54,11 @@ Summary:
 1. Export regression verification can locate both required templates from repository-controlled fixtures or an explicit configuration path.
 2. Verification fails loudly when required export fixtures or templates are missing.
 3. Dual-template export coverage can be rerun on another machine without editing code to point at a desktop-only template path.
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 03-01-PLAN.md - Establish repo-controlled export fixtures, shared export test helpers, and fail-loud explicit template resolution.
+- [ ] 03-02-PLAN.md - Migrate exporter, aggregate, and dashboard verification onto the shared fixture contract and remove missing placeholder dependencies.
 
 ### Phase 4: Supported Operations Path
 **Goal**: Operators and future agents can follow one supported local workflow and one supported deployment workflow without confusing rescue tooling for the canonical path.
@@ -73,5 +77,5 @@ Summary:
 |-------|----------------|--------|-----------|
 | 1. Deployment Security Guardrails | 1/1 | Complete | 2026-03-26 |
 | 2. Safe Upload Intake | 1/1 | Complete | 2026-03-26 |
-| 3. Reproducible Export Verification | 0/0 | Not started | - |
+| 3. Reproducible Export Verification | 0/2 | Not started | - |
 | 4. Supported Operations Path | 0/0 | Not started | - |
