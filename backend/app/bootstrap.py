@@ -1,11 +1,14 @@
 from __future__ import annotations
 
-from typing import Optional
-
 from pathlib import Path
+from typing import Optional
 
 from backend.app.core.config import Settings, get_settings
 from backend.app.core.logging import configure_logging
+
+
+class UnsafeAuthConfigurationError(RuntimeError):
+    """Raised when a non-local runtime is configured with unsafe auth defaults."""
 
 
 def ensure_runtime_directories(settings: Optional[Settings] = None) -> list[Path]:
@@ -21,8 +24,34 @@ def ensure_runtime_directories(settings: Optional[Settings] = None) -> list[Path
     return paths
 
 
+def validate_auth_runtime_guardrails(settings: Optional[Settings] = None) -> Settings:
+    runtime_settings = settings or get_settings()
+    if not runtime_settings.auth_enabled or runtime_settings.is_local_runtime:
+        return runtime_settings
+
+    issues: list[str] = []
+    if runtime_settings.uses_default_admin_password:
+        issues.append('`admin_login_password` is still using the shipped default.')
+    if runtime_settings.uses_default_hr_password:
+        issues.append('`hr_login_password` is still using the shipped default.')
+    if runtime_settings.uses_unsafe_auth_secret_key:
+        issues.append('`auth_secret_key` is still using a default or blocked unsafe placeholder.')
+
+    if issues:
+        issue_summary = ' '.join(issues)
+        raise UnsafeAuthConfigurationError(
+            f"Unsafe auth configuration blocked for runtime_environment="
+            f"'{runtime_settings.normalized_runtime_environment}'. {issue_summary} "
+            "Set non-default admin/hr credentials and a strong auth_secret_key, "
+            "or keep runtime_environment='local' for local development only."
+        )
+
+    return runtime_settings
+
+
 def bootstrap_application(settings: Optional[Settings] = None) -> Settings:
     runtime_settings = settings or get_settings()
+    validate_auth_runtime_guardrails(runtime_settings)
     configure_logging(runtime_settings)
     ensure_runtime_directories(runtime_settings)
     return runtime_settings

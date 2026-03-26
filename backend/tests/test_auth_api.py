@@ -23,8 +23,9 @@ def build_test_client(test_name: str) -> TestClient:
 
     database_path = artifacts_dir / 'auth.db'
     settings = Settings(
-        app_name='认证测试',
+        app_name='auth-test',
         app_version='0.2.0',
+        runtime_environment='production',
         database_url=f'sqlite:///{database_path.as_posix()}',
         upload_dir=str(artifacts_dir / 'uploads'),
         samples_dir=str(artifacts_dir / 'samples'),
@@ -119,7 +120,7 @@ def test_employee_self_service_query_remains_public() -> None:
     with client:
         response = client.post(
             '/api/v1/employees/self-service/query',
-            json={'person_name': '不存在员工', 'id_number': '440101199001019999'},
+            json={'person_name': 'missing-employee', 'id_number': '440101199001019999'},
         )
 
     assert response.status_code == 404

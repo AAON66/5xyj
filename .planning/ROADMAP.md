@@ -7,7 +7,7 @@
 
 ## Phases
 
-- [ ] **Phase 1: Deployment Security Guardrails** - Fail fast outside local development when auth credentials or signing secrets are unsafe.
+- [x] **Phase 1: Deployment Security Guardrails** - Fail fast outside local development when auth credentials or signing secrets are unsafe.
 - [ ] **Phase 2: Safe Upload Intake** - Enforce upload limits during streaming and preserve current pipeline behavior under hardening changes.
 - [ ] **Phase 3: Reproducible Export Verification** - Make dual-template export checks repo-controlled and fail-loud instead of skip-heavy.
 - [ ] **Phase 4: Supported Operations Path** - Clarify canonical run/deploy workflows, separate rescue scripts, and anchor future GSD work in-repo.
@@ -25,7 +25,10 @@
 **Plans**: 1 plan
 
 Plans:
-- [ ] 01-01-PLAN.md - Enforce explicit non-local auth secret and password startup guardrails with regression tests.
+- [x] 01-01-PLAN.md - Enforce explicit non-local auth secret and password startup guardrails with regression tests.
+
+Summary:
+- [x] 01-01-SUMMARY.md - Startup now fails loudly for unsafe non-local auth defaults while local development remains usable.
 
 ### Phase 2: Safe Upload Intake
 **Goal**: File ingestion fails safely under oversized or invalid uploads without regressing the working import-to-export pipeline.
@@ -62,7 +65,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Deployment Security Guardrails | 0/1 | Not started | - |
+| 1. Deployment Security Guardrails | 1/1 | Complete | 2026-03-26 |
 | 2. Safe Upload Intake | 0/0 | Not started | - |
 | 3. Reproducible Export Verification | 0/0 | Not started | - |
 | 4. Supported Operations Path | 0/0 | Not started | - |
