@@ -18,14 +18,14 @@
 
 ### Verification
 
-- [ ] **VER-01**: Dual-template export regression tests can run from repository-controlled or explicitly configured template locations without depending on a developer desktop path
-- [ ] **VER-02**: Mandatory export verification fails loudly when required fixtures or templates are missing instead of silently weakening confidence through broad skips
+- [x] **VER-01**: Dual-template export regression tests can run from repository-controlled or explicitly configured template locations without depending on a developer desktop path
+- [x] **VER-02**: Mandatory export verification fails loudly when required fixtures or templates are missing instead of silently weakening confidence through broad skips
 
 ### Operations
 
 - [x] **OPS-01**: The repository documents one canonical local run path and one canonical deployment path for the supported system workflow
-- [ ] **OPS-02**: Ad hoc repair or one-off deployment scripts are clearly separated from supported operator workflows
-- [ ] **OPS-03**: GSD planning state exists in-repo so future work can route cleanly into discuss, plan, execute, and verify phases
+- [x] **OPS-02**: Ad hoc repair or one-off deployment scripts are clearly separated from supported operator workflows
+- [x] **OPS-03**: GSD planning state exists in-repo so future work can route cleanly into discuss, plan, execute, and verify phases
 
 ## v2 Requirements
 
@@ -59,11 +59,11 @@
 | PIPE-01 | Phase 2 | Complete |
 | PIPE-02 | Phase 2 | Complete |
 | PIPE-03 | Phase 2 | Complete |
-| VER-01 | Phase 3 | Pending |
-| VER-02 | Phase 3 | Pending |
+| VER-01 | Phase 3 | Complete |
+| VER-02 | Phase 3 | Complete |
 | OPS-01 | Phase 4 | Complete |
-| OPS-02 | Phase 4 | Pending |
-| OPS-03 | Phase 4 | Pending |
+| OPS-02 | Phase 4 | Complete |
+| OPS-03 | Phase 4 | Complete |
 
 **Coverage:**
 - v1 requirements: 10 total
@@ -72,4 +72,4 @@
 
 ---
 *Requirements defined: 2026-03-26*
-*Last updated: 2026-03-26 after Phase 4 Plan 1 execution*
+*Last updated: 2026-03-26 after Phase 4 completion*

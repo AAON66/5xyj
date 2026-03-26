@@ -10,7 +10,7 @@
 - [x] **Phase 1: Deployment Security Guardrails** - Fail fast outside local development when auth credentials or signing secrets are unsafe.
 - [x] **Phase 2: Safe Upload Intake** - Enforce upload limits during streaming and preserve current pipeline behavior under hardening changes.
 - [x] **Phase 3: Reproducible Export Verification** - Make dual-template export checks repo-controlled and fail-loud instead of skip-heavy.
-- [ ] **Phase 4: Supported Operations Path** - Clarify canonical run/deploy workflows, separate rescue scripts, and anchor future GSD work in-repo.
+- [x] **Phase 4: Supported Operations Path** - Clarify canonical run/deploy workflows, separate rescue scripts, and anchor future GSD work in-repo.
 
 ## Phase Details
 
@@ -77,10 +77,11 @@ Summary:
 
 Plans:
 - [x] 04-01-PLAN.md - Define the canonical supported local and Linux/systemd deployment workflows in operator-facing docs without changing runtime behavior.
-- [ ] 04-02-PLAN.md - Classify rescue and legacy operational tooling, demote server-specific notes, and add explicit `.planning/` future-agent handoff guidance.
+- [x] 04-02-PLAN.md - Classify rescue and legacy operational tooling, demote server-specific notes, and add explicit `.planning/` future-agent handoff guidance.
 
 Summary:
 - [x] 04-01-SUMMARY.md - Canonical local startup and Linux/systemd deployment now have one supported operator path in repo docs.
+- [x] 04-02-SUMMARY.md - Rescue tooling is now visibly separated from supported workflows and `.planning/` provides the future-agent handoff path.
 
 ## Progress
 
@@ -89,4 +90,4 @@ Summary:
 | 1. Deployment Security Guardrails | 1/1 | Complete | 2026-03-26 |
 | 2. Safe Upload Intake | 1/1 | Complete | 2026-03-26 |
 | 3. Reproducible Export Verification | 2/2 | Complete | 2026-03-26 |
-| 4. Supported Operations Path | 1/2 | In Progress | - |
+| 4. Supported Operations Path | 2/2 | Complete | 2026-03-26 |
