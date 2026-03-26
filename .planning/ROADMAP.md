@@ -8,7 +8,7 @@
 ## Phases
 
 - [x] **Phase 1: Deployment Security Guardrails** - Fail fast outside local development when auth credentials or signing secrets are unsafe.
-- [ ] **Phase 2: Safe Upload Intake** - Enforce upload limits during streaming and preserve current pipeline behavior under hardening changes.
+- [x] **Phase 2: Safe Upload Intake** - Enforce upload limits during streaming and preserve current pipeline behavior under hardening changes.
 - [ ] **Phase 3: Reproducible Export Verification** - Make dual-template export checks repo-controlled and fail-loud instead of skip-heavy.
 - [ ] **Phase 4: Supported Operations Path** - Clarify canonical run/deploy workflows, separate rescue scripts, and anchor future GSD work in-repo.
 
@@ -41,7 +41,10 @@ Summary:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 02-01-PLAN.md - Enforce shared streamed upload limits and extend import/aggregate regression coverage without changing the existing pipeline contract.
+- [x] 02-01-PLAN.md - Enforce shared streamed upload limits and extend import/aggregate regression coverage without changing the existing pipeline contract.
+
+Summary:
+- [x] 02-01-SUMMARY.md - Streamed upload limits are now enforced during write-time with deterministic cleanup and consistent oversize API failures.
 
 ### Phase 3: Reproducible Export Verification
 **Goal**: Dual-template export confidence is reproducible from repo-controlled or explicitly configured inputs instead of one developer workstation.
@@ -69,6 +72,6 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Deployment Security Guardrails | 1/1 | Complete | 2026-03-26 |
-| 2. Safe Upload Intake | 0/1 | Planned | - |
+| 2. Safe Upload Intake | 1/1 | Complete | 2026-03-26 |
 | 3. Reproducible Export Verification | 0/0 | Not started | - |
 | 4. Supported Operations Path | 0/0 | Not started | - |

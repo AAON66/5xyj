@@ -7,14 +7,14 @@
 
 ### Security
 
-- [ ] **SEC-01**: Operators cannot deploy the application with default admin or HR passwords in non-local environments
-- [ ] **SEC-02**: Operators cannot deploy the application with a predictable default authentication signing secret in non-local environments
+- [x] **SEC-01**: Operators cannot deploy the application with default admin or HR passwords in non-local environments
+- [x] **SEC-02**: Operators cannot deploy the application with a predictable default authentication signing secret in non-local environments
 
 ### Pipeline Hardening
 
-- [ ] **PIPE-01**: Upload size limits are enforced while file data is streamed, even when `content-length` is missing or incorrect
-- [ ] **PIPE-02**: Oversized or invalid uploads fail with explainable API responses and do not leave ambiguous persisted artifacts behind
-- [ ] **PIPE-03**: Hardening changes preserve the current import, normalization, validation, matching, and dual-template export behavior across existing regional regression samples
+- [x] **PIPE-01**: Upload size limits are enforced while file data is streamed, even when `content-length` is missing or incorrect
+- [x] **PIPE-02**: Oversized or invalid uploads fail with explainable API responses and do not leave ambiguous persisted artifacts behind
+- [x] **PIPE-03**: Hardening changes preserve the current import, normalization, validation, matching, and dual-template export behavior across existing regional regression samples
 
 ### Verification
 
@@ -54,11 +54,11 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SEC-01 | Phase 1 | Pending |
-| SEC-02 | Phase 1 | Pending |
-| PIPE-01 | Phase 2 | Pending |
-| PIPE-02 | Phase 2 | Pending |
-| PIPE-03 | Phase 2 | Pending |
+| SEC-01 | Phase 1 | Complete |
+| SEC-02 | Phase 1 | Complete |
+| PIPE-01 | Phase 2 | Complete |
+| PIPE-02 | Phase 2 | Complete |
+| PIPE-03 | Phase 2 | Complete |
 | VER-01 | Phase 3 | Pending |
 | VER-02 | Phase 3 | Pending |
 | OPS-01 | Phase 4 | Pending |
@@ -72,4 +72,4 @@
 
 ---
 *Requirements defined: 2026-03-26*
-*Last updated: 2026-03-26 after roadmap initialization*
+*Last updated: 2026-03-26 after Phase 2 execution*
