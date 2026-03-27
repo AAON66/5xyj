@@ -10,7 +10,7 @@ Turn messy monthly regional spreadsheets into reliable dual-template outputs wit
 
 ## Current State
 
-v1.0 is archived as a hardening baseline. The brownfield system still centers on the existing import -> normalize -> validate -> match -> dual-template export flow, but it now has stricter non-local auth startup rules, safer upload intake on the covered backend paths, repo-controlled export verification, and a clearer supported operations path.
+v1.0 is archived as a hardening baseline, and v1.1 is now planned as an audit gap closure milestone. The brownfield system still centers on the existing import -> normalize -> validate -> match -> dual-template export flow, but the next work is explicitly aimed at repairing the documented deployment contract, fixing the supported quick-aggregate stream entrypath, and backfilling the missing verification evidence chain surfaced by the v1.0 audit.
 
 ## Requirements
 
@@ -31,10 +31,10 @@ v1.0 is archived as a hardening baseline. The brownfield system still centers on
 
 ### Active
 
-- [ ] Define the next milestone scope after reviewing the completed hardening roadmap
+- [x] Define the next milestone scope after reviewing the completed hardening roadmap
 - [ ] Fix the supported deployment env contract so Phase 1 guardrails activate on the documented path
 - [ ] Fix the supported quick-aggregate stream path so streamed upload enforcement holds on the primary UI entrypoint
-- [ ] Decide whether to backfill formal verification artifacts for Phase 1 and Phase 2
+- [ ] Backfill formal verification artifacts for Phase 1 and Phase 2, plus machine-checkable summary metadata for Phase 3
 - [ ] Reduce or split the Windows timeout-prone export regression reruns
 
 ### Out of Scope
@@ -65,6 +65,7 @@ The repository contains a working brownfield application with backend services u
 | Delay new feature expansion until auth, upload, verification, and ops debt are tightened | The codebase map surfaced concrete concerns that are more urgent than adding surface area | Pending |
 | Document one supported local path and one supported deployment path, while relocating rescue helpers out of the repo root | Operators and future agents needed an obvious supported lane that matched existing brownfield behavior | Good |
 | Archive v1.0 with known audit gaps instead of reopening hardening work during closeout | The issues are real but now clearly bounded and can be planned explicitly into the next milestone | Revisit |
+| Start the next milestone as a narrow audit gap closure effort before any new feature expansion | The v1.0 audit isolated three focused workstreams that unblock a clean re-audit without reopening completed brownfield scope | Good |
 
 ## Next Milestone Goals
 
@@ -90,4 +91,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-26 after v1.0 milestone archival*
+*Last updated: 2026-03-27 after v1.1 gap-closure milestone planning*

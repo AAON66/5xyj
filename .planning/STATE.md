@@ -1,11 +1,11 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: v1.0 milestone archived with known gaps
-last_updated: "2026-03-26T17:20:00+08:00"
+milestone: v1.1
+milestone_name: audit gap closure
+status: v1.1 gap-closure milestone planned from v1.0 audit
+last_updated: "2026-03-27T08:07:34+08:00"
 progress:
-  total_phases: 4
+  total_phases: 7
   completed_phases: 4
   total_plans: 6
   completed_plans: 6
@@ -17,13 +17,13 @@ progress:
 
 - **Project**: Social Security Spreadsheet Aggregation Tool
 - **Core Value**: Turn messy monthly regional spreadsheets into reliable dual-template outputs with clear provenance and minimal manual cleanup.
-- **Current Milestone**: Brownfield hardening and maintainability initialization
-- **Current Focus**: Planning the next milestone after v1.0 archival
+- **Current Milestone**: v1.1 Audit Gap Closure
+- **Current Focus**: Phase planning for the deployment guardrail, quick aggregate stream, and audit evidence-chain gaps identified in the v1.0 audit
 
 ## Current Position
 
-Phase: Milestone closeout complete
-Plan: Awaiting next milestone definition
+Phase: Milestone planning active
+Plan: Awaiting `$gsd-plan-phase 5`
 
 ## Performance Metrics
 
@@ -49,13 +49,13 @@ Plan: Awaiting next milestone definition
 - [Phase 04]: Move rescue and legacy operational helpers under `scripts/operations/rescue/` so only supported local launchers remain at the repo root.
 - [Phase 04]: Use `.planning/README.md`, `OPERATIONS.md`, and `OPERATIONS_RESCUE.md` as the future-agent/operator handoff surface without editing `AGENTS.md`.
 - Archive v1.0 despite audit gaps because the newly surfaced issues are now bounded and should be planned explicitly instead of being hidden in closeout.
+- Start v1.1 as a focused gap-closure milestone with three phases: supported deployment guardrail repair, quick aggregate stream repair, and audit evidence-chain backfill.
 
 ### Todos
 
-- Start the next milestone with fresh requirements and roadmap files.
 - Fix the supported deployment env contract so security guardrails actually activate on the documented path.
 - Fix the supported quick aggregate stream path so upload limits apply on the primary UI entrypoint.
-- Decide whether to backfill Phase 1 and Phase 2 verification artifacts.
+- Backfill Phase 1 and Phase 2 verification artifacts and Phase 3 machine-checkable summary metadata.
 - Carry forward the Windows pytest timeout behavior as verification debt when planning the next milestone.
 
 ### Blockers
@@ -67,6 +67,6 @@ Plan: Awaiting next milestone definition
 
 ## Session Continuity
 
-- **Last Updated**: 2026-03-26
-- **Next Recommended Step**: `$gsd-new-milestone`
-- **Resume Notes**: v1.0 is archived under `.planning/milestones/`. Start from `OPERATIONS.md` for supported workflows, treat `OPERATIONS_RESCUE.md` and `scripts/operations/rescue/` as non-canonical rescue material, read `.planning/MILESTONES.md` plus `.planning/v1.0-MILESTONE-AUDIT.md` for closeout context, and begin the next cycle with fresh requirements and roadmap files focused on the documented deployment wiring, quick aggregate stream enforcement, and verification debt.
+- **Last Updated**: 2026-03-27
+- **Next Recommended Step**: `$gsd-plan-phase 5`
+- **Resume Notes**: v1.0 remains archived under `.planning/milestones/`, but the active planning surface is now the v1.1 gap-closure milestone in `.planning/ROADMAP.md` and `.planning/REQUIREMENTS.md`. Start from the v1.0 audit, then plan Phase 5 before touching code so the supported deployment contract is repaired first.
