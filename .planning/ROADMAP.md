@@ -35,11 +35,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. Salary template continues to export identically to its current output (regression test passes)
   3. Exporter code is split into salary_exporter.py, tool_exporter.py, and export_utils.py with no shared mutable state
   4. User can trigger both exports in a single operation and receive two correct files
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
+- [ ] 01-01-PLAN.md -- Split monolithic exporter into 3 modules + Salary regression tests
+- [ ] 01-02-PLAN.md -- Fix Tool template field-title alignment + dual export verification
 
 ### Phase 2: Authentication & RBAC
 **Goal**: Admin and HR users can log in with credentials, employees can verify identity, and all routes enforce role-based access
@@ -213,7 +213,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7 → 8 → 9 → 10 → 11
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10 -> 11
 
 Note: Phases 4, 5, 6 can partially overlap (4 unblocks 5; 4 and 6 share the Phase 2 dependency). Phases 7 and 8 are sequential. Phase 9 can start after Phase 3.
 
