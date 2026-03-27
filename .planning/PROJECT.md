@@ -1,94 +1,119 @@
-# Social Security Spreadsheet Aggregation Tool
+# 社保公积金管理系统
 
 ## What This Is
 
-This is a brownfield React + FastAPI system for payroll and HR operations teams that process monthly social security and housing fund spreadsheets from multiple Chinese regions. It already ingests heterogeneous Excel files, detects usable sheets and headers, normalizes records into canonical fields, validates and matches employee data, and exports two mandatory downstream templates.
+公司内部社保公积金管理系统。从"Excel 融合工具"升级为完整的管理平台：支持多地区社保/公积金表格导入融合、数据标准化存储、员工自助查询、飞书多维表格双向同步，以及对外 API 接口。面向公司管理员、HR 和普通员工三类用户。
 
 ## Core Value
 
-Turn messy monthly regional spreadsheets into reliable dual-template outputs with clear provenance and minimal manual cleanup.
-
-## Current State
-
-v1.0 is archived as a hardening baseline, and v1.1 is now planned as an audit gap closure milestone. The brownfield system still centers on the existing import -> normalize -> validate -> match -> dual-template export flow, but the next work is explicitly aimed at repairing the documented deployment contract, fixing the supported quick-aggregate stream entrypath, and backfilling the missing verification evidence chain surfaced by the v1.0 audit.
+**社保公积金数据从多地区 Excel 汇入系统后，任何角色都能在正确的权限范围内快速查询和管理数据。**
 
 ## Requirements
 
 ### Validated
 
-- [x] Import batches can accept both social security and housing fund source files and persist them with batch/file metadata - existing
-- [x] Workbook and sheet discovery can identify usable worksheets without relying on fixed sheet names or fixed starting rows - existing
-- [x] Header recognition and canonical field mapping follow a rules-first pipeline with DeepSeek fallback hooks rather than LLM-first parsing - existing
-- [x] Non-detail rows such as totals, subtotals, and grouped personnel headings are filtered before normalized records are produced - existing
-- [x] Normalized records preserve provenance fields and raw payload context needed for auditing and downstream troubleshooting - existing
-- [x] Employee master import and record matching flows exist across backend APIs and frontend pages - existing
-- [x] Dual-template export is implemented and treated as an all-or-nothing outcome for the monthly processing flow - existing
-- [x] Dashboard, imports, mappings, results, compare, exports, and employee-facing routes already exist in the frontend and backend - existing
-- [x] Non-local deployments now fail fast on default credentials or predictable auth secrets - Phase 1
-- [x] Streamed upload-size enforcement now fails safely without leaving ambiguous persisted artifacts - Phase 2
-- [x] Dual-template export verification now runs from repo-controlled or explicit template paths and fails loudly when fixtures are missing - Phase 3
-- [x] Supported operator workflows are now explicit in `OPERATIONS.md`, while rescue tooling is demoted into `OPERATIONS_RESCUE.md` and `scripts/operations/rescue/` - Phase 4
+<!-- 已有代码中已经实现并可用的能力 -->
+
+- ✓ 多地区社保 Excel 上传与解析（广州、杭州、厦门、深圳、武汉、长沙）— existing
+- ✓ 多层表头自动识别与结构发现 — existing
+- ✓ 规则优先 + DeepSeek LLM 兜底的字段映射 — existing
+- ✓ 非明细行过滤（合计/小计/分组标题）— existing
+- ✓ 标准字段归一化（canonical fields）— existing
+- ✓ 员工工号匹配 — existing
+- ✓ Salary 模板导出（薪酬模板）— existing, 完美运行
+- ✓ Tool 模板导出（工具表最终版模板）— existing, 有字段映射问题
+- ✓ NDJSON 流式进度反馈 — existing
+- ✓ SQLite + SQLAlchemy 数据持久化 — existing
+- ✓ 公积金表格解析（部分地区已覆盖）— existing
 
 ### Active
 
-- [x] Define the next milestone scope after reviewing the completed hardening roadmap
-- [ ] Fix the supported deployment env contract so Phase 1 guardrails activate on the documented path
-- [ ] Fix the supported quick-aggregate stream path so streamed upload enforcement holds on the primary UI entrypoint
-- [ ] Backfill formal verification artifacts for Phase 1 and Phase 2, plus machine-checkable summary metadata for Phase 3
-- [ ] Reduce or split the Windows timeout-prone export regression reruns
+<!-- 本轮要建设的能力 -->
+
+- [ ] 用户角色与权限系统（管理员 / HR / 员工三角色）
+- [ ] 员工自助查询页面（工号+身份证号+姓名登录，查看个人社保公积金）
+- [ ] 管理员/HR 数据管理界面（全员数据查看、筛选、导出）
+- [ ] Tool 模板融合修复（字段与标题不匹配问题）
+- [ ] 前端整体重设计（飞书风格 + 差异化高级设计感）
+- [ ] 前端交互逻辑优化（使用流程顺畅化）
+- [ ] 完善的 REST API 体系（供外部程序调用）
+- [ ] 飞书多维表格双向同步（系统↔飞书，数据读写）
+- [ ] 飞书 OAuth 登录（可选，为飞书集成准备）
+- [ ] 融合后的数据作为系统录入源（从工具模式到管理系统模式转变）
+- [ ] 公积金表格全地区覆盖与标准化
 
 ### Out of Scope
 
-- A greenfield rewrite of the current React + FastAPI stack - the existing system already covers the core data pipeline
-- Replacing rules-first normalization with LLM-first parsing - this would conflict with the explicit project rule set
-- Adding broad new regional/template coverage before core hardening is complete - stability and operational confidence come first
+- 移动端原生 App — 当前阶段只做 Web
+- 薪资计算 — 本系统只管社保公积金数据，不涉及薪资核算
+- 多租户/SaaS — 单公司内部使用
+- Salary 模板融合逻辑改动 — 已完美运行，禁止修改
 
 ## Context
 
-The repository contains a working brownfield application with backend services under `backend/app/`, frontend flows under `frontend/src/`, region regression tests under `backend/tests/`, and codebase map documents under `.planning/codebase/`. `task.json` shows the original 32-task delivery chain marked complete, and v1.0 hardening work is now archived under `.planning/milestones/`. The project still carries explicit business constraints from `AGENTS.md`: rules before LLM, provenance retention, non-detail row filtering, careful employee matching, and mandatory success on both export templates. Operator-facing runbook clarity now centers on `OPERATIONS.md` for supported workflows and `OPERATIONS_RESCUE.md` for demoted rescue or legacy helpers. The main unresolved closeout issues are now explicit: the supported deployment docs drifted from the Phase 1 settings contract, the supported quick-aggregate stream path drifts from the intended Phase 2 enforcement guarantee, and the milestone evidence chain is incomplete for Phase 1 and Phase 2.
+**现有系统状态：**
+- 前后端可正常启动运行（React + FastAPI）
+- 数据处理管线已打通：上传 → 解析 → 归一化 → 校验 → 匹配 → 导出
+- Salary 模板导出完美，Tool 模板导出有字段映射错位问题
+- 前端 UX 不顺畅，需要整体重设计
+- 当前无用户认证/权限体系
+- 6 个地区的社保样例已覆盖，公积金部分地区已覆盖
+
+**技术环境：**
+- Backend: FastAPI 0.115 + SQLAlchemy 2.0 + pandas + openpyxl
+- Frontend: React 18 + TypeScript 5.8 + Vite 6.2
+- Database: SQLite (WAL mode)
+- 部署: Uvicorn
+
+**用户角色定义：**
+- **管理员**: 系统维护、高级设置、全部数据访问
+- **HR**: 功能模块操作、全员数据查看与管理
+- **员工**: 仅查询个人社保公积金信息（工号+身份证号+姓名验证）
+
+**飞书集成需求：**
+- 多维表格双向同步（系统数据推送到飞书 / 飞书数据拉取到系统）
+- 可能需要飞书 OAuth 登录
+
+**前端设计方向：**
+- 整体风格参考飞书官网（简洁、卡片化）
+- 差异化：更高级的设计感，背景与滚动配合的小设计，有审美的细节
+- 不是简单复制飞书，而是在其基础上更精致
 
 ## Constraints
 
-- **Tech stack**: Keep the existing React + TypeScript frontend and FastAPI + Python backend - replacing the stack adds churn without advancing the core payroll workflow
-- **Parsing strategy**: Rules-first normalization remains mandatory, with DeepSeek only as fallback - this is an explicit project contract
-- **Export contract**: Both the salary template and final tool template must succeed together - single-template success does not count as done
-- **Traceability**: Standardized records must remain traceable to source file, sheet, header signature, and row - auditability is part of correctness
-- **Environment dependencies**: Some current export verification still depends on local template files and sample availability - future work should reduce that coupling rather than ignore it
+- **Tech Stack**: 保持 React + FastAPI + SQLite 技术栈不变
+- **Salary 逻辑**: Salary 模板融合逻辑绝对不能改动
+- **数据处理**: 现有的解析管线（规则优先 + LLM 兜底）保持不变
+- **部署**: 单机部署，无需分布式
+- **Timeline**: 无硬性截止日期，按质量优先
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Treat the current application as a brownfield baseline, not a fresh v1 build | The repo already contains the full import -> normalize -> validate -> match -> export chain | Good |
-| Initialize GSD around hardening and maintainability rather than rebuilding completed scope | `task.json` marks the initial delivery sequence complete, so the next leverage is operational confidence | Good |
-| Preserve the current stack and workflow contracts | Existing code, tests, and operator expectations are already aligned to React + FastAPI and rules-first parsing | Good |
-| Delay new feature expansion until auth, upload, verification, and ops debt are tightened | The codebase map surfaced concrete concerns that are more urgent than adding surface area | Pending |
-| Document one supported local path and one supported deployment path, while relocating rescue helpers out of the repo root | Operators and future agents needed an obvious supported lane that matched existing brownfield behavior | Good |
-| Archive v1.0 with known audit gaps instead of reopening hardening work during closeout | The issues are real but now clearly bounded and can be planned explicitly into the next milestone | Revisit |
-| Start the next milestone as a narrow audit gap closure effort before any new feature expansion | The v1.0 audit isolated three focused workstreams that unblock a clean re-audit without reopening completed brownfield scope | Good |
-
-## Next Milestone Goals
-
-- Repair the documented deployment path so it truly activates the Phase 1 production guardrails.
-- Repair the supported quick aggregate entrypath so upload-size enforcement is authoritative while client data streams.
-- Tighten verification discipline so future milestones do not close with missing phase verification artifacts.
+| 三角色权限模型（管理员/HR/员工）| 覆盖公司实际使用场景 | — Pending |
+| 员工用工号+身份证号+姓名查询 | 不依赖额外账号体系，利用已有数据 | — Pending |
+| 飞书多维表格双向同步 | 公司已使用飞书，数据需在两端保持一致 | — Pending |
+| 前端飞书风格+差异化设计 | 用户熟悉飞书交互，但希望更精致的体验 | — Pending |
+| REST API 对外开放 | 用户有自研工具需要调用系统数据 | — Pending |
+| 保持 SQLite | 单公司使用，无需 PostgreSQL 的复杂度 | — Pending |
 
 ## Evolution
 
 This document evolves at phase transitions and milestone boundaries.
 
-**After each phase transition** (via `$gsd-transition`):
-1. Requirements invalidated? Move to Out of Scope with reason
-2. Requirements validated? Move to Validated with phase reference
-3. New requirements emerged? Add to Active
-4. Decisions to log? Add to Key Decisions
-5. "What This Is" still accurate? Update if drifted
+**After each phase transition** (via `/gsd:transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
 
-**After each milestone** (via `$gsd-complete-milestone`):
+**After each milestone** (via `/gsd:complete-milestone`):
 1. Full review of all sections
-2. Core Value check - still the right priority?
-3. Audit Out of Scope - reasons still valid?
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-27 after v1.1 gap-closure milestone planning*
+*Last updated: 2026-03-27 after initialization*
