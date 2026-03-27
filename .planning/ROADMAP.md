@@ -22,6 +22,11 @@
 **Requirements:** `SEC-01`, `SEC-02`, `OPS-01`
 **Gap Closure:** Closes the deployment-path integration gap and the supported deployment workflow break in the v1.0 audit.
 **Depends on:** Nothing
+**Plans:** 2 plans
+
+Plans:
+- [ ] `05-01-PLAN.md` - Publish the canonical guardrail env template and add env-driven bootstrap regression coverage
+- [ ] `05-02-PLAN.md` - Align supported deployment docs to the canonical env contract and add doc-contract regression coverage
 
 ### Phase 6: Restore Stream-Safe Quick Aggregate Entry Path
 
@@ -46,4 +51,4 @@
 | Milestone | Phases | Plans Complete | Status | Shipped |
 |-----------|--------|----------------|--------|---------|
 | v1.0 Brownfield Hardening Baseline | 1-4 | 6/6 | Archived with known gaps | 2026-03-26 |
-| v1.1 Audit Gap Closure | 5-7 | 0/0 | Planned | - |
+| v1.1 Audit Gap Closure | 5-7 | 0/2 | Planned | - |
