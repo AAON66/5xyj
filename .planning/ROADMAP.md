@@ -54,7 +54,7 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 02-01-PLAN.md -- Backend auth core: PyJWT migration, User model, employee verification, require_role, rate limiter
+- [x] 02-01-PLAN.md -- Backend auth core: PyJWT migration, User model, employee verification, require_role, rate limiter
 - [ ] 02-02-PLAN.md -- User management CRUD endpoints + RBAC route protection
 - [ ] 02-03-PLAN.md -- Frontend auth: employee role, localStorage persistence, dual-mode login page
 
