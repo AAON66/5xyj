@@ -15,6 +15,10 @@ logger = logging.getLogger(__name__)
 _password_hash = PasswordHash((BcryptHasher(),))
 
 
+class UsernameExistsError(ValueError):
+    """Raised when attempting to create/update a user with a taken username."""
+
+
 def hash_password(plain: str) -> str:
     return _password_hash.hash(plain)
 
@@ -41,6 +45,79 @@ def authenticate_user_login(db: Session, username: str, password: str) -> User:
     if not verify_password(password, user.hashed_password):
         raise InvalidCredentialsError("Invalid username or password.")
     return user
+
+
+def create_user(
+    db: Session,
+    username: str,
+    password: str,
+    role: str,
+    display_name: str = "",
+) -> User:
+    """Create a new user account. Raises UsernameExistsError if username taken."""
+    existing = get_user_by_username(db, username.strip())
+    if existing is not None:
+        raise UsernameExistsError(f"Username '{username}' already exists.")
+
+    user = User(
+        username=username.strip(),
+        hashed_password=hash_password(password),
+        role=role,
+        display_name=display_name,
+        is_active=True,
+        must_change_password=False,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def update_user(db: Session, user_id: str, **kwargs) -> Optional[User]:
+    """Update user fields. Returns None if user not found.
+    Raises UsernameExistsError if new username is taken."""
+    user = get_user_by_id(db, user_id)
+    if user is None:
+        return None
+
+    if "username" in kwargs and kwargs["username"] is not None:
+        new_username = kwargs["username"].strip()
+        if new_username != user.username:
+            existing = get_user_by_username(db, new_username)
+            if existing is not None:
+                raise UsernameExistsError(f"Username '{new_username}' already exists.")
+            user.username = new_username
+
+    for field in ("role", "display_name", "is_active"):
+        if field in kwargs and kwargs[field] is not None:
+            setattr(user, field, kwargs[field])
+
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def reset_user_password(db: Session, user_id: str, new_password: str) -> Optional[User]:
+    """Reset a user's password. Returns None if user not found."""
+    user = get_user_by_id(db, user_id)
+    if user is None:
+        return None
+
+    user.hashed_password = hash_password(new_password)
+    user.must_change_password = False
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def list_users(db: Session) -> list[User]:
+    """Return all users ordered by created_at."""
+    return db.query(User).order_by(User.created_at).all()
+
+
+def get_user_by_id(db: Session, user_id: str) -> Optional[User]:
+    """Get user by UUID string."""
+    return db.query(User).filter(User.id == user_id).first()
 
 
 def seed_default_admin(db: Session) -> None:
