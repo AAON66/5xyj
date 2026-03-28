@@ -1,5 +1,6 @@
 ﻿"""Database models package."""
 
+from backend.app.models.audit_log import AuditLog
 from backend.app.models.base import Base
 from backend.app.models.employee_master import EmployeeMaster
 from backend.app.models.employee_master_audit import EmployeeMasterAudit
@@ -14,6 +15,7 @@ from backend.app.models.user import User
 from backend.app.models.validation_issue import ValidationIssue
 
 __all__ = [
+    "AuditLog",
     "Base",
     "EmployeeMaster",
     "EmployeeMasterAudit",
