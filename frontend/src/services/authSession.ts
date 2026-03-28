@@ -1,4 +1,4 @@
-export type AuthRole = 'admin' | 'hr';
+export type AuthRole = 'admin' | 'hr' | 'employee';
 
 export interface AuthSession {
   accessToken: string;
@@ -7,13 +7,14 @@ export interface AuthSession {
   role: AuthRole;
   displayName: string;
   signedInAt: string;
+  mustChangePassword?: boolean;
 }
 
 const AUTH_SESSION_KEY = 'social-security-auth-session';
 export const AUTH_SESSION_EVENT = 'social-security-auth-session-changed';
 
-function canUseSessionStorage(): boolean {
-  return typeof window !== 'undefined' && typeof window.sessionStorage !== 'undefined';
+function canUseLocalStorage(): boolean {
+  return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
 }
 
 function emitAuthSessionChanged(): void {
@@ -32,7 +33,7 @@ function isAuthSessionShape(value: unknown): value is AuthSession {
     typeof candidate.accessToken === 'string' &&
     typeof candidate.expiresAt === 'string' &&
     typeof candidate.username === 'string' &&
-    (candidate.role === 'admin' || candidate.role === 'hr') &&
+    (candidate.role === 'admin' || candidate.role === 'hr' || candidate.role === 'employee') &&
     typeof candidate.displayName === 'string' &&
     typeof candidate.signedInAt === 'string'
   );
@@ -44,11 +45,11 @@ export function isAuthSessionExpired(session: AuthSession): boolean {
 }
 
 export function readAuthSession(): AuthSession | null {
-  if (!canUseSessionStorage()) {
+  if (!canUseLocalStorage()) {
     return null;
   }
 
-  const rawValue = window.sessionStorage.getItem(AUTH_SESSION_KEY);
+  const rawValue = window.localStorage.getItem(AUTH_SESSION_KEY);
   if (!rawValue) {
     return null;
   }
@@ -56,30 +57,30 @@ export function readAuthSession(): AuthSession | null {
   try {
     const parsed = JSON.parse(rawValue);
     if (!isAuthSessionShape(parsed) || isAuthSessionExpired(parsed)) {
-      window.sessionStorage.removeItem(AUTH_SESSION_KEY);
+      window.localStorage.removeItem(AUTH_SESSION_KEY);
       return null;
     }
     return parsed;
   } catch {
-    window.sessionStorage.removeItem(AUTH_SESSION_KEY);
+    window.localStorage.removeItem(AUTH_SESSION_KEY);
     return null;
   }
 }
 
 export function writeAuthSession(session: AuthSession): void {
-  if (!canUseSessionStorage()) {
+  if (!canUseLocalStorage()) {
     return;
   }
 
-  window.sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
+  window.localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(session));
   emitAuthSessionChanged();
 }
 
 export function clearAuthSession(): void {
-  if (!canUseSessionStorage()) {
+  if (!canUseLocalStorage()) {
     return;
   }
 
-  window.sessionStorage.removeItem(AUTH_SESSION_KEY);
+  window.localStorage.removeItem(AUTH_SESSION_KEY);
   emitAuthSessionChanged();
 }

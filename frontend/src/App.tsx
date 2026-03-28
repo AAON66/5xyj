@@ -24,6 +24,7 @@ import type { AuthRole } from './services/authSession';
 const DEFAULT_WORKSPACE_BY_ROLE: Record<AuthRole, string> = {
   admin: '/workspace/admin',
   hr: '/workspace/hr',
+  employee: '/employee/query',
 };
 
 function AuthRouteState({ message }: { message: string }) {

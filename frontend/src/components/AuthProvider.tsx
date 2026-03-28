@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState, type PropsWithChildren } from 'react';
 
 import { AuthContext, type AuthenticatedUser } from '../hooks/authContext';
-import type { LoginCredentials } from '../services/auth';
-import { fetchAuthenticatedUser, loginWithPassword } from '../services/auth';
+import type { EmployeeVerifyInput, LoginCredentials } from '../services/auth';
+import { fetchAuthenticatedUser, loginWithPassword, verifyEmployee as verifyEmployeeApi } from '../services/auth';
 import { AUTH_SESSION_EVENT, clearAuthSession, readAuthSession, writeAuthSession, type AuthSession } from '../services/authSession';
 
 function buildAuthenticatedUser(session: AuthSession | null): AuthenticatedUser | null {
@@ -14,6 +14,7 @@ function buildAuthenticatedUser(session: AuthSession | null): AuthenticatedUser 
     username: session.username,
     role: session.role,
     displayName: session.displayName,
+    mustChangePassword: session.mustChangePassword,
   };
 }
 
@@ -61,6 +62,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
           username: user.username,
           role: user.role,
           displayName: user.display_name,
+          mustChangePassword: user.must_change_password,
         };
         writeAuthSession(nextSession);
         setSession(nextSession);
@@ -90,6 +92,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setSession(nextSession);
   }
 
+  async function handleVerifyEmployee(input: EmployeeVerifyInput) {
+    const nextSession = await verifyEmployeeApi(input);
+    writeAuthSession(nextSession);
+    setSession(nextSession);
+  }
+
   function logout() {
     clearAuthSession();
     setSession(null);
@@ -102,6 +110,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       isAuthenticated: Boolean(session),
       isInitializing,
       login,
+      verifyEmployee: handleVerifyEmployee,
       logout,
     }),
     [isInitializing, session],

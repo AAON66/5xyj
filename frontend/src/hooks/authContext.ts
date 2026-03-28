@@ -1,12 +1,13 @@
 import { createContext } from 'react';
 
-import type { LoginCredentials } from '../services/auth';
+import type { EmployeeVerifyInput, LoginCredentials } from '../services/auth';
 import type { AuthRole, AuthSession } from '../services/authSession';
 
 export interface AuthenticatedUser {
   username: string;
   role: AuthRole;
   displayName: string;
+  mustChangePassword?: boolean;
 }
 
 export interface AuthContextValue {
@@ -15,6 +16,7 @@ export interface AuthContextValue {
   isAuthenticated: boolean;
   isInitializing: boolean;
   login: (credentials: LoginCredentials) => Promise<void>;
+  verifyEmployee: (input: EmployeeVerifyInput) => Promise<void>;
   logout: () => void;
 }
 
