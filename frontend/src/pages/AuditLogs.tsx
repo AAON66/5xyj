@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { PageContainer } from '../components/PageContainer';
 import { getApiBaseUrl } from '../config/env';
+import { readAuthSession } from '../services/authSession';
 
 interface AuditLogItem {
   id: string;
@@ -62,7 +63,8 @@ export function AuditLogsPage() {
     setError(null);
 
     try {
-      const token = localStorage.getItem('token');
+      const session = readAuthSession();
+      const token = session?.accessToken;
       const params = new URLSearchParams();
       if (filterAction) params.set('action', filterAction);
       if (filterStart) params.set('start_time', filterStart + 'T00:00:00');
