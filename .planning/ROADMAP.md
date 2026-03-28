@@ -69,10 +69,11 @@ Plans:
   2. Employee verification endpoint enforces rate limiting (repeated failed attempts are blocked)
   3. Login, export, and data modification events are recorded in an audit log viewable by admin
   4. ID card numbers display as masked (e.g., 310***1234) in all non-export contexts
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: TBD
+- [ ] 03-01-PLAN.md -- 后端安全基础设施：AuditLog 模型、审计服务、脱敏工具、登录限流、CORS 修复、测试
+- [ ] 03-02-PLAN.md -- 前端审计日志页面 + 人工验证
 
 ### Phase 4: Employee Master Data
 **Goal**: HR can maintain a complete employee registry that powers identity verification and data matching
@@ -222,7 +223,7 @@ Note: Phases 4, 5, 6 can partially overlap (4 unblocks 5; 4 and 6 share the Phas
 |-------|----------------|--------|-----------|
 | 1. Export Stabilization | 0/2 | Not started | - |
 | 2. Authentication & RBAC | 0/3 | Planning complete | - |
-| 3. Security Hardening | 0/1 | Not started | - |
+| 3. Security Hardening | 0/2 | Planning complete | - |
 | 4. Employee Master Data | 0/2 | Not started | - |
 | 5. Employee Portal | 0/2 | Not started | - |
 | 6. Data Management | 0/2 | Not started | - |
