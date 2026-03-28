@@ -38,7 +38,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 2 plans
 
 Plans:
-- [ ] 01-01-PLAN.md -- Split monolithic exporter into 3 modules + Salary regression tests
+- [x] 01-01-PLAN.md -- Split monolithic exporter into 3 modules + Salary regression tests
 - [ ] 01-02-PLAN.md -- Fix Tool template field-title alignment + dual export verification
 
 ### Phase 2: Authentication & RBAC
