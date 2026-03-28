@@ -70,7 +70,7 @@ export function AuditLogsPage() {
       params.set('page', String(currentPage));
       params.set('page_size', String(PAGE_SIZE));
 
-      const response = await fetch(`${getApiBaseUrl()}/api/v1/audit-logs?${params}`, {
+      const response = await fetch(`${getApiBaseUrl()}/audit-logs?${params}`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
 
