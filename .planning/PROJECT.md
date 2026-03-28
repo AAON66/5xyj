@@ -21,7 +21,7 @@
 - ✓ 标准字段归一化（canonical fields）— existing
 - ✓ 员工工号匹配 — existing
 - ✓ Salary 模板导出（薪酬模板）— existing, 完美运行
-- ✓ Tool 模板导出（工具表最终版模板）— existing, 有字段映射问题
+- ✓ Tool 模板导出（工具表最终版模板）— Phase 1 修复完成, 字段对齐正确
 - ✓ NDJSON 流式进度反馈 — existing
 - ✓ SQLite + SQLAlchemy 数据持久化 — existing
 - ✓ 公积金表格解析（部分地区已覆盖）— existing
@@ -33,7 +33,8 @@
 - [ ] 用户角色与权限系统（管理员 / HR / 员工三角色）
 - [ ] 员工自助查询页面（工号+身份证号+姓名登录，查看个人社保公积金）
 - [ ] 管理员/HR 数据管理界面（全员数据查看、筛选、导出）
-- [ ] Tool 模板融合修复（字段与标题不匹配问题）
+- ✓ Tool 模板融合修复 — Validated in Phase 1: export-stabilization
+- ✓ 导出器代码拆分（salary_exporter / tool_exporter / export_utils）— Validated in Phase 1
 - [ ] 前端整体重设计（飞书风格 + 差异化高级设计感）
 - [ ] 前端交互逻辑优化（使用流程顺畅化）
 - [ ] 完善的 REST API 体系（供外部程序调用）
