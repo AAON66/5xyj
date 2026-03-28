@@ -51,11 +51,12 @@ Plans:
   3. Three roles (admin/HR/employee) enforced at route level -- HR cannot access admin routes, employee cannot access HR routes
   4. Admin can create, edit, and disable user accounts from a management interface
   5. User session persists across browser refresh (token stored and auto-attached)
-**Plans**: TBD
+**Plans**: 3 plans
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
+- [ ] 02-01-PLAN.md -- Backend auth core: PyJWT migration, User model, employee verification, require_role, rate limiter
+- [ ] 02-02-PLAN.md -- User management CRUD endpoints + RBAC route protection
+- [ ] 02-03-PLAN.md -- Frontend auth: employee role, localStorage persistence, dual-mode login page
 
 **UI hint**: yes
 
@@ -220,7 +221,7 @@ Note: Phases 4, 5, 6 can partially overlap (4 unblocks 5; 4 and 6 share the Phas
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Export Stabilization | 0/2 | Not started | - |
-| 2. Authentication & RBAC | 0/2 | Not started | - |
+| 2. Authentication & RBAC | 0/3 | Planning complete | - |
 | 3. Security Hardening | 0/1 | Not started | - |
 | 4. Employee Master Data | 0/2 | Not started | - |
 | 5. Employee Portal | 0/2 | Not started | - |
