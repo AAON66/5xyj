@@ -39,7 +39,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 Plans:
 - [x] 01-01-PLAN.md -- Split monolithic exporter into 3 modules + Salary regression tests
-- [ ] 01-02-PLAN.md -- Fix Tool template field-title alignment + dual export verification
+- [x] 01-02-PLAN.md -- Fix Tool template field-title alignment + dual export verification
 
 ### Phase 2: Authentication & RBAC
 **Goal**: Admin and HR users can log in with credentials, employees can verify identity, and all routes enforce role-based access
