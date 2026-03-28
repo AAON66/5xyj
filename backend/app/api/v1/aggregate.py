@@ -14,8 +14,11 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from backend.app.api.v1.responses import success_response
-from backend.app.dependencies import get_db
+from backend.app.core.auth import AuthUser
+from backend.app.dependencies import get_db, require_authenticated_user
 from backend.app.services.aggregate_service import run_simple_aggregate
+from backend.app.services.audit_service import log_audit
+from backend.app.utils.request_helpers import get_client_ip
 from backend.app.services.employee_service import EmployeeImportError
 from backend.app.services.import_service import InvalidUploadError, UploadTooLargeError
 
@@ -34,6 +37,7 @@ async def run_simple_aggregate_endpoint(
     regions: Optional[str] = Form(default=None),
     company_names: Optional[str] = Form(default=None),
     db: Session = Depends(get_db),
+    user: AuthUser = Depends(require_authenticated_user),
 ):
     try:
         payload = await run_simple_aggregate(
@@ -51,6 +55,11 @@ async def run_simple_aggregate_endpoint(
         raise HTTPException(status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, detail=str(exc)) from exc
     except (InvalidUploadError, EmployeeImportError, ValueError) as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    log_audit(db, action="aggregate", actor_username=user.username,
+              actor_role=user.role, ip_address=get_client_ip(request),
+              detail={"file_count": len(files), "batch_name": batch_name or ""},
+              success=True)
 
     return success_response(payload.model_dump(mode='json'), message='Aggregate run completed.', status_code=status.HTTP_201_CREATED)
 

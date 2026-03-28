@@ -14,20 +14,38 @@ from backend.app.schemas.auth import (
     EmployeeVerifyRequest,
     EmployeeVerifyResponse,
 )
+from backend.app.services.audit_service import log_audit
 from backend.app.services.rate_limiter import RateLimiter
 from backend.app.services.user_service import authenticate_user_login
+from backend.app.utils.request_helpers import get_client_ip
 
 router = APIRouter(prefix='/auth', tags=['auth'])
 
 _employee_rate_limiter = RateLimiter(max_failures=5, lockout_seconds=900)
+_login_rate_limiter = RateLimiter(max_failures=5, lockout_seconds=900)
 
 
 @router.post('/login')
 def login_endpoint(request: Request, payload: AuthLoginRequest = Body(...), db: Session = Depends(get_db)):
+    # Check login rate limit (key=username, per D-04)
+    rate_key = f"login:{payload.username}"
+    if _login_rate_limiter.is_locked(rate_key):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many failed login attempts. Please try again in 15 minutes.",
+        )
+
     try:
         user = authenticate_user_login(db, username=payload.username, password=payload.password)
     except InvalidCredentialsError as exc:
+        _login_rate_limiter.record_failure(rate_key)
+        log_audit(db, action="login_failed", actor_username=payload.username,
+                  actor_role="unknown", ip_address=get_client_ip(request),
+                  detail={"reason": "invalid_credentials"}, success=False)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+
+    # Success -- reset rate limiter
+    _login_rate_limiter.reset(rate_key)
 
     settings = request.app.state.settings
     access_token, expires_at = issue_access_token(
@@ -36,6 +54,11 @@ def login_endpoint(request: Request, payload: AuthLoginRequest = Body(...), db: 
         role=user.role,
         expire_minutes=settings.auth_token_expire_minutes,
     )
+
+    log_audit(db, action="login", actor_username=user.username,
+              actor_role=user.role, ip_address=get_client_ip(request),
+              detail={"method": "password"}, success=True)
+
     response = AuthLoginResponse(
         access_token=access_token,
         expires_at=expires_at,
@@ -76,6 +99,9 @@ def employee_verify_endpoint(
 
     if employee is None:
         _employee_rate_limiter.record_failure(payload.employee_id)
+        log_audit(db, action="employee_verify_failed", actor_username=payload.employee_id,
+                  actor_role="unknown", ip_address=get_client_ip(request),
+                  detail={"reason": "not_found"}, success=False)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Verification failed.",
@@ -83,6 +109,8 @@ def employee_verify_endpoint(
 
     # Success -- reset rate limiter and issue token
     _employee_rate_limiter.reset(payload.employee_id)
+    log_audit(db, action="employee_verify", actor_username=payload.employee_id,
+              actor_role="employee", ip_address=get_client_ip(request), success=True)
     settings = request.app.state.settings
     access_token, expires_at = issue_access_token(
         settings.auth_secret_key,
