@@ -17,7 +17,7 @@
 - [x] **AUTH-01**: 管理员/HR 可通过用户名+密码登录
 - [x] **AUTH-02**: 员工可通过工号+身份证号+姓名验证身份并查询
 - [x] **AUTH-03**: 三角色 RBAC 权限体系生效（管理员/HR/员工）
-- [ ] **AUTH-04**: 管理员可管理用户账号（创建/编辑/禁用）
+- [x] **AUTH-04**: 管理员可管理用户账号（创建/编辑/禁用）
 - [ ] **AUTH-05**: 用户会话在浏览器刷新后保持
 - [x] **AUTH-06**: PyJWT 替换已废弃的 python-jose
 - [ ] **AUTH-07**: API Key 认证机制（供外部程序调用）
@@ -117,7 +117,7 @@
 | AUTH-01 | Phase 2 | Complete |
 | AUTH-02 | Phase 2 | Complete |
 | AUTH-03 | Phase 2 | Complete |
-| AUTH-04 | Phase 2 | Pending |
+| AUTH-04 | Phase 2 | Complete |
 | AUTH-05 | Phase 2 | Pending |
 | AUTH-06 | Phase 2 | Complete |
 | SEC-01 | Phase 3 | Pending |
