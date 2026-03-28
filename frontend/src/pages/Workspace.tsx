@@ -40,6 +40,7 @@ const WORKSPACE_CONFIG: Record<
           { to: '/employees', title: '员工主档', hint: '导入、维护和审计主数据' },
           { to: '/mappings', title: '映射修正', hint: '处理低置信度字段映射' },
           { to: '/imports', title: '批次管理', hint: '钻取到源文件、表头和明细行' },
+          { to: '/audit-logs', title: '审计日志', hint: '查看系统操作记录和安全事件' },
         ],
       },
     ],

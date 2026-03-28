@@ -1,3 +1,4 @@
+export * from './AuditLogs';
 export * from './Compare';
 export * from './Dashboard';
 export * from './Employees';

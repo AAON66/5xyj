@@ -4,6 +4,7 @@ import { AppShell } from './components';
 import { useAuth } from './hooks';
 import {
   AdminWorkspacePage,
+  AuditLogsPage,
   ComparePage,
   EmployeeCreatePage,
   DashboardPage,
@@ -117,6 +118,7 @@ export default function App() {
         <Route element={<ProtectedLayout />}>
           <Route element={<RoleRoute allowedRoles={['admin']} />}>
             <Route path="/workspace/admin" element={<AdminWorkspacePage />} />
+            <Route path="/audit-logs" element={<AuditLogsPage />} />
           </Route>
           <Route path="/workspace/hr" element={<HrWorkspacePage />} />
           <Route path="/aggregate" element={<SimpleAggregatePage />} />
