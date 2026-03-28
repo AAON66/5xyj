@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Callable, Optional
 
 from collections.abc import Generator
 
@@ -36,6 +36,30 @@ def require_authenticated_user(
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Authentication is required.')
 
     try:
-        return verify_access_token(settings, credentials.credentials)
+        return verify_access_token(settings.auth_secret_key, credentials.credentials)
     except TokenVerificationError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+
+
+def require_role(*allowed_roles: str) -> Callable:
+    """Dependency factory that enforces role-based access control.
+
+    Usage::
+
+        @router.get("/admin-only", dependencies=[Depends(require_role("admin"))])
+        def admin_endpoint(): ...
+
+        # Or inject the user:
+        @router.get("/admin-hr")
+        def admin_hr_endpoint(user: AuthUser = Depends(require_role("admin", "hr"))): ...
+    """
+    def _role_dependency(
+        user: AuthUser = Depends(require_authenticated_user),
+    ) -> AuthUser:
+        if user.role not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions.",
+            )
+        return user
+    return _role_dependency

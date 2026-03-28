@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Optional
 
 from backend.app.core.config import Settings, get_settings
 from backend.app.core.logging import configure_logging
+
+logger = logging.getLogger(__name__)
 
 
 class UnsafeAuthConfigurationError(RuntimeError):
@@ -49,9 +52,28 @@ def validate_auth_runtime_guardrails(settings: Optional[Settings] = None) -> Set
     return runtime_settings
 
 
+def _seed_default_admin_on_startup() -> None:
+    """Seed the default admin user into the database if none exists."""
+    from backend.app.core.database import get_db_session
+    from backend.app.services.user_service import seed_default_admin
+
+    gen = get_db_session()
+    db = next(gen)
+    try:
+        seed_default_admin(db)
+    except Exception:
+        logger.exception("Failed to seed default admin user.")
+    finally:
+        try:
+            next(gen)
+        except StopIteration:
+            pass
+
+
 def bootstrap_application(settings: Optional[Settings] = None) -> Settings:
     runtime_settings = settings or get_settings()
     validate_auth_runtime_guardrails(runtime_settings)
     configure_logging(runtime_settings)
     ensure_runtime_directories(runtime_settings)
+    _seed_default_admin_on_startup()
     return runtime_settings

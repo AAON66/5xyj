@@ -64,6 +64,7 @@ class Settings(BaseSettings):
     auth_enabled: bool = True
     auth_secret_key: str = DEFAULT_AUTH_SECRET_KEY
     auth_token_expire_minutes: int = 480
+    employee_token_expire_minutes: int = 30
     admin_login_username: str = 'admin'
     admin_login_password: str = DEFAULT_ADMIN_LOGIN_PASSWORD
     hr_login_username: str = 'hr'
