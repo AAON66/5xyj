@@ -70,10 +70,21 @@ def _seed_default_admin_on_startup() -> None:
             pass
 
 
+def _ensure_tables() -> None:
+    """Create any missing tables (e.g. audit_logs added in Phase 3)."""
+    from backend.app.core.database import engine
+    from backend.app.models.base import Base
+    # Import all models so Base.metadata knows about them
+    import backend.app.models  # noqa: F401
+
+    Base.metadata.create_all(engine, checkfirst=True)
+
+
 def bootstrap_application(settings: Optional[Settings] = None) -> Settings:
     runtime_settings = settings or get_settings()
     validate_auth_runtime_guardrails(runtime_settings)
     configure_logging(runtime_settings)
     ensure_runtime_directories(runtime_settings)
+    _ensure_tables()
     _seed_default_admin_on_startup()
     return runtime_settings
