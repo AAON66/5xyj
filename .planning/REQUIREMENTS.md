@@ -25,10 +25,10 @@
 
 ### 安全加固 (SEC)
 
-- [ ] **SEC-01**: 所有包含 PII 数据的端点必须要求认证
-- [ ] **SEC-02**: 员工查询端点有频率限制（防止身份证号枚举）
-- [ ] **SEC-03**: 关键操作记录审计日志（登录/导出/数据修改）
-- [ ] **SEC-04**: 身份证号在非必要场景下脱敏显示
+- [x] **SEC-01**: 所有包含 PII 数据的端点必须要求认证
+- [x] **SEC-02**: 员工查询端点有频率限制（防止身份证号枚举）
+- [x] **SEC-03**: 关键操作记录审计日志（登录/导出/数据修改）
+- [x] **SEC-04**: 身份证号在非必要场景下脱敏显示
 
 ### 员工门户 (PORTAL)
 
@@ -120,10 +120,10 @@
 | AUTH-04 | Phase 2 | Complete |
 | AUTH-05 | Phase 2 | Complete |
 | AUTH-06 | Phase 2 | Complete |
-| SEC-01 | Phase 3 | Pending |
-| SEC-02 | Phase 3 | Pending |
-| SEC-03 | Phase 3 | Pending |
-| SEC-04 | Phase 3 | Pending |
+| SEC-01 | Phase 3 | Complete |
+| SEC-02 | Phase 3 | Complete |
+| SEC-03 | Phase 3 | Complete |
+| SEC-04 | Phase 3 | Complete |
 | MASTER-01 | Phase 4 | Pending |
 | MASTER-02 | Phase 4 | Pending |
 | MASTER-03 | Phase 4 | Pending |

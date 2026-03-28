@@ -72,7 +72,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 03-01-PLAN.md -- 后端安全基础设施：AuditLog 模型、审计服务、脱敏工具、登录限流、CORS 修复、测试
+- [x] 03-01-PLAN.md -- 后端安全基础设施：AuditLog 模型、审计服务、脱敏工具、登录限流、CORS 修复、测试
 - [ ] 03-02-PLAN.md -- 前端审计日志页面 + 人工验证
 
 ### Phase 4: Employee Master Data
@@ -223,7 +223,7 @@ Note: Phases 4, 5, 6 can partially overlap (4 unblocks 5; 4 and 6 share the Phas
 |-------|----------------|--------|-----------|
 | 1. Export Stabilization | 0/2 | Not started | - |
 | 2. Authentication & RBAC | 0/3 | Planning complete | - |
-| 3. Security Hardening | 0/2 | Planning complete | - |
+| 3. Security Hardening | 1/2 | In Progress|  |
 | 4. Employee Master Data | 0/2 | Not started | - |
 | 5. Employee Portal | 0/2 | Not started | - |
 | 6. Data Management | 0/2 | Not started | - |
