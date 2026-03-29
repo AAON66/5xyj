@@ -7,8 +7,10 @@ import { normalizeApiError } from '../services/api';
 import {
   deleteEmployeeMasterAudit,
   deleteEmployeeMaster,
+  fetchCompanies,
   fetchEmployeeMasterAudits,
   fetchEmployeeMasters,
+  fetchRegions,
   importEmployeeMaster,
   updateEmployeeMaster,
   updateEmployeeMasterStatus,
@@ -23,6 +25,7 @@ interface EmployeeFormState {
   id_number: string;
   company_name: string;
   department: string;
+  region: string;
   active: boolean;
 }
 
@@ -31,6 +34,7 @@ const EMPTY_FORM: EmployeeFormState = {
   id_number: '',
   company_name: '',
   department: '',
+  region: '',
   active: true,
 };
 
@@ -75,6 +79,7 @@ function toFormState(employee: EmployeeMasterItem | null): EmployeeFormState {
     id_number: employee.id_number ?? '',
     company_name: employee.company_name ?? '',
     department: employee.department ?? '',
+    region: employee.region ?? '',
     active: employee.active,
   };
 }
@@ -103,6 +108,17 @@ export function EmployeesPage() {
   const [loadingAudits, setLoadingAudits] = useState(false);
   const [deletingAuditId, setDeletingAuditId] = useState<string | null>(null);
   const [auditError, setAuditError] = useState<string | null>(null);
+  const [regions, setRegions] = useState<string[]>([]);
+  const [companies, setCompanies] = useState<string[]>([]);
+  const [selectedRegion, setSelectedRegion] = useState<string>('');
+  const [selectedCompany, setSelectedCompany] = useState<string>('');
+
+  useEffect(() => {
+    fetchRegions().then(setRegions).catch(() => {});
+    fetchCompanies().then(setCompanies).catch(() => {});
+  }, []);
+
+  useEffect(() => { setPageIndex(0); }, [selectedRegion, selectedCompany]);
 
   async function loadEmployees(
     nextQuery = query,
@@ -116,6 +132,8 @@ export function EmployeesPage() {
       activeOnly: nextActiveOnly,
       limit: nextPageSize,
       offset: nextPageIndex * nextPageSize,
+      region: selectedRegion || undefined,
+      companyName: selectedCompany || undefined,
     });
     setEmployees(result.items);
     setTotalEmployees(result.total);
@@ -139,6 +157,8 @@ export function EmployeesPage() {
           activeOnly,
           limit: pageSize,
           offset: pageIndex * pageSize,
+          region: selectedRegion || undefined,
+          companyName: selectedCompany || undefined,
         });
         if (!active) {
           return;
@@ -167,7 +187,7 @@ export function EmployeesPage() {
     return () => {
       active = false;
     };
-  }, [query, activeOnly, pageIndex, pageSize]);
+  }, [query, activeOnly, pageIndex, pageSize, selectedRegion, selectedCompany]);
 
   const selectedEmployee = useMemo(
     () => employees.find((item) => item.id === selectedEmployeeId) ?? null,
@@ -285,6 +305,7 @@ export function EmployeesPage() {
       setActionNotice(`已导入 ${result.imported_count} 条员工主档，新增 ${result.created_count} 条，更新 ${result.updated_count} 条。`);
       setSelectedFile(null);
       setPageIndex(0);
+      fetchCompanies().then(setCompanies).catch(() => {});
       await loadEmployees(query, activeOnly, pageSize, 0, result.items[0]?.id ?? selectedEmployeeId);
     } catch (error) {
       setPageError(normalizeApiError(error).message || '员工主档导入失败，请检查文件格式和必要字段后重试。');
@@ -305,6 +326,7 @@ export function EmployeesPage() {
         id_number: formState.id_number.trim() || null,
         company_name: formState.company_name.trim() || null,
         department: formState.department.trim() || null,
+        region: formState.region.trim() || null,
         active: formState.active,
       };
       const updated = await updateEmployeeMaster(selectedEmployee.id, payload);
@@ -394,11 +416,44 @@ export function EmployeesPage() {
       }
     >
       {importResult ? (
-        <SurfaceNotice
-          tone="success"
-          title="导入完成"
-          message={`文件 ${importResult.file_name} 已导入 ${importResult.imported_count} 条，新增 ${importResult.created_count} 条，更新 ${importResult.updated_count} 条。`}
-        />
+        <div className="panel-card" style={{ marginBottom: '1rem' }}>
+          <div className="section-heading">
+            <div>
+              <span className="panel-label">导入结果</span>
+              <h2>文件: {importResult.file_name}</h2>
+            </div>
+          </div>
+          <div className="status-grid" style={{ marginBottom: importResult.errors.length > 0 ? '0.75rem' : '0' }}>
+            <article className="status-item">
+              <strong>{importResult.total_rows}</strong>
+              <div>总行数</div>
+            </article>
+            <article className="status-item">
+              <strong>{importResult.created_count}</strong>
+              <div>新增</div>
+            </article>
+            <article className="status-item">
+              <strong>{importResult.updated_count}</strong>
+              <div>更新</div>
+            </article>
+            <article className="status-item">
+              <strong>{importResult.skipped_count}</strong>
+              <div>失败</div>
+            </article>
+          </div>
+          {importResult.errors.length > 0 && (
+            <details style={{ padding: '0 1rem 1rem' }}>
+              <summary style={{ cursor: 'pointer', fontWeight: 500 }}>
+                失败明细 ({importResult.errors.length} 条)
+              </summary>
+              <ul style={{ marginTop: '0.5rem', paddingLeft: '1.25rem' }}>
+                {importResult.errors.map((err, i) => (
+                  <li key={i} style={{ color: 'var(--color-error, #c00)', marginBottom: '0.25rem' }}>{err}</li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </div>
       ) : null}
       {actionNotice ? <SurfaceNotice tone="success" title="操作完成" message={actionNotice} /> : null}
       {pageError ? <SurfaceNotice tone="error" title="页面状态异常" message={pageError} /> : null}
@@ -468,6 +523,36 @@ export function EmployeesPage() {
             </select>
           </label>
           <label className="form-field employee-toolbar__toggle">
+            <span>地区</span>
+            <select
+              value={selectedRegion}
+              onChange={(event) => {
+                setLoading(true);
+                setSelectedRegion(event.target.value);
+              }}
+            >
+              <option value="">全部地区</option>
+              {regions.map((r) => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+          </label>
+          <label className="form-field employee-toolbar__toggle">
+            <span>公司</span>
+            <select
+              value={selectedCompany}
+              onChange={(event) => {
+                setLoading(true);
+                setSelectedCompany(event.target.value);
+              }}
+            >
+              <option value="">全部公司</option>
+              {companies.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </label>
+          <label className="form-field employee-toolbar__toggle">
             <span>每页展示</span>
             <select
               value={String(pageSize)}
@@ -501,6 +586,7 @@ export function EmployeesPage() {
                       <th>工号</th>
                       <th>姓名</th>
                       <th>公司</th>
+                      <th>地区</th>
                       <th>部门</th>
                       <th>状态</th>
                       <th>更新时间</th>
@@ -515,6 +601,7 @@ export function EmployeesPage() {
                           <td>{employee.employee_id}</td>
                           <td>{employee.person_name}</td>
                           <td>{employee.company_name ?? '-'}</td>
+                          <td>{employee.region ?? '-'}</td>
                           <td>{employee.department ?? '-'}</td>
                           <td>
                             <span className={`dashboard-pill ${employee.active ? 'dashboard-pill--ok' : 'dashboard-pill--warn'}`}>
@@ -610,6 +697,15 @@ export function EmployeesPage() {
                       <label className="form-field">
                         <span>部门</span>
                         <input value={formState.department} onChange={(event) => setFormState((current) => ({ ...current, department: event.target.value }))} />
+                      </label>
+                      <label className="form-field">
+                        <span>地区</span>
+                        <select value={formState.region} onChange={(event) => setFormState((current) => ({ ...current, region: event.target.value }))}>
+                          <option value="">请选择地区</option>
+                          {regions.map((r) => (
+                            <option key={r} value={r}>{r}</option>
+                          ))}
+                        </select>
                       </label>
                     </div>
 

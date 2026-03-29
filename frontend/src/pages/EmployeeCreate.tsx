@@ -1,9 +1,9 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
 import { PageContainer, SurfaceNotice } from '../components';
 import { normalizeApiError } from '../services/api';
-import { createEmployeeMaster } from '../services/employees';
+import { createEmployeeMaster, fetchRegions } from '../services/employees';
 
 interface CreateEmployeeFormState {
   employee_id: string;
@@ -11,6 +11,7 @@ interface CreateEmployeeFormState {
   id_number: string;
   company_name: string;
   department: string;
+  region: string;
   active: boolean;
 }
 
@@ -20,6 +21,7 @@ const EMPTY_FORM: CreateEmployeeFormState = {
   id_number: '',
   company_name: '',
   department: '',
+  region: '',
   active: true,
 };
 
@@ -29,6 +31,11 @@ export function EmployeeCreatePage() {
   const [saving, setSaving] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [regions, setRegions] = useState<string[]>([]);
+
+  useEffect(() => {
+    fetchRegions().then(setRegions).catch(() => {});
+  }, []);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -43,6 +50,7 @@ export function EmployeeCreatePage() {
         id_number: formState.id_number.trim() || null,
         company_name: formState.company_name.trim() || null,
         department: formState.department.trim() || null,
+        region: formState.region.trim() || null,
         active: formState.active,
       });
       setSuccessMessage(`员工 ${created.employee_id} 已创建，可以返回员工主档页继续管理。`);
@@ -50,6 +58,7 @@ export function EmployeeCreatePage() {
         ...EMPTY_FORM,
         company_name: formState.company_name,
         department: formState.department,
+        region: formState.region,
       });
     } catch (error) {
       setPageError(normalizeApiError(error).message || '新增员工主档失败。');
@@ -125,6 +134,18 @@ export function EmployeeCreatePage() {
                 onChange={(event) => setFormState((current) => ({ ...current, department: event.target.value }))}
                 placeholder="可选"
               />
+            </label>
+            <label className="form-field">
+              <span>地区</span>
+              <select
+                value={formState.region}
+                onChange={(event) => setFormState((current) => ({ ...current, region: event.target.value }))}
+              >
+                <option value="">请选择地区</option>
+                {regions.map((r) => (
+                  <option key={r} value={r}>{r}</option>
+                ))}
+              </select>
             </label>
             <label className="form-field">
               <span>在职状态</span>

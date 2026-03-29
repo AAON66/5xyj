@@ -8,6 +8,7 @@ export interface EmployeeMasterItem {
   id_number: string | null;
   company_name: string | null;
   department: string | null;
+  region: string | null;
   active: boolean;
   created_at: string;
   updated_at: string;
@@ -26,6 +27,7 @@ export interface EmployeeMasterCreateInput {
   id_number: string | null;
   company_name: string | null;
   department: string | null;
+  region: string | null;
   active: boolean;
 }
 
@@ -45,6 +47,7 @@ export interface EmployeeMasterUpdateInput {
   id_number: string | null;
   company_name: string | null;
   department: string | null;
+  region: string | null;
   active: boolean;
 }
 
@@ -107,11 +110,23 @@ export interface EmployeeSelfServiceResult {
   records: EmployeeSelfServiceRecord[];
 }
 
+export async function fetchRegions(): Promise<string[]> {
+  const response = await apiClient.get<ApiSuccessResponse<string[]>>('/employees/regions');
+  return response.data.data;
+}
+
+export async function fetchCompanies(): Promise<string[]> {
+  const response = await apiClient.get<ApiSuccessResponse<string[]>>('/employees/companies');
+  return response.data.data;
+}
+
 export async function fetchEmployeeMasters(params?: {
   query?: string;
   activeOnly?: boolean;
   limit?: number;
   offset?: number;
+  region?: string;
+  companyName?: string;
 }): Promise<EmployeeMasterList> {
   const response = await apiClient.get<ApiSuccessResponse<EmployeeMasterList>>('/employees', {
     params: {
@@ -119,6 +134,8 @@ export async function fetchEmployeeMasters(params?: {
       active_only: params?.activeOnly ?? undefined,
       limit: params?.limit ?? undefined,
       offset: params?.offset ?? undefined,
+      region: params?.region || undefined,
+      company_name: params?.companyName || undefined,
     },
   });
   return response.data.data;
