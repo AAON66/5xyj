@@ -15,6 +15,7 @@ class EmployeeMasterRead(BaseModel):
     id_number: Optional[str]
     company_name: Optional[str]
     department: Optional[str]
+    region: Optional[str] = None
     active: bool
     created_at: datetime
     updated_at: datetime
@@ -33,6 +34,7 @@ class EmployeeMasterCreateInput(BaseModel):
     id_number: Optional[str] = Field(default=None, max_length=100)
     company_name: Optional[str] = Field(default=None, max_length=255)
     department: Optional[str] = Field(default=None, max_length=255)
+    region: Optional[str] = Field(default=None, max_length=50)
     active: bool = True
 
 
@@ -52,6 +54,7 @@ class EmployeeMasterUpdateInput(BaseModel):
     id_number: Optional[str] = Field(default=None, max_length=100)
     company_name: Optional[str] = Field(default=None, max_length=255)
     department: Optional[str] = Field(default=None, max_length=255)
+    region: Optional[str] = Field(default=None, max_length=50)
     active: bool = True
 
 

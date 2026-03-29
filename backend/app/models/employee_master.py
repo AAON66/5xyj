@@ -20,6 +20,7 @@ class EmployeeMaster(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     id_number: Mapped[Optional[str]] = mapped_column(String(100), index=True)
     company_name: Mapped[Optional[str]] = mapped_column(String(255), index=True)
     department: Mapped[Optional[str]] = mapped_column(String(255))
+    region: Mapped[Optional[str]] = mapped_column(String(50), index=True)
     active: Mapped[bool] = mapped_column(nullable=False, default=True, index=True)
 
     match_results: Mapped[list["MatchResult"]] = relationship(back_populates="employee_master")
