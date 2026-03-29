@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 1: Export Stabilization** - Fix Tool template, split exporter, protect Salary template with regression tests
 - [ ] **Phase 2: Authentication & RBAC** - Three-role login system with PyJWT tokens and session persistence
 - [ ] **Phase 3: Security Hardening** - PII protection, rate limiting, audit logging, ID masking
-- [ ] **Phase 4: Employee Master Data** - HR can manage and import employee registry for matching
+- [x] **Phase 4: Employee Master Data** - HR can manage and import employee registry for matching (completed 2026-03-29)
 - [ ] **Phase 5: Employee Portal** - Employees can verify identity and view personal contribution records
 - [ ] **Phase 6: Data Management** - HR can filter, browse, and audit all social insurance data
 - [ ] **Phase 7: Design System & UI Foundation** - Ant Design 5 adoption, Feishu-inspired theme, animations
@@ -88,7 +88,7 @@ Plans:
 
 Plans:
 - [x] 04-01-PLAN.md -- 后端全链路：region 字段迁移、导入容错、双维度匹配、筛选 API、辅助端点
-- [ ] 04-02-PLAN.md -- 前端完善：地区/公司筛选下拉、region 表单字段、导入反馈增强
+- [x] 04-02-PLAN.md -- 前端完善：地区/公司筛选下拉、region 表单字段、导入反馈增强
 
 **UI hint**: yes
 
@@ -224,7 +224,7 @@ Note: Phases 4, 5, 6 can partially overlap (4 unblocks 5; 4 and 6 share the Phas
 | 1. Export Stabilization | 0/2 | Not started | - |
 | 2. Authentication & RBAC | 0/3 | Planning complete | - |
 | 3. Security Hardening | 1/2 | In Progress|  |
-| 4. Employee Master Data | 0/2 | Planning complete | - |
+| 4. Employee Master Data | 2/2 | Complete   | 2026-03-29 |
 | 5. Employee Portal | 0/2 | Not started | - |
 | 6. Data Management | 0/2 | Not started | - |
 | 7. Design System & UI Foundation | 0/2 | Not started | - |
