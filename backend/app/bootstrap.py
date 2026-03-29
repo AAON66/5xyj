@@ -71,13 +71,30 @@ def _seed_default_admin_on_startup() -> None:
 
 
 def _ensure_tables() -> None:
-    """Create any missing tables (e.g. audit_logs added in Phase 3)."""
+    """Create missing tables and add missing columns to existing tables."""
+    from sqlalchemy import inspect, text
     from backend.app.core.database import engine
     from backend.app.models.base import Base
     # Import all models so Base.metadata knows about them
     import backend.app.models  # noqa: F401
 
     Base.metadata.create_all(engine, checkfirst=True)
+
+    # Add missing columns to existing tables (ALTER TABLE for SQLite)
+    inspector = inspect(engine)
+    for table_name, table in Base.metadata.tables.items():
+        if not inspector.has_table(table_name):
+            continue
+        existing_cols = {c["name"] for c in inspector.get_columns(table_name)}
+        for col in table.columns:
+            if col.name not in existing_cols:
+                col_type = col.type.compile(engine.dialect)
+                with engine.connect() as conn:
+                    conn.execute(text(
+                        f"ALTER TABLE {table_name} ADD COLUMN {col.name} {col_type}"
+                    ))
+                    conn.commit()
+                logger.info("Added column %s.%s", table_name, col.name)
 
 
 def bootstrap_application(settings: Optional[Settings] = None) -> Settings:
