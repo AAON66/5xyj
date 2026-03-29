@@ -108,14 +108,15 @@ export default function App() {
   return (
     <Routes>
       <Route path="/" element={<RootRedirect />} />
-      <Route path="/employee/query" element={<EmployeeSelfServicePage />} />
-
       <Route element={<PublicOnlyRoute />}>
         <Route path="/login" element={<LoginPage />} />
       </Route>
 
       <Route element={<ProtectedRoute />}>
         <Route element={<ProtectedLayout />}>
+          <Route element={<RoleRoute allowedRoles={['employee']} />}>
+            <Route path="/employee/query" element={<EmployeeSelfServicePage />} />
+          </Route>
           <Route element={<RoleRoute allowedRoles={['admin']} />}>
             <Route path="/workspace/admin" element={<AdminWorkspacePage />} />
             <Route path="/audit-logs" element={<AuditLogsPage />} />

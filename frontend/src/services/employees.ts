@@ -100,6 +100,15 @@ export interface EmployeeSelfServiceRecord {
   housing_fund_personal: string | number | null;
   housing_fund_company: string | number | null;
   housing_fund_total: string | number | null;
+  payment_base: string | number | null;
+  pension_company: string | number | null;
+  pension_personal: string | number | null;
+  medical_company: string | number | null;
+  medical_personal: string | number | null;
+  unemployment_company: string | number | null;
+  unemployment_personal: string | number | null;
+  injury_company: string | number | null;
+  maternity_amount: string | number | null;
   created_at: string;
 }
 
@@ -181,5 +190,12 @@ export async function deleteEmployeeMasterAudit(employeeId: string, auditId: str
 
 export async function queryEmployeeSelfService(input: { person_name: string; id_number: string }): Promise<EmployeeSelfServiceResult> {
   const response = await apiClient.post<ApiSuccessResponse<EmployeeSelfServiceResult>>('/employees/self-service/query', input);
+  return response.data.data;
+}
+
+export async function fetchPortalRecords(): Promise<EmployeeSelfServiceResult> {
+  const response = await apiClient.get<ApiSuccessResponse<EmployeeSelfServiceResult>>(
+    '/employees/self-service/my-records'
+  );
   return response.data.data;
 }
