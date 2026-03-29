@@ -29,7 +29,7 @@ from backend.app.models.enums import BatchStatus
 
 
 ARTIFACTS_ROOT = ROOT_DIR / '.test_artifacts' / 'employee_portal_api'
-TEST_SECRET = 'test-portal-secret-key'
+TEST_SECRET = 'test-portal-secret-key-minimum-32-bytes!'
 
 
 def build_test_context(test_name: str, *, auth_enabled: bool = True):
@@ -106,7 +106,7 @@ def seed_employee_and_records(
         # Create import batch
         batch = ImportBatch(
             batch_name='portal-test-batch',
-            status=BatchStatus.COMPLETED,
+            status=BatchStatus.MATCHED,
         )
         db.add(batch)
         db.flush()
@@ -157,8 +157,8 @@ def _make_fake_source_file_id(db: Session, batch_id: str) -> str:
     from backend.app.models.source_file import SourceFile
     sf = SourceFile(
         batch_id=batch_id,
-        original_filename='test.xlsx',
-        stored_path='/fake/path',
+        file_name='test.xlsx',
+        file_path='/fake/path',
         file_size=1024,
         region='shenzhen',
         company_name='test-company',

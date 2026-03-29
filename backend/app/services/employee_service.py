@@ -404,6 +404,61 @@ def lookup_employee_self_service(db: Session, payload: EmployeeSelfServiceQueryI
     )
 
 
+def lookup_employee_portal(db: Session, employee_id: str) -> EmployeeSelfServiceRead:
+    """Lookup employee records by employee_id (from token sub).
+
+    Used by the token-bound /self-service/my-records endpoint.
+    The employee_id comes from the JWT token, not from user input.
+    """
+    employee = (
+        db.query(EmployeeMaster)
+        .filter(EmployeeMaster.employee_id == employee_id, EmployeeMaster.active.is_(True))
+        .first()
+    )
+    if employee is None:
+        raise EmployeeSelfServiceNotFoundError("Employee identity did not match any records.")
+
+    normalized_id_number = _normalize_identity_lookup(employee.id_number)
+
+    conditions = [
+        MatchResult.employee_master_id == employee.id,
+        NormalizedRecord.employee_id == employee.employee_id,
+    ]
+    if normalized_id_number and employee.person_name:
+        conditions.append(
+            and_(
+                NormalizedRecord.person_name == employee.person_name,
+                _normalized_identity_expression(NormalizedRecord.id_number) == normalized_id_number,
+            )
+        )
+
+    rows = (
+        db.query(NormalizedRecord, ImportBatch)
+        .join(ImportBatch, ImportBatch.id == NormalizedRecord.batch_id)
+        .outerjoin(MatchResult, MatchResult.normalized_record_id == NormalizedRecord.id)
+        .filter(or_(*conditions))
+        .order_by(ImportBatch.created_at.desc(), NormalizedRecord.created_at.desc(), NormalizedRecord.source_row_number.asc())
+        .all()
+    )
+
+    unique_records: list[tuple[NormalizedRecord, ImportBatch]] = []
+    seen_record_ids: set[str] = set()
+    for record, batch in rows:
+        if record.id in seen_record_ids:
+            continue
+        seen_record_ids.add(record.id)
+        unique_records.append((record, batch))
+
+    profile = _to_self_service_profile_from_employee(employee)
+    records = [_to_self_service_record(record, batch) for record, batch in unique_records]
+    return EmployeeSelfServiceRead(
+        matched_employee_master=True,
+        profile=profile,
+        record_count=len(records),
+        records=records,
+    )
+
+
 def _parse_employee_rows(file_name: str, raw_bytes: bytes) -> tuple[list[_EmployeeImportRow], list[str]]:
     raw_dataframe = _load_tabular_file(file_name, raw_bytes)
     dataframe = _prepare_employee_dataframe(raw_dataframe)
@@ -688,6 +743,15 @@ def _to_self_service_record(record: NormalizedRecord, batch: ImportBatch) -> Emp
         housing_fund_personal=record.housing_fund_personal,
         housing_fund_company=record.housing_fund_company,
         housing_fund_total=record.housing_fund_total,
+        payment_base=record.payment_base,
+        pension_company=record.pension_company,
+        pension_personal=record.pension_personal,
+        medical_company=record.medical_company,
+        medical_personal=record.medical_personal,
+        unemployment_company=record.unemployment_company,
+        unemployment_personal=record.unemployment_personal,
+        injury_company=record.injury_company,
+        maternity_amount=record.maternity_amount,
         created_at=record.created_at,
     )
 

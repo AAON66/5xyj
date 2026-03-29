@@ -112,6 +112,15 @@ class EmployeeSelfServiceRecordRead(BaseModel):
     housing_fund_personal: Optional[Decimal]
     housing_fund_company: Optional[Decimal]
     housing_fund_total: Optional[Decimal]
+    payment_base: Optional[Decimal] = None
+    pension_company: Optional[Decimal] = None
+    pension_personal: Optional[Decimal] = None
+    medical_company: Optional[Decimal] = None
+    medical_personal: Optional[Decimal] = None
+    unemployment_company: Optional[Decimal] = None
+    unemployment_personal: Optional[Decimal] = None
+    injury_company: Optional[Decimal] = None
+    maternity_amount: Optional[Decimal] = None
     created_at: datetime
 
 
