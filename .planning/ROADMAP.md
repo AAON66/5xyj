@@ -87,7 +87,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 04-01-PLAN.md -- 后端全链路：region 字段迁移、导入容错、双维度匹配、筛选 API、辅助端点
+- [x] 04-01-PLAN.md -- 后端全链路：region 字段迁移、导入容错、双维度匹配、筛选 API、辅助端点
 - [ ] 04-02-PLAN.md -- 前端完善：地区/公司筛选下拉、region 表单字段、导入反馈增强
 
 **UI hint**: yes

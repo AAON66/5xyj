@@ -40,10 +40,10 @@
 
 ### 员工主数据 (MASTER)
 
-- [ ] **MASTER-01**: HR 可维护员工主数据（姓名/工号/身份证号/所属公司/地区）
-- [ ] **MASTER-02**: HR 可批量导入员工主数据
-- [ ] **MASTER-03**: 员工主数据支持搜索和筛选
-- [ ] **MASTER-04**: 导入的社保数据自动与员工主数据匹配
+- [x] **MASTER-01**: HR 可维护员工主数据（姓名/工号/身份证号/所属公司/地区）
+- [x] **MASTER-02**: HR 可批量导入员工主数据
+- [x] **MASTER-03**: 员工主数据支持搜索和筛选
+- [x] **MASTER-04**: 导入的社保数据自动与员工主数据匹配
 
 ### 数据管理 (DATA)
 
@@ -124,10 +124,10 @@
 | SEC-02 | Phase 3 | Complete |
 | SEC-03 | Phase 3 | Complete |
 | SEC-04 | Phase 3 | Complete |
-| MASTER-01 | Phase 4 | Pending |
-| MASTER-02 | Phase 4 | Pending |
-| MASTER-03 | Phase 4 | Pending |
-| MASTER-04 | Phase 4 | Pending |
+| MASTER-01 | Phase 4 | Complete |
+| MASTER-02 | Phase 4 | Complete |
+| MASTER-03 | Phase 4 | Complete |
+| MASTER-04 | Phase 4 | Complete |
 | PORTAL-01 | Phase 5 | Pending |
 | PORTAL-02 | Phase 5 | Pending |
 | PORTAL-03 | Phase 5 | Pending |
