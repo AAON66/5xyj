@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from backend.app.api.v1.responses import success_response
 from backend.app.core.auth import AuthUser
 from backend.app.dependencies import get_db, require_authenticated_user
+from backend.app.models import EmployeeMaster
 from backend.app.utils.masking import mask_id_number
 from backend.app.schemas.employees import (
     EmployeeMasterCreateInput,
@@ -39,13 +40,15 @@ router = APIRouter(prefix='/employees', tags=['employees'])
 @router.get('')
 def list_employee_masters_endpoint(
     query: Optional[str] = Query(default=None),
+    region: Optional[str] = Query(default=None),
+    company_name: Optional[str] = Query(default=None),
     active_only: bool = Query(default=False),
     limit: Optional[int] = Query(default=None, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
     user: AuthUser = Depends(require_authenticated_user),
 ):
-    payload = list_employee_masters(db, query=query, active_only=active_only, limit=limit, offset=offset)
+    payload = list_employee_masters(db, query=query, region=region, company_name=company_name, active_only=active_only, limit=limit, offset=offset)
     data = payload.model_dump(mode='json')
     # Employee role sees masked ID numbers (per D-09); admin/HR see full (per D-11)
     if user.role == "employee":
@@ -80,6 +83,26 @@ async def import_employee_masters_endpoint(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
     return success_response(payload.model_dump(mode='json'), message='Employee master file imported.', status_code=status.HTTP_201_CREATED)
+
+
+SUPPORTED_REGIONS = ["广州", "杭州", "厦门", "深圳", "武汉", "长沙"]
+
+
+@router.get('/regions')
+def list_regions_endpoint():
+    return success_response(SUPPORTED_REGIONS)
+
+
+@router.get('/companies')
+def list_companies_endpoint(
+    db: Session = Depends(get_db),
+    _user=Depends(require_authenticated_user),
+):
+    rows = db.query(EmployeeMaster.company_name).filter(
+        EmployeeMaster.company_name.isnot(None)
+    ).distinct().order_by(EmployeeMaster.company_name.asc()).all()
+    companies = [row[0] for row in rows]
+    return success_response(companies)
 
 
 @router.post('/self-service/query')

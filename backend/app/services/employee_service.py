@@ -47,6 +47,7 @@ HEADER_ALIASES = {
     "company_name": {"company_name", "公司", "公司名称", "所属公司", "主体", "主体公司", "法人公司", "所属法人公司", "归属公司", "用工主体", "法人主体"},
     "department": {"department", "部门", "部门名称", "所属部门", "组织", "组织架构", "一级部门", "二级部门", "部门/组别", "组别"},
     "active": {"active", "是否在职", "在职状态", "启用状态", "状态", "任职状态", "人员状态", "在离职状态"},
+    "region": {"region", "地区", "所属地区", "城市", "所在城市", "地区名称"},
 }
 
 TRUE_VALUES = {"1", "true", "yes", "y", "是", "在职", "启用", "active"}
@@ -60,6 +61,7 @@ class _EmployeeImportRow:
     id_number: Optional[str]
     company_name: Optional[str]
     department: Optional[str]
+    region: Optional[str]
     active: bool
     row_number: int
 
@@ -104,8 +106,8 @@ async def import_employee_master_file(db: Session, upload_file: UploadFile) -> E
     if not raw_bytes:
         raise EmployeeImportError("Employee master file is empty.")
 
-    rows = _parse_employee_rows(file_name, raw_bytes)
-    if not rows:
+    rows, parse_errors = _parse_employee_rows(file_name, raw_bytes)
+    if not rows and not parse_errors:
         raise EmployeeImportError("Employee master file did not contain any usable rows.")
 
     employee_ids = [row.employee_id for row in rows]
@@ -127,6 +129,7 @@ async def import_employee_master_file(db: Session, upload_file: UploadFile) -> E
                 id_number=row.id_number,
                 company_name=row.company_name,
                 department=row.department,
+                region=row.region,
                 active=row.active,
             )
             db.add(existing)
@@ -140,6 +143,7 @@ async def import_employee_master_file(db: Session, upload_file: UploadFile) -> E
             existing.id_number = row.id_number
             existing.company_name = row.company_name
             existing.department = row.department
+            existing.region = row.region
             existing.active = row.active
             updated_count += 1
             action = EmployeeAuditAction.IMPORT_UPDATE
@@ -155,12 +159,12 @@ async def import_employee_master_file(db: Session, upload_file: UploadFile) -> E
 
     return EmployeeImportRead(
         file_name=file_name,
-        total_rows=len(rows),
+        total_rows=len(rows) + len(parse_errors),
         imported_count=len(rows),
         created_count=created_count,
         updated_count=updated_count,
-        skipped_count=0,
-        errors=[],
+        skipped_count=len(parse_errors),
+        errors=parse_errors,
         items=[_to_employee_read(item) for item in imported_items],
     )
 
@@ -176,6 +180,7 @@ def create_employee_master(db: Session, payload: EmployeeMasterCreateInput) -> E
         id_number=_nullable_text(payload.id_number),
         company_name=_nullable_text(payload.company_name),
         department=_nullable_text(payload.department),
+        region=_nullable_text(payload.region),
         active=payload.active,
     )
     db.add(employee)
@@ -196,11 +201,17 @@ def list_employee_masters(
     db: Session,
     *,
     query: Optional[str] = None,
+    region: Optional[str] = None,
+    company_name: Optional[str] = None,
     active_only: bool = False,
     limit: Optional[int] = None,
     offset: int = 0,
 ) -> EmployeeMasterListRead:
     statement = db.query(EmployeeMaster)
+    if region:
+        statement = statement.filter(EmployeeMaster.region == region)
+    if company_name:
+        statement = statement.filter(EmployeeMaster.company_name == company_name)
     if active_only:
         statement = statement.filter(EmployeeMaster.active.is_(True))
     if query:
@@ -276,6 +287,7 @@ def update_employee_master(db: Session, employee_id: str, payload: EmployeeMaste
     employee.id_number = _nullable_text(payload.id_number)
     employee.company_name = _nullable_text(payload.company_name)
     employee.department = _nullable_text(payload.department)
+    employee.region = _nullable_text(payload.region)
     employee.active = payload.active
     db.add(_build_audit(employee, action=EmployeeAuditAction.MANUAL_UPDATE, note="Updated from employee master management page."))
     db.commit()
@@ -392,23 +404,28 @@ def lookup_employee_self_service(db: Session, payload: EmployeeSelfServiceQueryI
     )
 
 
-def _parse_employee_rows(file_name: str, raw_bytes: bytes) -> list[_EmployeeImportRow]:
+def _parse_employee_rows(file_name: str, raw_bytes: bytes) -> tuple[list[_EmployeeImportRow], list[str]]:
     raw_dataframe = _load_tabular_file(file_name, raw_bytes)
     dataframe = _prepare_employee_dataframe(raw_dataframe)
     if dataframe.empty:
-        return []
+        return [], []
 
     dataframe = dataframe.where(pd.notnull(dataframe), None)
     column_map = _resolve_column_map(list(dataframe.columns))
     rows: list[_EmployeeImportRow] = []
+    errors: list[str] = []
 
     for offset, row in enumerate(dataframe.to_dict(orient="records"), start=2):
-        parsed = _parse_employee_row(row, column_map, row_number=offset)
+        try:
+            parsed = _parse_employee_row(row, column_map, row_number=offset)
+        except EmployeeImportError as exc:
+            errors.append(str(exc))
+            continue
         if parsed is None:
             continue
         rows.append(parsed)
 
-    return rows
+    return rows, errors
 
 
 def _load_tabular_file(file_name: str, raw_bytes: bytes) -> pd.DataFrame:
@@ -496,6 +513,7 @@ def _parse_employee_row(row: dict[str, Any], column_map: dict[str, str], *, row_
     id_number = _clean_text(row.get(column_map.get("id_number", ""))) if column_map.get("id_number") else None
     company_name = _clean_text(row.get(column_map.get("company_name", ""))) if column_map.get("company_name") else None
     department = _clean_text(row.get(column_map.get("department", ""))) if column_map.get("department") else None
+    region = _clean_text(row.get(column_map.get("region", ""))) if column_map.get("region") else None
     active = _parse_active_value(row.get(column_map.get("active", ""))) if column_map.get("active") else True
 
     if not any([employee_id, person_name, id_number, company_name, department]):
@@ -509,6 +527,7 @@ def _parse_employee_row(row: dict[str, Any], column_map: dict[str, str], *, row_
         id_number=id_number,
         company_name=company_name,
         department=department,
+        region=region,
         active=active,
         row_number=row_number,
     )
@@ -600,6 +619,7 @@ def _build_audit(employee: EmployeeMaster, *, action: EmployeeAuditAction, note:
             "id_number": employee.id_number,
             "company_name": employee.company_name,
             "department": employee.department,
+            "region": employee.region,
             "active": employee.active,
         },
         created_at=datetime.now(UTC),
@@ -614,6 +634,7 @@ def _to_employee_read(item: EmployeeMaster) -> EmployeeMasterRead:
         id_number=item.id_number,
         company_name=item.company_name,
         department=item.department,
+        region=item.region,
         active=item.active,
         created_at=item.created_at,
         updated_at=item.updated_at,
