@@ -205,6 +205,73 @@ def test_match_preview_records_marks_duplicate_for_multiple_exact_candidates() -
     assert results[0].candidate_employee_ids == ['E5001', 'E5002']
 
 
+def test_match_by_employee_id_exact() -> None:
+    """D-08: employee_id exact match (highest priority)."""
+    sample_path = find_sample('\u957f\u6c99')
+    standardized = standardize_workbook(sample_path, region='changsha')
+    record = standardized.records[0]
+    # Set employee_id in record values, clear id_number
+    record.values['employee_id'] = 'E7001'
+    record.values['id_number'] = None
+    employee = make_employee('E7001', '\u5176\u4ed6\u4eba', id_number='110101199001010099')
+
+    results = match_preview_records([record], [employee])
+
+    assert results[0].match_status == MatchStatus.MATCHED.value
+    assert results[0].employee_id == 'E7001'
+    assert results[0].match_basis == 'employee_id_exact'
+    assert results[0].confidence == 1.0
+
+
+def test_match_employee_id_takes_priority_over_id_number() -> None:
+    """D-08: employee_id match takes priority over id_number when both present."""
+    sample_path = find_sample('\u5e7f\u5206')
+    standardized = standardize_workbook(sample_path, region='guangzhou', company_name='\u5e7f\u5dde\u793a\u4f8b')
+    record = standardized.records[0]
+    record.values['employee_id'] = 'E7002'
+    # employee_id points to E7002, id_number points to E7003
+    employee_a = make_employee('E7002', '\u5f20\u4e09', id_number='110101199001010088')
+    employee_b = make_employee('E7003', record.values['person_name'], id_number=record.values['id_number'])
+
+    results = match_preview_records([record], [employee_a, employee_b])
+
+    assert results[0].employee_id == 'E7002'
+    assert results[0].match_basis == 'employee_id_exact'
+
+
+def test_match_falls_back_to_id_number_when_no_employee_id() -> None:
+    """Fallback to id_number match when employee_id is absent."""
+    sample_path = find_sample('\u5e7f\u5206')
+    standardized = standardize_workbook(sample_path, region='guangzhou', company_name='\u5e7f\u5dde\u793a\u4f8b')
+    record = standardized.records[0]
+    record.values['employee_id'] = None
+    employee = make_employee('E7004', record.values['person_name'], id_number=record.values['id_number'])
+
+    results = match_preview_records([record], [employee])
+
+    assert results[0].employee_id == 'E7004'
+    assert results[0].match_basis == 'id_number_exact'
+
+
+def test_unmatched_record_preserved() -> None:
+    """D-09: Unmatched records are preserved with unmatched status, not discarded."""
+    sample_path = find_sample('\u6b66\u6c49')
+    standardized = standardize_workbook(sample_path, region='wuhan')
+    record = standardized.records[0]
+    record.values['employee_id'] = 'NONEXISTENT'
+    record.values['id_number'] = '999999199001010099'
+
+    employee = make_employee('E8001', '\u5b8c\u5168\u4e0d\u540c\u7684\u4eba', id_number='110101199001010011')
+    results = match_preview_records([record], [employee])
+
+    assert len(results) == 1
+    assert results[0].match_status == MatchStatus.UNMATCHED.value
+    assert results[0].employee_id is None
+    assert results[0].match_basis is None
+    assert results[0].confidence is None
+    assert results[0].candidate_employee_ids == []
+
+
 def test_build_match_result_models_and_apply_results_to_normalized_records() -> None:
     sample_path = find_sample('\u5e7f\u5206')
     standardized = standardize_workbook(sample_path, region='guangzhou', company_name='\u5e7f\u5dde\u793a\u4f8b')

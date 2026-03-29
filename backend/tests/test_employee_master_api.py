@@ -493,6 +493,169 @@ def test_employee_self_service_query_returns_not_found_for_unknown_identity() ->
     assert response.json()['error']['code'] == 'not_found'
 
 
+def test_create_employee_with_region() -> None:
+    """D-01: Creating employee with region field works correctly."""
+    client, _settings, _session_factory = build_test_context('create_with_region')
+
+    with client:
+        create_response = client.post(
+            '/api/v1/employees',
+            json={
+                'employee_id': 'ER001',
+                'person_name': '地区测试',
+                'id_number': '440101199001010011',
+                'company_name': '深圳公司',
+                'department': '运营',
+                'region': '深圳',
+                'active': True,
+            },
+        )
+
+    assert create_response.status_code == 201
+    employee = create_response.json()['data']
+    assert employee['region'] == '深圳'
+    assert employee['employee_id'] == 'ER001'
+
+
+def test_import_with_region_column() -> None:
+    """D-04: Import file with region column maps correctly."""
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append(['工号', '姓名', '身份证号', '公司名称', '地区', '部门'])
+    sheet.append(['ER101', '张三', '440101199001010011', '广分示例', '广州', '运营'])
+    sheet.append(['ER102', '李四', '440101199202020022', '深圳公司', '深圳', '人事'])
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    workbook.close()
+
+    client, _settings, _session_factory = build_test_context('import_region')
+
+    with client:
+        response = client.post(
+            '/api/v1/employees/import',
+            files=[('file', ('region_master.xlsx', buffer.getvalue(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))],
+        )
+        list_response = client.get('/api/v1/employees', params={'active_only': 'false'})
+
+    assert response.status_code == 201
+    items = list_response.json()['data']['items']
+    regions = {item['employee_id']: item['region'] for item in items}
+    assert regions['ER101'] == '广州'
+    assert regions['ER102'] == '深圳'
+
+
+def test_import_skips_invalid_rows() -> None:
+    """D-07: Import with missing required fields skips bad rows, imports good ones."""
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.append(['工号', '姓名', '身份证号', '公司名称'])
+    sheet.append(['ER201', '张三', '440101199001010011', '广分示例'])
+    sheet.append(['', '', '', ''])  # empty row - will be skipped by None check
+    sheet.append(['ER203', '', '440101199303030033', '深圳公司'])  # missing person_name but has employee_id
+    sheet.append(['ER204', '李四', '440101199404040044', '广分示例'])
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    workbook.close()
+
+    client, _settings, _session_factory = build_test_context('import_skip_invalid')
+
+    with client:
+        response = client.post(
+            '/api/v1/employees/import',
+            files=[('file', ('invalid_rows.xlsx', buffer.getvalue(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))],
+        )
+
+    assert response.status_code == 201
+    payload = response.json()['data']
+    assert payload['skipped_count'] >= 1
+    assert len(payload['errors']) >= 1
+    assert payload['imported_count'] >= 1
+
+
+def test_list_filter_by_region() -> None:
+    """D-11: Filter employee list by region."""
+    client, _settings, _session_factory = build_test_context('filter_region')
+
+    with client:
+        client.post('/api/v1/employees', json={
+            'employee_id': 'FR001', 'person_name': '广州员工',
+            'company_name': '广分示例', 'region': '广州', 'active': True,
+        })
+        client.post('/api/v1/employees', json={
+            'employee_id': 'FR002', 'person_name': '深圳员工',
+            'company_name': '深圳公司', 'region': '深圳', 'active': True,
+        })
+        client.post('/api/v1/employees', json={
+            'employee_id': 'FR003', 'person_name': '广州员工2',
+            'company_name': '广分示例', 'region': '广州', 'active': True,
+        })
+        response = client.get('/api/v1/employees', params={'region': '广州'})
+
+    payload = response.json()['data']
+    assert payload['total'] == 2
+    assert all(item['region'] == '广州' for item in payload['items'])
+
+
+def test_list_filter_by_company_name() -> None:
+    """D-12: Filter employee list by company_name."""
+    client, _settings, _session_factory = build_test_context('filter_company')
+
+    with client:
+        client.post('/api/v1/employees', json={
+            'employee_id': 'FC001', 'person_name': '员工A',
+            'company_name': '公司A', 'region': '广州', 'active': True,
+        })
+        client.post('/api/v1/employees', json={
+            'employee_id': 'FC002', 'person_name': '员工B',
+            'company_name': '公司B', 'region': '深圳', 'active': True,
+        })
+        response = client.get('/api/v1/employees', params={'company_name': '公司A'})
+
+    payload = response.json()['data']
+    assert payload['total'] == 1
+    assert payload['items'][0]['company_name'] == '公司A'
+
+
+def test_regions_endpoint() -> None:
+    """D-03: GET /employees/regions returns supported regions."""
+    client, _settings, _session_factory = build_test_context('regions_endpoint')
+
+    with client:
+        response = client.get('/api/v1/employees/regions')
+
+    assert response.status_code == 200
+    regions = response.json()['data']
+    assert len(regions) == 6
+    assert '广州' in regions
+    assert '深圳' in regions
+
+
+def test_companies_endpoint() -> None:
+    """D-12: GET /employees/companies returns distinct company names."""
+    client, _settings, _session_factory = build_test_context('companies_endpoint')
+
+    with client:
+        client.post('/api/v1/employees', json={
+            'employee_id': 'CC001', 'person_name': '员工1',
+            'company_name': '公司X', 'active': True,
+        })
+        client.post('/api/v1/employees', json={
+            'employee_id': 'CC002', 'person_name': '员工2',
+            'company_name': '公司Y', 'active': True,
+        })
+        client.post('/api/v1/employees', json={
+            'employee_id': 'CC003', 'person_name': '员工3',
+            'company_name': '公司X', 'active': True,
+        })
+        response = client.get('/api/v1/employees/companies')
+
+    assert response.status_code == 200
+    companies = response.json()['data']
+    assert '公司X' in companies
+    assert '公司Y' in companies
+    assert len(companies) == 2
+
+
 @pytest.mark.parametrize(
     ('filename', 'content_type', 'payload'),
     [

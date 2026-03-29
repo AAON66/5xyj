@@ -92,8 +92,23 @@ def _match_preview_record(record: NormalizedPreviewRecord, employees: list[Emplo
     id_number = _normalize_id_number(values.get('id_number'))
     person_name = _normalize(values.get('person_name'))
     company_name = _normalize(values.get('company_name'))
+    record_employee_id = _normalize(values.get('employee_id'))
     can_fallback_without_id = _is_missing_id_number(raw_id_number)
 
+    # Dimension 1: employee_id exact match (highest priority)
+    if record_employee_id:
+        eid_matches = [e for e in employees if e.employee_id == record_employee_id]
+        eid_result = _resolve_candidates(
+            record.source_row_number,
+            eid_matches,
+            match_status=MatchStatus.MATCHED.value,
+            match_basis='employee_id_exact',
+            confidence=1.0,
+        )
+        if eid_result is not None:
+            return eid_result
+
+    # Dimension 2: id_number exact match
     if id_number:
         exact_matches = [employee for employee in employees if _normalize_id_number(employee.id_number) == id_number]
         exact_result = _resolve_candidates(
