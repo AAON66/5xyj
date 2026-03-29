@@ -84,11 +84,11 @@ Plans:
   2. HR can bulk-import employee master data from an Excel file
   3. HR can search and filter employee list by name, employee_id, company, or region
   4. Newly imported social insurance data automatically matches against employee master records by employee_id or id_number
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 04-01: TBD
-- [ ] 04-02: TBD
+- [ ] 04-01-PLAN.md -- 后端全链路：region 字段迁移、导入容错、双维度匹配、筛选 API、辅助端点
+- [ ] 04-02-PLAN.md -- 前端完善：地区/公司筛选下拉、region 表单字段、导入反馈增强
 
 **UI hint**: yes
 
@@ -224,7 +224,7 @@ Note: Phases 4, 5, 6 can partially overlap (4 unblocks 5; 4 and 6 share the Phas
 | 1. Export Stabilization | 0/2 | Not started | - |
 | 2. Authentication & RBAC | 0/3 | Planning complete | - |
 | 3. Security Hardening | 1/2 | In Progress|  |
-| 4. Employee Master Data | 0/2 | Not started | - |
+| 4. Employee Master Data | 0/2 | Planning complete | - |
 | 5. Employee Portal | 0/2 | Not started | - |
 | 6. Data Management | 0/2 | Not started | - |
 | 7. Design System & UI Foundation | 0/2 | Not started | - |
