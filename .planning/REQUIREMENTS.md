@@ -32,11 +32,11 @@
 
 ### 员工门户 (PORTAL)
 
-- [ ] **PORTAL-01**: 员工可查看个人社保明细（按月份）
-- [ ] **PORTAL-02**: 员工可查看个人公积金明细（按月份）
-- [ ] **PORTAL-03**: 员工可查看历史缴费记录（多期浏览）
-- [ ] **PORTAL-04**: 员工只能看到自己的数据，无法访问他人信息
-- [ ] **PORTAL-05**: 查询结果展示缴费基数、单位/个人各险种金额
+- [x] **PORTAL-01**: 员工可查看个人社保明细（按月份）
+- [x] **PORTAL-02**: 员工可查看个人公积金明细（按月份）
+- [x] **PORTAL-03**: 员工可查看历史缴费记录（多期浏览）
+- [x] **PORTAL-04**: 员工只能看到自己的数据，无法访问他人信息
+- [x] **PORTAL-05**: 查询结果展示缴费基数、单位/个人各险种金额
 
 ### 员工主数据 (MASTER)
 
@@ -128,11 +128,11 @@
 | MASTER-02 | Phase 4 | Complete |
 | MASTER-03 | Phase 4 | Complete |
 | MASTER-04 | Phase 4 | Complete |
-| PORTAL-01 | Phase 5 | Pending |
-| PORTAL-02 | Phase 5 | Pending |
-| PORTAL-03 | Phase 5 | Pending |
-| PORTAL-04 | Phase 5 | Pending |
-| PORTAL-05 | Phase 5 | Pending |
+| PORTAL-01 | Phase 5 | Complete |
+| PORTAL-02 | Phase 5 | Complete |
+| PORTAL-03 | Phase 5 | Complete |
+| PORTAL-04 | Phase 5 | Complete |
+| PORTAL-05 | Phase 5 | Complete |
 | DATA-01 | Phase 6 | Pending |
 | DATA-02 | Phase 6 | Pending |
 | DATA-03 | Phase 6 | Pending |

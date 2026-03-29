@@ -105,7 +105,7 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 05-01: TBD
+- [x] 05-01: TBD
 - [ ] 05-02: TBD
 
 **UI hint**: yes
@@ -225,7 +225,7 @@ Note: Phases 4, 5, 6 can partially overlap (4 unblocks 5; 4 and 6 share the Phas
 | 2. Authentication & RBAC | 0/3 | Planning complete | - |
 | 3. Security Hardening | 1/2 | In Progress|  |
 | 4. Employee Master Data | 2/2 | Complete   | 2026-03-29 |
-| 5. Employee Portal | 0/2 | Not started | - |
+| 5. Employee Portal | 1/2 | In Progress|  |
 | 6. Data Management | 0/2 | Not started | - |
 | 7. Design System & UI Foundation | 0/2 | Not started | - |
 | 8. Page Rebuild & UX Flow | 0/2 | Not started | - |
