@@ -117,21 +117,23 @@ export default function App() {
           <Route element={<RoleRoute allowedRoles={['employee']} />}>
             <Route path="/employee/query" element={<EmployeeSelfServicePage />} />
           </Route>
+          <Route element={<RoleRoute allowedRoles={['admin', 'hr']} />}>
+            <Route path="/workspace/hr" element={<HrWorkspacePage />} />
+            <Route path="/aggregate" element={<SimpleAggregatePage />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/compare" element={<ComparePage />} />
+            <Route path="/imports" element={<ImportsPage />} />
+            <Route path="/imports/:batchId" element={<ImportBatchDetailPage />} />
+            <Route path="/mappings" element={<MappingsPage />} />
+            <Route path="/results" element={<ResultsPage />} />
+            <Route path="/exports" element={<ExportsPage />} />
+            <Route path="/employees/new" element={<EmployeeCreatePage />} />
+            <Route path="/employees" element={<EmployeesPage />} />
+          </Route>
           <Route element={<RoleRoute allowedRoles={['admin']} />}>
             <Route path="/workspace/admin" element={<AdminWorkspacePage />} />
             <Route path="/audit-logs" element={<AuditLogsPage />} />
           </Route>
-          <Route path="/workspace/hr" element={<HrWorkspacePage />} />
-          <Route path="/aggregate" element={<SimpleAggregatePage />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/compare" element={<ComparePage />} />
-          <Route path="/imports" element={<ImportsPage />} />
-          <Route path="/imports/:batchId" element={<ImportBatchDetailPage />} />
-          <Route path="/mappings" element={<MappingsPage />} />
-          <Route path="/results" element={<ResultsPage />} />
-          <Route path="/exports" element={<ExportsPage />} />
-          <Route path="/employees/new" element={<EmployeeCreatePage />} />
-          <Route path="/employees" element={<EmployeesPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Route>
