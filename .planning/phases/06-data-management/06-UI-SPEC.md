@@ -40,17 +40,22 @@ Declared values (must be multiples of 4):
 | sm | 8px | Compact element spacing, button gaps |
 | md | 16px | Default element spacing, form field gaps |
 | lg | 24px | Panel card padding (`.panel-card` uses `24px`) |
-| xl | 28px | Page content padding (`.app-content` uses `28px`) |
-| 2xl | 32px | Page hero padding (`.page-hero` uses `30px`) |
+| xl | 28px | Page content padding (`.app-content { padding: 28px }`, confirmed in styles.css line 291) |
+| 2xl | 30px | Page hero padding (`.page-hero { padding: 30px }`, confirmed in styles.css line 304) |
 | 3xl | 48px | Major section breaks |
 
 **Source:** Measured from existing `.app-content { padding: 28px }`, `.panel-card { padding: 24px }`, `.page-hero { padding: 30px }`, `.status-item { padding: 15px 18px }` in styles.css.
 
+**Non-standard value notes:**
+- `xl` = 28px — inherited value from `.app-content`. Not a standard multiple of 4 but is a locked existing value; do not use 28px for any new elements introduced in this phase.
+- `2xl` = 30px — inherited value from `.page-hero`. Not a multiple of 4 and not 32px; this is the actual measured CSS value. Locked; do not use 30px for any new elements introduced in this phase.
+
 Exceptions:
-- Nav link padding: 14px 16px (existing pattern, do not change)
-- Button min-height: 44px (touch target floor — all `.button` elements, source: styles.css line 371)
-- Sidebar inner gap: 28px (existing, do not change)
-- Tab switching controls: 8px gap between tab labels
+- Nav link padding: 14px 16px — legacy value inherited from existing nav design; 14px is not a multiple of 4 but is locked from Phase 1 nav implementation. Do not apply to any new elements introduced in this phase.
+- Button min-height: 44px (touch target floor — all `.button` elements, source: styles.css line 371). Declared as intentional UX exception, not a spacing token.
+- Sidebar inner gap: 28px — same locked inherited value as `xl`; applies to existing sidebar only, do not reuse.
+- Tab switching controls: 8px gap between tab labels (standard `sm` token, no exception needed).
+- Secondary body text at 14.7px (0.92rem) sits near the 16px body baseline — this proximity is an inherited constraint from the existing nav design, not a new decision. Do not introduce additional sizes in this 14-16px range.
 
 ---
 
@@ -90,6 +95,12 @@ Do NOT apply accent to:
 - Pagination controls (use ghost style)
 - Filter dropdowns or search submit (use ghost style)
 - Status pills (use semantic tints above)
+
+---
+
+## Focal Point
+
+**Primary screen focal point:** The FilterBar + TabBar row at the top of the main content area. This is where every user interaction begins — selecting region, company, and period before the table renders. The FilterBar should be the first visually distinct element below the `PageContainer` hero, separated by `lg` (24px) margin.
 
 ---
 
@@ -194,10 +205,10 @@ Table columns (default visible):
 | 单位合计 | 90px | company_total_amount, right-align, 2 decimal |
 | 个人合计 | 90px | personal_total_amount, right-align, 2 decimal |
 | 总额 | 90px | total_amount, right-align, 2 decimal |
-| 操作 | 60px | 「展开」button |
+| 操作 | 60px | 「展开详情」button |
 
 Row expand interaction (D-03 from CONTEXT.md):
-- Clicking 「展开」 toggles an inline sub-row below the row
+- Clicking 「展开详情」 toggles an inline sub-row below the row; button label changes to 「收起详情」
 - Sub-row spans full table width via `colspan`
 - Sub-row shows a two-column grid: 单位各险种 | 个人各险种
 - Each insurance type shows: label + amount (right-aligned)
@@ -276,8 +287,8 @@ No layout changes to the page structure. Add the three fields as additional meta
 | Tab: summary | 全员汇总 |
 | Summary sub-tab: by employee | 按员工汇总 |
 | Summary sub-tab: by period | 按月份汇总 |
-| Row expand action | 展开 |
-| Row collapse action | 收起 |
+| Row expand action | 展开详情 |
+| Row collapse action | 收起详情 |
 | Pagination: prev | 上一页 |
 | Pagination: next | 下一页 |
 | Empty state heading (no filter match) | 暂无匹配记录 |
