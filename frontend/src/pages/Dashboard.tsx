@@ -1,8 +1,8 @@
 ﻿import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-import { PageContainer, SurfaceNotice } from '../components';
-import { fetchDashboardOverview, type DashboardOverview } from '../services/dashboard';
+import { PageContainer, SectionState, SurfaceNotice } from '../components';
+import { fetchDashboardOverview, fetchDataQuality, type DashboardOverview, type DataQualityOverview } from '../services/dashboard';
 import { fetchSystemHealth, type SystemHealth } from '../services/system';
 
 const pipelineSteps = ['导入', '识别', '标准化', '过滤', '匹配', '校验', '双模板导出'];
@@ -107,6 +107,8 @@ function DistributionCard({ title, items }: { title: string; items: Record<strin
 export function DashboardPage() {
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
+  const [quality, setQuality] = useState<DataQualityOverview | null>(null);
+  const [qualityLoading, setQualityLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
 
@@ -135,6 +137,11 @@ export function DashboardPage() {
         }
       }
     }
+
+    fetchDataQuality()
+      .then((data) => { if (active) setQuality(data); })
+      .catch(() => {})
+      .finally(() => { if (active) setQualityLoading(false); });
 
     void loadDashboard();
     return () => {
@@ -225,6 +232,72 @@ export function DashboardPage() {
         <DistributionCard title="问题严重级别" items={overview?.issue_severity_counts ?? {}} />
         <DistributionCard title="导出状态" items={overview?.export_status_counts ?? {}} />
       </div>
+
+      {/* Data Quality Section per D-10, D-11, D-12 */}
+      <div className="section-heading">
+        <div>
+          <p className="panel-label">DATA QUALITY</p>
+          <h2>导入质量监控</h2>
+        </div>
+      </div>
+
+      {qualityLoading ? (
+        <SectionState title="正在加载质量指标" message="系统正在统计各批次数据质量情况。" />
+      ) : !quality || (quality.total_missing === 0 && quality.total_anomalous === 0 && quality.total_duplicates === 0 && quality.batches.length === 0) ? (
+        <SectionState title="暂无质量数据" message="尚未导入任何数据，质量指标将在首次导入后显示。" />
+      ) : (
+        <>
+          <div className="dashboard-grid">
+            <div className="panel-card">
+              <p className="panel-label">缺失字段</p>
+              <strong>{quality.total_missing}</strong>
+              <div>条缺失字段记录</div>
+              {quality.total_missing > 0 && <span className="dashboard-pill--warn">需关注</span>}
+            </div>
+            <div className="panel-card">
+              <p className="panel-label">异常金额</p>
+              <strong>{quality.total_anomalous}</strong>
+              <div>条异常金额记录</div>
+              {quality.total_anomalous > 10 ? <span className="dashboard-pill--danger">严重</span> : quality.total_anomalous > 0 ? <span className="dashboard-pill--warn">需关注</span> : null}
+            </div>
+            <div className="panel-card">
+              <p className="panel-label">重复记录</p>
+              <strong>{quality.total_duplicates}</strong>
+              <div>条重复记录</div>
+              {quality.total_duplicates > 0 && <span className="dashboard-pill--danger">需处理</span>}
+            </div>
+          </div>
+          {quality.batches.length > 0 && (
+            <div className="panel-card" style={{ marginTop: '16px' }}>
+              <p className="panel-label">各批次质量明细</p>
+              <div className="preview-table-wrap">
+                <table className="preview-table">
+                  <thead>
+                    <tr>
+                      <th>批次名称</th>
+                      <th>记录数</th>
+                      <th>缺失</th>
+                      <th>异常</th>
+                      <th>重复</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {quality.batches.map(b => (
+                      <tr key={b.batch_id}>
+                        <td>{b.batch_name}</td>
+                        <td>{b.record_count}</td>
+                        <td>{b.missing_fields > 0 ? <span className="dashboard-pill--warn">{b.missing_fields}</span> : '0'}</td>
+                        <td>{b.anomalous_amounts > 0 ? <span className="dashboard-pill--warn">{b.anomalous_amounts}</span> : '0'}</td>
+                        <td>{b.duplicate_records > 0 ? <span className="dashboard-pill--danger">{b.duplicate_records}</span> : '0'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      )}
 
       <section className="panel-card">
         <div className="section-heading">

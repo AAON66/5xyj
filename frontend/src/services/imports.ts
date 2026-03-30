@@ -19,6 +19,8 @@ export interface ImportBatchSummary {
   created_at: string;
   updated_at: string;
   file_count: number;
+  created_by_name?: string | null;
+  normalized_record_count?: number | null;
 }
 
 export interface ImportBatchDetail extends ImportBatchSummary {

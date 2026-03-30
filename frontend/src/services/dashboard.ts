@@ -38,3 +38,24 @@ export async function fetchDashboardOverview(): Promise<DashboardOverview> {
   const response = await apiClient.get<ApiSuccessResponse<DashboardOverview>>('/dashboard/overview');
   return response.data.data;
 }
+
+export interface BatchQualityItem {
+  batch_id: string;
+  batch_name: string;
+  record_count: number;
+  missing_fields: number;
+  anomalous_amounts: number;
+  duplicate_records: number;
+}
+
+export interface DataQualityOverview {
+  total_missing: number;
+  total_anomalous: number;
+  total_duplicates: number;
+  batches: BatchQualityItem[];
+}
+
+export async function fetchDataQuality(): Promise<DataQualityOverview> {
+  const response = await apiClient.get<ApiSuccessResponse<DataQualityOverview>>('/dashboard/quality');
+  return response.data.data;
+}

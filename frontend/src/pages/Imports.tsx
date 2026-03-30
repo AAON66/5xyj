@@ -373,6 +373,13 @@ export function ImportsPage() {
                     <strong>{batch.batch_name}</strong>
                     <span>{batch.status}</span>
                     <small>{batch.file_count} 个文件 · {formatDateTime(batch.updated_at)}</small>
+                    <small>
+                      <span className="batch-meta-label">操作人</span>
+                      <span>{batch.created_by_name || '\u2014'}</span>
+                      {' · '}
+                      <span className="batch-meta-label">记录数</span>
+                      <span>{batch.normalized_record_count ?? '-'}</span>
+                    </small>
                   </button>
                   <div className="batch-card__footer">
                     <label className="batch-card__check">
