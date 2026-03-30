@@ -130,15 +130,19 @@ Declared values (must be multiples of 4):
 |-------|-------|-------|
 | xs | 4px | Icon-text gaps, inline badge padding |
 | sm | 8px | Table cell padding, compact element spacing |
-| md | 12px | Form item gaps, card internal padding (compact) |
-| lg | 16px | Default section padding, card padding |
-| xl | 20px | Card body padding (Ant Card paddingLG) |
-| 2xl | 24px | Layout header/sider padding, major section gaps |
-| 3xl | 32px | Page-level vertical spacing between card groups |
+| md | 16px | Default section padding, card padding |
+| lg | 24px | Layout header/sider padding, major section gaps |
+| xl | 32px | Page-level vertical spacing between card groups |
+| 2xl | 48px | Reserved for large layout gaps if needed |
+| 3xl | 64px | Sidebar collapsed width (Ant Layout.Sider collapsedWidth default) |
 
-Exceptions: Sidebar collapsed width = 64px (Ant Layout.Sider collapsedWidth default). Sidebar expanded width = 220px.
+**Exception: 12px** -- Ant Design 5 default `paddingSM` / `marginSM` / `Table.cellPaddingInlineSM` token value. Required for compact mode (CONTEXT.md D-07) where the standard 8px is too tight and 16px is too loose for small-variant component internal padding. This value is set by the Ant Design ConfigProvider theme and consumed automatically by Ant components; it is not used in custom spacing decisions.
 
-**Source:** CONTEXT.md D-07 (compact/dense information); Ant Design defaults adjusted for compact mode
+**Exception: 20px** -- Ant Design 5 default `Card.paddingLG` token value. This is the standard card body padding in Ant Design's design language, providing visual breathing room inside card containers without jumping to the next standard increment (24px) which would be excessive for compact mode. Set via `components.Card.paddingLG` in the theme config and consumed automatically by Card components.
+
+Additional exception: Sidebar expanded width = 220px (Ant Layout.Sider convention, not a spacing token).
+
+**Source:** CONTEXT.md D-07 (compact/dense information); Ant Design 5 defaults adjusted for compact mode
 
 ---
 
@@ -147,10 +151,13 @@ Exceptions: Sidebar collapsed width = 64px (Ant Layout.Sider collapsedWidth defa
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
 | Body | 14px | 400 (regular) | 1.57 (22px) |
-| Caption | 12px | 400 (regular) | 1.67 (20px) |
 | Heading 3 / Card title | 16px | 600 (semibold) | 1.5 (24px) |
 | Heading 2 / Section title | 20px | 600 (semibold) | 1.4 (28px) |
 | Heading 1 / Page title | 24px | 600 (semibold) | 1.33 (32px) |
+
+**Exception: 12px (5th size) [^1]** -- Ant Design 5's `fontSizeSM` token is used for caption text, table column headers in compact mode, Tag content, and Badge labels. This 5th size is mandated by the Ant Design component library internals and the compact mode decision (CONTEXT.md D-07). Removing it would require overriding Ant Design's built-in small-text rendering across Table, Tag, Badge, and Tooltip components, which would break visual consistency with the design system. Therefore 12px is retained as a documented exception to the 4-size maximum.
+
+[^1]: The standard design constraint allows a maximum of 4 declared font sizes. This project declares 5 because Ant Design 5's compact mode (`componentSize="small"`) uses `fontSizeSM: 12px` as a non-optional internal token for data-dense table UIs. Suppressing this token would degrade readability in the Chinese-language, data-heavy tables that are the core of this application.
 
 Font family: `"PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`
 
@@ -176,6 +183,21 @@ Font family: `"PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFon
 **Accent reserved for:** Primary CTA buttons only, active sidebar menu highlight, breadcrumb current page, link text on hover, table row selection checkbox highlight, loading spinner. NOT for all borders, NOT for secondary buttons, NOT for general decorative use.
 
 **Source:** CONTEXT.md D-06
+
+---
+
+## Focal Points
+
+Each high-priority page declares a single visual focal point -- the element the user's eye should land on first.
+
+| Page | Focal Point | Implementation |
+|------|-------------|----------------|
+| Dashboard | Top-row Statistic cards (total records, pending, anomalies) | 4-column Card grid with `Statistic` components at the top of Content area, 24px font for values, accent color for key metric |
+| Upload (SimpleAggregate) | Upload.Dragger zone | Centered `Upload.Dragger` with 200px min-height, dashed border, icon + instructional text, occupies full card width |
+| DataManagement | Primary data Table | Full-width `Table` card immediately below filter bar; table header row uses `#F5F6F7` background to anchor attention |
+| Login | Login Form card | Centered white Card on `#F5F6F7` background, max-width 400px, vertically centered with slight upward offset (-40px) |
+
+**Source:** Claude's Discretion (visual hierarchy best practice)
 
 ---
 
