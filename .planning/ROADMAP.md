@@ -122,8 +122,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 06-01-PLAN.md -- Backend infrastructure: migration, schemas, services, API endpoints, quality metrics, tests
-- [ ] 06-02-PLAN.md -- Frontend: DataManagement page, Dashboard quality section, Imports enhancement, navigation
+- [x] 06-01-PLAN.md -- Backend infrastructure: migration, schemas, services, API endpoints, quality metrics, tests
+- [x] 06-02-PLAN.md -- Frontend: DataManagement page, Dashboard quality section, Imports enhancement, navigation
 
 **UI hint**: yes
 
@@ -226,7 +226,7 @@ Note: Phases 4, 5, 6 can partially overlap (4 unblocks 5; 4 and 6 share the Phas
 | 3. Security Hardening | 1/2 | In Progress|  |
 | 4. Employee Master Data | 2/2 | Complete   | 2026-03-29 |
 | 5. Employee Portal | 2/2 | Complete   | 2026-03-30 |
-| 6. Data Management | 0/2 | Not started | - |
+| 6. Data Management | 1/2 | In Progress|  |
 | 7. Design System & UI Foundation | 0/2 | Not started | - |
 | 8. Page Rebuild & UX Flow | 0/2 | Not started | - |
 | 9. API System | 0/2 | Not started | - |
