@@ -1,6 +1,7 @@
 import { Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom';
+import { Spin } from 'antd';
 
-import { AppShell } from './components';
+import { MainLayout } from './layouts/MainLayout';
 import { useAuth } from './hooks';
 import {
   AdminWorkspacePage,
@@ -31,11 +32,8 @@ const DEFAULT_WORKSPACE_BY_ROLE: Record<AuthRole, string> = {
 
 function AuthRouteState({ message }: { message: string }) {
   return (
-    <div className="auth-route-state">
-      <div className="auth-route-state__card">
-        <p className="portal-kicker">Secure Access</p>
-        <strong>{message}</strong>
-      </div>
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#F5F6F7' }}>
+      <Spin tip={message} size="large"><div style={{ padding: 50 }} /></Spin>
     </div>
   );
 }
@@ -98,11 +96,7 @@ function RoleRoute({ allowedRoles }: { allowedRoles: AuthRole[] }) {
 }
 
 function ProtectedLayout() {
-  return (
-    <AppShell>
-      <Outlet />
-    </AppShell>
-  );
+  return <MainLayout />;
 }
 
 export default function App() {
