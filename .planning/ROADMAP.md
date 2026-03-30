@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 2: Authentication & RBAC** - Three-role login system with PyJWT tokens and session persistence
 - [ ] **Phase 3: Security Hardening** - PII protection, rate limiting, audit logging, ID masking
 - [x] **Phase 4: Employee Master Data** - HR can manage and import employee registry for matching (completed 2026-03-29)
-- [ ] **Phase 5: Employee Portal** - Employees can verify identity and view personal contribution records
+- [x] **Phase 5: Employee Portal** - Employees can verify identity and view personal contribution records (completed 2026-03-30)
 - [ ] **Phase 6: Data Management** - HR can filter, browse, and audit all social insurance data
 - [ ] **Phase 7: Design System & UI Foundation** - Ant Design 5 adoption, Feishu-inspired theme, animations
 - [ ] **Phase 8: Page Rebuild & UX Flow** - Role-aware routing, responsive layout, localization, workflow optimization
@@ -106,7 +106,7 @@ Plans:
 
 Plans:
 - [x] 05-01: TBD
-- [ ] 05-02: TBD
+- [x] 05-02: TBD
 
 **UI hint**: yes
 
@@ -225,7 +225,7 @@ Note: Phases 4, 5, 6 can partially overlap (4 unblocks 5; 4 and 6 share the Phas
 | 2. Authentication & RBAC | 0/3 | Planning complete | - |
 | 3. Security Hardening | 1/2 | In Progress|  |
 | 4. Employee Master Data | 2/2 | Complete   | 2026-03-29 |
-| 5. Employee Portal | 1/2 | In Progress|  |
+| 5. Employee Portal | 2/2 | Complete   | 2026-03-30 |
 | 6. Data Management | 0/2 | Not started | - |
 | 7. Design System & UI Foundation | 0/2 | Not started | - |
 | 8. Page Rebuild & UX Flow | 0/2 | Not started | - |
