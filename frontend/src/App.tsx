@@ -8,6 +8,7 @@ import {
   ComparePage,
   EmployeeCreatePage,
   DashboardPage,
+  DataManagementPage,
   EmployeeSelfServicePage,
   EmployeesPage,
   ExportsPage,
@@ -129,6 +130,7 @@ export default function App() {
             <Route path="/exports" element={<ExportsPage />} />
             <Route path="/employees/new" element={<EmployeeCreatePage />} />
             <Route path="/employees" element={<EmployeesPage />} />
+            <Route path="/data-management" element={<DataManagementPage />} />
           </Route>
           <Route element={<RoleRoute allowedRoles={['admin']} />}>
             <Route path="/workspace/admin" element={<AdminWorkspacePage />} />

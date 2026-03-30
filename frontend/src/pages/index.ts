@@ -1,6 +1,7 @@
 export * from './AuditLogs';
 export * from './Compare';
 export * from './Dashboard';
+export * from './DataManagement';
 export * from './Employees';
 export * from './EmployeeCreate';
 export * from './EmployeeSelfService';

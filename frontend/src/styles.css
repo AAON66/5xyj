@@ -341,6 +341,62 @@ button {
   gap: 10px;
 }
 
+/* --- Tab bar --- */
+.tab-bar {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 18px;
+  background: rgba(31, 42, 61, 0.06);
+  border: 1px solid rgba(31, 42, 61, 0.08);
+}
+.tab-bar__item {
+  padding: 8px 18px;
+  border-radius: 14px;
+  font-weight: 600;
+  font-size: 0.92rem;
+  background: transparent;
+  color: #526078;
+  min-height: 36px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.tab-bar__item:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+.tab-bar__item.is-active {
+  background: rgba(255, 255, 255, 0.92);
+  color: #1f2a3d;
+  box-shadow: 0 2px 8px rgba(31, 42, 61, 0.10);
+}
+
+/* --- Detail expand row --- */
+.detail-expand-row td {
+  background: rgba(243, 246, 251, 0.96);
+  padding: 16px 24px;
+}
+.detail-expand-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+.detail-expand-grid h4 {
+  font-size: 0.92rem;
+  font-weight: 700;
+  margin: 0 0 8px;
+  color: #1f2a3d;
+}
+.detail-expand-grid dl {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 16px;
+  margin: 0;
+  font-size: 0.88rem;
+}
+.detail-expand-grid dt { color: #526078; }
+.detail-expand-grid dd { text-align: right; margin: 0; font-variant-numeric: tabular-nums; }
+
 .button,
 .pill {
   display: inline-flex;

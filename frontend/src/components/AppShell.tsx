@@ -19,6 +19,7 @@ export function AppShell({ children }: PropsWithChildren) {
     { to: '/results', label: '校验匹配', hint: '查看校验问题和工号匹配结果。' },
     { to: '/exports', label: '导出结果', hint: '核对薪酬模板与工具表产物。' },
     { to: '/employees', label: '员工主档', hint: '导入、维护与审计员工主数据。' },
+    { to: '/data-management', label: '数据管理', hint: '筛选、浏览和审计全量社保数据。', roles: ['admin', 'hr'] as string[] },
     { to: '/audit-logs', label: '审计日志', hint: '查看系统操作记录（仅管理员）。', adminOnly: true },
     { to: '/employee/query', label: '员工查询', hint: '免登录员工自助查询入口。' },
   ];
@@ -48,7 +49,11 @@ export function AppShell({ children }: PropsWithChildren) {
 
           <nav className="app-nav" aria-label="主导航">
             {navigationItems
-              .filter((item) => !item.adminOnly || user?.role === 'admin')
+              .filter((item) => {
+                if (item.roles) return item.roles.includes(user?.role || '');
+                if (item.adminOnly) return user?.role === 'admin';
+                return true;
+              })
               .map((item) => (
               <NavLink
                 key={item.to}
