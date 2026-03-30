@@ -9,10 +9,13 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, Response, UploadFile, status
 from fastapi.responses import FileResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from backend.app.api.v1.responses import success_response
-from backend.app.dependencies import get_db
+from backend.app.core.auth import AuthUser
+from backend.app.dependencies import get_db, require_authenticated_user
+from backend.app.models.import_batch import ImportBatch
+from backend.app.models.user import User
 from backend.app.models.enums import TemplateType
 from backend.app.schemas.imports import ImportBatchDetailRead
 from backend.app.services import ExportBlockedError, export_batch, get_batch_export, get_batch_match, get_batch_validation, match_batch, validate_batch
@@ -43,6 +46,7 @@ async def create_import_batch_endpoint(
     regions: Optional[str] = Form(None),
     company_names: Optional[str] = Form(None),
     db: Session = Depends(get_db),
+    auth_user: AuthUser = Depends(require_authenticated_user),
 ):
     settings = request.app.state.settings
     try:
@@ -59,6 +63,13 @@ async def create_import_batch_endpoint(
     except InvalidUploadError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
+    # Populate created_by from authenticated user
+    user_id = db.query(User.id).filter(User.username == auth_user.username).scalar()
+    if user_id:
+        batch.created_by = user_id
+        db.commit()
+        db.refresh(batch)
+
     payload = serialize_import_batch(batch)
     return success_response(payload.model_dump(mode='json'), message='Import batch created.', status_code=status.HTTP_201_CREATED)
 
@@ -66,7 +77,23 @@ async def create_import_batch_endpoint(
 @router.get('')
 def list_import_batches_endpoint(db: Session = Depends(get_db)):
     batches = list_import_batches(db)
-    return success_response([batch.model_dump(mode='json') for batch in batches], message='Import batches retrieved.')
+    # Enrich with created_by_name using joinedload to avoid N+1
+    batch_models = (
+        db.query(ImportBatch)
+        .options(joinedload(ImportBatch.creator))
+        .order_by(ImportBatch.created_at.desc())
+        .all()
+    )
+    creator_map = {
+        b.id: b.creator.display_name if b.creator else None
+        for b in batch_models
+    }
+    result = []
+    for batch in batches:
+        data = batch.model_dump(mode='json')
+        data['created_by_name'] = creator_map.get(data['id'])
+        result.append(data)
+    return success_response(result, message='Import batches retrieved.')
 
 
 @router.get('/{batch_id}')
