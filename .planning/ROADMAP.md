@@ -119,11 +119,11 @@ Plans:
   2. HR can view a full-employee summary with totals across all insurance types
   3. Data quality dashboard shows import health metrics (missing fields, anomalies, duplicates) per import batch
   4. Import history page shows each upload with filename, timestamp, operator name, and record count
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 06-01: TBD
-- [ ] 06-02: TBD
+- [ ] 06-01-PLAN.md -- Backend infrastructure: migration, schemas, services, API endpoints, quality metrics, tests
+- [ ] 06-02-PLAN.md -- Frontend: DataManagement page, Dashboard quality section, Imports enhancement, navigation
 
 **UI hint**: yes
 
