@@ -1,6 +1,7 @@
 import axios, { AxiosError, AxiosHeaders } from "axios";
 
 import { getApiBaseUrl } from "../config/env";
+import { getChineseErrorMessage } from "../constants/errorMessages";
 import { clearAuthSession, readAuthSession } from "./authSession";
 
 export const DEFAULT_REQUEST_TIMEOUT_MS = 600000;
@@ -59,10 +60,21 @@ export function normalizeApiError(error: unknown): ApiClientError {
     const isTimeout = axiosError.code === "ECONNABORTED" || /timeout/i.test(axiosError.message || "");
     const fallbackMessage = isTimeout ? "请求超时，请稍后重试，或减少单次处理文件数量。" : axiosError.message || "Request failed.";
 
-    return new ApiClientError(payload?.error.message ?? fallbackMessage, {
+    // Handle network errors (no response at all, not timeout)
+    if (!axiosError.response && !isTimeout) {
+      return new ApiClientError(getChineseErrorMessage(undefined, 'network_error'), {
+        code: 'network_error',
+        raw: error,
+      });
+    }
+
+    const chineseMessage = getChineseErrorMessage(axiosError.response?.status, payload?.error?.code);
+    const message = isTimeout ? fallbackMessage : (chineseMessage || payload?.error?.message || fallbackMessage);
+
+    return new ApiClientError(message, {
       statusCode: axiosError.response?.status,
-      code: payload?.error.code,
-      details: payload?.error.details,
+      code: payload?.error?.code,
+      details: payload?.error?.details,
       raw: error,
     });
   }
