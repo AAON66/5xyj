@@ -1,11 +1,12 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Button, Card, Col, Empty, Row, Skeleton, Statistic, Table, Tag, Typography } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 
-import { PageContainer, SectionState, SurfaceNotice } from '../components';
 import { fetchDashboardOverview, fetchDataQuality, type DashboardOverview, type DataQualityOverview } from '../services/dashboard';
 import { fetchSystemHealth, type SystemHealth } from '../services/system';
 
-const pipelineSteps = ['导入', '识别', '标准化', '过滤', '匹配', '校验', '双模板导出'];
+const { Title, Text } = Typography;
 
 function formatDateTime(value: string): string {
   const date = new Date(value);
@@ -57,51 +58,79 @@ function labelForKey(value: string): string {
   }
 }
 
+function tagColor(value: string): string {
+  if (value === 'failed' || value === 'error' || value === 'blocked') {
+    return 'error';
+  }
+  if (value === 'warning' || value === 'duplicate' || value === 'low_confidence' || value === 'pending') {
+    return 'warning';
+  }
+  return 'success';
+}
+
 function healthLabel(health: SystemHealth | null, loading: boolean): string {
-  if (loading) {
-    return '检测中';
-  }
-  if (!health) {
-    return '未连通';
-  }
+  if (loading) return '检测中';
+  if (!health) return '未连通';
   return health.status === 'ok' ? '运行正常' : health.status;
 }
 
-function statusTone(value: string): string {
-  if (value === 'failed' || value === 'error' || value === 'blocked') {
-    return 'dashboard-pill--danger';
-  }
-  if (value === 'warning' || value === 'duplicate' || value === 'low_confidence' || value === 'pending') {
-    return 'dashboard-pill--warn';
-  }
-  return 'dashboard-pill--ok';
+interface DistributionEntry {
+  key: string;
+  label: string;
+  count: number;
+  status: string;
 }
 
 function DistributionCard({ title, items }: { title: string; items: Record<string, number> }) {
-  const entries = Object.entries(items);
+  const entries: DistributionEntry[] = Object.entries(items).map(([key, count]) => ({
+    key,
+    label: labelForKey(key),
+    count,
+    status: key,
+  }));
+
+  const columns: ColumnsType<DistributionEntry> = [
+    {
+      title: '状态',
+      dataIndex: 'label',
+      key: 'label',
+      render: (text: string, record: DistributionEntry) => (
+        <Tag color={tagColor(record.status)}>{text}</Tag>
+      ),
+    },
+    {
+      title: '数量',
+      dataIndex: 'count',
+      key: 'count',
+      align: 'right',
+      sorter: (a: DistributionEntry, b: DistributionEntry) => a.count - b.count,
+    },
+  ];
 
   return (
-    <section className="panel-card panel-card--soft">
-      <div className="section-heading">
-        <div>
-          <span className="panel-label">状态分布</span>
-          <h2>{title}</h2>
-        </div>
-      </div>
+    <Card title={title} size="small">
       {entries.length > 0 ? (
-        <div className="distribution-list">
-          {entries.map(([key, count]) => (
-            <div key={key} className="distribution-row">
-              <span className={`dashboard-pill ${statusTone(key)}`}>{labelForKey(key)}</span>
-              <strong>{count}</strong>
-            </div>
-          ))}
-        </div>
+        <Table
+          dataSource={entries}
+          columns={columns}
+          rowKey="key"
+          size="small"
+          pagination={false}
+        />
       ) : (
-        <div className="status-item">当前还没有可展示的数据。</div>
+        <Empty description="暂无数据" image={Empty.PRESENTED_IMAGE_SIMPLE} />
       )}
-    </section>
+    </Card>
   );
+}
+
+interface BatchQualityRow {
+  batch_id: string;
+  batch_name: string;
+  record_count: number;
+  missing_fields: number;
+  anomalous_amounts: number;
+  duplicate_records: number;
 }
 
 export function DashboardPage() {
@@ -121,9 +150,7 @@ export function DashboardPage() {
           fetchSystemHealth().catch(() => null),
           fetchDashboardOverview().catch(() => null),
         ]);
-        if (!active) {
-          return;
-        }
+        if (!active) return;
         setHealth(healthResult);
         setOverview(overviewResult);
         if (!healthResult && !overviewResult) {
@@ -132,9 +159,7 @@ export function DashboardPage() {
           setPageError(null);
         }
       } finally {
-        if (active) {
-          setLoading(false);
-        }
+        if (active) setLoading(false);
       }
     }
 
@@ -144,208 +169,209 @@ export function DashboardPage() {
       .finally(() => { if (active) setQualityLoading(false); });
 
     void loadDashboard();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, []);
 
   const totalCards = useMemo(() => {
     const totals = overview?.totals;
     return [
-      { label: '导入批次', value: totals?.total_batches ?? 0, hint: '已写入数据库的批次数量' },
-      { label: '源文件', value: totals?.total_source_files ?? 0, hint: '已上传并纳入批次管理的文件数' },
-      { label: '标准化记录', value: totals?.total_normalized_records ?? 0, hint: '完成标准化并可进入校验链路的明细行' },
-      { label: '校验问题', value: totals?.total_validation_issues ?? 0, hint: '当前累计发现的问题数量' },
-      { label: '匹配结果', value: totals?.total_match_results ?? 0, hint: '工号匹配执行后产生的结果条数' },
-      { label: '导出任务', value: totals?.total_export_jobs ?? 0, hint: '已触发的双模板导出任务数' },
-      { label: '员工主档', value: totals?.active_employee_masters ?? 0, hint: '当前可用于匹配的主档记录数' },
+      { label: '导入批次', value: totals?.total_batches ?? 0 },
+      { label: '源文件', value: totals?.total_source_files ?? 0 },
+      { label: '标准化记录', value: totals?.total_normalized_records ?? 0 },
+      { label: '校验问题', value: totals?.total_validation_issues ?? 0 },
     ];
   }, [overview]);
 
+  const qualityColumns: ColumnsType<BatchQualityRow> = [
+    { title: '批次名称', dataIndex: 'batch_name', key: 'batch_name' },
+    { title: '记录数', dataIndex: 'record_count', key: 'record_count', align: 'right', sorter: (a, b) => a.record_count - b.record_count },
+    {
+      title: '缺失',
+      dataIndex: 'missing_fields',
+      key: 'missing_fields',
+      align: 'right',
+      sorter: (a, b) => a.missing_fields - b.missing_fields,
+      render: (val: number) => val > 0 ? <Tag color="warning">{val}</Tag> : '0',
+    },
+    {
+      title: '异常',
+      dataIndex: 'anomalous_amounts',
+      key: 'anomalous_amounts',
+      align: 'right',
+      sorter: (a, b) => a.anomalous_amounts - b.anomalous_amounts,
+      render: (val: number) => val > 0 ? <Tag color="warning">{val}</Tag> : '0',
+    },
+    {
+      title: '重复',
+      dataIndex: 'duplicate_records',
+      key: 'duplicate_records',
+      align: 'right',
+      sorter: (a, b) => a.duplicate_records - b.duplicate_records,
+      render: (val: number) => val > 0 ? <Tag color="error">{val}</Tag> : '0',
+    },
+  ];
+
+  const recentBatchColumns: ColumnsType<NonNullable<DashboardOverview['recent_batches']>[number]> = [
+    {
+      title: '批次名称',
+      dataIndex: 'batch_name',
+      key: 'batch_name',
+      render: (text: string, record) => <Link to={`/imports/${record.batch_id}`}>{text}</Link>,
+    },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      render: (val: string) => <Tag color={tagColor(val)}>{labelForKey(val)}</Tag>,
+    },
+    { title: '文件', dataIndex: 'file_count', key: 'file_count', align: 'right' },
+    { title: '标准化', dataIndex: 'normalized_record_count', key: 'normalized_record_count', align: 'right' },
+    { title: '校验问题', dataIndex: 'validation_issue_count', key: 'validation_issue_count', align: 'right' },
+    {
+      title: '更新时间',
+      dataIndex: 'updated_at',
+      key: 'updated_at',
+      render: (val: string) => formatDateTime(val),
+    },
+  ];
+
   return (
-    <PageContainer
-      eyebrow="Dashboard"
-      title="处理链路看板"
-      description="集中查看系统健康、批次体量、运行分布和最近批次进展，帮助我们快速判断链路是否通畅以及卡点在哪一环。"
-      actions={
-        <div className="button-row">
-          <Link to="/imports" className="button button--primary">
-            继续导入与解析
-          </Link>
-          <Link to="/exports" className="button button--ghost">
-            查看导出结果
-          </Link>
-        </div>
-      }
-    >
-      {pageError ? <SurfaceNotice tone="error" title="页面状态异常" message={pageError} /> : null}
-      <div className="dashboard-hero-grid">
-        <section className="panel-card panel-card--accent dashboard-health-card">
-          <span className="panel-label">系统健康</span>
-          <strong>{healthLabel(health, loading)}</strong>
-          <p>
-            {loading
-              ? '正在同时读取健康检查和看板概览。'
-              : health
-                ? `${health.app_name} ${health.version} 已可访问，接口层处于可用状态。`
-                : '健康检查暂时不可用，但你仍可以从下面的统计卡片判断是否已有历史数据。'}
-          </p>
-          <div className="dashboard-meta-list">
-            <div>
-              <span>概览生成时间</span>
-              <strong>{overview ? formatDateTime(overview.generated_at) : '尚未生成'}</strong>
-            </div>
-            <div>
-              <span>当前主链路</span>
-              <strong>{pipelineSteps.join(' -> ')}</strong>
-            </div>
-          </div>
-        </section>
-
-        <section className="panel-card dashboard-pipeline-card">
-          <span className="panel-label">交付原则</span>
-          <strong>数据链路优先，规则优先于 LLM</strong>
-          <div className="pipeline-chip-list">
-            {pipelineSteps.map((step) => (
-              <span key={step} className="pipeline-chip">
-                {step}
-              </span>
-            ))}
-          </div>
-          <p>看板只做状态呈现，不把地区差异硬编码到前端；解析、映射和过滤逻辑仍然收敛在后端服务层。</p>
-        </section>
-      </div>
-
-      <div className="dashboard-metric-grid">
-        {totalCards.map((item) => (
-          <article key={item.label} className="panel-card dashboard-metric-card">
-            <span className="panel-label">{item.label}</span>
-            <strong>{item.value}</strong>
-            <p>{item.hint}</p>
-          </article>
-        ))}
-      </div>
-
-      <div className="dashboard-distribution-grid">
-        <DistributionCard title="批次状态" items={overview?.batch_status_counts ?? {}} />
-        <DistributionCard title="匹配状态" items={overview?.match_status_counts ?? {}} />
-        <DistributionCard title="问题严重级别" items={overview?.issue_severity_counts ?? {}} />
-        <DistributionCard title="导出状态" items={overview?.export_status_counts ?? {}} />
-      </div>
-
-      {/* Data Quality Section per D-10, D-11, D-12 */}
-      <div className="section-heading">
+    <div>
+      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <p className="panel-label">DATA QUALITY</p>
-          <h2>导入质量监控</h2>
+          <Title level={4} style={{ margin: 0 }}>处理看板</Title>
+          <Text type="secondary">集中查看系统健康、批次体量、运行分布和最近批次进展</Text>
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <Link to="/imports"><Button type="primary">继续导入与解析</Button></Link>
+          <Link to="/exports"><Button>查看导出结果</Button></Link>
         </div>
       </div>
 
+      {pageError && (
+        <Card style={{ marginBottom: 16, borderColor: '#F54A45' }}>
+          <Text type="danger">{pageError}</Text>
+        </Card>
+      )}
+
+      {/* Top statistics cards */}
+      {loading ? (
+        <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+          {[1, 2, 3, 4].map((i) => (
+            <Col span={6} key={i}>
+              <Card><Skeleton.Input active style={{ width: '100%' }} /></Card>
+            </Col>
+          ))}
+        </Row>
+      ) : (
+        <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+          {totalCards.map((item, idx) => (
+            <Col span={6} key={item.label}>
+              <Card>
+                <Statistic
+                  title={item.label}
+                  value={item.value}
+                  valueStyle={{ fontSize: 24, color: idx === 0 ? '#3370FF' : undefined }}
+                />
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      )}
+
+      {/* System health card */}
+      <Card size="small" style={{ marginBottom: 16 }}>
+        <Row gutter={16}>
+          <Col span={8}>
+            <Statistic title="系统健康" value={healthLabel(health, loading)} />
+          </Col>
+          <Col span={8}>
+            <Statistic title="概览生成时间" value={overview ? formatDateTime(overview.generated_at) : '尚未生成'} />
+          </Col>
+          <Col span={8}>
+            <Statistic title="匹配结果" value={overview?.totals?.total_match_results ?? 0} />
+          </Col>
+        </Row>
+      </Card>
+
+      {/* Distribution cards */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col span={6}>
+          <DistributionCard title="批次状态" items={overview?.batch_status_counts ?? {}} />
+        </Col>
+        <Col span={6}>
+          <DistributionCard title="匹配状态" items={overview?.match_status_counts ?? {}} />
+        </Col>
+        <Col span={6}>
+          <DistributionCard title="问题严重级别" items={overview?.issue_severity_counts ?? {}} />
+        </Col>
+        <Col span={6}>
+          <DistributionCard title="导出状态" items={overview?.export_status_counts ?? {}} />
+        </Col>
+      </Row>
+
+      {/* Data Quality Section */}
+      <Title level={5} style={{ marginBottom: 12 }}>导入质量监控</Title>
       {qualityLoading ? (
-        <SectionState title="正在加载质量指标" message="系统正在统计各批次数据质量情况。" />
+        <Card><Skeleton active paragraph={{ rows: 5 }} /></Card>
       ) : !quality || (quality.total_missing === 0 && quality.total_anomalous === 0 && quality.total_duplicates === 0 && quality.batches.length === 0) ? (
-        <SectionState title="暂无质量数据" message="尚未导入任何数据，质量指标将在首次导入后显示。" />
+        <Card><Empty description="暂无质量数据" /></Card>
       ) : (
         <>
-          <div className="dashboard-grid">
-            <div className="panel-card">
-              <p className="panel-label">缺失字段</p>
-              <strong>{quality.total_missing}</strong>
-              <div>条缺失字段记录</div>
-              {quality.total_missing > 0 && <span className="dashboard-pill--warn">需关注</span>}
-            </div>
-            <div className="panel-card">
-              <p className="panel-label">异常金额</p>
-              <strong>{quality.total_anomalous}</strong>
-              <div>条异常金额记录</div>
-              {quality.total_anomalous > 10 ? <span className="dashboard-pill--danger">严重</span> : quality.total_anomalous > 0 ? <span className="dashboard-pill--warn">需关注</span> : null}
-            </div>
-            <div className="panel-card">
-              <p className="panel-label">重复记录</p>
-              <strong>{quality.total_duplicates}</strong>
-              <div>条重复记录</div>
-              {quality.total_duplicates > 0 && <span className="dashboard-pill--danger">需处理</span>}
-            </div>
-          </div>
+          <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+            <Col span={8}>
+              <Card>
+                <Statistic title="缺失字段" value={quality.total_missing} suffix="条" />
+                {quality.total_missing > 0 && <Tag color="warning" style={{ marginTop: 8 }}>需关注</Tag>}
+              </Card>
+            </Col>
+            <Col span={8}>
+              <Card>
+                <Statistic title="异常金额" value={quality.total_anomalous} suffix="条" />
+                {quality.total_anomalous > 10
+                  ? <Tag color="error" style={{ marginTop: 8 }}>严重</Tag>
+                  : quality.total_anomalous > 0
+                    ? <Tag color="warning" style={{ marginTop: 8 }}>需关注</Tag>
+                    : null}
+              </Card>
+            </Col>
+            <Col span={8}>
+              <Card>
+                <Statistic title="重复记录" value={quality.total_duplicates} suffix="条" />
+                {quality.total_duplicates > 0 && <Tag color="error" style={{ marginTop: 8 }}>需处理</Tag>}
+              </Card>
+            </Col>
+          </Row>
           {quality.batches.length > 0 && (
-            <div className="panel-card" style={{ marginTop: '16px' }}>
-              <p className="panel-label">各批次质量明细</p>
-              <div className="preview-table-wrap">
-                <table className="preview-table">
-                  <thead>
-                    <tr>
-                      <th>批次名称</th>
-                      <th>记录数</th>
-                      <th>缺失</th>
-                      <th>异常</th>
-                      <th>重复</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {quality.batches.map(b => (
-                      <tr key={b.batch_id}>
-                        <td>{b.batch_name}</td>
-                        <td>{b.record_count}</td>
-                        <td>{b.missing_fields > 0 ? <span className="dashboard-pill--warn">{b.missing_fields}</span> : '0'}</td>
-                        <td>{b.anomalous_amounts > 0 ? <span className="dashboard-pill--warn">{b.anomalous_amounts}</span> : '0'}</td>
-                        <td>{b.duplicate_records > 0 ? <span className="dashboard-pill--danger">{b.duplicate_records}</span> : '0'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
+            <Card title="各批次质量明细" size="small" style={{ marginBottom: 16 }}>
+              <Table
+                dataSource={quality.batches}
+                columns={qualityColumns}
+                rowKey="batch_id"
+                size="small"
+                pagination={false}
+              />
+            </Card>
           )}
         </>
       )}
 
-      <section className="panel-card">
-        <div className="section-heading">
-          <div>
-            <span className="panel-label">最近活动</span>
-            <h2>最近 5 个批次</h2>
-          </div>
-        </div>
-        {overview?.recent_batches.length ? (
-          <div className="recent-batch-grid">
-            {overview.recent_batches.map((batch) => (
-              <Link key={batch.batch_id} to={`/imports/${batch.batch_id}`} className="recent-batch-card">
-                <div className="recent-batch-card__head">
-                  <div>
-                    <strong>{batch.batch_name}</strong>
-                    <p>{formatDateTime(batch.updated_at)}</p>
-                  </div>
-                  <span className={`dashboard-pill ${statusTone(batch.status)}`}>{labelForKey(batch.status)}</span>
-                </div>
-                <div className="recent-batch-stats">
-                  <div>
-                    <span>文件</span>
-                    <strong>{batch.file_count}</strong>
-                  </div>
-                  <div>
-                    <span>标准化</span>
-                    <strong>{batch.normalized_record_count}</strong>
-                  </div>
-                  <div>
-                    <span>校验问题</span>
-                    <strong>{batch.validation_issue_count}</strong>
-                  </div>
-                  <div>
-                    <span>匹配结果</span>
-                    <strong>{batch.match_result_count}</strong>
-                  </div>
-                  <div>
-                    <span>导出任务</span>
-                    <strong>{batch.export_job_count}</strong>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
+      {/* Recent batches */}
+      <Card title="最近 5 个批次" size="small">
+        {loading ? (
+          <Skeleton active paragraph={{ rows: 5 }} />
+        ) : overview?.recent_batches.length ? (
+          <Table
+            dataSource={overview.recent_batches}
+            columns={recentBatchColumns}
+            rowKey="batch_id"
+            size="small"
+            pagination={false}
+          />
         ) : (
-          <div className="status-item">还没有批次活动记录。先去上传样例并跑通一条批次链路，这里就会自动出现最近进展。</div>
+          <Empty description="还没有批次活动记录。先去上传样例并跑通一条批次链路，这里就会自动出现最近进展。" />
         )}
-      </section>
-    </PageContainer>
+      </Card>
+    </div>
   );
 }
