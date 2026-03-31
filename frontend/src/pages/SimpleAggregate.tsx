@@ -31,6 +31,7 @@ import {
 } from '@ant-design/icons';
 
 import { useAggregateSession } from '../hooks';
+import { WorkflowSteps } from '../components/WorkflowSteps';
 import { downloadAggregateArtifact, type AggregateArtifact, type AggregateProgressEvent } from '../services/aggregate';
 import { cancelAggregateSession, clearAggregateSession, startAggregateSession } from '../services/aggregateSessionStore';
 import { fetchEmployeeMasters } from '../services/employees';
@@ -355,6 +356,8 @@ export function SimpleAggregatePage() {
           <Link to="/imports"><Button icon={<ExportOutlined />}>{TEXT.advanced}</Button></Link>
         </Space>
       </div>
+
+      <WorkflowSteps />
 
       {health && (
         <Card size="small" style={{ marginBottom: 16, borderColor: '#00B42A' }}>

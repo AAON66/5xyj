@@ -16,6 +16,7 @@ import {
 import { ExportOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 
+import { WorkflowSteps } from '../components/WorkflowSteps';
 import {
   exportBatch,
   fetchBatchExport,
@@ -197,6 +198,7 @@ export function ExportsPage() {
   return (
     <div>
       <Title level={4}>导出结果</Title>
+      <WorkflowSteps />
 
       {notice && (
         <Alert

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Button, Card, Col, Empty, Row, Skeleton, Statistic, Table, Tag, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 
+import { WorkflowSteps } from '../components/WorkflowSteps';
 import { fetchDashboardOverview, fetchDataQuality, type DashboardOverview, type DataQualityOverview } from '../services/dashboard';
 import { fetchSystemHealth, type SystemHealth } from '../services/system';
 
@@ -247,6 +248,8 @@ export function DashboardPage() {
           <Link to="/exports"><Button>查看导出结果</Button></Link>
         </div>
       </div>
+
+      <WorkflowSteps />
 
       {pageError && (
         <Card style={{ marginBottom: 16, borderColor: '#F54A45' }}>
