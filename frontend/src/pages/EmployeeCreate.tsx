@@ -1,178 +1,139 @@
-import { useEffect, useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+  Button,
+  Card,
+  Form,
+  Input,
+  message,
+  Select,
+  Space,
+  Switch,
+  Typography,
+} from 'antd';
 
-import { PageContainer, SurfaceNotice } from '../components';
 import { normalizeApiError } from '../services/api';
 import { createEmployeeMaster, fetchRegions } from '../services/employees';
 
-interface CreateEmployeeFormState {
+const { Title } = Typography;
+
+interface CreateEmployeeFormValues {
   employee_id: string;
   person_name: string;
-  id_number: string;
-  company_name: string;
-  department: string;
-  region: string;
+  id_number?: string;
+  company_name?: string;
+  department?: string;
+  region?: string;
   active: boolean;
 }
 
-const EMPTY_FORM: CreateEmployeeFormState = {
-  employee_id: '',
-  person_name: '',
-  id_number: '',
-  company_name: '',
-  department: '',
-  region: '',
-  active: true,
-};
-
 export function EmployeeCreatePage() {
   const navigate = useNavigate();
-  const [formState, setFormState] = useState<CreateEmployeeFormState>(EMPTY_FORM);
+  const [form] = Form.useForm<CreateEmployeeFormValues>();
   const [saving, setSaving] = useState(false);
-  const [pageError, setPageError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [regions, setRegions] = useState<string[]>([]);
 
   useEffect(() => {
     fetchRegions().then(setRegions).catch(() => {});
   }, []);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleSubmit(values: CreateEmployeeFormValues) {
     setSaving(true);
-    setPageError(null);
-    setSuccessMessage(null);
 
     try {
       const created = await createEmployeeMaster({
-        employee_id: formState.employee_id.trim(),
-        person_name: formState.person_name.trim(),
-        id_number: formState.id_number.trim() || null,
-        company_name: formState.company_name.trim() || null,
-        department: formState.department.trim() || null,
-        region: formState.region.trim() || null,
-        active: formState.active,
+        employee_id: values.employee_id.trim(),
+        person_name: values.person_name.trim(),
+        id_number: values.id_number?.trim() || null,
+        company_name: values.company_name?.trim() || null,
+        department: values.department?.trim() || null,
+        region: values.region?.trim() || null,
+        active: values.active ?? true,
       });
-      setSuccessMessage(`员工 ${created.employee_id} 已创建，可以返回员工主档页继续管理。`);
-      setFormState({
-        ...EMPTY_FORM,
-        company_name: formState.company_name,
-        department: formState.department,
-        region: formState.region,
-      });
+      message.success(`员工 ${created.employee_id} 已创建成功`);
+      // Preserve company/department/region for next entry
+      const keepValues = {
+        company_name: values.company_name,
+        department: values.department,
+        region: values.region,
+      };
+      form.resetFields();
+      form.setFieldsValue({ ...keepValues, active: true });
     } catch (error) {
-      setPageError(normalizeApiError(error).message || '新增员工主档失败。');
+      message.error(normalizeApiError(error).message || '新增员工主档失败');
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <PageContainer
-      eyebrow="Employees"
-      title="新增员工主档"
-      description="手动补录单个员工主档。适合导入前临时补齐工号、姓名、身份证号和主体信息，方便后续匹配。"
-      actions={
-        <div className="button-row">
-          <button type="button" className="button button--ghost" onClick={() => navigate('/employees')}>
-            返回员工主档
-          </button>
-        </div>
-      }
-    >
-      {successMessage ? <SurfaceNotice tone="success" title="创建完成" message={successMessage} /> : null}
-      {pageError ? <SurfaceNotice tone="error" title="提交失败" message={pageError} /> : null}
+    <div>
+      <Title level={4}>新增员工</Title>
 
-      <section className="panel-card employee-create-card">
-        <div className="section-heading">
-          <div>
-            <span className="panel-label">手动新增</span>
-            <h2>填写员工主档信息</h2>
-          </div>
-        </div>
+      <Card>
+        <Form<CreateEmployeeFormValues>
+          form={form}
+          layout="vertical"
+          onFinish={(values) => void handleSubmit(values)}
+          initialValues={{ active: true }}
+          style={{ maxWidth: 600 }}
+        >
+          <Form.Item
+            label="工号"
+            name="employee_id"
+            rules={[{ required: true, message: '请输入工号' }]}
+          >
+            <Input placeholder="例如：E1024" />
+          </Form.Item>
 
-        <form className="employee-create-form" onSubmit={handleSubmit}>
-          <div className="employee-form-grid">
-            <label className="form-field">
-              <span>工号</span>
-              <input
-                value={formState.employee_id}
-                onChange={(event) => setFormState((current) => ({ ...current, employee_id: event.target.value }))}
-                placeholder="例如：E1024"
-                required
-              />
-            </label>
-            <label className="form-field">
-              <span>姓名</span>
-              <input
-                value={formState.person_name}
-                onChange={(event) => setFormState((current) => ({ ...current, person_name: event.target.value }))}
-                placeholder="例如：张三"
-                required
-              />
-            </label>
-            <label className="form-field">
-              <span>身份证号</span>
-              <input
-                value={formState.id_number}
-                onChange={(event) => setFormState((current) => ({ ...current, id_number: event.target.value }))}
-                placeholder="可选"
-              />
-            </label>
-            <label className="form-field">
-              <span>公司主体</span>
-              <input
-                value={formState.company_name}
-                onChange={(event) => setFormState((current) => ({ ...current, company_name: event.target.value }))}
-                placeholder="可选"
-              />
-            </label>
-            <label className="form-field">
-              <span>部门</span>
-              <input
-                value={formState.department}
-                onChange={(event) => setFormState((current) => ({ ...current, department: event.target.value }))}
-                placeholder="可选"
-              />
-            </label>
-            <label className="form-field">
-              <span>地区</span>
-              <select
-                value={formState.region}
-                onChange={(event) => setFormState((current) => ({ ...current, region: event.target.value }))}
+          <Form.Item
+            label="姓名"
+            name="person_name"
+            rules={[{ required: true, message: '请输入姓名' }]}
+          >
+            <Input placeholder="例如：张三" />
+          </Form.Item>
+
+          <Form.Item label="身份证号" name="id_number">
+            <Input placeholder="可选" />
+          </Form.Item>
+
+          <Form.Item label="公司主体" name="company_name">
+            <Input placeholder="可选" />
+          </Form.Item>
+
+          <Form.Item label="部门" name="department">
+            <Input placeholder="可选" />
+          </Form.Item>
+
+          <Form.Item label="地区" name="region">
+            <Select
+              placeholder="请选择地区"
+              allowClear
+              options={regions.map((r) => ({ label: r, value: r }))}
+            />
+          </Form.Item>
+
+          <Form.Item label="在职状态" name="active" valuePropName="checked">
+            <Switch checkedChildren="在职" unCheckedChildren="停用" />
+          </Form.Item>
+
+          <Form.Item>
+            <Space>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={saving}
               >
-                <option value="">请选择地区</option>
-                {regions.map((r) => (
-                  <option key={r} value={r}>{r}</option>
-                ))}
-              </select>
-            </label>
-            <label className="form-field">
-              <span>在职状态</span>
-              <select
-                value={formState.active ? 'active' : 'inactive'}
-                onChange={(event) => setFormState((current) => ({ ...current, active: event.target.value === 'active' }))}
-              >
-                <option value="active">在职</option>
-                <option value="inactive">停用</option>
-              </select>
-            </label>
-          </div>
-
-          <div className="employee-create-actions button-row">
-            <button
-              type="submit"
-              className="button button--primary"
-              disabled={saving || !formState.employee_id.trim() || !formState.person_name.trim()}
-            >
-              {saving ? '创建中...' : '创建员工主档'}
-            </button>
-            <Link to="/employees" className="button button--ghost">
-              返回列表
-            </Link>
-          </div>
-        </form>
-      </section>
-    </PageContainer>
+                创建员工主档
+              </Button>
+              <Button onClick={() => navigate('/employees')}>
+                返回列表
+              </Button>
+            </Space>
+          </Form.Item>
+        </Form>
+      </Card>
+    </div>
   );
 }
