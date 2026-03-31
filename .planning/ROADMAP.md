@@ -173,11 +173,11 @@ Plans:
   3. All API responses follow a consistent envelope format (status, data, error, pagination)
   4. External program can authenticate with an API key and call any public endpoint
   5. Admin can create, view, and revoke API keys from the admin interface
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 09-01: TBD
-- [ ] 09-02: TBD
+- [ ] 09-01-PLAN.md -- API Key 模型/服务/CRUD 端点 + 双认证依赖注入（JWT + API Key）
+- [ ] 09-02-PLAN.md -- 响应格式规范化 + 中文文档 + /docs 保护 + Markdown 文档生成 + 前端 API Key 管理页
 
 ### Phase 10: Feishu Integration
 **Goal**: System data syncs bidirectionally with Feishu Bitable via manual triggers, with optional Feishu OAuth login
@@ -231,6 +231,6 @@ Note: Phases 4, 5, 6 can partially overlap (4 unblocks 5; 4 and 6 share the Phas
 | 6. Data Management | 1/2 | In Progress|  |
 | 7. Design System & UI Foundation | 1/4 | In Progress|  |
 | 8. Page Rebuild & UX Flow | 1/2 | In Progress|  |
-| 9. API System | 0/2 | Not started | - |
+| 9. API System | 0/2 | Planning complete | - |
 | 10. Feishu Integration | 0/2 | Not started | - |
 | 11. Intelligence & Polish | 0/2 | Not started | - |
