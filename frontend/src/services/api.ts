@@ -3,8 +3,8 @@ import axios, { AxiosError, AxiosHeaders } from "axios";
 import { getApiBaseUrl } from "../config/env";
 import { clearAuthSession, readAuthSession } from "./authSession";
 
-export const DEFAULT_REQUEST_TIMEOUT_MS = 180000;
-export const LONG_RUNNING_REQUEST_TIMEOUT_MS = 300000;
+export const DEFAULT_REQUEST_TIMEOUT_MS = 600000;
+export const LONG_RUNNING_REQUEST_TIMEOUT_MS = 900000;
 
 export interface ApiSuccessResponse<T> {
   success: true;

@@ -43,17 +43,17 @@ interface NavItem {
 }
 
 const ALL_NAV_ITEMS: NavItem[] = [
-  { key: '/aggregate', icon: <UploadOutlined />, label: '\u5FEB\u901F\u878D\u5408', roles: ['admin', 'hr'] },
-  { key: '/dashboard', icon: <DashboardOutlined />, label: '\u5904\u7406\u770B\u677F', roles: ['admin', 'hr'] },
-  { key: '/compare', icon: <SwapOutlined />, label: '\u6708\u5EA6\u5BF9\u6BD4', roles: ['admin', 'hr'] },
-  { key: '/imports', icon: <ImportOutlined />, label: '\u6279\u6B21\u7BA1\u7406', roles: ['admin', 'hr'] },
-  { key: '/mappings', icon: <ToolOutlined />, label: '\u6620\u5C04\u4FEE\u6B63', roles: ['admin', 'hr'] },
-  { key: '/results', icon: <CheckCircleOutlined />, label: '\u6821\u9A8C\u5339\u914D', roles: ['admin', 'hr'] },
-  { key: '/exports', icon: <ExportOutlined />, label: '\u5BFC\u51FA\u7ED3\u679C', roles: ['admin', 'hr'] },
-  { key: '/employees', icon: <TeamOutlined />, label: '\u5458\u5DE5\u4E3B\u6863', roles: ['admin', 'hr'] },
-  { key: '/data-management', icon: <DatabaseOutlined />, label: '\u6570\u636E\u7BA1\u7406', roles: ['admin', 'hr'] },
-  { key: '/audit-logs', icon: <AuditOutlined />, label: '\u5BA1\u8BA1\u65E5\u5FD7', roles: ['admin'] },
-  { key: '/employee/query', icon: <SearchOutlined />, label: '\u5458\u5DE5\u67E5\u8BE2', roles: ['employee'] },
+  { key: '/aggregate', icon: <UploadOutlined />, label: '快速融合', roles: ['admin', 'hr'] },
+  { key: '/dashboard', icon: <DashboardOutlined />, label: '处理看板', roles: ['admin', 'hr'] },
+  { key: '/compare', icon: <SwapOutlined />, label: '月度对比', roles: ['admin', 'hr'] },
+  { key: '/imports', icon: <ImportOutlined />, label: '批次管理', roles: ['admin', 'hr'] },
+  { key: '/mappings', icon: <ToolOutlined />, label: '映射修正', roles: ['admin', 'hr'] },
+  { key: '/results', icon: <CheckCircleOutlined />, label: '校验匹配', roles: ['admin', 'hr'] },
+  { key: '/exports', icon: <ExportOutlined />, label: '导出结果', roles: ['admin', 'hr'] },
+  { key: '/employees', icon: <TeamOutlined />, label: '员工主档', roles: ['admin', 'hr'] },
+  { key: '/data-management', icon: <DatabaseOutlined />, label: '数据管理', roles: ['admin', 'hr'] },
+  { key: '/audit-logs', icon: <AuditOutlined />, label: '审计日志', roles: ['admin'] },
+  { key: '/employee/query', icon: <SearchOutlined />, label: '员工查询', roles: ['employee'] },
 ];
 
 function buildMenuItems(userRole: string): MenuProps['items'] {
@@ -67,27 +67,27 @@ function buildMenuItems(userRole: string): MenuProps['items'] {
 }
 
 const LABEL_MAP: Record<string, string> = {
-  aggregate: '\u5FEB\u901F\u878D\u5408',
-  dashboard: '\u5904\u7406\u770B\u677F',
-  compare: '\u6708\u5EA6\u5BF9\u6BD4',
-  imports: '\u6279\u6B21\u7BA1\u7406',
-  mappings: '\u6620\u5C04\u4FEE\u6B63',
-  results: '\u6821\u9A8C\u5339\u914D',
-  exports: '\u5BFC\u51FA\u7ED3\u679C',
-  employees: '\u5458\u5DE5\u4E3B\u6863',
-  'data-management': '\u6570\u636E\u7BA1\u7406',
-  'audit-logs': '\u5BA1\u8BA1\u65E5\u5FD7',
-  employee: '\u5458\u5DE5',
-  query: '\u81EA\u52A9\u67E5\u8BE2',
-  workspace: '\u5DE5\u4F5C\u533A',
-  admin: '\u7BA1\u7406\u5458',
+  aggregate: '快速融合',
+  dashboard: '处理看板',
+  compare: '月度对比',
+  imports: '批次管理',
+  mappings: '映射修正',
+  results: '校验匹配',
+  exports: '导出结果',
+  employees: '员工主档',
+  'data-management': '数据管理',
+  'audit-logs': '审计日志',
+  employee: '员工',
+  query: '自助查询',
+  workspace: '工作区',
+  admin: '管理员',
   hr: 'HR',
-  new: '\u65B0\u5EFA',
+  new: '新建',
 };
 
 function buildBreadcrumbItems(pathname: string) {
   const segments = pathname.split('/').filter(Boolean);
-  const items = [{ title: '\u9996\u9875' }];
+  const items = [{ title: '首页' }];
   for (const seg of segments) {
     items.push({ title: LABEL_MAP[seg] || seg });
   }
@@ -132,13 +132,13 @@ function AggregateBanner() {
         <Alert
           type="info"
           banner
-          message="\u5FEB\u901F\u805A\u5408\u6B63\u5728\u540E\u53F0\u8FD0\u884C"
+          message="快速聚合正在后台运行"
           description={aggregateMessage}
           action={
             <Space>
-              <Link to="/">\u56DE\u5230\u805A\u5408\u9875</Link>
+              <Link to="/">回到聚合页</Link>
               <Button size="small" onClick={cancelAggregateSession}>
-                \u53D6\u6D88\u805A\u5408
+                取消聚合
               </Button>
             </Space>
           }
@@ -148,13 +148,13 @@ function AggregateBanner() {
         <Alert
           type="success"
           banner
-          message="\u5FEB\u901F\u805A\u5408\u8BB0\u5F55\u5DF2\u4FDD\u7559"
+          message="快速聚合记录已保留"
           description={aggregateMessage}
           action={
             <Space>
-              <Link to="/">\u56DE\u5230\u805A\u5408\u9875</Link>
+              <Link to="/">回到聚合页</Link>
               <Button size="small" onClick={clearAggregateSession}>
-                \u6E05\u9664\u8BB0\u5F55
+                清除记录
               </Button>
             </Space>
           }
@@ -184,7 +184,7 @@ export function MainLayout() {
     {
       key: 'logout',
       icon: <LogoutOutlined />,
-      label: '\u9000\u51FA\u767B\u5F55',
+      label: '退出登录',
       onClick: logout,
     },
   ];
@@ -200,7 +200,7 @@ export function MainLayout() {
         collapsedWidth={64}
       >
         <div className={collapsed ? styles.logoCollapsed : styles.logo}>
-          {collapsed ? '\u793E\u4FDD' : '\u793E\u4FDD\u516C\u79EF\u91D1\u7BA1\u7406\u7CFB\u7EDF'}
+          {collapsed ? '社保' : '社保公积金管理系统'}
         </div>
         <Menu
           theme="dark"
@@ -223,7 +223,7 @@ export function MainLayout() {
         >
           <Breadcrumb items={buildBreadcrumbItems(location.pathname)} />
           <Space>
-            <span>{user?.displayName || '\u672A\u767B\u5F55'}</span>
+            <span>{user?.displayName || '未登录'}</span>
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
               <Button type="text" icon={<UserOutlined />} />
             </Dropdown>
@@ -234,7 +234,8 @@ export function MainLayout() {
             margin: '0',
             padding: '24px',
             background: '#F5F6F7',
-            minHeight: 'calc(100vh - 56px)',
+            height: 'calc(100vh - 56px)',
+            overflowY: 'auto',
           }}
         >
           <AggregateBanner />
