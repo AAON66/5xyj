@@ -1,7 +1,25 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  Button,
+  Card,
+  Col,
+  Empty,
+  Input,
+  message,
+  Modal,
+  Row,
+  Select,
+  Skeleton,
+  Space,
+  Table,
+  Tag,
+  Typography,
+  Upload,
+} from 'antd';
+import { InboxOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
+import type { ColumnsType } from 'antd/es/table';
 
-import { PageContainer, SectionState, SurfaceNotice } from '../components';
 import { normalizeApiError } from '../services/api';
 import {
   bulkDeleteImportBatches,
@@ -18,6 +36,9 @@ import {
   type SourceFilePreview,
 } from '../services/imports';
 
+const { Title } = Typography;
+const { Dragger } = Upload;
+
 const PRESET_REGIONS = [
   { value: '', label: '自动识别 / 不指定' },
   { value: 'guangzhou', label: '广州' },
@@ -30,33 +51,29 @@ const PRESET_REGIONS = [
 
 function formatDateTime(value: string): string {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return new Intl.DateTimeFormat('zh-CN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
 }
 
 function formatValue(value: unknown): string {
-  if (value === null || value === undefined || value === '') {
-    return '-';
-  }
-  if (typeof value === 'object') {
-    return JSON.stringify(value);
-  }
+  if (value === null || value === undefined || value === '') return '-';
+  if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
 }
 
 function summarizeMapping(mapping: HeaderMappingPreview): string {
-  if (mapping.canonical_field) {
-    return mapping.canonical_field;
-  }
-  if (mapping.candidate_fields.length > 0) {
-    return `候选: ${mapping.candidate_fields.join(', ')}`;
-  }
+  if (mapping.canonical_field) return mapping.canonical_field;
+  if (mapping.candidate_fields.length > 0) return `候选: ${mapping.candidate_fields.join(', ')}`;
   return '未识别';
+}
+
+function statusTagColor(status: string): string {
+  switch (status) {
+    case 'parsed': case 'completed': return 'success';
+    case 'processing': case 'parsing': return 'processing';
+    case 'error': case 'failed': return 'error';
+    default: return 'default';
+  }
 }
 
 export function ImportsPage() {
@@ -75,85 +92,51 @@ export function ImportsPage() {
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [selectedBatchIds, setSelectedBatchIds] = useState<string[]>([]);
   const [refreshingPreview, setRefreshingPreview] = useState(false);
-  const [localNotice, setLocalNotice] = useState<{ tone: 'success' | 'warning'; message: string } | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-
     async function loadBatches() {
       try {
         const result = await fetchImportBatches();
-        if (!active) {
-          return;
-        }
+        if (!active) return;
         setBatches(result);
         setPageError(null);
-        if (result[0]) {
-          setSelectedBatchId(result[0].id);
-        }
+        if (result[0]) setSelectedBatchId(result[0].id);
       } catch {
-        if (active) {
-          setPageError('导入批次列表暂时加载失败，请稍后重试。');
-        }
+        if (active) setPageError('导入批次列表暂时加载失败，请稍后重试。');
       } finally {
-        if (active) {
-          setPageLoading(false);
-        }
+        if (active) setPageLoading(false);
       }
     }
-
     void loadBatches();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, []);
 
   useEffect(() => {
     let active = true;
-
     async function loadBatchState(batchId: string) {
       setRefreshingPreview(true);
       try {
         const detailResult = await fetchImportBatch(batchId);
-        if (!active) {
-          return;
-        }
+        if (!active) return;
         const firstSourceFileId = detailResult.source_files[0]?.id;
         setSelectedBatch(detailResult);
         setPreview(null);
         setPageError(null);
-
-        if (!firstSourceFileId || detailResult.status === 'uploaded') {
-          return;
-        }
-
+        if (!firstSourceFileId || detailResult.status === 'uploaded') return;
         const previewResult = await fetchImportBatchPreview(batchId, { sourceFileId: firstSourceFileId }).catch(() => null);
-        if (!active) {
-          return;
-        }
+        if (!active) return;
         setPreview(previewResult);
       } catch {
-        if (active) {
-          setPageError('当前批次详情加载失败，请重新选择批次或稍后重试。');
-        }
+        if (active) setPageError('当前批次详情加载失败，请重新选择批次或稍后重试。');
       } finally {
-        if (active) {
-          setRefreshingPreview(false);
-        }
+        if (active) setRefreshingPreview(false);
       }
     }
-
-    if (!selectedBatchId) {
-      setSelectedBatch(null);
-      setPreview(null);
-      return;
-    }
-
+    if (!selectedBatchId) { setSelectedBatch(null); setPreview(null); return; }
     void loadBatchState(selectedBatchId);
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [selectedBatchId]);
 
   const selectedSourceFile = useMemo<SourceFilePreview | null>(() => preview?.source_files[0] ?? null, [preview]);
@@ -165,46 +148,31 @@ export function ImportsPage() {
   async function reloadBatches(selectBatchId?: string | null) {
     const result = await fetchImportBatches();
     setBatches(result);
-    const availableIds = new Set(result.map((batch) => batch.id));
-    setSelectedBatchIds((current) => current.filter((batchId) => availableIds.has(batchId)));
+    const availableIds = new Set(result.map((b) => b.id));
+    setSelectedBatchIds((current) => current.filter((id) => availableIds.has(id)));
     if (selectBatchId !== undefined) {
       setSelectedBatchId(selectBatchId && availableIds.has(selectBatchId) ? selectBatchId : (result[0]?.id ?? null));
       return;
     }
     setSelectedBatchId((current) => {
-      if (current && availableIds.has(current)) {
-        return current;
-      }
+      if (current && availableIds.has(current)) return current;
       return result[0]?.id ?? null;
     });
   }
 
   async function handleCreateBatch() {
-    if (files.length === 0) {
-      setLocalNotice({ tone: 'warning', message: '请至少选择一个 Excel 文件。' });
-      return;
-    }
-
+    if (files.length === 0) { message.warning('请至少选择一个 Excel 文件。'); return; }
     setSubmitting(true);
-    setLocalNotice(null);
     try {
-      const created = await createImportBatch({
-        files,
-        batchName,
-        region,
-        companyName,
-      });
+      const created = await createImportBatch({ files, batchName, region, companyName });
       const parsed = await parseImportBatch(created.id);
-      setPreview({
-        ...parsed,
-        source_files: parsed.source_files.slice(0, 1),
-      });
+      setPreview({ ...parsed, source_files: parsed.source_files.slice(0, 1) });
       setSelectedBatchId(created.id);
       setSelectedBatch(created);
       await reloadBatches(created.id);
       setFiles([]);
       setBatchName('');
-      setLocalNotice({ tone: 'success', message: `导入批次已创建：${created.batch_name}` });
+      message.success(`导入批次已创建: ${created.batch_name}`);
     } finally {
       setSubmitting(false);
     }
@@ -212,362 +180,335 @@ export function ImportsPage() {
 
   async function handleParseBatch(batchId: string) {
     setParsing(true);
-    setLocalNotice(null);
     try {
       const parsed = await parseImportBatch(batchId);
-      setPreview({
-        ...parsed,
-        source_files: parsed.source_files.slice(0, 1),
-      });
+      setPreview({ ...parsed, source_files: parsed.source_files.slice(0, 1) });
       setSelectedBatchId(batchId);
       setSelectedBatch(await fetchImportBatch(batchId));
       await reloadBatches(batchId);
-      setLocalNotice({ tone: 'success', message: '批次解析已刷新。' });
+      message.success('批次解析已刷新');
     } finally {
       setParsing(false);
     }
   }
 
-  async function handleDeleteBatch(batchId: string, batchName: string) {
-    const confirmed = window.confirm(`确认删除批次“${batchName}”吗？这会同时删除已上传文件和相关导出结果，且无法撤销。`);
-    if (!confirmed) {
-      return;
-    }
-
-    setDeletingBatchId(batchId);
-    setLocalNotice(null);
-    try {
-      await deleteImportBatch(batchId);
-      await reloadBatches(selectedBatchId === batchId ? null : undefined);
-      setSelectedBatchIds((current) => current.filter((currentId) => currentId !== batchId));
-      setLocalNotice({ tone: 'success', message: `批次已删除：${batchName}` });
-    } catch (error) {
-      setLocalNotice({ tone: 'warning', message: normalizeApiError(error).message || '批次删除失败，请稍后重试。' });
-    } finally {
-      setDeletingBatchId(null);
-    }
+  async function handleDeleteBatch(batchId: string, name: string) {
+    Modal.confirm({
+      title: '确认删除',
+      content: `确认删除批次"${name}"吗？这会同时删除已上传文件和相关导出结果，且无法撤销。`,
+      okText: '确认删除',
+      okType: 'danger',
+      onOk: async () => {
+        setDeletingBatchId(batchId);
+        try {
+          await deleteImportBatch(batchId);
+          await reloadBatches(selectedBatchId === batchId ? null : undefined);
+          setSelectedBatchIds((c) => c.filter((id) => id !== batchId));
+          message.success(`批次已删除: ${name}`);
+        } catch (error) {
+          message.error(normalizeApiError(error).message || '批次删除失败');
+        } finally {
+          setDeletingBatchId(null);
+        }
+      },
+    });
   }
 
   async function handleBulkDelete() {
-    if (selectedBatchIds.length === 0) {
-      setLocalNotice({ tone: 'warning', message: '请先勾选至少一个批次。' });
-      return;
-    }
-
-    const confirmed = window.confirm(`确认批量删除 ${selectedBatchIds.length} 个批次吗？这会同时删除已上传文件和相关导出结果，且无法撤销。`);
-    if (!confirmed) {
-      return;
-    }
-
-    setBulkDeleting(true);
-    setLocalNotice(null);
-    try {
-      const result = await bulkDeleteImportBatches(selectedBatchIds);
-      const removedSelectedBatch = selectedBatchId ? selectedBatchIds.includes(selectedBatchId) : false;
-      await reloadBatches(removedSelectedBatch ? null : undefined);
-      setSelectedBatchIds([]);
-
-      const missingMessage =
-        result.missing_ids.length > 0 ? ` 未找到 ${result.missing_ids.length} 个批次：${result.missing_ids.join('、')}。` : '';
-      setLocalNotice({
-        tone: 'success',
-        message: `已删除 ${result.deleted_count} 个批次。${missingMessage}`.trim(),
-      });
-    } catch (error) {
-      setLocalNotice({ tone: 'warning', message: normalizeApiError(error).message || '批量删除失败，请稍后重试。' });
-    } finally {
-      setBulkDeleting(false);
-    }
+    if (selectedBatchIds.length === 0) { message.warning('请先勾选至少一个批次。'); return; }
+    Modal.confirm({
+      title: '确认批量删除',
+      content: `确认批量删除 ${selectedBatchIds.length} 个批次吗？此操作不可撤销。`,
+      okText: '确认删除',
+      okType: 'danger',
+      onOk: async () => {
+        setBulkDeleting(true);
+        try {
+          const result = await bulkDeleteImportBatches(selectedBatchIds);
+          const removedSelectedBatch = selectedBatchId ? selectedBatchIds.includes(selectedBatchId) : false;
+          await reloadBatches(removedSelectedBatch ? null : undefined);
+          setSelectedBatchIds([]);
+          message.success(`已删除 ${result.deleted_count} 个批次`);
+        } catch (error) {
+          message.error(normalizeApiError(error).message || '批量删除失败');
+        } finally {
+          setBulkDeleting(false);
+        }
+      },
+    });
   }
 
+  // Batch list table columns
+  const batchColumns: ColumnsType<ImportBatchSummary> = useMemo(() => [
+    {
+      title: '批次名称', dataIndex: 'batch_name', key: 'batch_name',
+      render: (name: string, record: ImportBatchSummary) => (
+        <Link to={`/imports/${record.id}`}>{name}</Link>
+      ),
+    },
+    { title: '文件数', dataIndex: 'file_count', key: 'file_count', width: 80 },
+    { title: '记录数', dataIndex: 'normalized_record_count', key: 'normalized_record_count', width: 80, render: (v: number | null) => v ?? '-' },
+    {
+      title: '状态', dataIndex: 'status', key: 'status', width: 100,
+      render: (status: string) => <Tag color={statusTagColor(status)}>{status}</Tag>,
+    },
+    {
+      title: '操作人', dataIndex: 'created_by_name', key: 'created_by_name', width: 100,
+      render: (v: string | null) => v || '-',
+    },
+    { title: '更新时间', dataIndex: 'updated_at', key: 'updated_at', width: 160, render: (v: string) => formatDateTime(v) },
+    {
+      title: '操作', key: 'actions', width: 140,
+      render: (_: unknown, record: ImportBatchSummary) => (
+        <Space>
+          <Link to={`/imports/${record.id}`}>
+            <Button type="link" size="small">详情</Button>
+          </Link>
+          <Button
+            type="link"
+            size="small"
+            danger
+            onClick={() => void handleDeleteBatch(record.id, record.batch_name)}
+            disabled={bulkDeleting || deletingBatchId !== null}
+          >
+            删除
+          </Button>
+        </Space>
+      ),
+    },
+  ], [bulkDeleting, deletingBatchId, selectedBatchId]);
+
   return (
-    <PageContainer
-      eyebrow="Imports"
-      title="导入批次"
-      description="上传多个地区 Excel，创建导入批次，并快速查看首个文件的解析预览；更完整的文件级明细可进入批次详情页继续查看。"
-      actions={
-        <div className="button-row">
-          <button type="button" className="button button--primary" onClick={() => void handleCreateBatch()} disabled={submitting || bulkDeleting}>
-            {submitting ? '创建批次中...' : '创建导入批次'}
-          </button>
-          <button
-            type="button"
-            className="button button--ghost"
-            onClick={() => (selectedBatchId ? void handleParseBatch(selectedBatchId) : undefined)}
-            disabled={!selectedBatchId || parsing || bulkDeleting || deletingBatchId !== null}
-          >
-            {parsing ? '刷新解析中...' : '刷新当前批次'}
-          </button>
-          <button
-            type="button"
-            className="button button--ghost"
-            onClick={() => void handleBulkDelete()}
-            disabled={selectedBatchIds.length === 0 || bulkDeleting || deletingBatchId !== null}
-          >
-            {bulkDeleting ? '批量删除中...' : `批量删除所选 (${selectedBatchIds.length})`}
-          </button>
-        </div>
-      }
-    >
-      {localNotice ? <SurfaceNotice tone={localNotice.tone} message={localNotice.message} /> : null}
-      {pageError ? <SurfaceNotice tone="error" title="页面状态异常" message={pageError} /> : null}
+    <div>
+      <Title level={4}>批次管理</Title>
 
-      <div className="panel-grid panel-grid--two import-layout">
-        <section className="panel-card import-uploader">
-          <div>
-            <span className="panel-label">上传入口</span>
-            <strong>按批次接收 Excel 源文件</strong>
-            <p>这里负责创建导入批次并触发首次解析，后续更完整的文件对比、映射检查和样本浏览都放到批次详情页里。</p>
-          </div>
-          <label className="form-field">
-            <span>批次名称</span>
-            <input value={batchName} onChange={(event) => setBatchName(event.target.value)} placeholder="例如 2026-02 社保导入" />
-          </label>
-          <div className="form-grid">
-            <label className="form-field">
-              <span>地区</span>
-              <select value={region} onChange={(event) => setRegion(event.target.value)}>
-                {PRESET_REGIONS.map((item) => (
-                  <option key={item.value || 'auto'} value={item.value}>
-                    {item.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="form-field">
-              <span>公司</span>
-              <input value={companyName} onChange={(event) => setCompanyName(event.target.value)} placeholder="可选，便于回查" />
-            </label>
-          </div>
-          <label className="upload-dropzone">
-            <input type="file" accept=".xlsx,.xls" multiple onChange={(event) => setFiles(Array.from(event.target.files ?? []))} />
-            <strong>{files.length > 0 ? `已选择 ${files.length} 个文件` : '点击或拖拽上传 Excel 文件'}</strong>
-            <span>支持 `.xlsx` / `.xls`，上传后会立即创建批次并进入解析预览。</span>
-          </label>
-          {files.length > 0 ? (
-            <div className="file-chip-list">
-              {files.map((file) => (
-                <span key={`${file.name}-${file.size}`} className="file-chip">
-                  {file.name}
-                </span>
-              ))}
-            </div>
-          ) : null}
-        </section>
+      <Row gutter={16} style={{ marginBottom: 16 }}>
+        {/* Upload section */}
+        <Col xs={24} md={10}>
+          <Card title="上传入口">
+            <Input
+              placeholder="批次名称，例如 2026-02 社保导入"
+              value={batchName}
+              onChange={(e) => setBatchName(e.target.value)}
+              style={{ marginBottom: 12 }}
+            />
+            <Row gutter={12} style={{ marginBottom: 12 }}>
+              <Col span={12}>
+                <Select
+                  placeholder="地区"
+                  value={region || undefined}
+                  onChange={(v) => setRegion(v ?? '')}
+                  allowClear
+                  style={{ width: '100%' }}
+                  options={PRESET_REGIONS.map((item) => ({ label: item.label, value: item.value || undefined }))}
+                />
+              </Col>
+              <Col span={12}>
+                <Input
+                  placeholder="公司（可选）"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                />
+              </Col>
+            </Row>
+            <Dragger
+              accept=".xlsx,.xls"
+              multiple
+              beforeUpload={(file) => {
+                setFiles((prev) => [...prev, file]);
+                return false;
+              }}
+              onRemove={(file) => {
+                setFiles((prev) => prev.filter((f) => f !== file.originFileObj && f.name !== file.name));
+              }}
+              fileList={files.map((f) => ({ uid: `${f.name}-${f.size}`, name: f.name, status: 'done' as const }))}
+              style={{ marginBottom: 12 }}
+            >
+              <p><InboxOutlined style={{ fontSize: 32, color: '#3370FF' }} /></p>
+              <p>点击或拖拽上传 Excel 文件</p>
+              <p style={{ color: '#8F959E' }}>支持 .xlsx / .xls</p>
+            </Dragger>
+            <Space>
+              <Button type="primary" onClick={() => void handleCreateBatch()} disabled={submitting || files.length === 0} loading={submitting}>
+                创建导入批次
+              </Button>
+              <Button
+                icon={<ReloadOutlined />}
+                onClick={() => selectedBatchId ? void handleParseBatch(selectedBatchId) : undefined}
+                disabled={!selectedBatchId || parsing}
+                loading={parsing}
+              >
+                刷新当前批次
+              </Button>
+              <Button
+                icon={<DeleteOutlined />}
+                onClick={() => void handleBulkDelete()}
+                disabled={selectedBatchIds.length === 0 || bulkDeleting}
+                loading={bulkDeleting}
+              >
+                批量删除 ({selectedBatchIds.length})
+              </Button>
+            </Space>
+          </Card>
+        </Col>
 
-        <section className="panel-card import-batch-list">
-          <div>
-            <span className="panel-label">批次列表</span>
-            <strong>{pageLoading ? '加载中...' : `${batches.length} 个批次`}</strong>
-            <p>选择批次查看快速预览，或直接进入详情页查看每个文件的解析上下文。</p>
-          </div>
-          {pageLoading ? (
-            <SectionState title="正在加载批次" message="系统正在读取已有导入批次，请稍候。" />
-          ) : batches.length === 0 ? (
-            <SectionState title="还没有导入批次" message="上传第一批 Excel 后，这里会显示历史批次。" />
-          ) : (
-            <div className="batch-list">
-              {batches.map((batch) => (
-                <div key={batch.id} className={`batch-card batch-card--detail${selectedBatchId === batch.id ? ' is-active' : ''}`}>
-                  <button type="button" className="batch-card__select" onClick={() => setSelectedBatchId(batch.id)}>
-                    <strong>{batch.batch_name}</strong>
-                    <span>{batch.status}</span>
-                    <small>{batch.file_count} 个文件 · {formatDateTime(batch.updated_at)}</small>
-                    <small>
-                      <span className="batch-meta-label">操作人</span>
-                      <span>{batch.created_by_name || '\u2014'}</span>
-                      {' · '}
-                      <span className="batch-meta-label">记录数</span>
-                      <span>{batch.normalized_record_count ?? '-'}</span>
-                    </small>
-                  </button>
-                  <div className="batch-card__footer">
-                    <label className="batch-card__check">
-                      <input
-                        type="checkbox"
-                        checked={selectedBatchIds.includes(batch.id)}
-                        onChange={(event) =>
-                          setSelectedBatchIds((current) =>
-                            event.target.checked ? Array.from(new Set([...current, batch.id])) : current.filter((item) => item !== batch.id),
-                          )
-                        }
-                        disabled={bulkDeleting}
-                      />
-                      <span>加入批量删除</span>
-                    </label>
-                    <div className="batch-card__actions">
-                      <Link to={`/imports/${batch.id}`} className="batch-card__link">
-                        查看详情
-                      </Link>
-                      <button
-                        type="button"
-                        className="batch-card__delete"
-                        onClick={() => void handleDeleteBatch(batch.id, batch.batch_name)}
-                        disabled={bulkDeleting || deletingBatchId !== null}
-                      >
-                        {deletingBatchId === batch.id ? '删除中...' : '删除批次'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
-      </div>
+        {/* Batch list */}
+        <Col xs={24} md={14}>
+          <Card title="批次列表">
+            {pageLoading ? (
+              <Skeleton active paragraph={{ rows: 6 }} />
+            ) : batches.length === 0 ? (
+              <Empty description="还没有导入批次，上传第一批 Excel 后会显示在这里。" />
+            ) : (
+              <Table<ImportBatchSummary>
+                columns={batchColumns}
+                dataSource={batches}
+                rowKey="id"
+                size="small"
+                scroll={{ x: 700 }}
+                pagination={{ pageSize: 10, showSizeChanger: false }}
+                rowSelection={{
+                  selectedRowKeys: selectedBatchIds,
+                  onChange: (keys) => setSelectedBatchIds(keys as string[]),
+                }}
+                onRow={(record) => ({
+                  onClick: () => setSelectedBatchId(record.id),
+                  style: { cursor: 'pointer', background: record.id === selectedBatchId ? '#F0F5FF' : undefined },
+                })}
+              />
+            )}
+          </Card>
+        </Col>
+      </Row>
 
-      <div className="panel-grid panel-grid--two import-summary-grid">
-        <article className="panel-card panel-card--soft">
-          <span className="panel-label">当前批次</span>
-          <strong>{selectedBatch?.batch_name ?? '尚未选择批次'}</strong>
-          <p>
-            {selectedBatch
-              ? `${selectedBatch.file_count} 个文件，当前状态为 ${selectedBatch.status}。`
-              : '从右侧批次列表中选择一个批次，即可在这里看到快速摘要。'}
-          </p>
-          {selectedBatch ? (
-            <Link to={`/imports/${selectedBatch.id}`} className="inline-link">
-              打开批次详情页
-            </Link>
-          ) : null}
-        </article>
-        <article className="panel-card panel-card--soft">
-          <span className="panel-label">首个命中文件</span>
-          <strong>{selectedSourceFile ? selectedSourceFile.raw_sheet_name : '尚未解析'}</strong>
-          <p>
-            {selectedSourceFile
-              ? `${selectedSourceFile.normalized_record_count} 条标准化记录，过滤 ${selectedSourceFile.filtered_row_count} 条非明细行。`
-              : '解析完成后，这里会显示首个文件的快速概览。'}
-          </p>
-        </article>
-      </div>
+      {/* Preview section */}
+      <Row gutter={16} style={{ marginBottom: 16 }}>
+        <Col span={12}>
+          <Card>
+            <Typography.Text type="secondary">当前批次</Typography.Text>
+            <Title level={5}>{selectedBatch?.batch_name ?? '尚未选择批次'}</Title>
+            <Typography.Text>
+              {selectedBatch
+                ? `${selectedBatch.file_count} 个文件，当前状态为 ${selectedBatch.status}。`
+                : '从批次列表中选择一个批次。'}
+            </Typography.Text>
+            {selectedBatch && (
+              <div style={{ marginTop: 8 }}>
+                <Link to={`/imports/${selectedBatch.id}`}>打开批次详情页</Link>
+              </div>
+            )}
+          </Card>
+        </Col>
+        <Col span={12}>
+          <Card>
+            <Typography.Text type="secondary">首个命中文件</Typography.Text>
+            <Title level={5}>{selectedSourceFile ? selectedSourceFile.raw_sheet_name : '尚未解析'}</Title>
+            <Typography.Text>
+              {selectedSourceFile
+                ? `${selectedSourceFile.normalized_record_count} 条标准化记录，过滤 ${selectedSourceFile.filtered_row_count} 条非明细行。`
+                : '解析完成后显示首个文件概览。'}
+            </Typography.Text>
+          </Card>
+        </Col>
+      </Row>
 
-      <div className="panel-card">
-        <div className="section-heading">
-          <div>
-            <span className="panel-label">快速预览</span>
-            <h2>当前批次首个文件</h2>
-          </div>
-          <div className="button-row">
-            {refreshingPreview ? <span className="pill">预览刷新中</span> : null}
-            {selectedBatch ? (
-              <Link to={`/imports/${selectedBatch.id}`} className="button button--ghost">
-                进入完整详情
-              </Link>
-            ) : null}
-          </div>
-        </div>
+      {/* Quick preview */}
+      <Card title="快速预览 - 当前批次首个文件" extra={
+        <Space>
+          {refreshingPreview && <Tag color="processing">预览刷新中</Tag>}
+          {selectedBatch && <Link to={`/imports/${selectedBatch.id}`}><Button size="small">进入完整详情</Button></Link>}
+        </Space>
+      }>
         {!selectedSourceFile ? (
-          <SectionState title="暂无解析预览" message="当前批次还没有预览结果，你可以先刷新解析或进入详情页查看更完整状态。" />
+          <Empty description="当前批次还没有预览结果" />
         ) : (
-          <div className="source-file-grid">
-            <div className="status-item">
-              <strong>{selectedSourceFile.file_name}</strong>
-              <div>sheet: {selectedSourceFile.raw_sheet_name}</div>
-              <div>region: {selectedSourceFile.region ?? '未指定'}</div>
-              <div>company: {selectedSourceFile.company_name ?? '未指定'}</div>
-            </div>
-            <div className="status-item">
-              <strong>表头签名</strong>
-              <div>{selectedSourceFile.raw_header_signature}</div>
-            </div>
-            <div className="status-item">
-              <strong>未识别字段</strong>
-              <div>{selectedSourceFile.unmapped_headers.length > 0 ? selectedSourceFile.unmapped_headers.join(' / ') : '无'}</div>
-            </div>
-          </div>
+          <>
+            <Row gutter={16} style={{ marginBottom: 16 }}>
+              <Col span={8}>
+                <Card size="small">
+                  <Typography.Text strong>{selectedSourceFile.file_name}</Typography.Text>
+                  <div>sheet: {selectedSourceFile.raw_sheet_name}</div>
+                  <div>region: {selectedSourceFile.region ?? '未指定'}</div>
+                </Card>
+              </Col>
+              <Col span={8}>
+                <Card size="small">
+                  <Typography.Text strong>表头签名</Typography.Text>
+                  <div style={{ wordBreak: 'break-all' }}>{selectedSourceFile.raw_header_signature}</div>
+                </Card>
+              </Col>
+              <Col span={8}>
+                <Card size="small">
+                  <Typography.Text strong>未识别字段</Typography.Text>
+                  <div>{selectedSourceFile.unmapped_headers.length > 0 ? selectedSourceFile.unmapped_headers.join(' / ') : '无'}</div>
+                </Card>
+              </Col>
+            </Row>
+
+            {/* Header mappings */}
+            <Row gutter={16} style={{ marginBottom: 16 }}>
+              <Col span={12}>
+                <Card size="small" title="表头映射">
+                  {selectedSourceFile.header_mappings.length > 0 ? (
+                    selectedSourceFile.header_mappings.slice(0, 8).map((mapping) => (
+                      <div key={mapping.raw_header_signature} style={{ marginBottom: 8 }}>
+                        <Typography.Text strong>{mapping.raw_header}</Typography.Text>
+                        {' '}
+                        <Tag color={mapping.canonical_field ? 'success' : 'warning'}>{summarizeMapping(mapping)}</Tag>
+                        <div>
+                          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                            来源 {mapping.mapping_source}
+                            {mapping.confidence !== null ? ` | 置信度 ${mapping.confidence.toFixed(2)}` : ''}
+                            {mapping.llm_attempted ? ` | LLM ${mapping.llm_status}` : ''}
+                          </Typography.Text>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <Empty description="暂无映射结果" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                  )}
+                </Card>
+              </Col>
+              <Col span={12}>
+                <Card size="small" title="非明细行">
+                  {selectedSourceFile.filtered_rows.length > 0 ? (
+                    selectedSourceFile.filtered_rows.slice(0, 8).map((row) => (
+                      <div key={`${row.row_number}-${row.reason}`} style={{ marginBottom: 8 }}>
+                        <Tag>第 {row.row_number} 行</Tag>
+                        <Typography.Text>{row.reason}</Typography.Text>
+                        <div><Typography.Text type="secondary" style={{ fontSize: 12 }}>{row.first_value}</Typography.Text></div>
+                      </div>
+                    ))
+                  ) : (
+                    <Empty description="没有过滤项" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                  )}
+                </Card>
+              </Col>
+            </Row>
+
+            {/* Sample records */}
+            {selectedSourceFile.preview_records.length > 0 && (
+              <Card size="small" title="前 20 行标准化预览">
+                <Table
+                  size="small"
+                  scroll={{ x: true }}
+                  pagination={false}
+                  dataSource={selectedSourceFile.preview_records}
+                  rowKey="source_row_number"
+                  columns={[
+                    { title: '源行号', dataIndex: 'source_row_number', key: 'source_row_number', width: 80 },
+                    ...previewColumns.map((col) => ({
+                      title: col,
+                      key: col,
+                      render: (_: unknown, record: (typeof selectedSourceFile.preview_records)[0]) => formatValue(record.values[col]),
+                    })),
+                  ]}
+                />
+              </Card>
+            )}
+          </>
         )}
-      </div>
-
-      <div className="panel-grid panel-grid--two import-detail-grid">
-        <section className="panel-card">
-          <div className="section-heading">
-            <div>
-              <span className="panel-label">表头映射</span>
-              <h2>快速查看规则命中</h2>
-            </div>
-          </div>
-          {selectedSourceFile?.header_mappings.length ? (
-            <div className="mapping-list">
-              {selectedSourceFile.header_mappings.slice(0, 8).map((mapping) => (
-                <article key={mapping.raw_header_signature} className="mapping-card">
-                  <div className="mapping-card__head">
-                    <strong>{mapping.raw_header}</strong>
-                    <span className={`mapping-badge${mapping.canonical_field ? '' : ' mapping-badge--warn'}`}>
-                      {summarizeMapping(mapping)}
-                    </span>
-                  </div>
-                  <p>{mapping.raw_header_signature}</p>
-                  <small>
-                    来源 {mapping.mapping_source}
-                    {mapping.confidence !== null ? ` · 置信度 ${mapping.confidence.toFixed(2)}` : ''}
-                    {mapping.llm_attempted ? ` · LLM ${mapping.llm_status}` : ''}
-                  </small>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <SectionState title="暂无映射结果" message="当前还没有表头映射结果。完成解析后，这里会展示规则或 LLM 的归一化命中。" />
-          )}
-        </section>
-
-        <section className="panel-card">
-          <div className="section-heading">
-            <div>
-              <span className="panel-label">非明细行</span>
-              <h2>快速过滤检查</h2>
-            </div>
-          </div>
-          {selectedSourceFile?.filtered_rows.length ? (
-            <div className="filtered-list">
-              {selectedSourceFile.filtered_rows.slice(0, 8).map((row) => (
-                <div key={`${row.row_number}-${row.reason}`} className="filtered-row-card">
-                  <strong>第 {row.row_number} 行</strong>
-                  <span>{row.reason}</span>
-                  <small>{row.first_value}</small>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <SectionState title="没有过滤项" message="当前没有检测到需要剔除的合计、小计或分组标题行。" />
-          )}
-        </section>
-      </div>
-
-      <div className="panel-card">
-        <div className="section-heading">
-          <div>
-            <span className="panel-label">样本记录</span>
-            <h2>前 20 行标准化预览</h2>
-          </div>
-        </div>
-        {selectedSourceFile?.preview_records.length ? (
-          <div className="preview-table-wrap">
-            <table className="preview-table">
-              <thead>
-                <tr>
-                  <th>源行号</th>
-                  {previewColumns.map((column) => (
-                    <th key={column}>{column}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {selectedSourceFile.preview_records.map((record) => (
-                  <tr key={record.source_row_number}>
-                    <td>{record.source_row_number}</td>
-                    {previewColumns.map((column) => (
-                      <td key={`${record.source_row_number}-${column}`}>{formatValue(record.values[column])}</td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <SectionState title="暂无标准化样本" message="当前没有可展示的标准化样本，先刷新解析结果后再查看。" />
-        )}
-      </div>
-    </PageContainer>
+      </Card>
+    </div>
   );
 }

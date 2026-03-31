@@ -1,8 +1,28 @@
-﻿import { useEffect, useMemo, useState, type FormEvent } from 'react';
-
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
+import {
+  Button,
+  Card,
+  Col,
+  Drawer,
+  Empty,
+  Form,
+  Input,
+  message,
+  Modal,
+  Row,
+  Select,
+  Skeleton,
+  Space,
+  Statistic,
+  Table,
+  Tag,
+  Typography,
+  Upload,
+} from 'antd';
+import { UploadOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
+import type { ColumnsType } from 'antd/es/table';
 
-import { PageContainer, SectionState, SurfaceNotice } from '../components';
 import { normalizeApiError } from '../services/api';
 import {
   deleteEmployeeMasterAudit,
@@ -19,6 +39,8 @@ import {
   type EmployeeMasterItem,
   type EmployeeMasterUpdateInput,
 } from '../services/employees';
+
+const { Title } = Typography;
 
 interface EmployeeFormState {
   person_name: string;
@@ -38,42 +60,28 @@ const EMPTY_FORM: EmployeeFormState = {
   active: true,
 };
 
-const PAGE_SIZE_OPTIONS = [10, 20, 50] as const;
+const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
 function formatDateTime(value: string): string {
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return new Intl.DateTimeFormat('zh-CN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
 }
 
 function describeAuditAction(action: string): string {
   switch (action) {
-    case 'import_create':
-      return '导入新增';
-    case 'import_update':
-      return '导入更新';
-    case 'manual_create':
-      return '人工新增';
-    case 'manual_update':
-      return '人工编辑';
-    case 'status_change':
-      return '状态变更';
-    case 'delete':
-      return '删除';
-    default:
-      return action;
+    case 'import_create': return '导入新增';
+    case 'import_update': return '导入更新';
+    case 'manual_create': return '人工新增';
+    case 'manual_update': return '人工编辑';
+    case 'status_change': return '状态变更';
+    case 'delete': return '删除';
+    default: return action;
   }
 }
 
 function toFormState(employee: EmployeeMasterItem | null): EmployeeFormState {
-  if (!employee) {
-    return EMPTY_FORM;
-  }
+  if (!employee) return EMPTY_FORM;
   return {
     person_name: employee.person_name,
     id_number: employee.id_number ?? '',
@@ -99,7 +107,6 @@ export function EmployeesPage() {
   const [togglingStatus, setTogglingStatus] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
-  const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [importResult, setImportResult] = useState<EmployeeImportResult | null>(null);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string | null>(null);
   const [formState, setFormState] = useState<EmployeeFormState>(EMPTY_FORM);
@@ -112,6 +119,7 @@ export function EmployeesPage() {
   const [companies, setCompanies] = useState<string[]>([]);
   const [selectedRegion, setSelectedRegion] = useState<string>('');
   const [selectedCompany, setSelectedCompany] = useState<string>('');
+  const [drawerVisible, setDrawerVisible] = useState(false);
 
   useEffect(() => {
     fetchRegions().then(setRegions).catch(() => {});
@@ -140,16 +148,13 @@ export function EmployeesPage() {
     setPageError(null);
     setSelectedEmployeeId((current) => {
       const targetId = preferredEmployeeId ?? current;
-      if (targetId && result.items.some((item) => item.id === targetId)) {
-        return targetId;
-      }
+      if (targetId && result.items.some((item) => item.id === targetId)) return targetId;
       return result.items[0]?.id ?? null;
     });
   }
 
   useEffect(() => {
     let active = true;
-
     async function run() {
       try {
         const result = await fetchEmployeeMasters({
@@ -160,33 +165,22 @@ export function EmployeesPage() {
           region: selectedRegion || undefined,
           companyName: selectedCompany || undefined,
         });
-        if (!active) {
-          return;
-        }
+        if (!active) return;
         setEmployees(result.items);
         setTotalEmployees(result.total);
         setSelectedEmployeeId((current) => {
-          if (current && result.items.some((item) => item.id === current)) {
-            return current;
-          }
+          if (current && result.items.some((item) => item.id === current)) return current;
           return result.items[0]?.id ?? null;
         });
         setPageError(null);
       } catch (error) {
-        if (active) {
-          setPageError(normalizeApiError(error).message || '员工主档列表暂时无法读取，请稍后重试。');
-        }
+        if (active) setPageError(normalizeApiError(error).message || '员工主档列表暂时无法读取，请稍后重试。');
       } finally {
-        if (active) {
-          setLoading(false);
-        }
+        if (active) setLoading(false);
       }
     }
-
     void run();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [query, activeOnly, pageIndex, pageSize, selectedRegion, selectedCompany]);
 
   const selectedEmployee = useMemo(
@@ -201,66 +195,33 @@ export function EmployeesPage() {
 
   useEffect(() => {
     let active = true;
-
     async function run() {
-      if (!selectedEmployeeId) {
-        setAudits([]);
-        setAuditError(null);
-        return;
-      }
-
+      if (!selectedEmployeeId) { setAudits([]); setAuditError(null); return; }
       setLoadingAudits(true);
       try {
         const result = await fetchEmployeeMasterAudits(selectedEmployeeId);
-        if (!active) {
-          return;
-        }
+        if (!active) return;
         setAudits(result.items);
         setAuditError(null);
       } catch (error) {
-        if (active) {
-          setAuditError(normalizeApiError(error).message || '审计记录暂时无法读取。');
-        }
+        if (active) setAuditError(normalizeApiError(error).message || '审计记录暂时无法读取。');
       } finally {
-        if (active) {
-          setLoadingAudits(false);
-        }
+        if (active) setLoadingAudits(false);
       }
     }
-
     void run();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [selectedEmployeeId]);
 
-  const summary = useMemo(
-    () => ({
-      total: totalEmployees,
-      visible: employees.length,
-      active: employees.filter((item) => item.active).length,
-      companies: new Set(employees.map((item) => item.company_name).filter(Boolean)).size,
-    }),
-    [employees, totalEmployees],
-  );
-
-  const totalPages = useMemo(
-    () => Math.max(1, Math.ceil(totalEmployees / pageSize)),
-    [pageSize, totalEmployees],
-  );
-
-  const currentRange = useMemo(() => {
-    if (!totalEmployees || !employees.length) {
-      return { start: 0, end: 0 };
-    }
-    const start = pageIndex * pageSize + 1;
-    return { start, end: start + employees.length - 1 };
-  }, [employees.length, pageIndex, pageSize, totalEmployees]);
+  const summary = useMemo(() => ({
+    total: totalEmployees,
+    visible: employees.length,
+    active: employees.filter((item) => item.active).length,
+    companies: new Set(employees.map((item) => item.company_name).filter(Boolean)).size,
+  }), [employees, totalEmployees]);
 
   const isDirty = useMemo(() => {
-    if (!selectedEmployee) {
-      return false;
-    }
+    if (!selectedEmployee) return false;
     return JSON.stringify(formState) !== JSON.stringify(toFormState(selectedEmployee));
   }, [formState, selectedEmployee]);
 
@@ -271,21 +232,14 @@ export function EmployeesPage() {
   }
 
   async function handleDeleteAudit(audit: EmployeeMasterAuditItem) {
-    if (!selectedEmployee) {
-      return;
-    }
-    const confirmed = window.confirm(`确认删除这条“${describeAuditAction(audit.action)}”留痕吗？删除后将不会再展示在审计列表中。`);
-    if (!confirmed) {
-      return;
-    }
-
+    if (!selectedEmployee) return;
     setDeletingAuditId(audit.id);
     setAuditError(null);
     setPageError(null);
     try {
       await deleteEmployeeMasterAudit(selectedEmployee.id, audit.id);
       await refreshAudits(selectedEmployee.id);
-      setActionNotice(`已删除 1 条${describeAuditAction(audit.action)}留痕。`);
+      message.success(`已删除 1 条${describeAuditAction(audit.action)}留痕`);
     } catch (error) {
       setAuditError(normalizeApiError(error).message || '审计记录删除失败。');
     } finally {
@@ -294,30 +248,26 @@ export function EmployeesPage() {
   }
 
   async function handleImport() {
-    if (!selectedFile) {
-      return;
-    }
+    if (!selectedFile) return;
     setImporting(true);
     setPageError(null);
     try {
       const result = await importEmployeeMaster(selectedFile);
       setImportResult(result);
-      setActionNotice(`已导入 ${result.imported_count} 条员工主档，新增 ${result.created_count} 条，更新 ${result.updated_count} 条。`);
+      message.success(`已导入 ${result.imported_count} 条员工主档`);
       setSelectedFile(null);
       setPageIndex(0);
       fetchCompanies().then(setCompanies).catch(() => {});
       await loadEmployees(query, activeOnly, pageSize, 0, result.items[0]?.id ?? selectedEmployeeId);
     } catch (error) {
-      setPageError(normalizeApiError(error).message || '员工主档导入失败，请检查文件格式和必要字段后重试。');
+      message.error(normalizeApiError(error).message || '员工主档导入失败');
     } finally {
       setImporting(false);
     }
   }
 
   async function handleSave() {
-    if (!selectedEmployee) {
-      return;
-    }
+    if (!selectedEmployee) return;
     setSaving(true);
     setPageError(null);
     try {
@@ -332,19 +282,17 @@ export function EmployeesPage() {
       const updated = await updateEmployeeMaster(selectedEmployee.id, payload);
       setEmployees((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setFormState(toFormState(updated));
-      setActionNotice(`员工 ${updated.employee_id} 已更新。`);
+      message.success(`员工 ${updated.employee_id} 已更新`);
       await refreshAudits(updated.id);
     } catch (error) {
-      setPageError(normalizeApiError(error).message || '员工主档更新失败。');
+      message.error(normalizeApiError(error).message || '员工主档更新失败');
     } finally {
       setSaving(false);
     }
   }
 
   async function handleToggleStatus() {
-    if (!selectedEmployee) {
-      return;
-    }
+    if (!selectedEmployee) return;
     setTogglingStatus(true);
     setPageError(null);
     try {
@@ -355,41 +303,42 @@ export function EmployeesPage() {
       setEmployees((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setFormState(toFormState(updated));
       setStatusNote('');
-      setActionNotice(updated.active ? `员工 ${updated.employee_id} 已重新启用。` : `员工 ${updated.employee_id} 已停用。`);
+      message.success(updated.active ? `员工 ${updated.employee_id} 已重新启用` : `员工 ${updated.employee_id} 已停用`);
       await refreshAudits(updated.id);
     } catch (error) {
-      setPageError(normalizeApiError(error).message || '员工状态更新失败。');
+      message.error(normalizeApiError(error).message || '员工状态更新失败');
     } finally {
       setTogglingStatus(false);
     }
   }
 
   async function handleDelete() {
-    if (!selectedEmployee) {
-      return;
-    }
-    const confirmed = window.confirm(`确认删除员工主档 ${selectedEmployee.employee_id} 吗？如果已有匹配历史，系统会阻止删除。`);
-    if (!confirmed) {
-      return;
-    }
-    setDeleting(true);
-    setPageError(null);
-    try {
-      const deletingEmployeeId = selectedEmployee.id;
-      const deletingEmployeeCode = selectedEmployee.employee_id;
-      await deleteEmployeeMaster(deletingEmployeeId);
-      setActionNotice(`员工 ${deletingEmployeeCode} 已删除。`);
-      setAudits([]);
-      const nextPageIndex = pageIndex > 0 && employees.length === 1 ? pageIndex - 1 : pageIndex;
-      if (nextPageIndex !== pageIndex) {
-        setPageIndex(nextPageIndex);
-      }
-      await loadEmployees(query, activeOnly, pageSize, nextPageIndex, null);
-    } catch (error) {
-      setPageError(normalizeApiError(error).message || '员工主档删除失败。');
-    } finally {
-      setDeleting(false);
-    }
+    if (!selectedEmployee) return;
+    Modal.confirm({
+      title: '确认删除',
+      content: `确认删除员工主档 ${selectedEmployee.employee_id} 吗？如果已有匹配历史，系统会阻止删除。此操作不可撤销，确定要删除该记录吗？`,
+      okText: '确认删除',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: async () => {
+        setDeleting(true);
+        setPageError(null);
+        try {
+          const deletingEmployeeCode = selectedEmployee.employee_id;
+          await deleteEmployeeMaster(selectedEmployee.id);
+          message.success(`员工 ${deletingEmployeeCode} 已删除`);
+          setAudits([]);
+          setDrawerVisible(false);
+          const nextPageIndex = pageIndex > 0 && employees.length === 1 ? pageIndex - 1 : pageIndex;
+          if (nextPageIndex !== pageIndex) setPageIndex(nextPageIndex);
+          await loadEmployees(query, activeOnly, pageSize, nextPageIndex, null);
+        } catch (error) {
+          message.error(normalizeApiError(error).message || '员工主档删除失败');
+        } finally {
+          setDeleting(false);
+        }
+      },
+    });
   }
 
   function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
@@ -399,392 +348,281 @@ export function EmployeesPage() {
     setQuery(draftQuery.trim());
   }
 
+  function openDrawer(employeeId: string) {
+    setSelectedEmployeeId(employeeId);
+    setDrawerVisible(true);
+  }
+
+  const columns: ColumnsType<EmployeeMasterItem> = useMemo(() => [
+    { title: '工号', dataIndex: 'employee_id', key: 'employee_id', width: 100 },
+    { title: '姓名', dataIndex: 'person_name', key: 'person_name', width: 80 },
+    { title: '公司', dataIndex: 'company_name', key: 'company_name', width: 140, ellipsis: true, render: (v: string | null) => v ?? '-' },
+    { title: '地区', dataIndex: 'region', key: 'region', width: 70, render: (v: string | null) => v ?? '-' },
+    { title: '部门', dataIndex: 'department', key: 'department', width: 100, render: (v: string | null) => v ?? '-' },
+    {
+      title: '状态', key: 'active', width: 70,
+      render: (_: unknown, record: EmployeeMasterItem) => (
+        <Tag color={record.active ? 'success' : 'warning'}>{record.active ? '在职' : '停用'}</Tag>
+      ),
+    },
+    { title: '更新时间', dataIndex: 'updated_at', key: 'updated_at', width: 160, render: (v: string) => formatDateTime(v) },
+    {
+      title: '操作', key: 'actions', width: 100,
+      render: (_: unknown, record: EmployeeMasterItem) => (
+        <Space>
+          <Button type="link" size="small" onClick={() => openDrawer(record.id)}>编辑</Button>
+          <Button type="link" size="small" danger onClick={() => {
+            setSelectedEmployeeId(record.id);
+            // Delay to let state update
+            setTimeout(() => void handleDelete(), 0);
+          }}>删除</Button>
+        </Space>
+      ),
+    },
+  ], [employees, pageIndex, query, activeOnly, pageSize, selectedEmployeeId]);
+
   return (
-    <PageContainer
-      eyebrow="Employees"
-      title="员工主档管理"
-      description="上传员工主档、人工修正基础信息、停用无效主档，并查看每次导入和手工调整留下的审计记录。"
-      actions={
-        <div className="button-row">
-          <Link to="/employees/new" className="button button--ghost">
-            新增员工主档
-          </Link>
-          <button type="button" className="button button--primary" onClick={() => void handleImport()} disabled={!selectedFile || importing}>
-            {importing ? '导入中...' : '导入主档文件'}
-          </button>
-        </div>
-      }
-    >
-      {importResult ? (
-        <div className="panel-card" style={{ marginBottom: '1rem' }}>
-          <div className="section-heading">
-            <div>
-              <span className="panel-label">导入结果</span>
-              <h2>文件: {importResult.file_name}</h2>
-            </div>
-          </div>
-          <div className="status-grid" style={{ marginBottom: importResult.errors.length > 0 ? '0.75rem' : '0' }}>
-            <article className="status-item">
-              <strong>{importResult.total_rows}</strong>
-              <div>总行数</div>
-            </article>
-            <article className="status-item">
-              <strong>{importResult.created_count}</strong>
-              <div>新增</div>
-            </article>
-            <article className="status-item">
-              <strong>{importResult.updated_count}</strong>
-              <div>更新</div>
-            </article>
-            <article className="status-item">
-              <strong>{importResult.skipped_count}</strong>
-              <div>失败</div>
-            </article>
-          </div>
+    <div>
+      <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
+        <Col>
+          <Title level={4} style={{ margin: 0 }}>员工主档</Title>
+        </Col>
+        <Col>
+          <Space>
+            <Upload
+              accept=".csv,.xlsx"
+              beforeUpload={(file) => { setSelectedFile(file); return false; }}
+              showUploadList={false}
+            >
+              <Button icon={<UploadOutlined />}>选择文件</Button>
+            </Upload>
+            <Button
+              type="primary"
+              onClick={() => void handleImport()}
+              disabled={!selectedFile || importing}
+              loading={importing}
+            >
+              导入主档文件
+            </Button>
+            <Link to="/employees/new">
+              <Button icon={<PlusOutlined />}>新增员工主档</Button>
+            </Link>
+          </Space>
+        </Col>
+      </Row>
+
+      {/* Import result */}
+      {importResult && (
+        <Card style={{ marginBottom: 16 }}>
+          <Row gutter={16}>
+            <Col span={6}><Statistic title="总行数" value={importResult.total_rows} /></Col>
+            <Col span={6}><Statistic title="新增" value={importResult.created_count} /></Col>
+            <Col span={6}><Statistic title="更新" value={importResult.updated_count} /></Col>
+            <Col span={6}><Statistic title="失败" value={importResult.skipped_count} /></Col>
+          </Row>
           {importResult.errors.length > 0 && (
-            <details style={{ padding: '0 1rem 1rem' }}>
-              <summary style={{ cursor: 'pointer', fontWeight: 500 }}>
-                失败明细 ({importResult.errors.length} 条)
-              </summary>
-              <ul style={{ marginTop: '0.5rem', paddingLeft: '1.25rem' }}>
-                {importResult.errors.map((err, i) => (
-                  <li key={i} style={{ color: 'var(--color-error, #c00)', marginBottom: '0.25rem' }}>{err}</li>
-                ))}
-              </ul>
-            </details>
+            <div style={{ marginTop: 12 }}>
+              {importResult.errors.map((err, i) => (
+                <Tag key={i} color="error" style={{ marginBottom: 4 }}>{err}</Tag>
+              ))}
+            </div>
           )}
-        </div>
-      ) : null}
-      {actionNotice ? <SurfaceNotice tone="success" title="操作完成" message={actionNotice} /> : null}
-      {pageError ? <SurfaceNotice tone="error" title="页面状态异常" message={pageError} /> : null}
+        </Card>
+      )}
 
-      <div className="panel-grid panel-grid--two employee-page-grid">
-        <section className="panel-card employee-upload-card">
-          <div>
-            <span className="panel-label">主档导入</span>
-            <strong>支持 CSV / XLSX</strong>
-            <p>必填字段至少包含工号和姓名，其它字段会在导入时按表头别名自动归并。</p>
-          </div>
-          <label className="form-field">
-            <span>选择文件</span>
-            <input type="file" accept=".csv,.xlsx" onChange={(event) => setSelectedFile(event.target.files?.[0] ?? null)} />
-          </label>
-          <div className="status-item">
-            <strong>{selectedFile ? selectedFile.name : '尚未选择文件'}</strong>
-            <div>{selectedFile ? '准备导入员工主档。' : '请上传包含工号和姓名的主档文件。'}</div>
-          </div>
-        </section>
+      {pageError && <Card style={{ marginBottom: 16, borderColor: '#F54A45' }}><Typography.Text type="danger">{pageError}</Typography.Text></Card>}
 
-        <section className="panel-card employee-summary-grid">
-          <article className="status-item">
-            <strong>{summary.total}</strong>
-            <div>筛选结果总数</div>
-          </article>
-          <article className="status-item">
-            <strong>{summary.visible}</strong>
-            <div>当前页展示</div>
-          </article>
-          <article className="status-item">
-            <strong>{summary.active}</strong>
-            <div>当前页在职</div>
-          </article>
-          <article className="status-item">
-            <strong>{summary.companies}</strong>
-            <div>当前页覆盖公司</div>
-          </article>
-        </section>
-      </div>
-
-      <section className="panel-card employee-list-card">
-        <div className="section-heading">
-          <div>
-            <span className="panel-label">主档列表</span>
-            <h2>按工号和公司浏览</h2>
-          </div>
-        </div>
-
-        <form className="employee-toolbar" onSubmit={handleSearchSubmit}>
-          <label className="form-field employee-toolbar__search">
-            <span>搜索关键字</span>
-            <input value={draftQuery} onChange={(event) => setDraftQuery(event.target.value)} placeholder="工号 / 姓名 / 身份证号 / 公司" />
-          </label>
-          <label className="form-field employee-toolbar__toggle">
-            <span>筛选范围</span>
-            <select
-              value={activeOnly ? 'active' : 'all'}
-              onChange={(event) => {
-                setLoading(true);
-                setPageIndex(0);
-                setActiveOnly(event.target.value === 'active');
-              }}
-            >
-              <option value="all">全部主档</option>
-              <option value="active">仅在职主档</option>
-            </select>
-          </label>
-          <label className="form-field employee-toolbar__toggle">
-            <span>地区</span>
-            <select
-              value={selectedRegion}
-              onChange={(event) => {
-                setLoading(true);
-                setSelectedRegion(event.target.value);
-              }}
-            >
-              <option value="">全部地区</option>
-              {regions.map((r) => (
-                <option key={r} value={r}>{r}</option>
-              ))}
-            </select>
-          </label>
-          <label className="form-field employee-toolbar__toggle">
-            <span>公司</span>
-            <select
-              value={selectedCompany}
-              onChange={(event) => {
-                setLoading(true);
-                setSelectedCompany(event.target.value);
-              }}
-            >
-              <option value="">全部公司</option>
-              {companies.map((c) => (
-                <option key={c} value={c}>{c}</option>
-              ))}
-            </select>
-          </label>
-          <label className="form-field employee-toolbar__toggle">
-            <span>每页展示</span>
-            <select
-              value={String(pageSize)}
-              onChange={(event) => {
-                setLoading(true);
-                setPageIndex(0);
-                setPageSize(Number(event.target.value));
-              }}
-            >
-              {PAGE_SIZE_OPTIONS.map((value) => (
-                <option key={value} value={value}>
-                  {value} 条
-                </option>
-              ))}
-            </select>
-          </label>
-          <button type="submit" className="button button--ghost">
-            搜索主档
-          </button>
+      {/* Filter bar */}
+      <Card style={{ marginBottom: 16 }}>
+        <form onSubmit={handleSearchSubmit}>
+          <Row gutter={[16, 16]} align="middle">
+            <Col xs={24} sm={12} md={6}>
+              <Input
+                placeholder="工号 / 姓名 / 身份证号 / 公司"
+                value={draftQuery}
+                onChange={(e) => setDraftQuery(e.target.value)}
+                allowClear
+              />
+            </Col>
+            <Col xs={12} sm={6} md={4}>
+              <Select
+                placeholder="筛选范围"
+                value={activeOnly ? 'active' : 'all'}
+                onChange={(v) => { setLoading(true); setPageIndex(0); setActiveOnly(v === 'active'); }}
+                style={{ width: '100%' }}
+                options={[
+                  { label: '全部主档', value: 'all' },
+                  { label: '仅在职主档', value: 'active' },
+                ]}
+              />
+            </Col>
+            <Col xs={12} sm={6} md={4}>
+              <Select
+                placeholder="全部地区"
+                allowClear
+                value={selectedRegion || undefined}
+                onChange={(v) => { setLoading(true); setSelectedRegion(v ?? ''); }}
+                style={{ width: '100%' }}
+                options={regions.map((r) => ({ label: r, value: r }))}
+              />
+            </Col>
+            <Col xs={12} sm={6} md={4}>
+              <Select
+                placeholder="全部公司"
+                allowClear
+                value={selectedCompany || undefined}
+                onChange={(v) => { setLoading(true); setSelectedCompany(v ?? ''); }}
+                style={{ width: '100%' }}
+                options={companies.map((c) => ({ label: c, value: c }))}
+              />
+            </Col>
+            <Col>
+              <Button type="primary" htmlType="submit">搜索主档</Button>
+            </Col>
+          </Row>
         </form>
+      </Card>
 
+      {/* Summary stats */}
+      <Row gutter={16} style={{ marginBottom: 16 }}>
+        <Col span={6}><Card><Statistic title="筛选结果总数" value={summary.total} /></Card></Col>
+        <Col span={6}><Card><Statistic title="当前页展示" value={summary.visible} /></Card></Col>
+        <Col span={6}><Card><Statistic title="当前页在职" value={summary.active} /></Card></Col>
+        <Col span={6}><Card><Statistic title="当前页覆盖公司" value={summary.companies} /></Card></Col>
+      </Row>
+
+      {/* Employee table */}
+      <Card>
         {loading ? (
-          <SectionState title="正在加载员工主档" message="系统正在同步当前可用于匹配的员工主档记录。" />
-        ) : employees.length ? (
-          <div className="employee-management-grid">
-            <div className="employee-table-panel">
-              <div className="preview-table-wrap">
-                <table className="preview-table">
-                  <thead>
-                    <tr>
-                      <th>工号</th>
-                      <th>姓名</th>
-                      <th>公司</th>
-                      <th>地区</th>
-                      <th>部门</th>
-                      <th>状态</th>
-                      <th>更新时间</th>
-                      <th>操作</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {employees.map((employee) => {
-                      const isSelected = employee.id === selectedEmployeeId;
-                      return (
-                        <tr key={employee.id} className={isSelected ? 'employee-table-row employee-table-row--active' : 'employee-table-row'}>
-                          <td>{employee.employee_id}</td>
-                          <td>{employee.person_name}</td>
-                          <td>{employee.company_name ?? '-'}</td>
-                          <td>{employee.region ?? '-'}</td>
-                          <td>{employee.department ?? '-'}</td>
-                          <td>
-                            <span className={`dashboard-pill ${employee.active ? 'dashboard-pill--ok' : 'dashboard-pill--warn'}`}>
-                              {employee.active ? '在职' : '停用'}
-                            </span>
-                          </td>
-                          <td>{formatDateTime(employee.updated_at)}</td>
-                          <td>
-                            <div className="employee-table-actions">
-                              <button type="button" className="button button--ghost" onClick={() => setSelectedEmployeeId(employee.id)}>
-                                {isSelected ? '已选中' : '管理'}
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="employee-pagination">
-                <div className="employee-pagination__summary">
-                  {summary.total ? `显示第 ${currentRange.start}-${currentRange.end} 条，共 ${summary.total} 条` : '当前没有可展示的主档记录'}
-                </div>
-                <div className="button-row employee-pagination__actions">
-                  <button
-                    type="button"
-                    className="button button--ghost"
-                    onClick={() => {
-                      setLoading(true);
-                      setPageIndex((current) => Math.max(0, current - 1));
-                    }}
-                    disabled={loading || pageIndex <= 0}
-                  >
-                    上一页
-                  </button>
-                  <span className="employee-pagination__page">{`第 ${Math.min(pageIndex + 1, totalPages)} / ${totalPages} 页`}</span>
-                  <button
-                    type="button"
-                    className="button button--ghost"
-                    onClick={() => {
-                      setLoading(true);
-                      setPageIndex((current) => (current + 1 < totalPages ? current + 1 : current));
-                    }}
-                    disabled={loading || pageIndex + 1 >= totalPages}
-                  >
-                    下一页
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            <div className="employee-side-panels">
-              <section className="panel-card employee-editor-card">
-                <div className="section-heading">
-                  <div>
-                    <span className="panel-label">人工编辑</span>
-                    <h2>{selectedEmployee ? `编辑 ${selectedEmployee.employee_id}` : '选择一条主档'}</h2>
-                  </div>
-                </div>
-
-                {selectedEmployee ? (
-                  <>
-                    <div className="employee-editor-meta status-grid">
-                      <article className="status-item">
-                        <strong>{selectedEmployee.person_name}</strong>
-                        <div>当前姓名</div>
-                      </article>
-                      <article className="status-item">
-                        <strong>{selectedEmployee.company_name ?? '-'}</strong>
-                        <div>公司主体</div>
-                      </article>
-                      <article className="status-item">
-                        <strong>{selectedEmployee.active ? '在职' : '停用'}</strong>
-                        <div>当前状态</div>
-                      </article>
-                    </div>
-
-                    <div className="employee-form-grid">
-                      <label className="form-field">
-                        <span>姓名</span>
-                        <input value={formState.person_name} onChange={(event) => setFormState((current) => ({ ...current, person_name: event.target.value }))} />
-                      </label>
-                      <label className="form-field">
-                        <span>身份证号</span>
-                        <input value={formState.id_number} onChange={(event) => setFormState((current) => ({ ...current, id_number: event.target.value }))} />
-                      </label>
-                      <label className="form-field">
-                        <span>公司</span>
-                        <input value={formState.company_name} onChange={(event) => setFormState((current) => ({ ...current, company_name: event.target.value }))} />
-                      </label>
-                      <label className="form-field">
-                        <span>部门</span>
-                        <input value={formState.department} onChange={(event) => setFormState((current) => ({ ...current, department: event.target.value }))} />
-                      </label>
-                      <label className="form-field">
-                        <span>地区</span>
-                        <select value={formState.region} onChange={(event) => setFormState((current) => ({ ...current, region: event.target.value }))}>
-                          <option value="">请选择地区</option>
-                          {regions.map((r) => (
-                            <option key={r} value={r}>{r}</option>
-                          ))}
-                        </select>
-                      </label>
-                    </div>
-
-                    <label className="form-field employee-status-note">
-                      <span>状态备注</span>
-                      <textarea
-                        rows={3}
-                        value={statusNote}
-                        onChange={(event) => setStatusNote(event.target.value)}
-                        placeholder="停用或重新启用时可记录原因，例如：员工离职、重复主档、恢复匹配资格。"
-                      />
-                    </label>
-
-                    <div className="button-row employee-editor-actions">
-                      <button type="button" className="button button--primary" onClick={() => void handleSave()} disabled={!isDirty || saving || !formState.person_name.trim()}>
-                        {saving ? '保存中...' : '保存编辑'}
-                      </button>
-                      <button type="button" className="button button--ghost" onClick={() => void handleToggleStatus()} disabled={togglingStatus}>
-                        {togglingStatus ? '提交中...' : selectedEmployee.active ? '停用主档' : '重新启用'}
-                      </button>
-                      <button type="button" className="button button--ghost employee-delete-button" onClick={() => void handleDelete()} disabled={deleting}>
-                        {deleting ? '删除中...' : '删除主档'}
-                      </button>
-                    </div>
-                  </>
-                ) : (
-                  <SectionState title="尚未选择主档" message="从左侧列表选中一条记录后，可以编辑信息、停用记录或发起删除。" />
-                )}
-              </section>
-
-              <section className="panel-card employee-audit-card">
-                <div className="section-heading">
-                  <div>
-                    <span className="panel-label">审计记录</span>
-                    <h2>导入与人工操作留痕</h2>
-                  </div>
-                </div>
-
-                {!selectedEmployee ? (
-                  <SectionState title="暂无审计对象" message="选中主档后，这里会展示最近的导入、编辑和状态变更记录。" />
-                ) : loadingAudits ? (
-                  <SectionState title="正在加载审计" message="系统正在读取该员工主档的历史操作记录。" />
-                ) : auditError ? (
-                  <SectionState tone="error" title="审计读取失败" message={auditError} />
-                ) : audits.length ? (
-                  <div className="employee-audit-list">
-                    {audits.map((audit) => (
-                      <article key={audit.id} className="employee-audit-item">
-                        <div className="employee-audit-item__head">
-                          <strong>{describeAuditAction(audit.action)}</strong>
-                          <span>{formatDateTime(audit.created_at)}</span>
-                        </div>
-                        <div className="employee-audit-item__meta">
-                          <span>工号快照：{audit.employee_id_snapshot}</span>
-                          <span>{audit.note ?? '无备注'}</span>
-                        </div>
-                        <div className="employee-audit-item__actions">
-                          <button
-                            type="button"
-                            className="button button--ghost employee-audit-delete-button"
-                            onClick={() => void handleDeleteAudit(audit)}
-                            disabled={deletingAuditId === audit.id}
-                          >
-                            {deletingAuditId === audit.id ? '删除中...' : '删除记录'}
-                          </button>
-                        </div>
-                      </article>
-                    ))}
-                  </div>
-                ) : (
-                  <SectionState title="暂无审计记录" message="当前主档还没有留下可展示的操作历史。" />
-                )}
-              </section>
-            </div>
-          </div>
+          <Skeleton active paragraph={{ rows: 8 }} />
+        ) : employees.length === 0 ? (
+          <Empty description="先导入员工主档文件，后续批次匹配才会进入可执行状态。" />
         ) : (
-          <SectionState title="暂无员工主档" message="先导入员工主档文件，后续批次匹配才会进入可执行状态。" />
+          <Table<EmployeeMasterItem>
+            columns={columns}
+            dataSource={employees}
+            rowKey="id"
+            size="small"
+            scroll={{ x: 900 }}
+            pagination={{
+              current: pageIndex + 1,
+              pageSize,
+              total: totalEmployees,
+              showSizeChanger: true,
+              pageSizeOptions: PAGE_SIZE_OPTIONS.map(String),
+              showTotal: (total) => `共 ${total} 条`,
+              onChange: (newPage, newPageSize) => {
+                setLoading(true);
+                if (newPageSize !== pageSize) {
+                  setPageIndex(0);
+                  setPageSize(newPageSize);
+                } else {
+                  setPageIndex(newPage - 1);
+                }
+              },
+            }}
+          />
         )}
-      </section>
-    </PageContainer>
+      </Card>
+
+      {/* Edit Drawer */}
+      <Drawer
+        title={selectedEmployee ? `编辑 ${selectedEmployee.employee_id}` : '编辑员工'}
+        width={480}
+        open={drawerVisible}
+        onClose={() => setDrawerVisible(false)}
+      >
+        {selectedEmployee ? (
+          <>
+            <Row gutter={16} style={{ marginBottom: 16 }}>
+              <Col span={8}><Statistic title="当前姓名" value={selectedEmployee.person_name} /></Col>
+              <Col span={8}><Statistic title="公司主体" value={selectedEmployee.company_name ?? '-'} /></Col>
+              <Col span={8}><Statistic title="当前状态" value={selectedEmployee.active ? '在职' : '停用'} /></Col>
+            </Row>
+
+            <Form layout="vertical">
+              <Form.Item label="姓名">
+                <Input value={formState.person_name} onChange={(e) => setFormState((c) => ({ ...c, person_name: e.target.value }))} />
+              </Form.Item>
+              <Form.Item label="身份证号">
+                <Input value={formState.id_number} onChange={(e) => setFormState((c) => ({ ...c, id_number: e.target.value }))} />
+              </Form.Item>
+              <Form.Item label="公司">
+                <Input value={formState.company_name} onChange={(e) => setFormState((c) => ({ ...c, company_name: e.target.value }))} />
+              </Form.Item>
+              <Form.Item label="部门">
+                <Input value={formState.department} onChange={(e) => setFormState((c) => ({ ...c, department: e.target.value }))} />
+              </Form.Item>
+              <Form.Item label="地区">
+                <Select
+                  value={formState.region || undefined}
+                  onChange={(v) => setFormState((c) => ({ ...c, region: v ?? '' }))}
+                  placeholder="请选择地区"
+                  allowClear
+                  options={regions.map((r) => ({ label: r, value: r }))}
+                />
+              </Form.Item>
+              <Form.Item label="状态备注">
+                <Input.TextArea
+                  rows={3}
+                  value={statusNote}
+                  onChange={(e) => setStatusNote(e.target.value)}
+                  placeholder="停用或重新启用时可记录原因"
+                />
+              </Form.Item>
+            </Form>
+
+            <Space style={{ marginBottom: 24 }}>
+              <Button type="primary" onClick={() => void handleSave()} disabled={!isDirty || saving || !formState.person_name.trim()} loading={saving}>
+                保存编辑
+              </Button>
+              <Button onClick={() => void handleToggleStatus()} disabled={togglingStatus} loading={togglingStatus}>
+                {selectedEmployee.active ? '停用主档' : '重新启用'}
+              </Button>
+              <Button danger onClick={() => void handleDelete()} disabled={deleting} loading={deleting}>
+                删除主档
+              </Button>
+            </Space>
+
+            {/* Audit records */}
+            <Title level={5}>审计记录</Title>
+            {loadingAudits ? (
+              <Skeleton active paragraph={{ rows: 3 }} />
+            ) : auditError ? (
+              <Empty description={auditError} />
+            ) : audits.length === 0 ? (
+              <Empty description="当前主档还没有留下可展示的操作历史。" />
+            ) : (
+              audits.map((audit) => (
+                <Card key={audit.id} size="small" style={{ marginBottom: 8 }}>
+                  <Row justify="space-between" align="middle">
+                    <Col>
+                      <Tag>{describeAuditAction(audit.action)}</Tag>
+                      <Typography.Text type="secondary" style={{ marginLeft: 8 }}>{formatDateTime(audit.created_at)}</Typography.Text>
+                    </Col>
+                    <Col>
+                      <Button
+                        type="text"
+                        danger
+                        size="small"
+                        icon={<DeleteOutlined />}
+                        onClick={() => void handleDeleteAudit(audit)}
+                        loading={deletingAuditId === audit.id}
+                      />
+                    </Col>
+                  </Row>
+                  <div style={{ marginTop: 4 }}>
+                    <Typography.Text type="secondary">工号快照: {audit.employee_id_snapshot}</Typography.Text>
+                    {audit.note && <Typography.Text type="secondary" style={{ marginLeft: 8 }}>{audit.note}</Typography.Text>}
+                  </div>
+                </Card>
+              ))
+            )}
+          </>
+        ) : (
+          <Empty description="从列表选中一条记录后，可以编辑信息" />
+        )}
+      </Drawer>
+    </div>
   );
 }
