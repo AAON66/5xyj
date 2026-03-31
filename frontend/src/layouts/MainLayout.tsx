@@ -85,6 +85,22 @@ const LABEL_MAP: Record<string, string> = {
   new: '新建',
 };
 
+function useResponsiveCollapse(breakpoint: number = 1440): boolean {
+  const [shouldCollapse, setShouldCollapse] = useState(
+    () => typeof window !== 'undefined' && window.innerWidth <= breakpoint
+  );
+
+  useEffect(() => {
+    const mql = window.matchMedia(`(max-width: ${breakpoint}px)`);
+    const handler = (e: MediaQueryListEvent) => setShouldCollapse(e.matches);
+    mql.addEventListener('change', handler);
+    setShouldCollapse(mql.matches);
+    return () => mql.removeEventListener('change', handler);
+  }, [breakpoint]);
+
+  return shouldCollapse;
+}
+
 function buildBreadcrumbItems(pathname: string) {
   const segments = pathname.split('/').filter(Boolean);
   const items = [{ title: '首页' }];
@@ -178,7 +194,20 @@ export function MainLayout() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const [collapsed, setCollapsed] = useState(false);
+
+  const autoCollapsed = useResponsiveCollapse(1440);
+  const [manualCollapse, setManualCollapse] = useState<boolean | null>(null);
+  const prevAutoCollapsed = useRef(autoCollapsed);
+
+  // When breakpoint changes, reset manual override so auto-collapse takes effect
+  useEffect(() => {
+    if (prevAutoCollapsed.current !== autoCollapsed) {
+      prevAutoCollapsed.current = autoCollapsed;
+      setManualCollapse(null);
+    }
+  }, [autoCollapsed]);
+
+  const collapsed = manualCollapse !== null ? manualCollapse : autoCollapsed;
 
   const userMenuItems: MenuProps['items'] = [
     {
@@ -195,7 +224,7 @@ export function MainLayout() {
         theme="dark"
         collapsible
         collapsed={collapsed}
-        onCollapse={setCollapsed}
+        onCollapse={(value) => setManualCollapse(value)}
         width={220}
         collapsedWidth={64}
       >
