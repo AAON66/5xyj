@@ -33,11 +33,11 @@ Declared values (inherited from Phase 7 theme tokens, multiples of 4):
 |-------|-------|-------|
 | xs | 4px | Icon-to-label gaps, inline badge padding |
 | sm | 8px | Compact element spacing, table cell padding block |
-| md | 12px | Form item gaps, small section padding |
-| lg | 16px | Default element spacing, card internal padding |
-| xl | 24px | Page content padding, section gaps, header padding |
-| 2xl | 32px | Major section breaks between card groups |
-| 3xl | 48px | Not used in this phase |
+| md | 16px | Default element spacing, card internal padding, form item gaps |
+| lg | 24px | Page content padding, section gaps, header padding |
+| xl | 32px | Major section breaks between card groups |
+| 2xl | 48px | Not used in this phase |
+| 3xl | 64px | Sider collapsed width (Ant Design Sider default) |
 
 Exceptions: Sider collapsed width fixed at 64px (Ant Design Sider default). Sider expanded width fixed at 220px (existing value).
 
@@ -47,11 +47,12 @@ Exceptions: Sider collapsed width fixed at 64px (Ant Design Sider default). Side
 
 | Role | Size | Weight | Line Height |
 |------|------|--------|-------------|
-| Body | 14px | 400 | 1.5714 |
-| Label / Caption | 12px | 400 | 1.5 |
+| Body / Label | 14px | 400 (body) / 600 (label emphasis) | 1.5714 |
 | Subheading (H3) | 16px | 600 | 1.5 |
 | Heading (H2) | 20px | 600 | 1.4 |
 | Page Title (H1) | 24px | 600 | 1.33 |
+
+4 sizes total. Former 12px Label/Caption role merged into 14px Body — use font-weight 600 or `color: #646A73` (text-secondary) to differentiate labels and captions from body text.
 
 Source: Phase 7 theme tokens. All Chinese text uses PingFang SC (macOS) / Microsoft YaHei (Windows) as primary face.
 
@@ -73,12 +74,24 @@ Additional semantic colors (from Phase 7 theme):
 | Warning | #FF7D00 | Steps warning indicator (orange exclamation), anomaly badges |
 | Success | #00B42A | Steps completed indicator (green checkmark), success toasts |
 | Text primary | #1F2329 | Body text, headings, table cell text |
-| Text secondary | #646A73 | Descriptions, helper text, breadcrumb segments |
+| Text secondary | #646A73 | Descriptions, helper text, breadcrumb segments, label differentiation |
 | Text tertiary | #8F959E | Placeholder text, disabled labels |
 | Border | #DEE0E3 | Card borders, header bottom border, dividers |
 | Sidebar dark | #1F2329 | Sider background |
 
 Accent reserved for: primary action buttons, sidebar active menu item (#3370FF at 15% opacity background), Steps current step dot, hyperlinks, workflow progress active segment. Never used for body text, borders, or background fills.
+
+---
+
+## Focal Points
+
+| Screen | Focal Point |
+|--------|-------------|
+| SimpleAggregate (Upload) | The "开始融合" primary CTA button centered in the upload dropzone card |
+| Dashboard (Parse) | The WorkflowSteps bar at top, drawing the eye to the current processing step status |
+| Results (Validate) | The data table with fixed left column (employee name) and inline validation badges |
+| Exports (Export) | The "导出报表" primary CTA button in the page action bar |
+| Workspace | The statistics cards row showing aggregation summary counts |
 
 ---
 
