@@ -1,23 +1,59 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import {
+  Alert,
+  Button,
+  Card,
+  Col,
+  Empty,
+  Row,
+  Select,
+  Skeleton,
+  Statistic,
+  Table,
+  Tag,
+  Typography,
+  message,
+} from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 
-import { PageContainer, SectionState, SurfaceNotice } from '../components';
 import { fetchImportBatch, fetchImportBatches, type ImportBatchDetail, type ImportBatchSummary } from '../services/imports';
 import { fetchHeaderMappings, updateHeaderMapping, type HeaderMappingItem } from '../services/mappings';
 
+const { Title, Text } = Typography;
+
 function mappingLabel(value: string): string {
   switch (value) {
-    case 'rule':
-      return '规则命中';
-    case 'llm':
-      return 'LLM 兜底';
-    case 'manual':
-      return '人工修正';
-    case 'unmapped':
-      return '未识别';
-    default:
-      return value;
+    case 'rule': return '规则命中';
+    case 'llm': return 'LLM 兜底';
+    case 'manual': return '人工修正';
+    case 'unmapped': return '未识别';
+    default: return value;
   }
+}
+
+function mappingSourceColor(value: string): string {
+  switch (value) {
+    case 'rule': return 'success';
+    case 'llm': return 'processing';
+    case 'manual': return 'blue';
+    case 'unmapped': return 'error';
+    default: return 'default';
+  }
+}
+
+function confidenceColor(confidence: number | null): string {
+  if (confidence === null) return 'default';
+  if (confidence >= 0.8) return 'success';
+  if (confidence >= 0.5) return 'warning';
+  return 'error';
+}
+
+function confidenceLabel(confidence: number | null): string {
+  if (confidence === null) return '无置信度';
+  if (confidence >= 0.8) return '高';
+  if (confidence >= 0.5) return '中';
+  return '低';
 }
 
 export function MappingsPage() {
@@ -31,52 +67,37 @@ export function MappingsPage() {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
-  const [panelNotice, setPanelNotice] = useState<{ tone: 'success' | 'warning'; message: string } | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-
     async function loadBatches() {
       try {
         const result = await fetchImportBatches();
-        if (!active) {
-          return;
-        }
+        if (!active) return;
         setBatches(result);
         setPageError(null);
         const initialBatchId = searchParams.get('batchId') ?? result[0]?.id ?? null;
         setSelectedBatchId((current) => current ?? initialBatchId);
       } catch {
-        if (active) {
-          setPageError('字段映射页面暂时无法读取批次列表。');
-        }
+        if (active) setPageError('字段映射页面暂时无法读取批次列表。');
       } finally {
-        if (active) {
-          setLoading(false);
-        }
+        if (active) setLoading(false);
       }
     }
-
     void loadBatches();
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [searchParams]);
 
   useEffect(() => {
     let active = true;
-
     async function loadBatchContext(batchId: string) {
       try {
         const [detail, mappingPayload] = await Promise.all([
           fetchImportBatch(batchId),
           fetchHeaderMappings(batchId, selectedSourceFileId ?? undefined),
         ]);
-        if (!active) {
-          return;
-        }
-
+        if (!active) return;
         setBatchDetail(detail);
         setMappings(mappingPayload.items);
         setAvailableFields(mappingPayload.available_canonical_fields);
@@ -85,12 +106,9 @@ export function MappingsPage() {
         setDrafts(Object.fromEntries(mappingPayload.items.map((item) => [item.id, item.canonical_field ?? ''])));
         setPageError(null);
       } catch {
-        if (active) {
-          setPageError('当前批次的映射记录加载失败，请稍后重试。');
-        }
+        if (active) setPageError('当前批次的映射记录加载失败，请稍后重试。');
       }
     }
-
     if (!selectedBatchId) {
       setBatchDetail(null);
       setMappings([]);
@@ -98,29 +116,20 @@ export function MappingsPage() {
       setDrafts({});
       return;
     }
-
     void loadBatchContext(selectedBatchId);
-    return () => {
-      active = false;
-    };
+    return () => { active = false; };
   }, [selectedBatchId, selectedSourceFileId]);
 
   useEffect(() => {
     const params = new URLSearchParams();
-    if (selectedBatchId) {
-      params.set('batchId', selectedBatchId);
-    }
-    if (selectedSourceFileId) {
-      params.set('sourceFileId', selectedSourceFileId);
-    }
+    if (selectedBatchId) params.set('batchId', selectedBatchId);
+    if (selectedSourceFileId) params.set('sourceFileId', selectedSourceFileId);
     setSearchParams(params, { replace: true });
   }, [selectedBatchId, selectedSourceFileId, setSearchParams]);
 
   const sourceFiles = batchDetail?.source_files ?? [];
   const visibleMappings = useMemo(() => {
-    if (!selectedSourceFileId) {
-      return mappings;
-    }
+    if (!selectedSourceFileId) return mappings;
     return mappings.filter((item) => item.source_file_id === selectedSourceFileId);
   }, [mappings, selectedSourceFileId]);
 
@@ -136,141 +145,169 @@ export function MappingsPage() {
   async function handleSave(mapping: HeaderMappingItem) {
     const nextValue = drafts[mapping.id] || null;
     setSavingId(mapping.id);
-    setPanelNotice(null);
     try {
       const updated = await updateHeaderMapping(mapping.id, nextValue);
       setMappings((current) => current.map((item) => (item.id === updated.id ? updated : item)));
       setDrafts((current) => ({ ...current, [mapping.id]: updated.canonical_field ?? '' }));
-      setPanelNotice({ tone: 'success', message: `已更新字段映射：${mapping.raw_header}` });
+      message.success(`已更新字段映射：${mapping.raw_header}`);
+    } catch {
+      message.error(`保存失败：${mapping.raw_header}`);
     } finally {
       setSavingId(null);
     }
   }
 
-  return (
-    <PageContainer
-      eyebrow="Mappings"
-      title="字段映射配置与人工修正"
-      description="查看每个批次的表头归一化结果，对低置信度或未识别字段进行人工覆盖，并把修正结果持久化到后端。"
-      actions={
-        <div className="button-row">
-          {selectedBatchId ? (
-            <Link to={`/imports/${selectedBatchId}`} className="button button--ghost">
-              返回批次详情
-            </Link>
-          ) : null}
+  const mappingColumns: ColumnsType<HeaderMappingItem> = [
+    {
+      title: '原始字段名',
+      dataIndex: 'raw_header',
+      key: 'raw_header',
+      render: (val: string, record: HeaderMappingItem) => (
+        <div>
+          <Text strong>{val}</Text>
+          <br />
+          <Text type="secondary" style={{ fontSize: 12 }}>{record.raw_header_signature}</Text>
         </div>
-      }
-    >
-      {panelNotice ? <SurfaceNotice tone={panelNotice.tone} message={panelNotice.message} /> : null}
-      {pageError ? <SurfaceNotice tone="error" title="页面状态异常" message={pageError} /> : null}
+      ),
+    },
+    {
+      title: '标准字段',
+      key: 'canonical_field',
+      width: 200,
+      render: (_: unknown, record: HeaderMappingItem) => (
+        <Select
+          style={{ width: '100%' }}
+          size="small"
+          value={drafts[record.id] || undefined}
+          placeholder="保持未识别"
+          allowClear
+          onChange={(val) => setDrafts((current) => ({ ...current, [record.id]: val ?? '' }))}
+          options={availableFields.map((f) => ({ value: f, label: f }))}
+        />
+      ),
+    },
+    {
+      title: '置信度',
+      dataIndex: 'confidence',
+      key: 'confidence',
+      width: 100,
+      render: (val: number | null) => (
+        <Tag color={confidenceColor(val)}>
+          {confidenceLabel(val)} {val !== null ? `(${val.toFixed(2)})` : ''}
+        </Tag>
+      ),
+    },
+    {
+      title: '来源',
+      dataIndex: 'mapping_source',
+      key: 'mapping_source',
+      width: 100,
+      render: (val: string) => <Tag color={mappingSourceColor(val)}>{mappingLabel(val)}</Tag>,
+    },
+    {
+      title: '文件',
+      dataIndex: 'source_file_name',
+      key: 'source_file_name',
+      ellipsis: true,
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 100,
+      render: (_: unknown, record: HeaderMappingItem) => (
+        <Button
+          type="primary"
+          size="small"
+          onClick={() => void handleSave(record)}
+          loading={savingId === record.id}
+        >
+          保存修正
+        </Button>
+      ),
+    },
+  ];
 
-      <div className="panel-grid panel-grid--two mapping-config-grid">
-        <section className="panel-card">
-          <div>
-            <span className="panel-label">批次选择</span>
-            <strong>{loading ? '加载中...' : `${batches.length} 个批次`}</strong>
-            <p>先选择批次，再按文件切换需要修正的表头映射。</p>
-          </div>
-          <label className="form-field">
-            <span>导入批次</span>
-            <select value={selectedBatchId ?? ''} onChange={(event) => setSelectedBatchId(event.target.value || null)}>
-              <option value="">请选择批次</option>
-              {batches.map((batch) => (
-                <option key={batch.id} value={batch.id}>
-                  {batch.batch_name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="form-field">
-            <span>源文件</span>
-            <select value={selectedSourceFileId ?? ''} onChange={(event) => setSelectedSourceFileId(event.target.value || null)} disabled={!sourceFiles.length}>
-              <option value="">全部文件</option>
-              {sourceFiles.map((file) => (
-                <option key={file.id} value={file.id}>
-                  {file.file_name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </section>
-
-        <section className="panel-card mapping-summary-grid">
-          <article className="status-item">
-            <strong>{summary.total}</strong>
-            <div>当前映射条目</div>
-          </article>
-          <article className="status-item">
-            <strong>{summary.manual}</strong>
-            <div>人工修正条目</div>
-          </article>
-          <article className="status-item">
-            <strong>{summary.unmapped}</strong>
-            <div>仍未识别条目</div>
-          </article>
-        </section>
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <Title level={4} style={{ margin: 0 }}>映射修正</Title>
+        {selectedBatchId && (
+          <Link to={`/imports/${selectedBatchId}`}>
+            <Button>返回批次详情</Button>
+          </Link>
+        )}
       </div>
 
-      <section className="panel-card">
-        <div className="section-heading">
-          <div>
-            <span className="panel-label">映射清单</span>
-            <h2>逐条检查并覆盖</h2>
-          </div>
-        </div>
+      {pageError && (
+        <Alert type="error" message="页面状态异常" description={pageError} style={{ marginBottom: 16 }} />
+      )}
+
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} md={8}>
+          <Card title="筛选条件">
+            {loading ? (
+              <Skeleton active paragraph={{ rows: 2 }} />
+            ) : (
+              <>
+                <div style={{ marginBottom: 12 }}>
+                  <Text type="secondary" style={{ display: 'block', marginBottom: 4 }}>导入批次</Text>
+                  <Select
+                    style={{ width: '100%' }}
+                    placeholder="请选择批次"
+                    value={selectedBatchId}
+                    onChange={(val) => setSelectedBatchId(val || null)}
+                    options={batches.map((b) => ({ value: b.id, label: b.batch_name }))}
+                    allowClear
+                  />
+                </div>
+                <div>
+                  <Text type="secondary" style={{ display: 'block', marginBottom: 4 }}>源文件</Text>
+                  <Select
+                    style={{ width: '100%' }}
+                    placeholder="全部文件"
+                    value={selectedSourceFileId}
+                    onChange={(val) => setSelectedSourceFileId(val || null)}
+                    disabled={!sourceFiles.length}
+                    allowClear
+                    options={sourceFiles.map((f) => ({ value: f.id, label: f.file_name }))}
+                  />
+                </div>
+              </>
+            )}
+          </Card>
+        </Col>
+        <Col xs={24} md={16}>
+          <Card>
+            <Row gutter={[16, 16]}>
+              <Col span={8}>
+                <Statistic title="当前映射条目" value={summary.total} />
+              </Col>
+              <Col span={8}>
+                <Statistic title="人工修正条目" value={summary.manual} valueStyle={{ color: '#3370FF' }} />
+              </Col>
+              <Col span={8}>
+                <Statistic title="仍未识别条目" value={summary.unmapped} valueStyle={{ color: '#F54A45' }} />
+              </Col>
+            </Row>
+          </Card>
+        </Col>
+      </Row>
+
+      <Card title="映射清单">
         {loading ? (
-          <SectionState title="正在加载映射记录" message="系统正在同步当前批次的表头归一化结果。" />
+          <Skeleton active paragraph={{ rows: 4 }} />
         ) : visibleMappings.length ? (
-          <div className="mapping-editor-list">
-            {visibleMappings.map((mapping) => (
-              <article key={mapping.id} className="mapping-editor-card">
-                <div className="mapping-editor-card__head">
-                  <div>
-                    <strong>{mapping.raw_header}</strong>
-                    <p>{mapping.raw_header_signature}</p>
-                  </div>
-                  <span className={`mapping-badge${mapping.canonical_field ? '' : ' mapping-badge--warn'}`}>{mapping.canonical_field ?? '未识别'}</span>
-                </div>
-                <div className="mapping-editor-meta">
-                  <span>来源：{mappingLabel(mapping.mapping_source)}</span>
-                  <span>文件：{mapping.source_file_name}</span>
-                  <span>{mapping.confidence !== null ? `置信度 ${mapping.confidence.toFixed(2)}` : '无置信度'}</span>
-                </div>
-                <div className="candidate-chip-list">
-                  {mapping.candidate_fields.length ? (
-                    mapping.candidate_fields.map((field) => (
-                      <span key={`${mapping.id}-${field}`} className="file-chip">
-                        {field}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="file-chip">暂无候选字段</span>
-                  )}
-                </div>
-                <div className="mapping-editor-actions">
-                  <label className="form-field">
-                    <span>标准字段</span>
-                    <select value={drafts[mapping.id] ?? ''} onChange={(event) => setDrafts((current) => ({ ...current, [mapping.id]: event.target.value }))}>
-                      <option value="">保持未识别</option>
-                      {availableFields.map((field) => (
-                        <option key={field} value={field}>
-                          {field}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <button type="button" className="button button--primary" onClick={() => void handleSave(mapping)} disabled={savingId === mapping.id}>
-                    {savingId === mapping.id ? '保存中...' : '保存修正'}
-                  </button>
-                </div>
-              </article>
-            ))}
-          </div>
+          <Table
+            size="small"
+            columns={mappingColumns}
+            dataSource={visibleMappings}
+            rowKey="id"
+            pagination={{ pageSize: 20, showSizeChanger: true }}
+          />
         ) : (
-          <SectionState title="暂无可修正映射" message="当前批次还没有可修正的映射记录。请先完成解析，或切换到有预览结果的文件。" />
+          <Empty description="当前批次还没有可修正的映射记录。请先完成解析，或切换到有预览结果的文件。" />
         )}
-      </section>
-    </PageContainer>
+      </Card>
+    </div>
   );
 }
