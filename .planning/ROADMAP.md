@@ -139,7 +139,7 @@ Plans:
 **Plans**: 4 plans
 
 Plans:
-- [ ] 07-01-PLAN.md -- Ant Design 基础设施：安装依赖、飞书主题配置、MainLayout 主布局、ConfigProvider 包装
+- [x] 07-01-PLAN.md -- Ant Design 基础设施：安装依赖、飞书主题配置、MainLayout 主布局、ConfigProvider 包装
 - [ ] 07-02-PLAN.md -- 核心页面重写：Login + Dashboard + SimpleAggregate
 - [ ] 07-03-PLAN.md -- 数据页面重写：DataManagement + Employees + EmployeeCreate + Imports + ImportBatchDetail
 - [ ] 07-04-PLAN.md -- 剩余页面重写 + 旧组件清理：EmployeeSelfService/Portal/Results/Exports/Mappings/Compare/AuditLogs/Workspace/NotFound
@@ -229,7 +229,7 @@ Note: Phases 4, 5, 6 can partially overlap (4 unblocks 5; 4 and 6 share the Phas
 | 4. Employee Master Data | 2/2 | Complete   | 2026-03-29 |
 | 5. Employee Portal | 2/2 | Complete   | 2026-03-30 |
 | 6. Data Management | 1/2 | In Progress|  |
-| 7. Design System & UI Foundation | 0/4 | Planning complete | - |
+| 7. Design System & UI Foundation | 1/4 | In Progress|  |
 | 8. Page Rebuild & UX Flow | 0/2 | Not started | - |
 | 9. API System | 0/2 | Not started | - |
 | 10. Feishu Integration | 0/2 | Not started | - |
