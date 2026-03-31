@@ -1,8 +1,25 @@
 import { useCallback, useEffect, useState } from 'react';
+import {
+  Alert,
+  Button,
+  Card,
+  Col,
+  DatePicker,
+  Row,
+  Select,
+  Table,
+  Tag,
+  Typography,
+} from 'antd';
+import { SearchOutlined } from '@ant-design/icons';
+import type { ColumnsType } from 'antd/es/table';
+import type { Dayjs } from 'dayjs';
 
-import { PageContainer } from '../components/PageContainer';
 import { getApiBaseUrl } from '../config/env';
 import { readAuthSession } from '../services/authSession';
+
+const { Title, Text } = Typography;
+const { RangePicker } = DatePicker;
 
 interface AuditLogItem {
   id: string;
@@ -24,18 +41,23 @@ interface AuditLogResponse {
   page_size: number;
 }
 
-const ACTION_LABELS: Record<string, string> = {
-  login: '登录成功',
-  login_failed: '登录失败',
-  export: '数据导出',
-  import: '数据导入',
-  aggregate: '数据融合',
-  user_create: '创建用户',
-  user_update: '编辑用户',
-  user_disable: '禁用用户',
-  employee_verify: '员工验证成功',
-  employee_verify_failed: '员工验证失败',
-};
+const ACTION_OPTIONS = [
+  { value: '', label: '全部操作' },
+  { value: 'login', label: '登录成功' },
+  { value: 'login_failed', label: '登录失败' },
+  { value: 'export', label: '数据导出' },
+  { value: 'import', label: '数据导入' },
+  { value: 'aggregate', label: '数据融合' },
+  { value: 'user_create', label: '创建用户' },
+  { value: 'user_update', label: '编辑用户' },
+  { value: 'user_disable', label: '禁用用户' },
+  { value: 'employee_verify', label: '员工验证成功' },
+  { value: 'employee_verify_failed', label: '员工验证失败' },
+];
+
+const ACTION_LABELS: Record<string, string> = Object.fromEntries(
+  ACTION_OPTIONS.filter((o) => o.value).map((o) => [o.value, o.label]),
+);
 
 const ROLE_LABELS: Record<string, string> = {
   admin: '管理员',
@@ -51,14 +73,11 @@ export function AuditLogsPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [action, setAction] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
+  const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-
-  const fetchLogs = useCallback(async (currentPage: number, filterAction: string, filterStart: string, filterEnd: string) => {
+  const fetchLogs = useCallback(async (currentPage: number, filterAction: string, filterDateRange: [Dayjs | null, Dayjs | null] | null) => {
     setLoading(true);
     setError(null);
 
@@ -67,8 +86,8 @@ export function AuditLogsPage() {
       const token = session?.accessToken;
       const params = new URLSearchParams();
       if (filterAction) params.set('action', filterAction);
-      if (filterStart) params.set('start_time', filterStart + 'T00:00:00');
-      if (filterEnd) params.set('end_time', filterEnd + 'T23:59:59');
+      if (filterDateRange?.[0]) params.set('start_time', filterDateRange[0].format('YYYY-MM-DD') + 'T00:00:00');
+      if (filterDateRange?.[1]) params.set('end_time', filterDateRange[1].format('YYYY-MM-DD') + 'T23:59:59');
       params.set('page', String(currentPage));
       params.set('page_size', String(PAGE_SIZE));
 
@@ -94,130 +113,122 @@ export function AuditLogsPage() {
   }, []);
 
   useEffect(() => {
-    fetchLogs(page, action, startDate, endDate);
+    fetchLogs(page, action, dateRange);
   }, [page, fetchLogs]);
 
   function handleSearch() {
     setPage(1);
-    fetchLogs(1, action, startDate, endDate);
+    fetchLogs(1, action, dateRange);
   }
 
   function formatTime(isoString: string): string {
     return new Date(isoString).toLocaleString('zh-CN');
   }
 
-  function truncateDetail(detail: string | null): string {
-    if (!detail) return '-';
-    return detail.length > 50 ? detail.slice(0, 50) + '...' : detail;
-  }
+  const columns: ColumnsType<AuditLogItem> = [
+    {
+      title: '时间',
+      dataIndex: 'created_at',
+      key: 'created_at',
+      width: 180,
+      render: (val: string) => formatTime(val),
+    },
+    {
+      title: '操作类型',
+      dataIndex: 'action',
+      key: 'action',
+      width: 120,
+      render: (val: string) => ACTION_LABELS[val] || val,
+    },
+    {
+      title: '操作人',
+      dataIndex: 'actor_username',
+      key: 'actor_username',
+      width: 100,
+    },
+    {
+      title: '角色',
+      dataIndex: 'actor_role',
+      key: 'actor_role',
+      width: 80,
+      render: (val: string) => <Tag>{ROLE_LABELS[val] || val}</Tag>,
+    },
+    {
+      title: 'IP 地址',
+      dataIndex: 'ip_address',
+      key: 'ip_address',
+      width: 130,
+      render: (val: string | null) => val || '-',
+    },
+    {
+      title: '结果',
+      dataIndex: 'success',
+      key: 'success',
+      width: 80,
+      render: (val: boolean) => (
+        <Tag color={val ? 'success' : 'error'}>{val ? '成功' : '失败'}</Tag>
+      ),
+    },
+    {
+      title: '详情',
+      dataIndex: 'detail',
+      key: 'detail',
+      ellipsis: true,
+      render: (val: string | null) => val || '-',
+    },
+  ];
 
   return (
-    <PageContainer
-      eyebrow="Security & Compliance"
-      title="审计日志"
-      description="查看系统操作记录，支持按操作类型和时间范围筛选。"
-    >
-      <div className="audit-filters" style={{ display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '16px' }}>
-        <select value={action} onChange={(e) => setAction(e.target.value)} style={{ padding: '6px 10px' }}>
-          <option value="">全部操作</option>
-          <option value="login">登录成功</option>
-          <option value="login_failed">登录失败</option>
-          <option value="export">数据导出</option>
-          <option value="import">数据导入</option>
-          <option value="aggregate">数据融合</option>
-          <option value="user_create">创建用户</option>
-          <option value="user_update">编辑用户</option>
-          <option value="user_disable">禁用用户</option>
-          <option value="employee_verify">员工验证成功</option>
-          <option value="employee_verify_failed">员工验证失败</option>
-        </select>
+    <div>
+      <Title level={4}>审计日志</Title>
 
-        <input
-          type="date"
-          value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
-          placeholder="起始日期"
-          style={{ padding: '6px 10px' }}
-        />
-
-        <input
-          type="date"
-          value={endDate}
-          onChange={(e) => setEndDate(e.target.value)}
-          placeholder="结束日期"
-          style={{ padding: '6px 10px' }}
-        />
-
-        <button type="button" onClick={handleSearch} style={{ padding: '6px 16px' }}>
-          查询
-        </button>
-      </div>
-
-      {loading && <p>加载中...</p>}
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      {!loading && !error && items.length === 0 && <p>暂无审计日志</p>}
-
-      {!loading && !error && items.length > 0 && (
-        <>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr>
-                  <th style={{ textAlign: 'left', padding: '8px', borderBottom: '2px solid #e5e7eb' }}>时间</th>
-                  <th style={{ textAlign: 'left', padding: '8px', borderBottom: '2px solid #e5e7eb' }}>操作类型</th>
-                  <th style={{ textAlign: 'left', padding: '8px', borderBottom: '2px solid #e5e7eb' }}>操作人</th>
-                  <th style={{ textAlign: 'left', padding: '8px', borderBottom: '2px solid #e5e7eb' }}>角色</th>
-                  <th style={{ textAlign: 'left', padding: '8px', borderBottom: '2px solid #e5e7eb' }}>IP 地址</th>
-                  <th style={{ textAlign: 'left', padding: '8px', borderBottom: '2px solid #e5e7eb' }}>结果</th>
-                  <th style={{ textAlign: 'left', padding: '8px', borderBottom: '2px solid #e5e7eb' }}>详情</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item) => (
-                  <tr key={item.id} style={{ borderBottom: '1px solid #f3f4f6' }}>
-                    <td style={{ padding: '8px', whiteSpace: 'nowrap' }}>{formatTime(item.created_at)}</td>
-                    <td style={{ padding: '8px' }}>{ACTION_LABELS[item.action] || item.action}</td>
-                    <td style={{ padding: '8px' }}>{item.actor_username}</td>
-                    <td style={{ padding: '8px' }}>{ROLE_LABELS[item.actor_role] || item.actor_role}</td>
-                    <td style={{ padding: '8px' }}>{item.ip_address || '-'}</td>
-                    <td style={{ padding: '8px' }}>
-                      <span style={{ color: item.success ? '#16a34a' : '#dc2626' }}>
-                        {item.success ? '成功' : '失败'}
-                      </span>
-                    </td>
-                    <td style={{ padding: '8px' }} title={item.detail || undefined}>
-                      {truncateDetail(item.detail)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
-            <span>共 {total} 条记录</span>
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-              <button
-                type="button"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                style={{ padding: '4px 12px' }}
-              >
-                上一页
-              </button>
-              <span>{page} / {totalPages}</span>
-              <button
-                type="button"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                style={{ padding: '4px 12px' }}
-              >
-                下一页
-              </button>
-            </div>
-          </div>
-        </>
+      {error && (
+        <Alert type="error" message={error} style={{ marginBottom: 16 }} />
       )}
-    </PageContainer>
+
+      <Card style={{ marginBottom: 16 }}>
+        <Row gutter={[12, 12]} align="middle">
+          <Col>
+            <Select
+              style={{ width: 160 }}
+              value={action}
+              onChange={(val) => setAction(val)}
+              options={ACTION_OPTIONS}
+            />
+          </Col>
+          <Col>
+            <RangePicker
+              value={dateRange as [Dayjs, Dayjs] | undefined}
+              onChange={(vals) => setDateRange(vals as [Dayjs | null, Dayjs | null] | null)}
+            />
+          </Col>
+          <Col>
+            <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch}>
+              查询
+            </Button>
+          </Col>
+          <Col flex="auto" style={{ textAlign: 'right' }}>
+            <Text type="secondary">共 {total} 条记录</Text>
+          </Col>
+        </Row>
+      </Card>
+
+      <Card>
+        <Table
+          size="small"
+          columns={columns}
+          dataSource={items}
+          rowKey="id"
+          loading={loading}
+          pagination={{
+            current: page,
+            pageSize: PAGE_SIZE,
+            total,
+            onChange: (p) => setPage(p),
+            showTotal: (t) => `共 ${t} 条`,
+          }}
+        />
+      </Card>
+    </div>
   );
 }

@@ -29,17 +29,6 @@ import {
 
 const { Title, Text } = Typography;
 
-function formatDateTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return new Intl.DateTimeFormat('zh-CN', {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(date);
-}
-
 function severityLabel(value: string): string {
   switch (value) {
     case 'error': return '错误';
