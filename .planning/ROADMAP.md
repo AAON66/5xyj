@@ -158,8 +158,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 08-01-PLAN.md -- 响应式侧边栏 1440px 断点 + 中文错误消息映射 + 角色导航验证
-- [ ] 08-02-PLAN.md -- WorkflowSteps 工作流引导组件 + 表格滚动/固定列配置
+- [x] 08-01-PLAN.md -- 响应式侧边栏 1440px 断点 + 中文错误消息映射 + 角色导航验证
+- [x] 08-02-PLAN.md -- WorkflowSteps 工作流引导组件 + 表格滚动/固定列配置
 
 **UI hint**: yes
 
@@ -230,7 +230,7 @@ Note: Phases 4, 5, 6 can partially overlap (4 unblocks 5; 4 and 6 share the Phas
 | 5. Employee Portal | 2/2 | Complete   | 2026-03-30 |
 | 6. Data Management | 1/2 | In Progress|  |
 | 7. Design System & UI Foundation | 1/4 | In Progress|  |
-| 8. Page Rebuild & UX Flow | 0/2 | Planning complete | - |
+| 8. Page Rebuild & UX Flow | 1/2 | In Progress|  |
 | 9. API System | 0/2 | Not started | - |
 | 10. Feishu Integration | 0/2 | Not started | - |
 | 11. Intelligence & Polish | 0/2 | Not started | - |

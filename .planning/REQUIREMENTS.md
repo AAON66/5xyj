@@ -47,21 +47,21 @@
 
 ### 数据管理 (DATA)
 
-- [ ] **DATA-01**: HR 可按地区、公司、月份筛选社保数据
-- [ ] **DATA-02**: HR 可查看全员社保公积金汇总
-- [ ] **DATA-03**: 数据校验仪表盘展示导入质量（缺失/异常/重复）
-- [ ] **DATA-04**: 导入历史可追溯（文件名、时间、操作人、记录数）
+- [x] **DATA-01**: HR 可按地区、公司、月份筛选社保数据
+- [x] **DATA-02**: HR 可查看全员社保公积金汇总
+- [x] **DATA-03**: 数据校验仪表盘展示导入质量（缺失/异常/重复）
+- [x] **DATA-04**: 导入历史可追溯（文件名、时间、操作人、记录数）
 
 ### 前端重设计 (UI)
 
-- [ ] **UI-01**: 采用 Ant Design 5.x 重建所有页面
-- [ ] **UI-02**: 飞书风格主题（简洁、卡片化、专业感）
-- [ ] **UI-03**: 页面切换和滚动有流畅的动画效果
-- [ ] **UI-04**: 背景和网页设计有精致的细节配合
-- [ ] **UI-05**: 角色感知路由（不同角色看到不同导航菜单）
-- [ ] **UI-06**: 响应式布局适配主流分辨率
-- [ ] **UI-07**: 中文本地化完整
-- [ ] **UI-08**: 上传/解析/导出流程操作逻辑顺畅
+- [x] **UI-01**: 采用 Ant Design 5.x 重建所有页面
+- [x] **UI-02**: 飞书风格主题（简洁、卡片化、专业感）
+- [x] **UI-03**: 页面切换和滚动有流畅的动画效果
+- [x] **UI-04**: 背景和网页设计有精致的细节配合
+- [x] **UI-05**: 角色感知路由（不同角色看到不同导航菜单）
+- [x] **UI-06**: 响应式布局适配主流分辨率
+- [x] **UI-07**: 中文本地化完整
+- [x] **UI-08**: 上传/解析/导出流程操作逻辑顺畅
 
 ### API 体系 (API)
 
@@ -133,18 +133,18 @@
 | PORTAL-03 | Phase 5 | Complete |
 | PORTAL-04 | Phase 5 | Complete |
 | PORTAL-05 | Phase 5 | Complete |
-| DATA-01 | Phase 6 | Pending |
-| DATA-02 | Phase 6 | Pending |
-| DATA-03 | Phase 6 | Pending |
-| DATA-04 | Phase 6 | Pending |
-| UI-01 | Phase 7 | Pending |
-| UI-02 | Phase 7 | Pending |
-| UI-03 | Phase 7 | Pending |
-| UI-04 | Phase 7 | Pending |
-| UI-05 | Phase 8 | Pending |
-| UI-06 | Phase 8 | Pending |
-| UI-07 | Phase 8 | Pending |
-| UI-08 | Phase 8 | Pending |
+| DATA-01 | Phase 6 | Complete |
+| DATA-02 | Phase 6 | Complete |
+| DATA-03 | Phase 6 | Complete |
+| DATA-04 | Phase 6 | Complete |
+| UI-01 | Phase 7 | Complete |
+| UI-02 | Phase 7 | Complete |
+| UI-03 | Phase 7 | Complete |
+| UI-04 | Phase 7 | Complete |
+| UI-05 | Phase 8 | Complete |
+| UI-06 | Phase 8 | Complete |
+| UI-07 | Phase 8 | Complete |
+| UI-08 | Phase 8 | Complete |
 | API-01 | Phase 9 | Pending |
 | API-02 | Phase 9 | Pending |
 | API-03 | Phase 9 | Pending |
