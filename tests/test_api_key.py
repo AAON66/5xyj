@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from backend.app.models.user import User
@@ -201,3 +202,191 @@ class TestListApiKeys:
 
         all_keys = list_api_keys(db_session)
         assert len(all_keys) == 3
+
+
+# ---------------------------------------------------------------------------
+# Integration tests (Task 2): CRUD endpoints + dual-auth
+# ---------------------------------------------------------------------------
+
+
+def _get_admin_token(client: TestClient) -> str:
+    """Log in as testadmin and return Bearer token."""
+    resp = client.post("/api/v1/auth/login", json={
+        "username": "testadmin",
+        "password": "testpass123",
+    })
+    assert resp.status_code == 200, f"Login failed: {resp.text}"
+    return resp.json()["data"]["access_token"]
+
+
+def _get_hr_token(client: TestClient) -> str:
+    """Log in as testhr and return Bearer token."""
+    resp = client.post("/api/v1/auth/login", json={
+        "username": "testhr",
+        "password": "hrpass123",
+    })
+    assert resp.status_code == 200, f"Login failed: {resp.text}"
+    return resp.json()["data"]["access_token"]
+
+
+def _create_api_key_via_endpoint(
+    client: TestClient, admin_token: str, owner_id: str, name: str = "Test Key"
+) -> dict:
+    """POST to /api/v1/api-keys/ and return the response data."""
+    resp = client.post(
+        "/api/v1/api-keys/",
+        json={"name": name, "owner_id": owner_id},
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 201, f"Create API Key failed: {resp.text}"
+    return resp.json()["data"]
+
+
+class TestApiKeyCrudEndpoints:
+    """Integration tests for API Key CRUD endpoints."""
+
+    def test_create_api_key_with_admin(self, test_client, seed_test_admin):
+        token = _get_admin_token(test_client)
+        data = _create_api_key_via_endpoint(
+            test_client, token, seed_test_admin.id, "My Key"
+        )
+        assert "key" in data  # raw key returned once
+        assert data["name"] == "My Key"
+        assert data["key_prefix"] == data["key"][:8]
+        assert data["owner_username"] == "testadmin"
+
+    def test_create_api_key_with_non_admin_returns_403(
+        self, test_client, seed_test_admin, seed_test_hr
+    ):
+        hr_token = _get_hr_token(test_client)
+        resp = test_client.post(
+            "/api/v1/api-keys/",
+            json={"name": "HR Key", "owner_id": seed_test_hr.id},
+            headers={"Authorization": f"Bearer {hr_token}"},
+        )
+        assert resp.status_code == 403
+
+    def test_list_api_keys(self, test_client, seed_test_admin):
+        token = _get_admin_token(test_client)
+        _create_api_key_via_endpoint(test_client, token, seed_test_admin.id, "K1")
+        _create_api_key_via_endpoint(test_client, token, seed_test_admin.id, "K2")
+
+        resp = test_client.get(
+            "/api/v1/api-keys/",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        items = resp.json()["data"]["items"]
+        assert len(items) == 2
+        # raw key should NOT be in list response
+        for item in items:
+            assert "key" not in item
+
+    def test_revoke_api_key(self, test_client, seed_test_admin):
+        token = _get_admin_token(test_client)
+        data = _create_api_key_via_endpoint(test_client, token, seed_test_admin.id)
+
+        resp = test_client.delete(
+            f"/api/v1/api-keys/{data['id']}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+
+        # Verify it's revoked
+        resp = test_client.get(
+            f"/api/v1/api-keys/{data['id']}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["data"]["is_active"] is False
+
+
+class TestDualAuth:
+    """Integration tests for X-API-Key header authentication."""
+
+    def test_api_key_auth_on_protected_endpoint(self, test_client, seed_test_admin):
+        """Valid X-API-Key should succeed on admin+hr endpoints."""
+        admin_token = _get_admin_token(test_client)
+        data = _create_api_key_via_endpoint(
+            test_client, admin_token, seed_test_admin.id
+        )
+        raw_key = data["key"]
+
+        # Access /api/v1/auth/me with API key
+        resp = test_client.get(
+            "/api/v1/auth/me",
+            headers={"X-API-Key": raw_key},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["data"]["username"] == "testadmin"
+
+    def test_invalid_api_key_returns_401(self, test_client, seed_test_admin):
+        resp = test_client.get(
+            "/api/v1/auth/me",
+            headers={"X-API-Key": "invalid-key-value"},
+        )
+        assert resp.status_code == 401
+
+    def test_hr_api_key_cannot_access_admin_endpoint(
+        self, test_client, seed_test_admin, seed_test_hr
+    ):
+        """API key bound to HR user cannot access admin-only endpoint."""
+        admin_token = _get_admin_token(test_client)
+        # Create API key bound to HR user
+        data = _create_api_key_via_endpoint(
+            test_client, admin_token, seed_test_hr.id, "HR API Key"
+        )
+        hr_api_key = data["key"]
+
+        # Try to access admin-only endpoint (users list)
+        resp = test_client.get(
+            "/api/v1/users/",
+            headers={"X-API-Key": hr_api_key},
+        )
+        assert resp.status_code == 403
+
+    def test_admin_api_key_can_access_admin_endpoint(
+        self, test_client, seed_test_admin
+    ):
+        """API key bound to admin user can access admin-only endpoint."""
+        admin_token = _get_admin_token(test_client)
+        data = _create_api_key_via_endpoint(
+            test_client, admin_token, seed_test_admin.id, "Admin API Key"
+        )
+        admin_api_key = data["key"]
+
+        resp = test_client.get(
+            "/api/v1/users/",
+            headers={"X-API-Key": admin_api_key},
+        )
+        assert resp.status_code == 200
+
+    def test_jwt_auth_still_works(self, test_client, seed_test_admin):
+        """Existing JWT auth must still work (regression test)."""
+        token = _get_admin_token(test_client)
+        resp = test_client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["data"]["username"] == "testadmin"
+
+    def test_revoked_api_key_returns_401(self, test_client, seed_test_admin):
+        """Revoked API key should return 401."""
+        admin_token = _get_admin_token(test_client)
+        data = _create_api_key_via_endpoint(
+            test_client, admin_token, seed_test_admin.id
+        )
+
+        # Revoke the key
+        test_client.delete(
+            f"/api/v1/api-keys/{data['id']}",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+
+        # Try to use it
+        resp = test_client.get(
+            "/api/v1/auth/me",
+            headers={"X-API-Key": data["key"]},
+        )
+        assert resp.status_code == 401

@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from backend.app.api.v1.aggregate import router as aggregate_router
+from backend.app.api.v1.api_keys import router as api_keys_router
 from backend.app.api.v1.audit import router as audit_router
 from backend.app.api.v1.auth import router as auth_router
 from backend.app.api.v1.compare import router as compare_router
@@ -25,6 +26,9 @@ api_router.include_router(users_router, dependencies=[Depends(require_role("admi
 
 # Admin only (D-06: only admin can view audit logs)
 api_router.include_router(audit_router, dependencies=[Depends(require_role("admin"))])
+
+# Admin only -- API Key management
+api_router.include_router(api_keys_router, dependencies=[Depends(require_role("admin"))])
 
 # Admin + HR (D-14: HR has all business functions)
 api_router.include_router(aggregate_router, dependencies=[Depends(require_role("admin", "hr"))])
