@@ -175,6 +175,7 @@ export function ResultsPage() {
       title: '行号',
       dataIndex: 'source_row_number',
       key: 'row',
+      fixed: 'left' as const,
       width: 80,
       render: (val: number) => `第 ${val} 行`,
     },
@@ -210,6 +211,8 @@ export function ResultsPage() {
       title: '姓名',
       dataIndex: 'person_name',
       key: 'person_name',
+      fixed: 'left' as const,
+      width: 100,
       render: (val: string | null) => val ?? '未识别姓名',
     },
     {
@@ -350,6 +353,7 @@ export function ResultsPage() {
                 dataSource={validationIssues}
                 rowKey={(r) => `${r.normalized_record_id ?? 'none'}-${r.source_row_number}-${r.issue_type}`}
                 pagination={{ pageSize: 10, showSizeChanger: true }}
+                scroll={{ x: true }}
               />
             ) : (
               <Empty description="暂无校验问题。执行校验后，如果发现缺失、格式或金额问题，这里会展示详细结果。" />
@@ -365,6 +369,7 @@ export function ResultsPage() {
                 dataSource={matchRows}
                 rowKey={(r) => `${r.normalized_record_id ?? 'none'}-${r.source_row_number}`}
                 pagination={{ pageSize: 10, showSizeChanger: true }}
+                scroll={{ x: true }}
               />
             ) : (
               <Empty description="暂无匹配结果。执行工号匹配后，这里会展示命中、未命中和低置信度候选。" />

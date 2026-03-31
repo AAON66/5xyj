@@ -223,7 +223,7 @@ export function DataManagementPage() {
 
   // Detail table columns
   const detailColumns: ColumnsType<NormalizedRecordItem> = useMemo(() => [
-    { title: '姓名', dataIndex: 'person_name', key: 'person_name', width: 80, render: (v: string | null) => v ?? '-' },
+    { title: '姓名', dataIndex: 'person_name', key: 'person_name', fixed: 'left' as const, width: 80, render: (v: string | null) => v ?? '-' },
     { title: '工号', dataIndex: 'employee_id', key: 'employee_id', width: 80, render: (v: string | null) => v ?? '-' },
     { title: '地区', dataIndex: 'region', key: 'region', width: 70, render: (v: string | null) => v ?? '-' },
     { title: '公司', dataIndex: 'company_name', key: 'company_name', width: 120, ellipsis: true, render: (v: string | null) => v ?? '-' },
@@ -274,7 +274,7 @@ export function DataManagementPage() {
 
   // Employee summary columns
   const employeeSummaryColumns: ColumnsType<EmployeeSummaryItem> = useMemo(() => [
-    { title: '工号', dataIndex: 'employee_id', key: 'employee_id', render: (v: string | null) => v ?? '-' },
+    { title: '工号', dataIndex: 'employee_id', key: 'employee_id', fixed: 'left' as const, width: 100, render: (v: string | null) => v ?? '-' },
     { title: '姓名', dataIndex: 'person_name', key: 'person_name', render: (v: string | null) => v ?? '-' },
     { title: '公司', dataIndex: 'company_name', key: 'company_name', render: (v: string | null) => v ?? '-' },
     { title: '地区', dataIndex: 'region', key: 'region', render: (v: string | null) => v ?? '-' },
@@ -286,7 +286,7 @@ export function DataManagementPage() {
 
   // Period summary columns
   const periodSummaryColumns: ColumnsType<PeriodSummaryItem> = useMemo(() => [
-    { title: '月份', dataIndex: 'billing_period', key: 'billing_period', render: (v: string) => formatPeriod(v) },
+    { title: '月份', dataIndex: 'billing_period', key: 'billing_period', fixed: 'left' as const, width: 100, render: (v: string) => formatPeriod(v) },
     { title: '总人数', dataIndex: 'total_count', key: 'total_count' },
     { title: '单位合计', dataIndex: 'company_total', key: 'company_total', align: 'right' as const, render: (v: number | null) => formatAmount(v) },
     { title: '个人合计', dataIndex: 'personal_total', key: 'personal_total', align: 'right' as const, render: (v: number | null) => formatAmount(v) },

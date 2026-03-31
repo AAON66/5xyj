@@ -301,7 +301,7 @@ export function SimpleAggregatePage() {
   });
 
   const sourceFileColumns: ColumnsType<NonNullable<typeof result>['source_files'][number]> = [
-    { title: '文件名', dataIndex: 'file_name', key: 'file_name' },
+    { title: '文件名', dataIndex: 'file_name', key: 'file_name', fixed: 'left' as const, width: 150 },
     {
       title: '类型',
       dataIndex: 'source_kind',
@@ -662,6 +662,7 @@ export function SimpleAggregatePage() {
                     rowKey="source_file_id"
                     size="small"
                     pagination={false}
+                    scroll={{ x: true }}
                   />
                 </Card>
               </div>

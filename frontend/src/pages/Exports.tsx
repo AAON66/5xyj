@@ -166,6 +166,8 @@ export function ExportsPage() {
       title: '模板类型',
       dataIndex: 'template_type',
       key: 'template_type',
+      fixed: 'left' as const,
+      width: 120,
       render: (val: string) => templateLabel(val),
     },
     {
@@ -296,6 +298,7 @@ export function ExportsPage() {
             dataSource={artifacts}
             rowKey="template_type"
             pagination={false}
+            scroll={{ x: true }}
           />
         ) : (
           <Empty description="当前批次还没有导出记录。完成匹配后即可在这里触发双模板导出。" />

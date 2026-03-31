@@ -184,7 +184,7 @@ export function DashboardPage() {
   }, [overview]);
 
   const qualityColumns: ColumnsType<BatchQualityRow> = [
-    { title: '批次名称', dataIndex: 'batch_name', key: 'batch_name' },
+    { title: '批次名称', dataIndex: 'batch_name', key: 'batch_name', fixed: 'left' as const, width: 150 },
     { title: '记录数', dataIndex: 'record_count', key: 'record_count', align: 'right', sorter: (a, b) => a.record_count - b.record_count },
     {
       title: '缺失',
@@ -217,6 +217,8 @@ export function DashboardPage() {
       title: '批次名称',
       dataIndex: 'batch_name',
       key: 'batch_name',
+      fixed: 'left' as const,
+      width: 150,
       render: (text: string, record) => <Link to={`/imports/${record.batch_id}`}>{text}</Link>,
     },
     {
@@ -353,6 +355,7 @@ export function DashboardPage() {
                 rowKey="batch_id"
                 size="small"
                 pagination={false}
+                scroll={{ x: true }}
               />
             </Card>
           )}
@@ -370,6 +373,7 @@ export function DashboardPage() {
             rowKey="batch_id"
             size="small"
             pagination={false}
+            scroll={{ x: true }}
           />
         ) : (
           <Empty description="还没有批次活动记录。先去上传样例并跑通一条批次链路，这里就会自动出现最近进展。" />

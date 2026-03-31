@@ -354,7 +354,7 @@ export function EmployeesPage() {
   }
 
   const columns: ColumnsType<EmployeeMasterItem> = useMemo(() => [
-    { title: '工号', dataIndex: 'employee_id', key: 'employee_id', width: 100 },
+    { title: '工号', dataIndex: 'employee_id', key: 'employee_id', fixed: 'left' as const, width: 100 },
     { title: '姓名', dataIndex: 'person_name', key: 'person_name', width: 80 },
     { title: '公司', dataIndex: 'company_name', key: 'company_name', width: 140, ellipsis: true, render: (v: string | null) => v ?? '-' },
     { title: '地区', dataIndex: 'region', key: 'region', width: 70, render: (v: string | null) => v ?? '-' },
@@ -367,7 +367,7 @@ export function EmployeesPage() {
     },
     { title: '更新时间', dataIndex: 'updated_at', key: 'updated_at', width: 160, render: (v: string) => formatDateTime(v) },
     {
-      title: '操作', key: 'actions', width: 100,
+      title: '操作', key: 'actions', fixed: 'right' as const, width: 120,
       render: (_: unknown, record: EmployeeMasterItem) => (
         <Space>
           <Button type="link" size="small" onClick={() => openDrawer(record.id)}>编辑</Button>

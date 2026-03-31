@@ -241,7 +241,7 @@ export function ImportsPage() {
   // Batch list table columns
   const batchColumns: ColumnsType<ImportBatchSummary> = useMemo(() => [
     {
-      title: '批次名称', dataIndex: 'batch_name', key: 'batch_name',
+      title: '批次名称', dataIndex: 'batch_name', key: 'batch_name', fixed: 'left' as const, width: 150,
       render: (name: string, record: ImportBatchSummary) => (
         <Link to={`/imports/${record.id}`}>{name}</Link>
       ),
@@ -258,7 +258,7 @@ export function ImportsPage() {
     },
     { title: '更新时间', dataIndex: 'updated_at', key: 'updated_at', width: 160, render: (v: string) => formatDateTime(v) },
     {
-      title: '操作', key: 'actions', width: 140,
+      title: '操作', key: 'actions', fixed: 'right' as const, width: 140,
       render: (_: unknown, record: ImportBatchSummary) => (
         <Space>
           <Link to={`/imports/${record.id}`}>
