@@ -189,11 +189,13 @@ Plans:
   3. Sync status page shows history of sync operations (timestamp, direction, records synced, success/failure)
   4. All sync operations are manually triggered (no background auto-sync)
   5. Feishu OAuth login works when enabled via feature flag (disabled by default)
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 10-01: TBD
-- [ ] 10-02: TBD
+- [ ] 10-01-PLAN.md -- Backend foundation: models (SyncConfig/SyncJob), Feishu API client, sync service, feature flags, User model extension, tests
+- [ ] 10-02-PLAN.md -- Backend API: sync trigger endpoints (NDJSON streaming), settings CRUD, OAuth callback, feature flags endpoint, route registration
+- [ ] 10-03-PLAN.md -- Frontend foundation: API service, feature flag hook, FeishuSync page, FeishuSettings page, navigation integration
+- [ ] 10-04-PLAN.md -- Frontend advanced: @xyflow/react field mapping UI, push/pull conflict modals, OAuth login button, visual verification
 
 **UI hint**: yes
 
@@ -232,5 +234,5 @@ Note: Phases 4, 5, 6 can partially overlap (4 unblocks 5; 4 and 6 share the Phas
 | 7. Design System & UI Foundation | 1/4 | In Progress|  |
 | 8. Page Rebuild & UX Flow | 1/2 | In Progress|  |
 | 9. API System | 0/2 | Planning complete | - |
-| 10. Feishu Integration | 0/2 | Not started | - |
+| 10. Feishu Integration | 0/4 | Planning complete | - |
 | 11. Intelligence & Polish | 0/2 | Not started | - |
