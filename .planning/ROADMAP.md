@@ -176,7 +176,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 09-01-PLAN.md -- API Key 模型/服务/CRUD 端点 + 双认证依赖注入（JWT + API Key）
+- [x] 09-01-PLAN.md -- API Key 模型/服务/CRUD 端点 + 双认证依赖注入（JWT + API Key）
 - [ ] 09-02-PLAN.md -- 响应格式规范化 + 中文文档 + /docs 保护 + Markdown 文档生成 + 前端 API Key 管理页
 
 ### Phase 10: Feishu Integration
