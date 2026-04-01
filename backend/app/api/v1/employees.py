@@ -34,10 +34,11 @@ from backend.app.services.employee_service import (
     update_employee_master_status,
 )
 
-router = APIRouter(prefix='/employees', tags=['employees'])
+# Error code prefix: EMP_xxx
+router = APIRouter(prefix='/employees', tags=['\u5458\u5de5\u7ba1\u7406'])
 
 
-@router.get('')
+@router.get('', summary="\u67e5\u8be2\u5458\u5de5\u4e3b\u6570\u636e\u5217\u8868", description="\u5206\u9875\u67e5\u8be2\u5458\u5de5\u4e3b\u6570\u636e\uff0c\u652f\u6301\u6309\u59d3\u540d\u3001\u5730\u533a\u3001\u516c\u53f8\u7b5b\u9009\u3002")
 def list_employee_masters_endpoint(
     query: Optional[str] = Query(default=None),
     region: Optional[str] = Query(default=None),
@@ -58,7 +59,7 @@ def list_employee_masters_endpoint(
     return success_response(data, message='Employee master records retrieved.')
 
 
-@router.post('', status_code=status.HTTP_201_CREATED)
+@router.post('', status_code=status.HTTP_201_CREATED, summary="\u521b\u5efa\u5458\u5de5\u4e3b\u6570\u636e", description="\u65b0\u589e\u4e00\u6761\u5458\u5de5\u4e3b\u6570\u636e\u8bb0\u5f55\u3002")
 def create_employee_master_endpoint(
     payload: EmployeeMasterCreateInput = Body(...),
     db: Session = Depends(get_db),
@@ -71,7 +72,7 @@ def create_employee_master_endpoint(
     return success_response(result.model_dump(mode='json'), message='Employee master record created.', status_code=status.HTTP_201_CREATED)
 
 
-@router.post('/import', status_code=status.HTTP_201_CREATED)
+@router.post('/import', status_code=status.HTTP_201_CREATED, summary="\u5bfc\u5165\u5458\u5de5\u4e3b\u6570\u636e", description="\u901a\u8fc7 Excel \u6587\u4ef6\u6279\u91cf\u5bfc\u5165\u5458\u5de5\u4e3b\u6570\u636e\u3002")
 async def import_employee_masters_endpoint(
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
@@ -88,12 +89,12 @@ async def import_employee_masters_endpoint(
 SUPPORTED_REGIONS = ["广州", "杭州", "厦门", "深圳", "武汉", "长沙"]
 
 
-@router.get('/regions')
+@router.get('/regions', summary="\u83b7\u53d6\u652f\u6301\u7684\u5730\u533a\u5217\u8868", description="\u8fd4\u56de\u7cfb\u7edf\u5f53\u524d\u652f\u6301\u89e3\u6790\u7684\u5730\u533a\u5217\u8868\u3002")
 def list_regions_endpoint():
     return success_response(SUPPORTED_REGIONS)
 
 
-@router.get('/companies')
+@router.get('/companies', summary="\u83b7\u53d6\u516c\u53f8\u5217\u8868", description="\u8fd4\u56de\u5458\u5de5\u4e3b\u6570\u636e\u4e2d\u5df2\u5f55\u5165\u7684\u516c\u53f8\u540d\u79f0\u5217\u8868\u3002")
 def list_companies_endpoint(
     db: Session = Depends(get_db),
     _user=Depends(require_authenticated_user),
@@ -105,7 +106,7 @@ def list_companies_endpoint(
     return success_response(companies)
 
 
-@router.post('/self-service/query')
+@router.post('/self-service/query', summary="\u5458\u5de5\u81ea\u52a9\u67e5\u8be2", description="\u5458\u5de5\u901a\u8fc7\u5de5\u53f7\u3001\u8eab\u4efd\u8bc1\u53f7\u548c\u59d3\u540d\u67e5\u8be2\u4e2a\u4eba\u793e\u4fdd\u4fe1\u606f\u3002")
 def employee_self_service_query_endpoint(
     payload: EmployeeSelfServiceQueryInput = Body(...),
     db: Session = Depends(get_db),
@@ -117,7 +118,7 @@ def employee_self_service_query_endpoint(
     return success_response(result.model_dump(mode='json'), message='Employee self-service result retrieved.')
 
 
-@router.patch('/{employee_id}')
+@router.patch('/{employee_id}', summary="\u66f4\u65b0\u5458\u5de5\u4e3b\u6570\u636e", description="\u90e8\u5206\u66f4\u65b0\u6307\u5b9a\u5458\u5de5\u7684\u4e3b\u6570\u636e\u5b57\u6bb5\u3002")
 def update_employee_master_endpoint(
     employee_id: str,
     payload: EmployeeMasterUpdateInput = Body(...),
@@ -131,7 +132,7 @@ def update_employee_master_endpoint(
     return success_response(result.model_dump(mode='json'), message='Employee master record updated.')
 
 
-@router.post('/{employee_id}/status')
+@router.post('/{employee_id}/status', summary="\u66f4\u65b0\u5458\u5de5\u72b6\u6001", description="\u542f\u7528\u6216\u7981\u7528\u6307\u5b9a\u5458\u5de5\u3002")
 def update_employee_master_status_endpoint(
     employee_id: str,
     payload: EmployeeMasterStatusInput = Body(...),
@@ -145,7 +146,7 @@ def update_employee_master_status_endpoint(
     return success_response(result.model_dump(mode='json'), message='Employee master status updated.')
 
 
-@router.delete('/{employee_id}', status_code=status.HTTP_204_NO_CONTENT)
+@router.delete('/{employee_id}', status_code=status.HTTP_204_NO_CONTENT, summary="\u5220\u9664\u5458\u5de5\u4e3b\u6570\u636e", description="\u5220\u9664\u6307\u5b9a\u5458\u5de5\u7684\u4e3b\u6570\u636e\u8bb0\u5f55\u3002")
 def delete_employee_master_endpoint(
     employee_id: str,
     db: Session = Depends(get_db),
@@ -160,7 +161,7 @@ def delete_employee_master_endpoint(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.get('/{employee_id}/audits')
+@router.get('/{employee_id}/audits', summary="\u67e5\u8be2\u5458\u5de5\u53d8\u66f4\u5386\u53f2", description="\u83b7\u53d6\u6307\u5b9a\u5458\u5de5\u7684\u4e3b\u6570\u636e\u53d8\u66f4\u5386\u53f2\u3002")
 def list_employee_master_audits_endpoint(
     employee_id: str,
     db: Session = Depends(get_db),
@@ -173,7 +174,7 @@ def list_employee_master_audits_endpoint(
     return success_response(payload.model_dump(mode='json'), message='Employee master audits retrieved.')
 
 
-@router.delete('/{employee_id}/audits/{audit_id}', status_code=status.HTTP_204_NO_CONTENT)
+@router.delete('/{employee_id}/audits/{audit_id}', status_code=status.HTTP_204_NO_CONTENT, summary="\u5220\u9664\u5458\u5de5\u53d8\u66f4\u8bb0\u5f55", description="\u5220\u9664\u6307\u5b9a\u5458\u5de5\u7684\u67d0\u6761\u53d8\u66f4\u5386\u53f2\u8bb0\u5f55\u3002")
 def delete_employee_master_audit_endpoint(
     employee_id: str,
     audit_id: str,

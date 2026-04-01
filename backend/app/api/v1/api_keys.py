@@ -25,10 +25,11 @@ from backend.app.services.audit_service import log_audit
 from backend.app.services.user_service import get_user_by_id
 from backend.app.utils.request_helpers import get_client_ip
 
-router = APIRouter(prefix="/api-keys", tags=["API Key 管理"])
+# Error code prefix: AUTH_xxx (API Key auth subsystem)
+router = APIRouter(prefix="/api-keys", tags=["\u7cfb\u7edf\u7ba1\u7406"])
 
 
-@router.post("/", status_code=201)
+@router.post("/", status_code=201, summary="\u521b\u5efa API Key", description="\u521b\u5efa\u65b0\u7684 API Key \u5e76\u7ed1\u5b9a\u5230\u6307\u5b9a\u7528\u6237\u3002\u539f\u59cb Key \u4ec5\u8fd4\u56de\u4e00\u6b21\u3002")
 def create_api_key_endpoint(
     request: Request,
     body: ApiKeyCreateRequest,
@@ -83,7 +84,7 @@ def create_api_key_endpoint(
     return success_response(response.model_dump(mode="json"), status_code=201)
 
 
-@router.get("/")
+@router.get("/", summary="\u67e5\u8be2 API Key \u5217\u8868", description="\u67e5\u8be2\u6240\u6709 API Key\uff0c\u53ef\u6309\u7528\u6237 ID \u7b5b\u9009\u3002")
 def list_api_keys_endpoint(
     db: Session = Depends(get_db),
     owner_id: Optional[str] = Query(None, description="Filter by owner user ID"),
@@ -95,7 +96,7 @@ def list_api_keys_endpoint(
     return success_response(response.model_dump(mode="json"))
 
 
-@router.get("/{key_id}")
+@router.get("/{key_id}", summary="\u83b7\u53d6 API Key \u8be6\u60c5", description="\u6839\u636e ID \u83b7\u53d6\u5355\u4e2a API Key \u7684\u8be6\u7ec6\u4fe1\u606f\u3002")
 def get_api_key_endpoint(
     key_id: str,
     db: Session = Depends(get_db),
@@ -110,7 +111,7 @@ def get_api_key_endpoint(
     return success_response(ApiKeyRead.model_validate(record).model_dump(mode="json"))
 
 
-@router.delete("/{key_id}")
+@router.delete("/{key_id}", summary="\u7981\u7528 API Key", description="\u7981\u7528\u6307\u5b9a\u7684 API Key\uff0c\u7981\u7528\u540e\u65e0\u6cd5\u518d\u4f7f\u7528\u3002")
 def revoke_api_key_endpoint(
     key_id: str,
     request: Request,

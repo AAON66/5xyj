@@ -18,10 +18,11 @@ from backend.app.services.user_service import (
     update_user,
 )
 
-router = APIRouter(prefix="/users", tags=["users"])
+# Error code prefix: USR_xxx
+router = APIRouter(prefix="/users", tags=["\u7cfb\u7edf\u7ba1\u7406"])
 
 
-@router.post("/", status_code=201)
+@router.post("/", status_code=201, summary="\u521b\u5efa\u7528\u6237", description="\u521b\u5efa\u65b0\u7528\u6237\u8d26\u53f7\uff0c\u4ec5\u7ba1\u7406\u5458\u53ef\u64cd\u4f5c\u3002")
 def create_user_endpoint(
     request: Request,
     body: UserCreate,
@@ -49,14 +50,14 @@ def create_user_endpoint(
     return success_response(UserRead.model_validate(user).model_dump(mode="json"), status_code=201)
 
 
-@router.get("/")
+@router.get("/", summary="\u67e5\u8be2\u7528\u6237\u5217\u8868", description="\u8fd4\u56de\u6240\u6709\u7528\u6237\u8d26\u53f7\u5217\u8868\u3002")
 def list_users_endpoint(db: Session = Depends(get_db)):
     users = list_users(db)
     data = [UserRead.model_validate(u).model_dump(mode="json") for u in users]
     return success_response(data)
 
 
-@router.get("/{user_id}")
+@router.get("/{user_id}", summary="\u83b7\u53d6\u7528\u6237\u8be6\u60c5", description="\u83b7\u53d6\u6307\u5b9a\u7528\u6237\u7684\u8be6\u7ec6\u4fe1\u606f\u3002")
 def get_user_endpoint(user_id: str, db: Session = Depends(get_db)):
     user = get_user_by_id(db, user_id)
     if user is None:
@@ -64,7 +65,7 @@ def get_user_endpoint(user_id: str, db: Session = Depends(get_db)):
     return success_response(UserRead.model_validate(user).model_dump(mode="json"))
 
 
-@router.put("/{user_id}")
+@router.put("/{user_id}", summary="\u66f4\u65b0\u7528\u6237\u4fe1\u606f", description="\u66f4\u65b0\u6307\u5b9a\u7528\u6237\u7684\u4fe1\u606f\uff0c\u5305\u62ec\u89d2\u8272\u548c\u663e\u793a\u540d\u7b49\u3002")
 def update_user_endpoint(
     user_id: str,
     body: UserUpdate,
@@ -91,7 +92,7 @@ def update_user_endpoint(
     return success_response(UserRead.model_validate(user).model_dump(mode="json"))
 
 
-@router.put("/{user_id}/password")
+@router.put("/{user_id}/password", summary="\u91cd\u7f6e\u7528\u6237\u5bc6\u7801", description="\u7ba1\u7406\u5458\u91cd\u7f6e\u6307\u5b9a\u7528\u6237\u7684\u5bc6\u7801\u3002")
 def reset_password_endpoint(
     user_id: str,
     body: UserPasswordReset,

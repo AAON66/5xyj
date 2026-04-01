@@ -22,11 +22,12 @@ from backend.app.utils.request_helpers import get_client_ip
 from backend.app.services.employee_service import EmployeeImportError
 from backend.app.services.import_service import InvalidUploadError, UploadTooLargeError
 
-router = APIRouter(prefix='/aggregate', tags=['aggregate'])
+# Error code prefix: AGG_xxx
+router = APIRouter(prefix='/aggregate', tags=['\u793e\u4fdd\u67e5\u8be2'])
 logger = logging.getLogger(__name__)
 
 
-@router.post('', status_code=status.HTTP_201_CREATED)
+@router.post('', status_code=status.HTTP_201_CREATED, summary="\u6267\u884c\u5feb\u901f\u878d\u5408", description="\u4e0a\u4f20\u591a\u5730\u533a\u793e\u4fdd/\u516c\u79ef\u91d1 Excel \u6587\u4ef6\uff0c\u6267\u884c\u89e3\u6790\u3001\u5f52\u4e00\u5316\u3001\u5de5\u53f7\u5339\u914d\u548c\u5bfc\u51fa\u3002")
 async def run_simple_aggregate_endpoint(
     request: Request,
     files: list[UploadFile] = File(default=[]),
@@ -64,7 +65,7 @@ async def run_simple_aggregate_endpoint(
     return success_response(payload.model_dump(mode='json'), message='Aggregate run completed.', status_code=status.HTTP_201_CREATED)
 
 
-@router.post('/stream')
+@router.post('/stream', summary="\u6d41\u5f0f\u878d\u5408\uff08NDJSON\uff09", description="\u4e0e\u666e\u901a\u878d\u5408\u76f8\u540c\uff0c\u4f46\u901a\u8fc7 NDJSON \u6d41\u5b9e\u65f6\u8fd4\u56de\u8fdb\u5ea6\u4fe1\u606f\u3002")
 async def run_simple_aggregate_stream_endpoint(
     request: Request,
     files: list[UploadFile] = File(default=[]),

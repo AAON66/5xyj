@@ -11,10 +11,11 @@ from backend.app.models.audit_log import AuditLog
 from backend.app.schemas.audit_log import AuditLogListResponse, AuditLogRead
 from backend.app.api.v1.responses import success_response
 
-router = APIRouter(prefix="/audit-logs", tags=["audit"])
+# Error code prefix: AUDIT_xxx
+router = APIRouter(prefix="/audit-logs", tags=["\u7cfb\u7edf\u7ba1\u7406"])
 
 
-@router.get("")
+@router.get("", summary="\u67e5\u8be2\u5ba1\u8ba1\u65e5\u5fd7", description="\u5206\u9875\u67e5\u8be2\u7cfb\u7edf\u5ba1\u8ba1\u65e5\u5fd7\uff0c\u652f\u6301\u6309\u52a8\u4f5c\u7c7b\u578b\u548c\u65f6\u95f4\u8303\u56f4\u7b5b\u9009\u3002\u4ec5\u7ba1\u7406\u5458\u53ef\u8bbf\u95ee\u3002")
 def list_audit_logs(
     db: Session = Depends(get_db),
     action: Optional[str] = Query(None),

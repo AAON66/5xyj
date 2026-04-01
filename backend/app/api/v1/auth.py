@@ -19,13 +19,14 @@ from backend.app.services.rate_limiter import RateLimiter
 from backend.app.services.user_service import authenticate_user_login
 from backend.app.utils.request_helpers import get_client_ip
 
-router = APIRouter(prefix='/auth', tags=['auth'])
+# Error code prefix: AUTH_xxx
+router = APIRouter(prefix='/auth', tags=['\u8ba4\u8bc1'])
 
 _employee_rate_limiter = RateLimiter(max_failures=5, lockout_seconds=900)
 _login_rate_limiter = RateLimiter(max_failures=5, lockout_seconds=900)
 
 
-@router.post('/login')
+@router.post('/login', summary="\u7528\u6237\u767b\u5f55", description="\u901a\u8fc7\u7528\u6237\u540d\u548c\u5bc6\u7801\u767b\u5f55\uff0c\u8fd4\u56de JWT \u8bbf\u95ee\u4ee4\u724c\u3002\u652f\u6301\u9891\u7387\u9650\u5236\uff0c5 \u6b21\u5931\u8d25\u540e\u9501\u5b9a 15 \u5206\u949f\u3002")
 def login_endpoint(request: Request, payload: AuthLoginRequest = Body(...), db: Session = Depends(get_db)):
     # Check login rate limit (key=username, per D-04)
     rate_key = f"login:{payload.username}"
@@ -72,7 +73,7 @@ def login_endpoint(request: Request, payload: AuthLoginRequest = Body(...), db: 
     return success_response(response.model_dump(mode='json'), message='Login succeeded.')
 
 
-@router.post('/employee-verify')
+@router.post('/employee-verify', summary="\u5458\u5de5\u8eab\u4efd\u9a8c\u8bc1", description="\u901a\u8fc7\u5de5\u53f7\u3001\u8eab\u4efd\u8bc1\u53f7\u548c\u59d3\u540d\u9a8c\u8bc1\u5458\u5de5\u8eab\u4efd\uff0c\u8fd4\u56de\u5458\u5de5\u89d2\u8272\u7684 JWT \u4ee4\u724c\u3002")
 def employee_verify_endpoint(
     request: Request,
     payload: EmployeeVerifyRequest = Body(...),
@@ -130,7 +131,7 @@ def employee_verify_endpoint(
     return success_response(response.model_dump(mode='json'), message='Employee verification succeeded.')
 
 
-@router.get('/me')
+@router.get('/me', summary="\u83b7\u53d6\u5f53\u524d\u7528\u6237\u4fe1\u606f", description="\u8fd4\u56de\u5f53\u524d\u5df2\u8ba4\u8bc1\u7528\u6237\u7684\u57fa\u672c\u4fe1\u606f\uff0c\u5305\u62ec\u7528\u6237\u540d\u548c\u89d2\u8272\u3002")
 def get_current_user_endpoint(user=Depends(require_authenticated_user)):
     payload = AuthUserRead(username=user.username, role=user.role, display_name=role_display_name(user.role))
     return success_response(payload.model_dump(mode='json'), message='Authenticated user retrieved.')

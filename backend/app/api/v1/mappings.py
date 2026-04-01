@@ -15,10 +15,11 @@ from backend.app.services.mapping_service import (
     update_header_mapping,
 )
 
-router = APIRouter(prefix='/mappings', tags=['mappings'])
+# Error code prefix: MAP_xxx
+router = APIRouter(prefix='/mappings', tags=['\u5bfc\u5165\u5bfc\u51fa'])
 
 
-@router.get('')
+@router.get('', summary="\u67e5\u8be2\u8868\u5934\u6620\u5c04", description="\u67e5\u8be2\u8868\u5934\u5b57\u6bb5\u6620\u5c04\u5173\u7cfb\uff0c\u652f\u6301\u6309\u6279\u6b21\u548c\u6e90\u6587\u4ef6\u7b5b\u9009\u3002")
 def list_header_mappings_endpoint(
     batch_id: Optional[str] = Query(default=None),
     source_file_id: Optional[str] = Query(default=None),
@@ -28,7 +29,7 @@ def list_header_mappings_endpoint(
     return success_response(payload.model_dump(mode='json'), message='Header mappings retrieved.')
 
 
-@router.patch('/{mapping_id}')
+@router.patch('/{mapping_id}', summary="\u66f4\u65b0\u8868\u5934\u6620\u5c04", description="\u624b\u52a8\u4fee\u6539\u67d0\u4e2a\u8868\u5934\u5b57\u6bb5\u7684\u6807\u51c6\u5b57\u6bb5\u6620\u5c04\u3002")
 def update_header_mapping_endpoint(
     mapping_id: str,
     body: HeaderMappingUpdateRequest,

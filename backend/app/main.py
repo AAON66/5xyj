@@ -3,9 +3,11 @@
 from contextlib import asynccontextmanager
 from typing import AsyncIterator, Optional
 
-from fastapi import FastAPI, Request, status
+from fastapi import Depends, FastAPI, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.openapi.docs import get_redoc_html, get_swagger_ui_html
+from fastapi.responses import PlainTextResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from backend.app.api.v1.responses import error_response, success_response
@@ -13,6 +15,7 @@ from backend.app.api.v1.router import api_router
 from backend.app.bootstrap import bootstrap_application
 from backend.app.core.config import Settings, get_settings
 from backend.app.core.upload_guard import UploadGuardMiddleware
+from backend.app.dependencies import require_role
 
 
 def create_lifespan(runtime_settings: Settings):
@@ -61,6 +64,9 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
         version=runtime_settings.app_version,
         summary="社保表格聚合工具 API",
         lifespan=create_lifespan(runtime_settings),
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
     )
 
     app.state.settings = runtime_settings
@@ -86,6 +92,34 @@ def create_app(settings: Optional[Settings] = None) -> FastAPI:
                 "version": active_settings.app_version,
             }
         )
+
+    # -- Protected API documentation routes (admin only) --
+
+    @app.get("/api/v1/openapi.json", include_in_schema=False)
+    async def get_openapi_schema(_user=Depends(require_role("admin"))):
+        return app.openapi()
+
+    @app.get("/docs", include_in_schema=False)
+    async def custom_swagger_ui(_user=Depends(require_role("admin"))):
+        return get_swagger_ui_html(
+            openapi_url="/api/v1/openapi.json",
+            title=f"{runtime_settings.app_name} - API \u6587\u6863",
+        )
+
+    @app.get("/redoc", include_in_schema=False)
+    async def custom_redoc(_user=Depends(require_role("admin"))):
+        return get_redoc_html(
+            openapi_url="/api/v1/openapi.json",
+            title=f"{runtime_settings.app_name} - API \u6587\u6863",
+        )
+
+    @app.get("/api/v1/docs/markdown", include_in_schema=False)
+    async def get_markdown_docs(_user=Depends(require_role("admin"))):
+        from backend.app.core.api_doc_generator import generate_markdown_from_openapi
+
+        schema = app.openapi()
+        md = generate_markdown_from_openapi(schema)
+        return PlainTextResponse(md, media_type="text/markdown; charset=utf-8")
 
     return app
 
