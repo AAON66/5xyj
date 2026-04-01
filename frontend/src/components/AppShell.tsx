@@ -21,6 +21,7 @@ export function AppShell({ children }: PropsWithChildren) {
     { to: '/employees', label: '员工主档', hint: '导入、维护与审计员工主数据。' },
     { to: '/data-management', label: '数据管理', hint: '筛选、浏览和审计全量社保数据。', roles: ['admin', 'hr'] as string[] },
     { to: '/audit-logs', label: '审计日志', hint: '查看系统操作记录（仅管理员）。', adminOnly: true },
+    { to: '/api-keys', label: 'API Key', hint: '创建和管理外部访问密钥（仅管理员）。', adminOnly: true },
     { to: '/employee/query', label: '员工查询', hint: '免登录员工自助查询入口。' },
   ];
 

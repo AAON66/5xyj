@@ -5,6 +5,7 @@ import { MainLayout } from './layouts/MainLayout';
 import { useAuth } from './hooks';
 import {
   AdminWorkspacePage,
+  ApiKeysPage,
   AuditLogsPage,
   ComparePage,
   EmployeeCreatePage,
@@ -129,6 +130,7 @@ export default function App() {
           <Route element={<RoleRoute allowedRoles={['admin']} />}>
             <Route path="/workspace/admin" element={<AdminWorkspacePage />} />
             <Route path="/audit-logs" element={<AuditLogsPage />} />
+            <Route path="/api-keys" element={<ApiKeysPage />} />
           </Route>
           <Route path="*" element={<NotFoundPage />} />
         </Route>
