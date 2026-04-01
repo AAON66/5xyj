@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from sqlalchemy import Boolean, String
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -15,3 +17,5 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     display_name: Mapped[str] = mapped_column(String(255), nullable=False, default="")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, index=True)
     must_change_password: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    feishu_open_id: Mapped[Optional[str]] = mapped_column(String(100), unique=True, nullable=True, index=True)
+    feishu_union_id: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)

@@ -137,6 +137,33 @@ def seed_disabled_admin(db_session: Session) -> User:
 
 
 @pytest.fixture()
+def test_client_feishu(db_session: Session):
+    """FastAPI TestClient with feishu_sync_enabled=True and test DB session."""
+    from backend.app.core.config import Settings
+    from backend.app.main import create_app
+    from backend.app.dependencies import get_db
+
+    settings = Settings(
+        auth_enabled=True,
+        auth_secret_key=TEST_SECRET_KEY,
+        auth_token_expire_minutes=480,
+        database_url=TEST_DB_URL,
+        feishu_sync_enabled=True,
+        feishu_oauth_enabled=True,
+        feishu_app_id="test_app_id",
+        feishu_app_secret="test_app_secret",
+    )
+    app = create_app(settings)
+
+    def _override_get_db():
+        yield db_session
+
+    app.dependency_overrides[get_db] = _override_get_db
+    with TestClient(app, raise_server_exceptions=False) as client:
+        yield client
+
+
+@pytest.fixture()
 def seed_test_employee(db_session: Session) -> EmployeeMaster:
     emp = EmployeeMaster(
         employee_id="EMP001",

@@ -11,6 +11,8 @@ from backend.app.models.import_batch import ImportBatch
 from backend.app.models.match_result import MatchResult
 from backend.app.models.normalized_record import NormalizedRecord
 from backend.app.models.source_file import SourceFile
+from backend.app.models.sync_config import SyncConfig
+from backend.app.models.sync_job import SyncJob
 from backend.app.models.user import User
 from backend.app.models.validation_issue import ValidationIssue
 
@@ -26,6 +28,8 @@ __all__ = [
     "MatchResult",
     "NormalizedRecord",
     "SourceFile",
+    "SyncConfig",
+    "SyncJob",
     "User",
     "ValidationIssue",
 ]

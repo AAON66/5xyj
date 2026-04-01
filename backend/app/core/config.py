@@ -60,6 +60,12 @@ class Settings(BaseSettings):
     deepseek_model: str = 'deepseek-chat'
     enable_llm_fallback: bool = True
 
+    # Feishu Integration
+    feishu_sync_enabled: bool = False
+    feishu_oauth_enabled: bool = False
+    feishu_app_id: str = ''
+    feishu_app_secret: str = ''
+
     runtime_environment: str = 'local'
     auth_enabled: bool = True
     auth_secret_key: str = DEFAULT_AUTH_SECRET_KEY

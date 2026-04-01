@@ -72,10 +72,10 @@
 
 ### 飞书集成 (FEISHU)
 
-- [ ] **FEISHU-01**: 系统数据可推送到飞书多维表格（push sync）
-- [ ] **FEISHU-02**: 飞书多维表格数据可拉取到系统（pull sync）
-- [ ] **FEISHU-03**: 同步状态可查看（成功/失败/冲突记录）
-- [ ] **FEISHU-04**: 同步操作为手动触发（非后台自动）
+- [x] **FEISHU-01**: 系统数据可推送到飞书多维表格（push sync）
+- [x] **FEISHU-02**: 飞书多维表格数据可拉取到系统（pull sync）
+- [x] **FEISHU-03**: 同步状态可查看（成功/失败/冲突记录）
+- [x] **FEISHU-04**: 同步操作为手动触发（非后台自动）
 - [ ] **FEISHU-05**: 飞书 OAuth 登录支持（可选功能，feature flag 控制）
 
 ### 智能与完善 (INTEL)
@@ -151,10 +151,10 @@
 | API-04 | Phase 9 | Pending |
 | AUTH-07 | Phase 9 | Pending |
 | AUTH-08 | Phase 9 | Pending |
-| FEISHU-01 | Phase 10 | Pending |
-| FEISHU-02 | Phase 10 | Pending |
-| FEISHU-03 | Phase 10 | Pending |
-| FEISHU-04 | Phase 10 | Pending |
+| FEISHU-01 | Phase 10 | Complete |
+| FEISHU-02 | Phase 10 | Complete |
+| FEISHU-03 | Phase 10 | Complete |
+| FEISHU-04 | Phase 10 | Complete |
 | FEISHU-05 | Phase 10 | Pending |
 | INTEL-01 | Phase 11 | Pending |
 | INTEL-02 | Phase 11 | Pending |
