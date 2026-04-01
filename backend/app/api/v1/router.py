@@ -9,6 +9,9 @@ from backend.app.api.v1.dashboard import router as dashboard_router
 from backend.app.api.v1.data_management import router as data_management_router
 from backend.app.api.v1.employee_portal import router as employee_portal_router
 from backend.app.api.v1.employees import router as employees_router
+from backend.app.api.v1.feishu_auth import router as feishu_auth_router
+from backend.app.api.v1.feishu_settings import router as feishu_settings_router
+from backend.app.api.v1.feishu_sync import router as feishu_sync_router
 from backend.app.api.v1.imports import router as imports_router
 from backend.app.api.v1.mappings import router as mappings_router
 from backend.app.api.v1.system import router as system_router
@@ -41,3 +44,8 @@ api_router.include_router(data_management_router, dependencies=[Depends(require_
 
 # Employee portal -- endpoint-level auth (employee role token required)
 api_router.include_router(employee_portal_router)
+
+# Feishu integration
+api_router.include_router(feishu_sync_router, dependencies=[Depends(require_role("admin", "hr"))])
+api_router.include_router(feishu_settings_router, dependencies=[Depends(require_role("admin"))])
+api_router.include_router(feishu_auth_router)  # No auth required (OAuth callback is pre-auth)
