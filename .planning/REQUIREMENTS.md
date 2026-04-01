@@ -65,9 +65,9 @@
 
 ### API 体系 (API)
 
-- [ ] **API-01**: RESTful API 覆盖所有核心功能（社保查询/员工管理/导入导出）
-- [ ] **API-02**: API 文档自动生成（OpenAPI/Swagger）
-- [ ] **API-03**: API 响应格式统一且规范
+- [x] **API-01**: RESTful API 覆盖所有核心功能（社保查询/员工管理/导入导出）
+- [x] **API-02**: API 文档自动生成（OpenAPI/Swagger）
+- [x] **API-03**: API 响应格式统一且规范
 - [ ] **API-04**: 外部程序可通过 API Key 调用所有公开接口
 
 ### 飞书集成 (FEISHU)
@@ -145,9 +145,9 @@
 | UI-06 | Phase 8 | Complete |
 | UI-07 | Phase 8 | Complete |
 | UI-08 | Phase 8 | Complete |
-| API-01 | Phase 9 | Pending |
-| API-02 | Phase 9 | Pending |
-| API-03 | Phase 9 | Pending |
+| API-01 | Phase 9 | Complete |
+| API-02 | Phase 9 | Complete |
+| API-03 | Phase 9 | Complete |
 | API-04 | Phase 9 | Pending |
 | AUTH-07 | Phase 9 | Pending |
 | AUTH-08 | Phase 9 | Pending |

@@ -7,7 +7,9 @@
       "Bash(cp -r everything-claude-code/rules/typescript/* ~/.claude/rules/)",
       "Bash(cp -r everything-claude-code/rules/python/* ~/.claude/rules/)",
       "Bash(cp -r everything-claude-code/rules/golang/* ~/.claude/rules/)",
-      "Bash(cp -r everything-claude-code/rules/perl/* ~/.claude/rules/)"
+      "Bash(cp -r everything-claude-code/rules/perl/* ~/.claude/rules/)",
+      "Bash(git remote:*)",
+      "Bash(git push:*)"
     ]
   },
   "enabledPlugins": {

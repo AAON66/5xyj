@@ -1,0 +1,5 @@
+/opt/execl_mix/frontend/src/services/api.ts:  baseURL: getApiBaseUrl(),
+/opt/execl_mix/frontend/src/config/env.ts:const defaultApiBaseUrl = "http://127.0.0.1:8000/api/v1";
+/opt/execl_mix/frontend/src/config/env.ts:  const value = import.meta.env.VITE_API_BASE_URL?.trim();
+/opt/execl_mix/frontend/src/pages/SimpleAggregate.tsx:        <SurfaceNotice tone="success" title={'后端已就绪'} message={`社保表格聚合工具 ${health.version} | /api/v1/system/health 响应正常`} />
+/opt/execl_mix/frontend/src/vite-env.d.ts:  readonly VITE_API_BASE_URL?: string;
