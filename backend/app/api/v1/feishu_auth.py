@@ -6,12 +6,12 @@ import hashlib
 import hmac
 import secrets
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Request
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.app.api.v1.responses import error_response, success_response
-from backend.app.core.config import Settings, get_settings
+from backend.app.core.config import Settings
 from backend.app.dependencies import get_db
 from backend.app.services.feishu_oauth_service import FeishuOAuthError, exchange_code_for_user
 
@@ -44,24 +44,20 @@ def _verify_state(signed_state: str, secret: str) -> str | None:
     return state
 
 
+def _get_settings(request: Request) -> Settings:
+    return request.app.state.settings
+
+
 @router.get("/authorize-url", summary="获取飞书授权 URL", description="生成飞书 OAuth 授权链接，并设置 CSRF 状态 Cookie。")
 async def get_authorize_url(
-    response: Response,
-    settings: Settings = Depends(get_settings),
+    request: Request,
 ):
+    settings = _get_settings(request)
     if not settings.feishu_oauth_enabled:
         return error_response("FEATURE_DISABLED", "飞书登录功能未启用", 404)
 
     state = secrets.token_urlsafe(32)
     signed = _sign_state(state, settings.auth_secret_key)
-    response.set_cookie(
-        OAUTH_STATE_COOKIE,
-        signed,
-        max_age=OAUTH_STATE_MAX_AGE,
-        httponly=True,
-        samesite="lax",
-        secure=False,  # secure=True in production
-    )
 
     redirect_uri = getattr(settings, "feishu_oauth_redirect_uri", "")
     url = (
@@ -71,17 +67,25 @@ async def get_authorize_url(
         f"&redirect_uri={redirect_uri}"
         f"&state={state}"
     )
-    return success_response({"url": url})
+    resp = success_response({"url": url})
+    resp.set_cookie(
+        OAUTH_STATE_COOKIE,
+        signed,
+        max_age=OAUTH_STATE_MAX_AGE,
+        httponly=True,
+        samesite="lax",
+        secure=False,  # secure=True in production
+    )
+    return resp
 
 
 @router.post("/callback", summary="飞书 OAuth 回调", description="处理飞书 OAuth 回调，验证 state 后交换令牌。")
 async def feishu_oauth_callback(
     body: OAuthCallbackBody,
     request: Request,
-    response: Response,
-    settings: Settings = Depends(get_settings),
     db: Session = Depends(get_db),
 ):
+    settings = _get_settings(request)
     if not settings.feishu_oauth_enabled:
         return error_response("FEATURE_DISABLED", "飞书登录功能未启用", 404)
 
@@ -94,12 +98,12 @@ async def feishu_oauth_callback(
     if original_state is None or original_state != body.state:
         return error_response("INVALID_STATE", "OAuth state 验证失败，请重新登录", 400)
 
-    # Delete cookie after successful validation
-    response.delete_cookie(OAUTH_STATE_COOKIE)
-
     try:
         result = await exchange_code_for_user(db, body.code, settings)
     except FeishuOAuthError as e:
         return error_response("OAUTH_ERROR", str(e), 400)
 
-    return success_response(result)
+    resp = success_response(result)
+    # Delete state cookie after successful validation
+    resp.delete_cookie(OAUTH_STATE_COOKIE)
+    return resp

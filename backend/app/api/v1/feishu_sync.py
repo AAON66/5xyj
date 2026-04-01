@@ -42,17 +42,28 @@ def _check_sync_enabled(settings: Settings):
     return None
 
 
+async def _get_client_safe() -> Optional[FeishuClient]:
+    """Get FeishuClient or None if not configured (avoids DI failure when feature disabled)."""
+    try:
+        return await get_feishu_client()
+    except ValueError:
+        return None
+
+
 @router.post("/push", summary="推送数据到飞书", description="将系统中的社保记录推送到飞书多维表格。")
 async def push_to_feishu(
     body: PushRequest,
     request: Request,
     db: Session = Depends(get_db),
-    client: FeishuClient = Depends(get_feishu_client),
+    client: Optional[FeishuClient] = Depends(_get_client_safe),
 ):
     settings = _get_settings(request)
     disabled = _check_sync_enabled(settings)
     if disabled:
         return disabled
+
+    if client is None:
+        return error_response("CREDENTIALS_MISSING", "飞书凭证未配置", 400)
 
     from backend.app.models.sync_config import SyncConfig
 
@@ -87,12 +98,15 @@ async def push_confirm(
     body: PushConflictAction,
     request: Request,
     db: Session = Depends(get_db),
-    client: FeishuClient = Depends(get_feishu_client),
+    client: Optional[FeishuClient] = Depends(_get_client_safe),
 ):
     settings = _get_settings(request)
     disabled = _check_sync_enabled(settings)
     if disabled:
         return disabled
+
+    if client is None:
+        return error_response("CREDENTIALS_MISSING", "飞书凭证未配置", 400)
 
     from backend.app.models.sync_config import SyncConfig
 
@@ -115,12 +129,15 @@ async def pull_preview(
     body: PullRequest,
     request: Request,
     db: Session = Depends(get_db),
-    client: FeishuClient = Depends(get_feishu_client),
+    client: Optional[FeishuClient] = Depends(_get_client_safe),
 ):
     settings = _get_settings(request)
     disabled = _check_sync_enabled(settings)
     if disabled:
         return disabled
+
+    if client is None:
+        return error_response("CREDENTIALS_MISSING", "飞书凭证未配置", 400)
 
     from backend.app.models.sync_config import SyncConfig
 
@@ -139,12 +156,15 @@ async def pull_execute(
     body: ConflictResolution,
     request: Request,
     db: Session = Depends(get_db),
-    client: FeishuClient = Depends(get_feishu_client),
+    client: Optional[FeishuClient] = Depends(_get_client_safe),
 ):
     settings = _get_settings(request)
     disabled = _check_sync_enabled(settings)
     if disabled:
         return disabled
+
+    if client is None:
+        return error_response("CREDENTIALS_MISSING", "飞书凭证未配置", 400)
 
     from backend.app.models.sync_config import SyncConfig
 
@@ -191,12 +211,15 @@ async def retry_job(
     job_id: str,
     request: Request,
     db: Session = Depends(get_db),
-    client: FeishuClient = Depends(get_feishu_client),
+    client: Optional[FeishuClient] = Depends(_get_client_safe),
 ):
     settings = _get_settings(request)
     disabled = _check_sync_enabled(settings)
     if disabled:
         return disabled
+
+    if client is None:
+        return error_response("CREDENTIALS_MISSING", "飞书凭证未配置", 400)
 
     try:
         job = await retry_sync_job(db, client, job_id, triggered_by="api_retry")

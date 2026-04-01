@@ -1,9 +1,9 @@
 ﻿from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Request
 
 from backend.app.api.v1.responses import success_response
-from backend.app.core.config import Settings, get_settings
+from backend.app.core.config import Settings
 
 router = APIRouter(prefix="/system", tags=["\u7cfb\u7edf\u7ba1\u7406"])
 
@@ -26,7 +26,8 @@ async def echo_value(value: int):
 
 
 @router.get("/features", summary="获取系统功能开关", description="返回系统功能开关状态，前端用于条件渲染。")
-def get_feature_flags(settings: Settings = Depends(get_settings)):
+def get_feature_flags(request: Request):
+    settings: Settings = request.app.state.settings
     return success_response({
         "feishu_sync_enabled": settings.feishu_sync_enabled,
         "feishu_oauth_enabled": settings.feishu_oauth_enabled,

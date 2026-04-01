@@ -5,8 +5,10 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
+import httpx
+
 from backend.app.api.v1.responses import error_response, success_response
-from backend.app.core.config import Settings, get_settings
+from backend.app.core.config import Settings
 from backend.app.dependencies import get_db
 from backend.app.models.sync_config import SyncConfig
 from backend.app.models.sync_job import SyncJob
@@ -19,6 +21,16 @@ from backend.app.schemas.feishu import (
     SyncConfigUpdate,
 )
 from backend.app.services.feishu_client import FeishuClient, get_feishu_client
+
+from typing import Optional
+
+
+async def _get_client_safe() -> Optional[FeishuClient]:
+    """Get FeishuClient or None if not configured."""
+    try:
+        return await get_feishu_client()
+    except ValueError:
+        return None
 
 router = APIRouter(prefix="/feishu/settings", tags=["飞书设置"])
 
@@ -145,12 +157,15 @@ async def get_feishu_fields(
     config_id: str,
     request: Request,
     db: Session = Depends(get_db),
-    client: FeishuClient = Depends(get_feishu_client),
+    client: Optional[FeishuClient] = Depends(_get_client_safe),
 ):
     settings = _get_settings(request)
     disabled = _check_sync_enabled(settings)
     if disabled:
         return disabled
+
+    if client is None:
+        return error_response("CREDENTIALS_MISSING", "飞书凭证未配置", 400)
 
     config = db.get(SyncConfig, config_id)
     if not config:
@@ -195,8 +210,6 @@ async def validate_credentials(
         return disabled
 
     # Validate credentials by attempting a token fetch -- DO NOT store to DB
-    import httpx
-
     try:
         async with httpx.AsyncClient(timeout=10) as http:
             resp = await http.post(
@@ -218,9 +231,12 @@ async def validate_credentials(
 
 
 @router.get("/features", summary="获取飞书功能开关状态", description="返回飞书相关功能的开关状态，前端用于条件渲染。")
-async def get_feature_flags(
-    settings: Settings = Depends(get_settings),
-):
+async def get_feature_flags(request: Request):
+    settings = _get_settings(request)
+    disabled = _check_sync_enabled(settings)
+    if disabled:
+        return disabled
+
     flags = FeatureFlags(
         feishu_sync_enabled=settings.feishu_sync_enabled,
         feishu_oauth_enabled=settings.feishu_oauth_enabled,

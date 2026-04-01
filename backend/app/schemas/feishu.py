@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Optional
+from datetime import datetime
+from typing import Optional, Union
 
 from pydantic import BaseModel, Field
 
@@ -33,8 +34,8 @@ class SyncConfigRead(BaseModel):
     granularity: str
     field_mapping: dict[str, str]
     is_active: bool
-    created_at: str
-    updated_at: str
+    created_at: Union[str, datetime]
+    updated_at: Union[str, datetime]
 
     model_config = {"from_attributes": True}
 
@@ -53,7 +54,7 @@ class SyncJobRead(BaseModel):
     error_message: Optional[str]
     detail: Optional[dict]
     triggered_by: str
-    created_at: str
+    created_at: Union[str, datetime]
 
     model_config = {"from_attributes": True}
 
