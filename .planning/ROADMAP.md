@@ -189,11 +189,13 @@ Plans:
   3. Sync status page shows history of sync operations (timestamp, direction, records synced, success/failure)
   4. All sync operations are manually triggered (no background auto-sync)
   5. Feishu OAuth login works when enabled via feature flag (disabled by default)
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [x] 10-01: TBD
-- [x] 10-02: TBD
+- [x] 10-01-PLAN.md -- Feishu backend foundation (models, client, sync service)
+- [x] 10-02-PLAN.md -- Feishu API endpoints (OAuth, CRUD, sync triggers)
+- [x] 10-03-PLAN.md -- Frontend Feishu pages (sync, settings, navigation)
+- [x] 10-04-PLAN.md -- Advanced frontend features (field mapping, conflict modals, OAuth login)
 
 **UI hint**: yes
 
