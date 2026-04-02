@@ -232,5 +232,5 @@ Note: Phases 4, 5, 6 can partially overlap (4 unblocks 5; 4 and 6 share the Phas
 | 7. Design System & UI Foundation | 1/4 | In Progress|  |
 | 8. Page Rebuild & UX Flow | 1/2 | In Progress|  |
 | 9. API System | 0/2 | Planning complete | - |
-| 10. Feishu Integration | 0/2 | Not started | - |
+| 10. Feishu Integration | 3/4 | In Progress | - |
 | 11. Intelligence & Polish | 0/2 | Not started | - |
