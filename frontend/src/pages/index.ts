@@ -7,6 +7,7 @@ export * from './Employees';
 export * from './EmployeeCreate';
 export * from './EmployeeSelfService';
 export * from './Exports';
+export * from './FeishuFieldMapping';
 export * from './FeishuSettings';
 export * from './FeishuSync';
 export * from './ImportBatchDetail';

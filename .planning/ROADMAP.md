@@ -21,7 +21,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 7: Design System & UI Foundation** - Ant Design 5 adoption, Feishu-inspired theme, animations
 - [ ] **Phase 8: Page Rebuild & UX Flow** - Role-aware routing, responsive layout, localization, workflow optimization
 - [ ] **Phase 9: API System** - RESTful API formalization with API key authentication for external access
-- [ ] **Phase 10: Feishu Integration** - Bidirectional Bitable sync with manual triggers and OAuth login
+- [x] **Phase 10: Feishu Integration** - Bidirectional Bitable sync with manual triggers and OAuth login (completed 2026-04-02)
 - [ ] **Phase 11: Intelligence & Polish** - Cross-period comparison, anomaly detection, housing fund coverage
 
 ## Phase Details
@@ -189,11 +189,13 @@ Plans:
   3. Sync status page shows history of sync operations (timestamp, direction, records synced, success/failure)
   4. All sync operations are manually triggered (no background auto-sync)
   5. Feishu OAuth login works when enabled via feature flag (disabled by default)
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 10-01: TBD
-- [ ] 10-02: TBD
+- [x] 10-01-PLAN.md -- Feishu backend foundation (models, client, sync service)
+- [x] 10-02-PLAN.md -- Feishu API endpoints (OAuth, CRUD, sync triggers)
+- [x] 10-03-PLAN.md -- Frontend Feishu pages (sync, settings, navigation)
+- [x] 10-04-PLAN.md -- Advanced frontend features (field mapping, conflict modals, OAuth login)
 
 **UI hint**: yes
 
@@ -232,5 +234,5 @@ Note: Phases 4, 5, 6 can partially overlap (4 unblocks 5; 4 and 6 share the Phas
 | 7. Design System & UI Foundation | 1/4 | In Progress|  |
 | 8. Page Rebuild & UX Flow | 1/2 | In Progress|  |
 | 9. API System | 0/2 | Planning complete | - |
-| 10. Feishu Integration | 3/4 | In Progress | - |
+| 10. Feishu Integration | 4/4 | Complete   | 2026-04-02 |
 | 11. Intelligence & Polish | 0/2 | Not started | - |

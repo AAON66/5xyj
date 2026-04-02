@@ -14,6 +14,7 @@ import {
   EmployeeSelfServicePage,
   EmployeesPage,
   ExportsPage,
+  FeishuFieldMappingPage,
   FeishuSettingsPage,
   FeishuSyncPage,
   HrWorkspacePage,
@@ -135,6 +136,7 @@ export default function App() {
             <Route path="/audit-logs" element={<AuditLogsPage />} />
             <Route path="/api-keys" element={<ApiKeysPage />} />
             <Route path="/feishu-settings" element={<FeishuSettingsPage />} />
+            <Route path="/feishu-mapping/:configId" element={<FeishuFieldMappingPage />} />
           </Route>
           <Route path="*" element={<NotFoundPage />} />
         </Route>
