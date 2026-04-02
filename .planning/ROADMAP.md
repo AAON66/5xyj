@@ -193,7 +193,7 @@ Plans:
 
 Plans:
 - [x] 10-01: TBD
-- [ ] 10-02: TBD
+- [x] 10-02: TBD
 
 **UI hint**: yes
 
@@ -232,5 +232,5 @@ Note: Phases 4, 5, 6 can partially overlap (4 unblocks 5; 4 and 6 share the Phas
 | 7. Design System & UI Foundation | 1/4 | In Progress|  |
 | 8. Page Rebuild & UX Flow | 1/2 | In Progress|  |
 | 9. API System | 0/2 | Planning complete | - |
-| 10. Feishu Integration | 1/4 | In Progress|  |
+| 10. Feishu Integration | 2/4 | In Progress|  |
 | 11. Intelligence & Polish | 0/2 | Not started | - |
