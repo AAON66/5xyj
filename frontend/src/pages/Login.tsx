@@ -1,11 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { App, Button, Card, Form, Input, Radio, Tabs, Typography } from 'antd';
-import { LockOutlined, UserOutlined, IdcardOutlined, SolutionOutlined } from '@ant-design/icons';
+import { App, Button, Card, Divider, Form, Input, Radio, Tabs, Typography } from 'antd';
+import { ApiOutlined, LockOutlined, UserOutlined, IdcardOutlined, SolutionOutlined } from '@ant-design/icons';
 
 import { useAuth } from '../hooks';
+import { useFeishuFeatureFlag } from '../hooks/useFeishuFeatureFlag';
 import { normalizeApiError } from '../services/api';
 import type { AuthRole } from '../services/authSession';
+import { writeAuthSession } from '../services/authSession';
+import { fetchFeishuAuthorizeUrl, feishuOAuthCallback } from '../services/feishu';
 
 const { Title, Text } = Typography;
 
@@ -26,9 +29,41 @@ export function LoginPage() {
   const { isAuthenticated, isInitializing, user, login, verifyEmployee } = useAuth();
   const { message } = App.useApp();
 
+  const { feishu_oauth_enabled } = useFeishuFeatureFlag();
   const [submitting, setSubmitting] = useState(false);
   const [passwordWarning, setPasswordWarning] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('credential');
+
+  // Handle Feishu OAuth callback
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const code = params.get('code');
+    const state = params.get('state');
+    if (code && state && feishu_oauth_enabled) {
+      feishuOAuthCallback(code, state)
+        .then((result) => {
+          writeAuthSession({
+            accessToken: result.access_token,
+            role: result.role as AuthRole,
+            username: result.username,
+            displayName: result.display_name,
+            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+            signedInAt: new Date().toISOString(),
+          });
+          window.location.href = '/';
+        })
+        .catch(() => message.error('\u98DE\u4E66\u767B\u5F55\u5931\u8D25'));
+    }
+  }, [feishu_oauth_enabled, message]);
+
+  async function handleFeishuLogin() {
+    try {
+      const url = await fetchFeishuAuthorizeUrl();
+      window.location.href = url;
+    } catch {
+      message.error('\u83B7\u53D6\u98DE\u4E66\u6388\u6743\u94FE\u63A5\u5931\u8D25');
+    }
+  }
 
   if (!isInitializing && isAuthenticated && user) {
     return <Navigate to={DEFAULT_WORKSPACE_BY_ROLE[user.role]} replace />;
@@ -196,6 +231,19 @@ export function LoginPage() {
           items={tabItems}
           centered
         />
+        {feishu_oauth_enabled && (
+          <>
+            <Divider>\u6216</Divider>
+            <Button
+              block
+              icon={<ApiOutlined />}
+              onClick={() => void handleFeishuLogin()}
+              style={{ marginBottom: 16 }}
+            >
+              \u4F7F\u7528\u98DE\u4E66\u767B\u5F55
+            </Button>
+          </>
+        )}
         <div style={{ textAlign: 'center', marginTop: 8 }}>
           <Text type="secondary">员工自助查询仍可直接使用。</Text>{' '}
           <Link to="/employee/query">进入员工查询</Link>
