@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, type PropsWithChildren } from 'react';
+import { useState, useEffect, useRef, useMemo, type PropsWithChildren } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Layout,
@@ -24,11 +24,14 @@ import {
   LogoutOutlined,
   SearchOutlined,
   UserOutlined,
+  CloudSyncOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
 
 import { useAuth } from '../hooks/useAuth';
 import { useAggregateSession } from '../hooks/useAggregateSession';
 import { useApiFeedback } from '../hooks/useApiFeedback';
+import { useFeishuFeatureFlag } from '../hooks/useFeishuFeatureFlag';
 import { cancelAggregateSession, clearAggregateSession } from '../services/aggregateSessionStore';
 import animations from '../theme/animations.module.css';
 import styles from './MainLayout.module.css';
@@ -56,8 +59,8 @@ const ALL_NAV_ITEMS: NavItem[] = [
   { key: '/employee/query', icon: <SearchOutlined />, label: '员工查询', roles: ['employee'] },
 ];
 
-function buildMenuItems(userRole: string): MenuProps['items'] {
-  return ALL_NAV_ITEMS
+function buildMenuItems(items: NavItem[], userRole: string): MenuProps['items'] {
+  return items
     .filter((item) => item.roles.includes(userRole))
     .map((item) => ({
       key: item.key,
@@ -83,6 +86,9 @@ const LABEL_MAP: Record<string, string> = {
   admin: '管理员',
   hr: 'HR',
   new: '新建',
+  'feishu-sync': '飞书同步',
+  'feishu-settings': '飞书设置',
+  'feishu-mapping': '字段映射',
 };
 
 function useResponsiveCollapse(breakpoint: number = 1440): boolean {
@@ -194,6 +200,18 @@ export function MainLayout() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const { feishu_sync_enabled } = useFeishuFeatureFlag();
+
+  const dynamicNavItems = useMemo(() => {
+    const items = [...ALL_NAV_ITEMS];
+    if (feishu_sync_enabled) {
+      items.push(
+        { key: '/feishu-sync', icon: <CloudSyncOutlined />, label: '飞书同步', roles: ['admin', 'hr'] },
+        { key: '/feishu-settings', icon: <SettingOutlined />, label: '飞书设置', roles: ['admin'] },
+      );
+    }
+    return items;
+  }, [feishu_sync_enabled]);
 
   const autoCollapsed = useResponsiveCollapse(1440);
   const [manualCollapse, setManualCollapse] = useState<boolean | null>(null);
@@ -235,7 +253,7 @@ export function MainLayout() {
           theme="dark"
           mode="inline"
           selectedKeys={[location.pathname]}
-          items={buildMenuItems(user?.role || '')}
+          items={buildMenuItems(dynamicNavItems, user?.role || '')}
           onClick={({ key }) => navigate(key)}
         />
       </Sider>

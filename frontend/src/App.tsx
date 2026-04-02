@@ -14,6 +14,8 @@ import {
   EmployeeSelfServicePage,
   EmployeesPage,
   ExportsPage,
+  FeishuSettingsPage,
+  FeishuSyncPage,
   HrWorkspacePage,
   ImportBatchDetailPage,
   ImportsPage,
@@ -126,11 +128,13 @@ export default function App() {
             <Route path="/employees/new" element={<EmployeeCreatePage />} />
             <Route path="/employees" element={<EmployeesPage />} />
             <Route path="/data-management" element={<DataManagementPage />} />
+            <Route path="/feishu-sync" element={<FeishuSyncPage />} />
           </Route>
           <Route element={<RoleRoute allowedRoles={['admin']} />}>
             <Route path="/workspace/admin" element={<AdminWorkspacePage />} />
             <Route path="/audit-logs" element={<AuditLogsPage />} />
             <Route path="/api-keys" element={<ApiKeysPage />} />
+            <Route path="/feishu-settings" element={<FeishuSettingsPage />} />
           </Route>
           <Route path="*" element={<NotFoundPage />} />
         </Route>
