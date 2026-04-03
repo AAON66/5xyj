@@ -33,29 +33,29 @@ const { Title, Text } = Typography;
 // ── System fields list ───────────────────────────────────────────
 
 const SYSTEM_FIELDS = [
-  { key: 'person_name', label: '\u59D3\u540D' },
-  { key: 'id_number', label: '\u8BC1\u4EF6\u53F7\u7801' },
-  { key: 'employee_id', label: '\u5DE5\u53F7' },
-  { key: 'company_name', label: '\u516C\u53F8\u540D\u79F0' },
-  { key: 'region', label: '\u5730\u533A' },
-  { key: 'billing_period', label: '\u8D39\u6B3E\u6240\u5C5E\u671F' },
-  { key: 'payment_base', label: '\u7F34\u8D39\u57FA\u6570' },
-  { key: 'total_amount', label: '\u5408\u8BA1\u91D1\u989D' },
-  { key: 'company_total_amount', label: '\u5355\u4F4D\u5408\u8BA1' },
-  { key: 'personal_total_amount', label: '\u4E2A\u4EBA\u5408\u8BA1' },
-  { key: 'pension_company', label: '\u517B\u8001\u4FDD\u9669(\u5355\u4F4D)' },
-  { key: 'pension_personal', label: '\u517B\u8001\u4FDD\u9669(\u4E2A\u4EBA)' },
-  { key: 'medical_company', label: '\u533B\u7597\u4FDD\u9669(\u5355\u4F4D)' },
-  { key: 'medical_personal', label: '\u533B\u7597\u4FDD\u9669(\u4E2A\u4EBA)' },
-  { key: 'medical_maternity_company', label: '\u751F\u80B2\u533B\u7597(\u5355\u4F4D)' },
-  { key: 'unemployment_company', label: '\u5931\u4E1A\u4FDD\u9669(\u5355\u4F4D)' },
-  { key: 'unemployment_personal', label: '\u5931\u4E1A\u4FDD\u9669(\u4E2A\u4EBA)' },
-  { key: 'injury_company', label: '\u5DE5\u4F24\u4FDD\u9669' },
-  { key: 'supplementary_medical_company', label: '\u8865\u5145\u533B\u7597(\u5355\u4F4D)' },
-  { key: 'supplementary_pension_company', label: '\u8865\u5145\u517B\u8001(\u5355\u4F4D)' },
-  { key: 'large_medical_personal', label: '\u5927\u989D\u533B\u7597(\u4E2A\u4EBA)' },
-  { key: 'late_fee', label: '\u6EDE\u7EB3\u91D1' },
-  { key: 'interest', label: '\u5229\u606F' },
+  { key: 'person_name', label: '姓名' },
+  { key: 'id_number', label: '证件号码' },
+  { key: 'employee_id', label: '工号' },
+  { key: 'company_name', label: '公司名称' },
+  { key: 'region', label: '地区' },
+  { key: 'billing_period', label: '费款所属期' },
+  { key: 'payment_base', label: '缴费基数' },
+  { key: 'total_amount', label: '合计金额' },
+  { key: 'company_total_amount', label: '单位合计' },
+  { key: 'personal_total_amount', label: '个人合计' },
+  { key: 'pension_company', label: '养老保险(单位)' },
+  { key: 'pension_personal', label: '养老保险(个人)' },
+  { key: 'medical_company', label: '医疗保险(单位)' },
+  { key: 'medical_personal', label: '医疗保险(个人)' },
+  { key: 'medical_maternity_company', label: '生育医疗(单位)' },
+  { key: 'unemployment_company', label: '失业保险(单位)' },
+  { key: 'unemployment_personal', label: '失业保险(个人)' },
+  { key: 'injury_company', label: '工伤保险' },
+  { key: 'supplementary_medical_company', label: '补充医疗(单位)' },
+  { key: 'supplementary_pension_company', label: '补充养老(单位)' },
+  { key: 'large_medical_personal', label: '大额医疗(个人)' },
+  { key: 'late_fee', label: '滞纳金' },
+  { key: 'interest', label: '利息' },
 ];
 
 // ── Custom node components ───────────────────────────────────────
@@ -249,7 +249,7 @@ export function FeishuFieldMappingPage() {
     }
 
     setEdges(newEdges);
-    message.success(`\u81EA\u52A8\u5339\u914D\u5B8C\u6210\uFF0C\u5DF2\u5339\u914D ${newEdges.length} \u4E2A\u5B57\u6BB5`);
+    message.success(`自动匹配完成，已匹配 ${newEdges.length} 个字段`);
   }, [feishuFields, setEdges]);
 
   // Save mapping
@@ -269,7 +269,7 @@ export function FeishuFieldMappingPage() {
       }
 
       await saveSyncConfigMapping(configId, mapping);
-      message.success('\u6620\u5C04\u5DF2\u4FDD\u5B58');
+      message.success('映射已保存');
     } catch (err) {
       message.error(normalizeApiError(err).message);
     } finally {
@@ -280,10 +280,10 @@ export function FeishuFieldMappingPage() {
   // Clear all edges
   const handleClear = useCallback(() => {
     Modal.confirm({
-      title: '\u786E\u8BA4\u6E05\u9664',
-      content: '\u786E\u8BA4\u6E05\u9664\u6240\u6709\u6620\u5C04\uFF1F\u6B64\u64CD\u4F5C\u4E0D\u53EF\u64A4\u9500\u3002',
-      okText: '\u786E\u8BA4',
-      cancelText: '\u53D6\u6D88',
+      title: '确认清除',
+      content: '确认清除所有映射？此操作不可撤销。',
+      okText: '确认',
+      cancelText: '取消',
       okButtonProps: { danger: true },
       onOk: () => setEdges([]),
     });
@@ -299,7 +299,7 @@ export function FeishuFieldMappingPage() {
           height: '60vh',
         }}
       >
-        <Spin size="large" tip="\u52A0\u8F7D\u4E2D..." />
+        <Spin size="large" tip="加载中..." />
       </div>
     );
   }
@@ -309,16 +309,16 @@ export function FeishuFieldMappingPage() {
       <div style={{ marginBottom: 16 }}>
         <Title level={3} style={{ margin: 0 }}>
           <LinkOutlined style={{ marginRight: 8 }} />
-          {configName ? `\u5B57\u6BB5\u6620\u5C04 - ${configName}` : '\u5B57\u6BB5\u6620\u5C04'}
+          {configName ? `字段映射 - ${configName}` : '字段映射'}
         </Title>
         <Text type="secondary">
-          \u62D6\u62FD\u8FDE\u63A5\u7CFB\u7EDF\u5B57\u6BB5\u4E0E\u98DE\u4E66\u5217\u5EFA\u7ACB\u6620\u5C04\u5173\u7CFB
+          拖拽连接系统字段与飞书列建立映射关系
         </Text>
       </div>
 
       <Space style={{ marginBottom: 16 }}>
         <Button onClick={handleAutoMatch}>
-          \u81EA\u52A8\u5339\u914D
+          自动匹配
         </Button>
         <Button
           type="primary"
@@ -326,14 +326,14 @@ export function FeishuFieldMappingPage() {
           loading={saving}
           onClick={() => void handleSave()}
         >
-          \u4FDD\u5B58\u6620\u5C04
+          保存映射
         </Button>
         <Button
           danger
           icon={<ClearOutlined />}
           onClick={handleClear}
         >
-          \u6E05\u9664\u5168\u90E8
+          清除全部
         </Button>
       </Space>
 

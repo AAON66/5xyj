@@ -10,10 +10,10 @@ import { useAggregateSession } from '../hooks/useAggregateSession';
 import type { AggregateSessionSnapshot } from '../services/aggregateSessionStore';
 
 const WORKFLOW_STEPS = [
-  { title: '\u4E0A\u4F20\u6587\u4EF6', path: '/aggregate', icon: <UploadOutlined /> },
-  { title: '\u89E3\u6790\u5904\u7406', path: '/dashboard', icon: <DashboardOutlined /> },
-  { title: '\u6821\u9A8C\u5339\u914D', path: '/results', icon: <CheckCircleOutlined /> },
-  { title: '\u5BFC\u51FA\u7ED3\u679C', path: '/exports', icon: <ExportOutlined /> },
+  { title: '上传文件', path: '/aggregate', icon: <UploadOutlined /> },
+  { title: '解析处理', path: '/dashboard', icon: <DashboardOutlined /> },
+  { title: '校验匹配', path: '/results', icon: <CheckCircleOutlined /> },
+  { title: '导出结果', path: '/exports', icon: <ExportOutlined /> },
 ] as const;
 
 type StepStatus = 'finish' | 'process' | 'error' | 'wait';

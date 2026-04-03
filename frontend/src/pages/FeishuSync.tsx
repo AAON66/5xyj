@@ -50,16 +50,16 @@ const STATUS_COLOR: Record<string, string> = {
 };
 
 const STATUS_LABEL: Record<string, string> = {
-  success: '\u6210\u529F',
-  failed: '\u5931\u8D25',
-  partial: '\u90E8\u5206\u6210\u529F',
-  running: '\u8FD0\u884C\u4E2D',
-  pending: '\u7B49\u5F85\u4E2D',
+  success: '成功',
+  failed: '失败',
+  partial: '部分成功',
+  running: '运行中',
+  pending: '等待中',
 };
 
 const DIRECTION_CONFIG: Record<string, { color: string; label: string }> = {
-  push: { color: 'blue', label: '\u63A8\u9001' },
-  pull: { color: 'green', label: '\u62C9\u53D6' },
+  push: { color: 'blue', label: '推送' },
+  pull: { color: 'green', label: '拉取' },
 };
 
 export function FeishuSyncPage() {
@@ -145,7 +145,7 @@ export function FeishuSyncPage() {
 
       if (!response.ok) {
         const errorText = await response.text();
-        message.error(`\u63A8\u9001\u5931\u8D25: ${errorText}`);
+        message.error(`推送失败: ${errorText}`);
         return;
       }
 
@@ -160,7 +160,7 @@ export function FeishuSyncPage() {
           setPushConflictModalOpen(true);
           return;
         }
-        message.success('\u63A8\u9001\u5B8C\u6210');
+        message.success('推送完成');
       } else {
         // NDJSON stream
         await readNdjsonStream(response, (event) => {
@@ -172,10 +172,10 @@ export function FeishuSyncPage() {
             });
           }
           if (event.type === 'complete') {
-            message.success('\u540C\u6B65\u5B8C\u6210');
+            message.success('同步完成');
           }
           if (event.type === 'error') {
-            message.error(String(event.message ?? '\u540C\u6B65\u51FA\u9519'));
+            message.error(String(event.message ?? '同步出错'));
           }
         });
       }
@@ -205,7 +205,7 @@ export function FeishuSyncPage() {
         const response = await confirmPush(selectedConfigId, action);
         if (!response.ok) {
           const errorText = await response.text();
-          message.error(`\u64CD\u4F5C\u5931\u8D25: ${errorText}`);
+          message.error(`操作失败: ${errorText}`);
           return;
         }
 
@@ -218,10 +218,10 @@ export function FeishuSyncPage() {
             });
           }
           if (event.type === 'complete') {
-            message.success('\u63A8\u9001\u5B8C\u6210');
+            message.success('推送完成');
           }
           if (event.type === 'error') {
-            message.error(String(event.message ?? '\u63A8\u9001\u51FA\u9519'));
+            message.error(String(event.message ?? '推送出错'));
           }
         });
         loadHistory();
@@ -260,7 +260,7 @@ export function FeishuSyncPage() {
 
       if (!response.ok) {
         const errorText = await response.text();
-        message.error(`\u62C9\u53D6\u5931\u8D25: ${errorText}`);
+        message.error(`拉取失败: ${errorText}`);
         return;
       }
 
@@ -273,10 +273,10 @@ export function FeishuSyncPage() {
           });
         }
         if (event.type === 'complete') {
-          message.success('\u62C9\u53D6\u5B8C\u6210');
+          message.success('拉取完成');
         }
         if (event.type === 'error') {
-          message.error(String(event.message ?? '\u62C9\u53D6\u51FA\u9519'));
+          message.error(String(event.message ?? '拉取出错'));
         }
       });
 
@@ -301,7 +301,7 @@ export function FeishuSyncPage() {
 
       if (!response.ok) {
         const errorText = await response.text();
-        message.error(`\u62C9\u53D6\u5931\u8D25: ${errorText}`);
+        message.error(`拉取失败: ${errorText}`);
         return;
       }
 
@@ -314,10 +314,10 @@ export function FeishuSyncPage() {
           });
         }
         if (event.type === 'complete') {
-          message.success('\u62C9\u53D6\u5B8C\u6210');
+          message.success('拉取完成');
         }
         if (event.type === 'error') {
-          message.error(String(event.message ?? '\u62C9\u53D6\u51FA\u9519'));
+          message.error(String(event.message ?? '拉取出错'));
         }
       });
 
@@ -335,7 +335,7 @@ export function FeishuSyncPage() {
     async (jobId: string) => {
       try {
         await retrySyncJob(jobId);
-        message.success('\u5DF2\u91CD\u65B0\u89E6\u53D1\u540C\u6B65');
+        message.success('已重新触发同步');
         loadHistory();
       } catch (err) {
         message.error(normalizeApiError(err).message);
@@ -348,21 +348,21 @@ export function FeishuSyncPage() {
 
   const pushConflictColumns: ColumnsType<ConflictRecord> = [
     {
-      title: '\u5458\u5DE5',
+      title: '员工',
       dataIndex: 'person_name',
       key: 'person_name',
       width: 100,
       render: (val: string | null) => val || '-',
     },
     {
-      title: '\u5B57\u6BB5',
+      title: '字段',
       dataIndex: 'diff_fields',
       key: 'diff_fields',
       width: 200,
       render: (fields: string[]) => fields.join(', '),
     },
     {
-      title: '\u7CFB\u7EDF\u503C',
+      title: '系统值',
       key: 'system_values',
       width: 200,
       render: (_: unknown, record: ConflictRecord) => (
@@ -379,7 +379,7 @@ export function FeishuSyncPage() {
       ),
     },
     {
-      title: '\u98DE\u4E66\u503C',
+      title: '飞书值',
       key: 'feishu_values',
       width: 200,
       render: (_: unknown, record: ConflictRecord) => (
@@ -401,14 +401,14 @@ export function FeishuSyncPage() {
 
   const pullConflictColumns: ColumnsType<ConflictRecord> = [
     {
-      title: '\u5458\u5DE5',
+      title: '员工',
       dataIndex: 'person_name',
       key: 'person_name',
       width: 120,
       render: (val: string | null) => val || '-',
     },
     {
-      title: '\u51B2\u7A81\u5B57\u6BB5\u6570',
+      title: '冲突字段数',
       key: 'diff_count',
       width: 100,
       render: (_: unknown, record: ConflictRecord) => record.diff_fields.length,
@@ -416,7 +416,7 @@ export function FeishuSyncPage() {
     ...(pullStrategy === 'per_record'
       ? [
           {
-            title: '\u9009\u62E9',
+            title: '选择',
             key: 'choice',
             width: 160,
             render: (_: unknown, record: ConflictRecord) => (
@@ -430,8 +430,8 @@ export function FeishuSyncPage() {
                 }
                 size="small"
               >
-                <Radio value="system">\u7CFB\u7EDF</Radio>
-                <Radio value="feishu">\u98DE\u4E66</Radio>
+                <Radio value="system">系统</Radio>
+                <Radio value="feishu">飞书</Radio>
               </Radio.Group>
             ),
           } as ColumnsType<ConflictRecord>[number],
@@ -454,9 +454,9 @@ export function FeishuSyncPage() {
         pagination={false}
         size="small"
         columns={[
-          { title: '\u5B57\u6BB5\u540D', dataIndex: 'field', key: 'field', width: 150 },
+          { title: '字段名', dataIndex: 'field', key: 'field', width: 150 },
           {
-            title: '\u7CFB\u7EDF\u503C',
+            title: '系统值',
             dataIndex: 'system',
             key: 'system',
             render: (val: string, row: { field: string; system: string; feishu: string }) => (
@@ -466,7 +466,7 @@ export function FeishuSyncPage() {
             ),
           },
           {
-            title: '\u98DE\u4E66\u503C',
+            title: '飞书值',
             dataIndex: 'feishu',
             key: 'feishu',
             render: (val: string, row: { field: string; system: string; feishu: string }) => (
@@ -484,14 +484,14 @@ export function FeishuSyncPage() {
 
   const columns: ColumnsType<SyncJob> = [
     {
-      title: '\u65F6\u95F4',
+      title: '时间',
       dataIndex: 'created_at',
       key: 'created_at',
       width: 160,
       render: (val: string) => dayjs(val).format('YYYY-MM-DD HH:mm'),
     },
     {
-      title: '\u65B9\u5411',
+      title: '方向',
       dataIndex: 'direction',
       key: 'direction',
       width: 80,
@@ -501,21 +501,21 @@ export function FeishuSyncPage() {
       },
     },
     {
-      title: '\u76EE\u6807\u8868\u683C',
+      title: '目标表格',
       dataIndex: 'config_id',
       key: 'config_id',
       width: 160,
       render: (id: string) => configNameMap.get(id) || id,
     },
     {
-      title: '\u8BB0\u5F55\u6570',
+      title: '记录数',
       key: 'records',
       width: 120,
       render: (_: unknown, record: SyncJob) =>
         `${record.success_records} / ${record.total_records}`,
     },
     {
-      title: '\u72B6\u6001',
+      title: '状态',
       dataIndex: 'status',
       key: 'status',
       width: 100,
@@ -526,7 +526,7 @@ export function FeishuSyncPage() {
       ),
     },
     {
-      title: '\u64CD\u4F5C',
+      title: '操作',
       key: 'action',
       width: 100,
       render: (_: unknown, record: SyncJob) =>
@@ -536,7 +536,7 @@ export function FeishuSyncPage() {
             size="small"
             onClick={() => handleRetry(record.id)}
           >
-            \u91CD\u65B0\u6267\u884C
+            重新执行
           </Button>
         ) : null,
     },
@@ -555,10 +555,10 @@ export function FeishuSyncPage() {
       <div style={{ marginBottom: 24 }}>
         <Title level={3} style={{ margin: 0 }}>
           <CloudSyncOutlined style={{ marginRight: 8 }} />
-          \u98DE\u4E66\u540C\u6B65
+          飞书同步
         </Title>
         <Text type="secondary">
-          \u5C06\u7CFB\u7EDF\u6570\u636E\u63A8\u9001\u5230\u98DE\u4E66\u591A\u7EF4\u8868\u683C\uFF0C\u6216\u4ECE\u98DE\u4E66\u62C9\u53D6\u6570\u636E
+          将系统数据推送到飞书多维表格，或从飞书拉取数据
         </Text>
       </div>
 
@@ -567,8 +567,8 @@ export function FeishuSyncPage() {
           type="info"
           showIcon
           style={{ marginBottom: 16 }}
-          message="\u98DE\u4E66\u5E94\u7528\u51ED\u8BC1\u672A\u914D\u7F6E"
-          description="\u98DE\u4E66\u5E94\u7528\u51ED\u8BC1\u672A\u914D\u7F6E\u3002\u8BF7\u5728\u98DE\u4E66\u8BBE\u7F6E\u9875\u9762\u914D\u7F6E App ID \u548C App Secret \u540E\uFF0C\u5373\u53EF\u4F7F\u7528\u540C\u6B65\u529F\u80FD\u3002"
+          message="飞书应用凭证未配置"
+          description="飞书应用凭证未配置。请在飞书设置页面配置 App ID 和 App Secret 后，即可使用同步功能。"
         />
       )}
 
@@ -576,14 +576,14 @@ export function FeishuSyncPage() {
         <Row gutter={16} align="middle">
           <Col flex="auto">
             <Select
-              placeholder="\u9009\u62E9\u540C\u6B65\u76EE\u6807"
+              placeholder="选择同步目标"
               value={selectedConfigId}
               onChange={setSelectedConfigId}
               style={{ width: '100%' }}
               allowClear
               options={configs.map((c) => ({
                 value: c.id,
-                label: `${c.name} (${c.granularity === 'detail' ? '\u660E\u7EC6' : '\u6C47\u603B'})`,
+                label: `${c.name} (${c.granularity === 'detail' ? '明细' : '汇总'})`,
               }))}
             />
           </Col>
@@ -598,7 +598,7 @@ export function FeishuSyncPage() {
                 }
                 onClick={handlePush}
               >
-                \u63A8\u9001\u5230\u98DE\u4E66
+                推送到飞书
               </Button>
               <Button
                 loading={syncing}
@@ -607,7 +607,7 @@ export function FeishuSyncPage() {
                 }
                 onClick={handlePull}
               >
-                \u4ECE\u98DE\u4E66\u62C9\u53D6
+                从飞书拉取
               </Button>
             </Space>
           </Col>
@@ -637,10 +637,10 @@ export function FeishuSyncPage() {
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
                 description={
                   <span>
-                    <Text strong>\u6682\u65E0\u540C\u6B65\u8BB0\u5F55</Text>
+                    <Text strong>暂无同步记录</Text>
                     <br />
                     <Text type="secondary">
-                      \u9009\u62E9\u4E00\u4E2A\u540C\u6B65\u76EE\u6807\u5E76\u70B9\u51FB\u63A8\u9001\u6216\u62C9\u53D6\u6309\u94AE\u5F00\u59CB\u540C\u6B65
+                      选择一个同步目标并点击推送或拉取按钮开始同步
                     </Text>
                   </span>
                 }
@@ -653,7 +653,7 @@ export function FeishuSyncPage() {
 
       {/* Push Conflict Modal */}
       <Modal
-        title={`\u53D1\u73B0 ${pushConflicts?.total_conflicts ?? 0} \u6761\u51B2\u7A81\u8BB0\u5F55`}
+        title={`发现 ${pushConflicts?.total_conflicts ?? 0} 条冲突记录`}
         open={pushConflictModalOpen}
         onCancel={() => {
           setPushConflictModalOpen(false);
@@ -666,13 +666,13 @@ export function FeishuSyncPage() {
               type="primary"
               onClick={() => void handlePushConfirm('overwrite')}
             >
-              \u8986\u76D6\u98DE\u4E66\u5DF2\u6709\u6570\u636E
+              覆盖飞书已有数据
             </Button>
             <Button onClick={() => void handlePushConfirm('skip')}>
-              \u8DF3\u8FC7\u5DF2\u6709\u6570\u636E
+              跳过已有数据
             </Button>
             <Button onClick={() => void handlePushConfirm('cancel')}>
-              \u53D6\u6D88
+              取消
             </Button>
           </Space>
         }
@@ -689,7 +689,7 @@ export function FeishuSyncPage() {
 
       {/* Pull Conflict Modal */}
       <Modal
-        title={`\u53D1\u73B0 ${pullConflicts?.total_conflicts ?? 0} \u6761\u51B2\u7A81\u8BB0\u5F55`}
+        title={`发现 ${pullConflicts?.total_conflicts ?? 0} 条冲突记录`}
         open={pullConflictModalOpen}
         onCancel={() => {
           setPullConflictModalOpen(false);
@@ -702,7 +702,7 @@ export function FeishuSyncPage() {
               type="primary"
               onClick={() => void handlePullConfirm()}
             >
-              \u786E\u8BA4\u62C9\u53D6
+              确认拉取
             </Button>
             <Button
               onClick={() => {
@@ -710,7 +710,7 @@ export function FeishuSyncPage() {
                 setPullConflicts(null);
               }}
             >
-              \u53D6\u6D88
+              取消
             </Button>
           </Space>
         }
@@ -722,19 +722,19 @@ export function FeishuSyncPage() {
               onChange={(e) => setPullStrategy(e.target.value)}
             >
               <Radio.Button value="system_wins">
-                \u4EE5\u7CFB\u7EDF\u6570\u636E\u4E3A\u51C6
+                以系统数据为准
               </Radio.Button>
               <Radio.Button value="feishu_wins">
-                \u4EE5\u98DE\u4E66\u6570\u636E\u4E3A\u51C6
+                以飞书数据为准
               </Radio.Button>
               <Radio.Button value="per_record">
-                \u9010\u6761\u9009\u62E9
+                逐条选择
               </Radio.Button>
             </Radio.Group>
           </Col>
           <Col>
             <Space>
-              <Text type="secondary">\u4EC5\u663E\u793A\u5DEE\u5F02</Text>
+              <Text type="secondary">仅显示差异</Text>
               <Switch
                 checked={showDiffOnly}
                 onChange={setShowDiffOnly}

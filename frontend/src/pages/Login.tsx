@@ -52,7 +52,7 @@ export function LoginPage() {
           });
           window.location.href = '/';
         })
-        .catch(() => message.error('\u98DE\u4E66\u767B\u5F55\u5931\u8D25'));
+        .catch(() => message.error('飞书登录失败'));
     }
   }, [feishu_oauth_enabled, message]);
 
@@ -61,7 +61,7 @@ export function LoginPage() {
       const url = await fetchFeishuAuthorizeUrl();
       window.location.href = url;
     } catch {
-      message.error('\u83B7\u53D6\u98DE\u4E66\u6388\u6743\u94FE\u63A5\u5931\u8D25');
+      message.error('获取飞书授权链接失败');
     }
   }
 
@@ -233,14 +233,14 @@ export function LoginPage() {
         />
         {feishu_oauth_enabled && (
           <>
-            <Divider>\u6216</Divider>
+            <Divider>或</Divider>
             <Button
               block
               icon={<ApiOutlined />}
               onClick={() => void handleFeishuLogin()}
               style={{ marginBottom: 16 }}
             >
-              \u4F7F\u7528\u98DE\u4E66\u767B\u5F55
+              使用飞书登录
             </Button>
           </>
         )}
