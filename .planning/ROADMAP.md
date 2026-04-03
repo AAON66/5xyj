@@ -208,11 +208,13 @@ Plans:
   2. System flags records where payment base or amounts changed significantly between periods (configurable threshold)
   3. Housing fund data parses and normalizes correctly for all six supported regions
   4. HR can view and manually override field mappings from a UI when automatic mapping is incorrect
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 11-01: TBD
-- [ ] 11-02: TBD
+- [ ] 11-01-PLAN.md -- 跨期对比后端 + 异常检测模型/服务/API（INTEL-01, INTEL-02）
+- [ ] 11-02-PLAN.md -- 公积金全地区解析验证 + 映射审计日志（INTEL-03, INTEL-04）
+- [ ] 11-03-PLAN.md -- 前端跨期对比页 + 异常检测页（INTEL-01, INTEL-02）
+- [ ] 11-04-PLAN.md -- 前端映射管理增强 + 导入批次内嵌映射编辑器（INTEL-04）
 
 **UI hint**: yes
 
@@ -235,4 +237,4 @@ Note: Phases 4, 5, 6 can partially overlap (4 unblocks 5; 4 and 6 share the Phas
 | 8. Page Rebuild & UX Flow | 1/2 | In Progress|  |
 | 9. API System | 0/2 | Planning complete | - |
 | 10. Feishu Integration | 4/4 | Complete   | 2026-04-02 |
-| 11. Intelligence & Polish | 0/2 | Not started | - |
+| 11. Intelligence & Polish | 0/4 | Planning complete | - |
