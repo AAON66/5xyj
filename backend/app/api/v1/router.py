@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
 
+from backend.app.api.v1.anomaly import router as anomaly_router
 from backend.app.api.v1.aggregate import router as aggregate_router
 from backend.app.api.v1.api_keys import router as api_keys_router
 from backend.app.api.v1.audit import router as audit_router
@@ -41,6 +42,7 @@ api_router.include_router(imports_router, dependencies=[Depends(require_role("ad
 api_router.include_router(mappings_router, dependencies=[Depends(require_role("admin", "hr"))])
 api_router.include_router(employees_router, dependencies=[Depends(require_role("admin", "hr"))])
 api_router.include_router(data_management_router, dependencies=[Depends(require_role("admin", "hr"))])
+api_router.include_router(anomaly_router, dependencies=[Depends(require_role("admin", "hr"))])
 
 # Employee portal -- endpoint-level auth (employee role token required)
 api_router.include_router(employee_portal_router)

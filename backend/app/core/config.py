@@ -66,6 +66,15 @@ class Settings(BaseSettings):
     feishu_app_id: str = ''
     feishu_app_secret: str = ''
 
+    # Anomaly detection thresholds (percentage)
+    anomaly_threshold_pension: float = 20.0
+    anomaly_threshold_medical: float = 20.0
+    anomaly_threshold_unemployment: float = 30.0
+    anomaly_threshold_injury: float = 50.0
+    anomaly_threshold_maternity: float = 30.0
+    anomaly_threshold_supplementary: float = 30.0
+    anomaly_threshold_payment_base: float = 15.0
+
     runtime_environment: str = 'local'
     auth_enabled: bool = True
     auth_secret_key: str = DEFAULT_AUTH_SECRET_KEY

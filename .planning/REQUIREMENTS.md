@@ -80,8 +80,8 @@
 
 ### 智能与完善 (INTEL)
 
-- [ ] **INTEL-01**: 跨期对比视图（多月份数据对比）
-- [ ] **INTEL-02**: 异常检测（缴费基数突变、金额异常偏高/偏低）
+- [x] **INTEL-01**: 跨期对比视图（多月份数据对比）
+- [x] **INTEL-02**: 异常检测（缴费基数突变、金额异常偏高/偏低）
 - [ ] **INTEL-03**: 公积金数据全地区标准化覆盖
 - [ ] **INTEL-04**: 字段映射覆盖 UI（HR 可手动修正映射）
 
@@ -156,8 +156,8 @@
 | FEISHU-03 | Phase 10 | Complete |
 | FEISHU-04 | Phase 10 | Complete |
 | FEISHU-05 | Phase 10 | Complete |
-| INTEL-01 | Phase 11 | Pending |
-| INTEL-02 | Phase 11 | Pending |
+| INTEL-01 | Phase 11 | Complete |
+| INTEL-02 | Phase 11 | Complete |
 | INTEL-03 | Phase 11 | Pending |
 | INTEL-04 | Phase 11 | Pending |
 

@@ -18,6 +18,8 @@ from backend.app.schemas.compare import (
     CompareExportRequest,
     CompareRecordSideRead,
     CompareRowRead,
+    PeriodCompareRead,
+    PeriodCompareSummaryGroup,
 )
 from backend.app.services.import_service import BatchNotFoundError
 
@@ -152,6 +154,133 @@ def compare_batches(db: Session, left_batch_id: str, right_batch_id: str) -> Bat
         left_only_count=counters[LEFT_ONLY_STATUS],
         right_only_count=counters[RIGHT_ONLY_STATUS],
         rows=rows,
+    )
+
+
+PERIOD_COMPARE_EXCLUDED_FIELDS = frozenset({
+    'billing_period',
+    'period_start',
+    'period_end',
+    'raw_sheet_name',
+    'raw_header_signature',
+    'source_file_name',
+})
+
+
+def compare_periods(
+    db: Session,
+    left_period: str,
+    right_period: str,
+    *,
+    region: Optional[str] = None,
+    company_name: Optional[str] = None,
+    page: int = 0,
+    page_size: int = 50,
+) -> PeriodCompareRead:
+    """Compare NormalizedRecords across two billing periods."""
+    left_query = db.query(NormalizedRecord).filter(NormalizedRecord.billing_period == left_period)
+    right_query = db.query(NormalizedRecord).filter(NormalizedRecord.billing_period == right_period)
+
+    if region is not None:
+        left_query = left_query.filter(NormalizedRecord.region == region)
+        right_query = right_query.filter(NormalizedRecord.region == region)
+    if company_name is not None:
+        left_query = left_query.filter(NormalizedRecord.company_name == company_name)
+        right_query = right_query.filter(NormalizedRecord.company_name == company_name)
+
+    left_records = left_query.all()
+    right_records = right_query.all()
+
+    left_groups = _group_records_by_identity(left_records)
+    right_groups = _group_records_by_identity(right_records)
+    all_keys = sorted(set(left_groups) | set(right_groups), key=_identity_sort_key)
+
+    all_rows: list[CompareRowRead] = []
+    used_fields: set[str] = set()
+    counters = {
+        SAME_STATUS: 0,
+        CHANGED_STATUS: 0,
+        LEFT_ONLY_STATUS: 0,
+        RIGHT_ONLY_STATUS: 0,
+    }
+
+    # Summary groups by company_name+region
+    group_counters: dict[tuple[Optional[str], Optional[str]], dict[str, int]] = defaultdict(
+        lambda: {SAME_STATUS: 0, CHANGED_STATUS: 0, LEFT_ONLY_STATUS: 0, RIGHT_ONLY_STATUS: 0, 'total': 0}
+    )
+
+    for identity in all_keys:
+        left_recs = sorted(left_groups.get(identity, []), key=_record_sort_key)
+        right_recs = sorted(right_groups.get(identity, []), key=_record_sort_key)
+        for index in range(max(len(left_recs), len(right_recs))):
+            left_record = left_recs[index] if index < len(left_recs) else None
+            right_record = right_recs[index] if index < len(right_recs) else None
+
+            row_fields = [f for f in _collect_fields(left_record, right_record) if f not in PERIOD_COMPARE_EXCLUDED_FIELDS]
+            used_fields.update(row_fields)
+            different_fields = _different_fields(row_fields, left_record, right_record)
+
+            if left_record is None:
+                diff_status = RIGHT_ONLY_STATUS
+            elif right_record is None:
+                diff_status = LEFT_ONLY_STATUS
+            elif different_fields:
+                diff_status = CHANGED_STATUS
+            else:
+                diff_status = SAME_STATUS
+            counters[diff_status] += 1
+
+            # Track summary groups
+            ref = right_record or left_record
+            group_key = (getattr(ref, 'company_name', None), getattr(ref, 'region', None))
+            group_counters[group_key][diff_status] += 1
+            group_counters[group_key]['total'] += 1
+
+            all_rows.append(
+                CompareRowRead(
+                    compare_key=_build_compare_row_key(identity, index),
+                    match_basis=identity.basis,
+                    diff_status=diff_status,
+                    different_fields=different_fields,
+                    left=_serialize_record_side(left_record, row_fields),
+                    right=_serialize_record_side(right_record, row_fields),
+                )
+            )
+
+    fields = _order_fields(used_fields)
+    all_rows = [_align_row_fields(row, fields) for row in all_rows]
+
+    # Pagination
+    total_count = len(all_rows)
+    start = page * page_size
+    end = start + page_size
+    paginated_rows = all_rows[start:end]
+
+    # Build summary groups
+    summary_groups = [
+        PeriodCompareSummaryGroup(
+            company_name=key[0],
+            region=key[1],
+            total_count=counts['total'],
+            changed_count=counts[CHANGED_STATUS],
+            left_only_count=counts[LEFT_ONLY_STATUS],
+            right_only_count=counts[RIGHT_ONLY_STATUS],
+            same_count=counts[SAME_STATUS],
+        )
+        for key, counts in group_counters.items()
+    ]
+
+    return PeriodCompareRead(
+        left_period=left_period,
+        right_period=right_period,
+        fields=fields,
+        total_row_count=total_count,
+        same_row_count=counters[SAME_STATUS],
+        changed_row_count=counters[CHANGED_STATUS],
+        left_only_count=counters[LEFT_ONLY_STATUS],
+        right_only_count=counters[RIGHT_ONLY_STATUS],
+        rows=paginated_rows,
+        summary_groups=summary_groups,
     )
 
 
