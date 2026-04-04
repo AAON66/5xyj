@@ -23,6 +23,7 @@ import {
   LoginPage,
   MappingsPage,
   NotFoundPage,
+  PeriodComparePage,
   ResultsPage,
   SimpleAggregatePage,
 } from './pages';
@@ -121,6 +122,7 @@ export default function App() {
             <Route path="/aggregate" element={<SimpleAggregatePage />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/compare" element={<ComparePage />} />
+            <Route path="/period-compare" element={<PeriodComparePage />} />
             <Route path="/imports" element={<ImportsPage />} />
             <Route path="/imports/:batchId" element={<ImportBatchDetailPage />} />
             <Route path="/mappings" element={<MappingsPage />} />

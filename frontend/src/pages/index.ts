@@ -15,6 +15,7 @@ export * from './Imports';
 export * from './Login';
 export * from './Mappings';
 export * from './NotFound';
+export { default as PeriodComparePage } from './PeriodCompare';
 export * from './Portal';
 export * from './Results';
 export * from './SimpleAggregate';

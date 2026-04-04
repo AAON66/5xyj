@@ -91,6 +91,49 @@ export async function exportBatchCompare(payload: CompareExportPayload): Promise
   };
 }
 
+// --- Period comparison types and API ---
+
+export interface PeriodCompareSummaryGroup {
+  company_name: string | null;
+  region: string | null;
+  total_count: number;
+  changed_count: number;
+  left_only_count: number;
+  right_only_count: number;
+  same_count: number;
+}
+
+export interface PeriodCompareResult {
+  left_period: string;
+  right_period: string;
+  fields: string[];
+  total_row_count: number;
+  same_row_count: number;
+  changed_row_count: number;
+  left_only_count: number;
+  right_only_count: number;
+  rows: CompareRow[];
+  summary_groups: PeriodCompareSummaryGroup[];
+}
+
+export async function fetchPeriodCompare(
+  leftPeriod: string,
+  rightPeriod: string,
+  options?: { region?: string; companyName?: string; page?: number; pageSize?: number },
+): Promise<PeriodCompareResult> {
+  const params: Record<string, string | number> = {
+    left_period: leftPeriod,
+    right_period: rightPeriod,
+  };
+  if (options?.region) params.region = options.region;
+  if (options?.companyName) params.company_name = options.companyName;
+  if (options?.page !== undefined) params.page = options.page;
+  params.page_size = options?.pageSize ?? 20;
+
+  const response = await apiClient.get<ApiSuccessResponse<PeriodCompareResult>>("/compare/periods", { params });
+  return response.data.data;
+}
+
 function resolveDownloadFileName(contentDisposition: string | null): string | null {
   if (!contentDisposition) {
     return null;
