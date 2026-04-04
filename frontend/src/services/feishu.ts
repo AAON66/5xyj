@@ -115,7 +115,7 @@ export async function fetchFeishuFields(
   configId: string,
 ): Promise<FeishuFieldInfo[]> {
   const response = await apiClient.get<ApiSuccessResponse<FeishuFieldInfo[]>>(
-    `/feishu/settings/configs/${configId}/fields`,
+    `/feishu/settings/configs/${configId}/feishu-fields`,
   );
   return response.data.data;
 }
@@ -216,7 +216,7 @@ export async function retrySyncJob(jobId: string): Promise<SyncJob> {
 
 export async function fetchFeishuAuthorizeUrl(): Promise<string> {
   const response = await apiClient.get<ApiSuccessResponse<string>>(
-    '/feishu/oauth/authorize-url',
+    '/auth/feishu/authorize-url',
   );
   return response.data.data;
 }
@@ -237,7 +237,7 @@ export async function feishuOAuthCallback(
       username: string;
       display_name: string;
     }>
-  >('/feishu/oauth/callback', { code, state });
+  >('/auth/feishu/callback', { code, state });
   return response.data.data;
 }
 
