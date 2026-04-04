@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
+  Alert,
   Button,
   Card,
   Col,
@@ -8,12 +9,14 @@ import {
   Empty,
   message,
   Row,
+  Select,
   Skeleton,
   Space,
   Table,
   Tag,
   Typography,
 } from 'antd';
+import type { ColumnsType } from 'antd/es/table';
 import { ArrowLeftOutlined, ReloadOutlined } from '@ant-design/icons';
 
 import {
@@ -24,6 +27,11 @@ import {
   type ImportBatchDetail,
   type SourceFilePreview,
 } from '../services/imports';
+import {
+  fetchHeaderMappings,
+  updateHeaderMapping,
+  type HeaderMappingItem,
+} from '../services/mappings';
 
 const { Title } = Typography;
 
@@ -54,8 +62,26 @@ function statusTagColor(status: string): string {
   }
 }
 
+function mappingSourceColor(value: string): string {
+  switch (value) {
+    case 'rule': return 'blue';
+    case 'llm': return 'purple';
+    case 'manual': return 'green';
+    case 'unmapped': return 'red';
+    default: return 'default';
+  }
+}
+
+function confidenceColor(confidence: number | null): string {
+  if (confidence === null) return 'default';
+  if (confidence >= 0.8) return '#00B42A';
+  if (confidence >= 0.5) return '#FF7D00';
+  return '#F54A45';
+}
+
 export function ImportBatchDetailPage() {
   const { batchId } = useParams<{ batchId: string }>();
+  const navigate = useNavigate();
   const [batchDetail, setBatchDetail] = useState<ImportBatchDetail | null>(null);
   const [previewByFileId, setPreviewByFileId] = useState<Record<string, SourceFilePreview>>({});
   const [selectedSourceFileId, setSelectedSourceFileId] = useState<string | null>(null);
@@ -64,6 +90,13 @@ export function ImportBatchDetailPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
+
+  // Inline mapping editor state
+  const [inlineMappings, setInlineMappings] = useState<HeaderMappingItem[]>([]);
+  const [inlineAvailableFields, setInlineAvailableFields] = useState<string[]>([]);
+  const [inlineDrafts, setInlineDrafts] = useState<Record<string, string>>({});
+  const [inlineSavingId, setInlineSavingId] = useState<string | null>(null);
+  const [inlineMappingsLoading, setInlineMappingsLoading] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -138,6 +171,113 @@ export function ImportBatchDetailPage() {
       setRefreshing(false);
     }
   }
+
+  // Load inline mappings for the current batch
+  useEffect(() => {
+    let active = true;
+    async function loadInlineMappings() {
+      if (!batchId) return;
+      setInlineMappingsLoading(true);
+      try {
+        const mappingPayload = await fetchHeaderMappings(batchId);
+        if (!active) return;
+        setInlineMappings(mappingPayload.items);
+        setInlineAvailableFields(mappingPayload.available_canonical_fields);
+        setInlineDrafts(Object.fromEntries(mappingPayload.items.map((item) => [item.id, item.canonical_field ?? ''])));
+      } catch {
+        // Silently fail - inline mappings are supplementary
+      } finally {
+        if (active) setInlineMappingsLoading(false);
+      }
+    }
+    void loadInlineMappings();
+    return () => { active = false; };
+  }, [batchId, batchDetail?.status]);
+
+  const inlineDirtyIds = useMemo(() => {
+    const dirty = new Set<string>();
+    for (const item of inlineMappings) {
+      const draftValue = inlineDrafts[item.id] ?? '';
+      const savedValue = item.canonical_field ?? '';
+      if (draftValue !== savedValue) dirty.add(item.id);
+    }
+    return dirty;
+  }, [inlineMappings, inlineDrafts]);
+
+  async function handleInlineSave(mapping: HeaderMappingItem) {
+    const nextValue = inlineDrafts[mapping.id] || null;
+    setInlineSavingId(mapping.id);
+    try {
+      const updated = await updateHeaderMapping(mapping.id, nextValue);
+      setInlineMappings((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+      setInlineDrafts((current) => ({ ...current, [mapping.id]: updated.canonical_field ?? '' }));
+      message.success('映射已更新');
+    } catch {
+      message.error(`保存失败：${mapping.raw_header}`);
+    } finally {
+      setInlineSavingId(null);
+    }
+  }
+
+  const inlineMappingColumns: ColumnsType<HeaderMappingItem> = [
+    {
+      title: '原始表头',
+      dataIndex: 'raw_header',
+      key: 'raw_header',
+      width: 200,
+    },
+    {
+      title: '标准字段',
+      key: 'canonical_field',
+      width: 200,
+      render: (_: unknown, record: HeaderMappingItem) => (
+        <Select
+          style={{ width: '100%' }}
+          size="small"
+          value={inlineDrafts[record.id] || undefined}
+          placeholder="保持未识别"
+          allowClear
+          onChange={(val) => setInlineDrafts((current) => ({ ...current, [record.id]: val ?? '' }))}
+          options={inlineAvailableFields.map((f) => ({ value: f, label: f }))}
+        />
+      ),
+    },
+    {
+      title: '映射来源',
+      dataIndex: 'mapping_source',
+      key: 'mapping_source',
+      width: 100,
+      render: (val: string) => <Tag color={mappingSourceColor(val)}>{val}</Tag>,
+    },
+    {
+      title: '置信度',
+      dataIndex: 'confidence',
+      key: 'confidence',
+      width: 100,
+      render: (val: number | null) => (
+        val !== null ? (
+          <span style={{ color: confidenceColor(val) }}>{(val * 100).toFixed(0)}%</span>
+        ) : (
+          <span style={{ color: '#999' }}>-</span>
+        )
+      ),
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 100,
+      render: (_: unknown, record: HeaderMappingItem) => (
+        <Button
+          size="small"
+          onClick={() => void handleInlineSave(record)}
+          loading={inlineSavingId === record.id}
+          disabled={!inlineDirtyIds.has(record.id)}
+        >
+          保存修正
+        </Button>
+      ),
+    },
+  ];
 
   async function handleParseBatch() {
     if (!batchId) return;
@@ -339,6 +479,38 @@ export function ImportBatchDetailPage() {
           </Row>
         ) : (
           <Empty description="没有未识别字段" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        )}
+      </Card>
+
+      {/* Inline mapping editor (D-12) */}
+      <Card
+        title="字段映射"
+        style={{ marginTop: 16 }}
+        extra={
+          <Button type="link" onClick={() => navigate(`/mappings?batchId=${batchId}`)}>
+            查看完整映射管理
+          </Button>
+        }
+      >
+        <Alert
+          type="warning"
+          showIcon
+          message="映射修正仅影响当前已导入文件，后续导入仍使用自动映射。"
+          style={{ marginBottom: 12 }}
+          banner
+        />
+        {inlineMappingsLoading ? (
+          <Skeleton active paragraph={{ rows: 4 }} />
+        ) : inlineMappings.length > 0 ? (
+          <Table
+            size="small"
+            columns={inlineMappingColumns}
+            dataSource={inlineMappings}
+            rowKey="id"
+            pagination={{ pageSize: 10, showSizeChanger: true }}
+          />
+        ) : (
+          <Empty description="当前批次还没有可修正的映射记录。请先完成解析，或切换到有预览结果的文件。" />
         )}
       </Card>
     </div>
