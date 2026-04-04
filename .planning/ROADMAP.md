@@ -54,7 +54,12 @@ See: `.planning/milestones/v1.0-ROADMAP.md` for full details
   3. 审计日志记录显示真实客户端 IP 地址（经过反向代理时正确解析 X-Forwarded-For）
   4. 快速融合页面显示已上传文件数量计数
   5. 员工主档上传步骤默认选择"使用服务器已有主档"
-**Plans**: TBD
+**Plans:** 4 plans
+Plans:
+- [ ] 13-01-PLAN.md — Python 3.9 兼容性修复 + 依赖清理
+- [ ] 13-02-PLAN.md — 前端废弃组件清理 + 快速融合页面小修复
+- [ ] 13-03-PLAN.md — 技术债常量合并 + 自助查询端点认证修复
+- [ ] 13-04-PLAN.md — 审计日志 IP 解析增强 + nginx 配置文档
 
 ### Phase 14: 样式 Token 化与暗黑模式
 **Goal**: 用户可在亮色和暗黑模式之间自由切换，所有页面视觉一致无硬编码颜色残留
@@ -157,7 +162,7 @@ Phases execute in numeric order. Phases 15-18 depend on 14 (token化); Phases 16
 | 10. Feishu Integration | v1.0 | 4/4 | Complete | 2026-04-02 |
 | 11. Intelligence & Polish | v1.0 | 5/5 | Complete | 2026-04-04 |
 | 12. Integration Wiring Fix | v1.0 | 1/1 | Complete | 2026-04-04 |
-| 13. 基础准备与部署适配 | v1.1 | 0/0 | Not started | - |
+| 13. 基础准备与部署适配 | v1.1 | 0/4 | In progress | - |
 | 14. 样式 Token 化与暗黑模式 | v1.1 | 0/0 | Not started | - |
 | 15. 菜单重组与设置导航 | v1.1 | 0/0 | Not started | - |
 | 16. 账号管理 | v1.1 | 0/0 | Not started | - |
