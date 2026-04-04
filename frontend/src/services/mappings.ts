@@ -21,13 +21,36 @@ export interface HeaderMappingList {
   available_canonical_fields: string[];
 }
 
-export async function fetchHeaderMappings(batchId?: string, sourceFileId?: string): Promise<HeaderMappingList> {
-  const response = await apiClient.get<ApiSuccessResponse<HeaderMappingList>>('/mappings', {
-    params: {
-      batch_id: batchId || undefined,
+export interface MappingListParams {
+  batchId?: string;
+  sourceFileId?: string;
+  mappingSource?: string;
+  confidenceMin?: number;
+  confidenceMax?: number;
+}
+
+export async function fetchHeaderMappings(
+  batchIdOrParams?: string | MappingListParams,
+  sourceFileId?: string,
+): Promise<HeaderMappingList> {
+  let params: Record<string, string | number | undefined>;
+
+  if (typeof batchIdOrParams === 'object' && batchIdOrParams !== null) {
+    params = {
+      batch_id: batchIdOrParams.batchId || undefined,
+      source_file_id: batchIdOrParams.sourceFileId || undefined,
+      mapping_source: batchIdOrParams.mappingSource || undefined,
+      confidence_min: batchIdOrParams.confidenceMin,
+      confidence_max: batchIdOrParams.confidenceMax,
+    };
+  } else {
+    params = {
+      batch_id: batchIdOrParams || undefined,
       source_file_id: sourceFileId || undefined,
-    },
-  });
+    };
+  }
+
+  const response = await apiClient.get<ApiSuccessResponse<HeaderMappingList>>('/mappings', { params });
   return response.data.data;
 }
 

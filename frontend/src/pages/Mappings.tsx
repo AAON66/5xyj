@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   Alert,
@@ -12,13 +12,14 @@ import {
   Statistic,
   Table,
   Tag,
+  Tooltip,
   Typography,
   message,
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 
 import { fetchImportBatch, fetchImportBatches, type ImportBatchDetail, type ImportBatchSummary } from '../services/imports';
-import { fetchHeaderMappings, updateHeaderMapping, type HeaderMappingItem } from '../services/mappings';
+import { fetchHeaderMappings, updateHeaderMapping, type HeaderMappingItem, type MappingListParams } from '../services/mappings';
 
 const { Title, Text } = Typography;
 
@@ -56,6 +57,17 @@ function confidenceLabel(confidence: number | null): string {
   return '低';
 }
 
+type ConfidenceRange = 'high' | 'medium' | 'low';
+
+function confidenceRangeToParams(range: ConfidenceRange | undefined): { confidenceMin?: number; confidenceMax?: number } {
+  switch (range) {
+    case 'high': return { confidenceMin: 0.8 };
+    case 'medium': return { confidenceMin: 0.5, confidenceMax: 0.8 };
+    case 'low': return { confidenceMax: 0.5 };
+    default: return {};
+  }
+}
+
 export function MappingsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [batches, setBatches] = useState<ImportBatchSummary[]>([]);
@@ -67,7 +79,12 @@ export function MappingsPage() {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [batchSaving, setBatchSaving] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
+
+  // Filter state
+  const [filterMappingSource, setFilterMappingSource] = useState<string | undefined>(undefined);
+  const [filterConfidence, setFilterConfidence] = useState<ConfidenceRange | undefined>(undefined);
 
   useEffect(() => {
     let active = true;
@@ -89,26 +106,31 @@ export function MappingsPage() {
     return () => { active = false; };
   }, [searchParams]);
 
-  useEffect(() => {
-    let active = true;
-    async function loadBatchContext(batchId: string) {
-      try {
-        const [detail, mappingPayload] = await Promise.all([
-          fetchImportBatch(batchId),
-          fetchHeaderMappings(batchId, selectedSourceFileId ?? undefined),
-        ]);
-        if (!active) return;
-        setBatchDetail(detail);
-        setMappings(mappingPayload.items);
-        setAvailableFields(mappingPayload.available_canonical_fields);
-        const nextSourceFileId = selectedSourceFileId ?? mappingPayload.items[0]?.source_file_id ?? detail.source_files[0]?.id ?? null;
-        setSelectedSourceFileId(nextSourceFileId);
-        setDrafts(Object.fromEntries(mappingPayload.items.map((item) => [item.id, item.canonical_field ?? ''])));
-        setPageError(null);
-      } catch {
-        if (active) setPageError('当前批次的映射记录加载失败，请稍后重试。');
-      }
+  const loadMappings = useCallback(async (batchId: string, sourceFileId: string | null) => {
+    try {
+      const params: MappingListParams = {
+        batchId,
+        sourceFileId: sourceFileId ?? undefined,
+        mappingSource: filterMappingSource,
+        ...confidenceRangeToParams(filterConfidence),
+      };
+      const [detail, mappingPayload] = await Promise.all([
+        fetchImportBatch(batchId),
+        fetchHeaderMappings(params),
+      ]);
+      setBatchDetail(detail);
+      setMappings(mappingPayload.items);
+      setAvailableFields(mappingPayload.available_canonical_fields);
+      const nextSourceFileId = sourceFileId ?? mappingPayload.items[0]?.source_file_id ?? detail.source_files[0]?.id ?? null;
+      setSelectedSourceFileId(nextSourceFileId);
+      setDrafts(Object.fromEntries(mappingPayload.items.map((item) => [item.id, item.canonical_field ?? ''])));
+      setPageError(null);
+    } catch {
+      setPageError('当前批次的映射记录加载失败，请稍后重试。');
     }
+  }, [filterMappingSource, filterConfidence]);
+
+  useEffect(() => {
     if (!selectedBatchId) {
       setBatchDetail(null);
       setMappings([]);
@@ -116,9 +138,9 @@ export function MappingsPage() {
       setDrafts({});
       return;
     }
-    void loadBatchContext(selectedBatchId);
-    return () => { active = false; };
-  }, [selectedBatchId, selectedSourceFileId]);
+    void loadMappings(selectedBatchId, selectedSourceFileId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedBatchId, selectedSourceFileId, filterMappingSource, filterConfidence]);
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -142,6 +164,17 @@ export function MappingsPage() {
     [visibleMappings],
   );
 
+  // Track dirty rows (rows where draft differs from saved value)
+  const dirtyIds = useMemo(() => {
+    const dirty = new Set<string>();
+    for (const item of visibleMappings) {
+      const draftValue = drafts[item.id] ?? '';
+      const savedValue = item.canonical_field ?? '';
+      if (draftValue !== savedValue) dirty.add(item.id);
+    }
+    return dirty;
+  }, [visibleMappings, drafts]);
+
   async function handleSave(mapping: HeaderMappingItem) {
     const nextValue = drafts[mapping.id] || null;
     setSavingId(mapping.id);
@@ -154,6 +187,33 @@ export function MappingsPage() {
       message.error(`保存失败：${mapping.raw_header}`);
     } finally {
       setSavingId(null);
+    }
+  }
+
+  async function handleBatchSave() {
+    if (dirtyIds.size === 0) return;
+    setBatchSaving(true);
+    let savedCount = 0;
+    let failCount = 0;
+    try {
+      for (const id of dirtyIds) {
+        const nextValue = drafts[id] || null;
+        try {
+          const updated = await updateHeaderMapping(id, nextValue);
+          setMappings((current) => current.map((item) => (item.id === updated.id ? updated : item)));
+          setDrafts((current) => ({ ...current, [id]: updated.canonical_field ?? '' }));
+          savedCount++;
+        } catch {
+          failCount++;
+        }
+      }
+      if (failCount === 0) {
+        message.success(`已保存 ${savedCount} 条映射修正`);
+      } else {
+        message.warning(`已保存 ${savedCount} 条，${failCount} 条保存失败`);
+      }
+    } finally {
+      setBatchSaving(false);
     }
   }
 
@@ -201,8 +261,17 @@ export function MappingsPage() {
       title: '来源',
       dataIndex: 'mapping_source',
       key: 'mapping_source',
-      width: 100,
-      render: (val: string) => <Tag color={mappingSourceColor(val)}>{mappingLabel(val)}</Tag>,
+      width: 120,
+      render: (val: string, record: HeaderMappingItem) => (
+        <>
+          <Tag color={mappingSourceColor(val)}>{mappingLabel(val)}</Tag>
+          {record.manually_overridden && (
+            <Tooltip title="已手动修正">
+              <Tag color="green">手动</Tag>
+            </Tooltip>
+          )}
+        </>
+      ),
     },
     {
       title: '文件',
@@ -220,6 +289,7 @@ export function MappingsPage() {
           size="small"
           onClick={() => void handleSave(record)}
           loading={savingId === record.id}
+          disabled={batchSaving || !dirtyIds.has(record.id)}
         >
           保存修正
         </Button>
@@ -237,6 +307,13 @@ export function MappingsPage() {
           </Link>
         )}
       </div>
+
+      <Alert
+        type="warning"
+        showIcon
+        message="映射修正仅影响当前已导入文件，后续导入仍使用自动映射。如需永久修改映射规则，请联系管理员。"
+        style={{ marginBottom: 16 }}
+      />
 
       {pageError && (
         <Alert type="error" message="页面状态异常" description={pageError} style={{ marginBottom: 16 }} />
@@ -260,7 +337,7 @@ export function MappingsPage() {
                     allowClear
                   />
                 </div>
-                <div>
+                <div style={{ marginBottom: 12 }}>
                   <Text type="secondary" style={{ display: 'block', marginBottom: 4 }}>源文件</Text>
                   <Select
                     style={{ width: '100%' }}
@@ -270,6 +347,37 @@ export function MappingsPage() {
                     disabled={!sourceFiles.length}
                     allowClear
                     options={sourceFiles.map((f) => ({ value: f.id, label: f.file_name }))}
+                  />
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <Text type="secondary" style={{ display: 'block', marginBottom: 4 }}>映射来源</Text>
+                  <Select
+                    style={{ width: '100%' }}
+                    placeholder="映射来源"
+                    value={filterMappingSource}
+                    onChange={(val) => setFilterMappingSource(val || undefined)}
+                    allowClear
+                    options={[
+                      { label: '规则映射', value: 'rule' },
+                      { label: 'LLM映射', value: 'llm' },
+                      { label: '手动修正', value: 'manual' },
+                      { label: '未映射', value: 'unmapped' },
+                    ]}
+                  />
+                </div>
+                <div>
+                  <Text type="secondary" style={{ display: 'block', marginBottom: 4 }}>置信度</Text>
+                  <Select
+                    style={{ width: '100%' }}
+                    placeholder="置信度"
+                    value={filterConfidence}
+                    onChange={(val) => setFilterConfidence(val || undefined)}
+                    allowClear
+                    options={[
+                      { label: '高 (>=80%)', value: 'high' },
+                      { label: '中 (50%-80%)', value: 'medium' },
+                      { label: '低 (<50%)', value: 'low' },
+                    ]}
                   />
                 </div>
               </>
@@ -293,7 +401,20 @@ export function MappingsPage() {
         </Col>
       </Row>
 
-      <Card title="映射清单">
+      <Card
+        title="映射清单"
+        extra={
+          dirtyIds.size > 0 ? (
+            <Button
+              type="primary"
+              onClick={() => void handleBatchSave()}
+              loading={batchSaving}
+            >
+              批量保存 ({dirtyIds.size})
+            </Button>
+          ) : null
+        }
+      >
         {loading ? (
           <Skeleton active paragraph={{ rows: 4 }} />
         ) : visibleMappings.length ? (
