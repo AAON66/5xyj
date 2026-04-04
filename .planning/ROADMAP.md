@@ -228,7 +228,10 @@ Plans:
   1. Feishu OAuth authorize-url and callback requests reach the correct backend endpoints (no 404)
   2. FeishuFieldMapping page successfully loads Feishu column definitions from the API
   3. API Keys page is accessible from the sidebar navigation for admin users
-**Plans**: 0 plans
+**Plans**: 1 plan
+
+Plans:
+- [ ] 12-01-PLAN.md -- Fix Feishu OAuth/fields path mismatches + add API Keys nav item
 
 ## Progress
 
@@ -250,4 +253,4 @@ Note: Phases 4, 5, 6 can partially overlap (4 unblocks 5; 4 and 6 share the Phas
 | 9. API System | 0/2 | Planning complete | - |
 | 10. Feishu Integration | 4/4 | Complete   | 2026-04-02 |
 | 11. Intelligence & Polish | 5/5 | Complete    | 2026-04-04 |
-| 12. Integration Wiring Fix | 0/0 | Not started | - |
+| 12. Integration Wiring Fix | 0/1 | Planning complete | - |
