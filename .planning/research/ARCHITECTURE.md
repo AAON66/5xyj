@@ -1,599 +1,512 @@
 # Architecture Patterns
 
-**Domain:** Social Insurance & Housing Fund Management System (v2 milestone)
-**Researched:** 2026-03-27
-**Focus:** Auth, Employee Portal, Feishu Integration, External API Layer
+**Domain:** v1.1 体验优化与功能完善 -- 集成架构分析
+**Researched:** 2026-04-04
 
-## Current Architecture Snapshot
-
-The system is a monolithic two-tier application: React SPA (frontend) communicating over REST/NDJSON to a FastAPI backend, with SQLite (WAL mode) as the database. The backend is layered: API routes -> services -> parsers/validators/exporters -> models. The core data pipeline is sequential: Upload -> Parse -> Normalize -> Validate -> Match -> Export.
-
-**What already exists and must not break:**
-- Full data processing pipeline (upload through dual-template export)
-- JWT auth with two roles (`admin`, `hr`) using custom HMAC-signed tokens
-- Employee self-service endpoint (`POST /employees/self-service/query`) that is already unauthenticated
-- `AuthProvider` in React managing session via localStorage
-- `require_authenticated_user` FastAPI dependency for route protection
-- Auth toggle via `auth_enabled` setting
-
-## Recommended Architecture for v2
-
-### High-Level Component Map
+## Current Architecture Overview
 
 ```
-+---------------------------------------------------+
-|                    BROWSER                         |
-|  +---------------------------------------------+  |
-|  |              React SPA (Vite)                |  |
-|  |                                              |  |
-|  |  +----------+  +----------+  +------------+ |  |
-|  |  | Admin    |  | HR       |  | Employee   | |  |
-|  |  | Console  |  | Console  |  | Portal     | |  |
-|  |  +----------+  +----------+  +------------+ |  |
-|  |         |            |             |         |  |
-|  |  +------+------------+-------------+------+  |  |
-|  |  |         AuthProvider (extended)        |  |  |
-|  |  |  - JWT session (admin/hr)              |  |  |
-|  |  |  - Employee token (limited scope)      |  |  |
-|  |  |  - Feishu OAuth callback handler       |  |  |
-|  |  +----------------------------------------+  |  |
-|  +---------------------------------------------+  |
-+---------------------------------------------------+
-              |  REST / NDJSON
-              v
-+---------------------------------------------------+
-|              FastAPI Backend                        |
-|                                                    |
-|  +----------------------------------------------+ |
-|  |               API Layer (/api/v1/)            | |
-|  |                                               | |
-|  |  /auth       - login, feishu-callback, me     | |
-|  |  /portal     - employee self-service (NEW)    | |
-|  |  /aggregate  - pipeline operations            | |
-|  |  /imports    - batch lifecycle                 | |
-|  |  /employees  - master CRUD                    | |
-|  |  /dashboard  - stats                          | |
-|  |  /compare    - cross-batch diff               | |
-|  |  /mappings   - header mapping audit           | |
-|  |  /feishu     - sync triggers, webhook (NEW)   | |
-|  |  /system     - health, runtime                | |
-|  +----------------------------------------------+ |
-|                      |                             |
-|  +----------------------------------------------+ |
-|  |          Auth & Permission Layer              | |
-|  |                                               | |
-|  |  require_role('admin')                        | |
-|  |  require_role('hr')                           | |
-|  |  require_role('admin', 'hr')                  | |
-|  |  require_employee_token()     (NEW)           | |
-|  |  optional_feishu_identity()   (NEW)           | |
-|  +----------------------------------------------+ |
-|                      |                             |
-|  +----------------------------------------------+ |
-|  |            Service Layer                      | |
-|  |                                               | |
-|  |  [existing services unchanged]                | |
-|  |  + feishu_sync_service.py     (NEW)           | |
-|  |  + feishu_auth_service.py     (NEW)           | |
-|  |  + portal_service.py          (NEW)           | |
-|  |  + api_key_service.py         (NEW, optional) | |
-|  +----------------------------------------------+ |
-|                      |                             |
-|  +------+    +-------+-------+    +-----------+   |
-|  |SQLite|    |  Feishu API   |    | DeepSeek  |   |
-|  | (WAL)|    | (lark-oapi)   |    |  (LLM)    |   |
-|  +------+    +---------------+    +-----------+   |
-+---------------------------------------------------+
+Frontend (React 18 + Ant Design 5 + Vite)
+  main.tsx
+    ConfigProvider(theme, locale=zhCN)  <-- theme injection point
+      AntApp
+        BrowserRouter
+          AuthProvider (context)
+            ApiFeedbackProvider (context)
+              App.tsx (Routes)
+                MainLayout (Sider + Header + Content)
+                  Outlet -> page components
+
+Backend (FastAPI 0.115 + SQLAlchemy 2.0 + SQLite WAL)
+  api/v1/router.py  ->  routers: auth, users, imports, aggregate, ...
+  services/         ->  business logic layer
+  models/           ->  SQLAlchemy ORM models
+  schemas/          ->  Pydantic schemas
+  parsers/          ->  Excel parsing pipeline
+  exporters/        ->  Salary + Tool template exporters
+  validators/       ->  Non-detail row filter, validation
+  mappings/         ->  Field alias rules
 ```
 
-### Component Boundaries
-
-| Component | Responsibility | Communicates With | Auth Required |
-|-----------|---------------|-------------------|---------------|
-| **Admin Console** (frontend) | System config, user management, all data access | Backend via JWT (admin role) | admin JWT |
-| **HR Console** (frontend) | Data management, import/export, employee ops | Backend via JWT (hr role) | hr JWT |
-| **Employee Portal** (frontend) | Personal social insurance lookup, read-only | Backend via employee token | employee token |
-| **Auth Module** (backend) | JWT issuance, Feishu OAuth exchange, employee verification | SQLite, Feishu OAuth API | None (login endpoints) |
-| **Portal Service** (backend) | Employee-scoped data queries, personal record view | SQLite (NormalizedRecord, EmployeeMaster) | employee token |
-| **Feishu Sync Service** (backend) | Bidirectional sync with Feishu bitable | Feishu Bitable API via lark-oapi | tenant_access_token (machine) |
-| **Feishu Auth Service** (backend) | OAuth code exchange, user identity resolution | Feishu OAuth API | None (callback) |
-| **External API** (backend) | Programmatic access for third-party tools | Existing service layer | API key or JWT |
-| **Existing Pipeline** (backend) | Upload -> Parse -> Normalize -> Validate -> Match -> Export | SQLite, DeepSeek | admin/hr JWT |
-
-## Detailed Architecture by Feature
-
-### 1. Auth System Evolution
-
-**Current state:** Two hardcoded users (admin/hr) with passwords in env vars. Custom HMAC-SHA256 token format. Works but not extensible.
-
-**Recommended evolution:** Keep the existing auth module structure but extend it to support three authentication paths:
-
-```
-Authentication Paths:
-
-  1. Password Login (existing)
-     POST /auth/login  { username, password, role }
-     -> JWT { sub, role: admin|hr, exp }
-
-  2. Employee Verification (NEW)
-     POST /portal/verify  { employee_id, id_number, name }
-     -> EmployeeToken { sub: employee_id, scope: portal, exp }
-
-  3. Feishu OAuth (NEW, optional)
-     GET  /auth/feishu/authorize  -> redirect to Feishu
-     GET  /auth/feishu/callback?code=xxx
-     -> JWT { sub, role, feishu_user_id, exp }
-```
-
-**Key decisions:**
-
-- **Do NOT replace the custom token format with a full JWT library (like python-jose).** The current HMAC-signed token works fine for a single-company internal tool. Adding PyJWT or python-jose adds a dependency for zero practical benefit here. The existing format is essentially a simplified JWT.
-
-- **Employee tokens are a separate token type.** They carry `scope: portal` and only grant access to `/portal/*` endpoints. They should have a shorter expiry (e.g., 60 minutes) since employees don't need persistent sessions.
-
-- **Feishu OAuth is additive, not replacing.** Password login remains primary. Feishu OAuth is a convenience for users already logged into Feishu. Map Feishu user_id to an internal role via a `feishu_user_mappings` table or config.
-
-**Backend changes:**
-
-```python
-# backend/app/core/auth.py - extend AuthRole
-AuthRole = Literal['admin', 'hr', 'employee']
-
-# backend/app/dependencies.py - add role-based guards
-def require_role(*allowed_roles: AuthRole):
-    def dependency(user: AuthUser = Depends(require_authenticated_user)):
-        if user.role not in allowed_roles:
-            raise HTTPException(403, 'Insufficient permissions')
-        return user
-    return Depends(dependency)
-
-# Usage in router.py:
-api_router.include_router(imports_router, dependencies=[require_role('admin', 'hr')])
-api_router.include_router(portal_router, dependencies=[require_role('employee')])
-```
-
-**Frontend changes:**
-
-- Extend `AuthProvider` to handle employee token type alongside admin/hr JWT
-- Add route guards: `<RequireRole roles={['admin', 'hr']}>` wrapper component
-- Employee portal gets its own login page (verify by employee_id + id_number + name)
-
-### 2. Employee Portal
-
-**Purpose:** Employees look up their own social insurance and housing fund records. Read-only. No access to other employees' data.
-
-**Data flow:**
-
-```
-Employee opens /portal
-  -> enters employee_id + id_number + name
-  -> POST /portal/verify
-  -> backend checks EmployeeMaster table
-  -> returns EmployeeToken (scoped, short-lived)
-  -> frontend stores token, redirects to /portal/dashboard
-
-Employee views records
-  -> GET /portal/my-records?period=202602
-  -> backend decodes EmployeeToken, extracts employee_id
-  -> queries NormalizedRecord WHERE matched employee_id = token.sub
-  -> returns personal records only
-
-Employee views summary
-  -> GET /portal/my-summary
-  -> backend aggregates across periods for this employee
-  -> returns summary (total contributions by type, trend)
-```
-
-**New backend module: `backend/app/services/portal_service.py`**
-
-Responsibilities:
-- Verify employee identity against `EmployeeMaster` table
-- Query `NormalizedRecord` + `MatchResult` scoped to single employee
-- Aggregate personal totals across billing periods
-- Return read-only data (no mutations)
-
-**New API router: `backend/app/api/v1/portal.py`**
-
-```
-POST /portal/verify          -> employee token
-GET  /portal/my-records      -> list of personal NormalizedRecords
-GET  /portal/my-summary      -> aggregated personal summary
-```
-
-**Security boundary:** The portal service MUST only return records where `MatchResult.employee_master_id` matches the authenticated employee. Never accept employee_id as a query parameter -- always derive from token.
-
-### 3. Feishu Bitable Sync
-
-**Purpose:** Bidirectional sync between the system's SQLite data and a Feishu bitable (multi-dimensional table). HR can view/edit data in Feishu; changes flow back to the system.
-
-**Architecture pattern: Hub-and-spoke with system as hub.**
-
-```
-System (SQLite) <-----> Feishu Sync Service <-----> Feishu Bitable API
-                             |
-                        lark-oapi SDK
-                   (tenant_access_token)
-```
-
-**Sync directions:**
-
-| Direction | Trigger | What Syncs |
-|-----------|---------|------------|
-| System -> Feishu | After successful export, or manual trigger | NormalizedRecords for a billing period |
-| Feishu -> System | Manual trigger or webhook | Records edited in Feishu bitable |
-
-**Key design decisions:**
-
-- **Use `tenant_access_token` (not user_access_token) for sync.** This is a machine-to-machine integration. The Feishu app acts on behalf of the organization, not a specific user. Simplifies auth -- no per-user OAuth needed for sync.
-
-- **Use `lark-oapi` Python SDK (v1.5.3).** Official Larksuite SDK, supports all bitable endpoints, handles token refresh automatically. Install: `pip install lark-oapi`.
-
-- **Batch operations with 500-record pages.** Feishu bitable supports up to 1000 records per batch request, but 500 is safer for reliability. Implement pagination for both reads and writes.
-
-- **Conflict resolution: system wins.** For system->Feishu pushes, system data overwrites Feishu. For Feishu->system pulls, present diffs for HR review before committing. Never auto-merge Feishu edits into system.
-
-- **Sync is NOT real-time.** It is triggered (manually or after export). Do not build a polling loop or webhook listener initially -- add webhooks in a later phase if needed.
-
-**New backend module: `backend/app/services/feishu_sync_service.py`**
-
-```python
-class FeishuSyncService:
-    def __init__(self, settings: Settings):
-        self.client = lark.Client.builder()
-            .app_id(settings.feishu_app_id)
-            .app_secret(settings.feishu_app_secret)
-            .build()
-
-    async def push_records_to_bitable(self, period: str, records: list[NormalizedRecord]):
-        """Push normalized records to Feishu bitable for a billing period."""
-        # 1. Map NormalizedRecord fields to bitable field names
-        # 2. Batch upsert (match on id_number + period)
-        # 3. Return sync result (created, updated, failed counts)
-
-    async def pull_records_from_bitable(self, period: str):
-        """Pull records from Feishu bitable and return diffs."""
-        # 1. Fetch all records for period from bitable
-        # 2. Compare with system NormalizedRecords
-        # 3. Return diff list for HR review (NOT auto-apply)
-```
-
-**New config entries in `Settings`:**
-
-```python
-feishu_app_id: str = ''
-feishu_app_secret: str = ''
-feishu_bitable_app_token: str = ''      # The bitable document ID
-feishu_bitable_table_id: str = ''        # The specific table within the bitable
-feishu_sync_enabled: bool = False        # Feature flag, off by default
-```
-
-**New API router: `backend/app/api/v1/feishu.py`**
-
-```
-POST /feishu/sync/push    { period }     -> push to Feishu bitable
-POST /feishu/sync/pull    { period }     -> pull from Feishu, return diffs
-POST /feishu/sync/apply   { diff_ids }   -> apply approved diffs
-GET  /feishu/sync/status                 -> last sync status
-```
-
-**Rate limit awareness:** Feishu recommends only one concurrent write API call per bitable. The sync service must serialize write operations and implement retry with backoff.
-
-### 4. Feishu OAuth Login (Optional)
-
-**Purpose:** Allow admin/HR users to log in via Feishu SSO instead of username/password.
-
-**Flow:**
-
-```
-1. User clicks "Login with Feishu" on frontend
-2. Frontend redirects to:
-   https://open.feishu.cn/open-apis/authen/v1/authorize
-     ?app_id={feishu_app_id}
-     &redirect_uri={backend_url}/api/v1/auth/feishu/callback
-     &state={csrf_token}
-3. User authorizes in Feishu
-4. Feishu redirects to callback with ?code=xxx
-5. Backend exchanges code for user_access_token via:
-   POST https://open.feishu.cn/open-apis/authen/v2/oauth/token
-6. Backend fetches user info (name, email, employee_id)
-7. Backend looks up role mapping (feishu_user_id -> admin|hr)
-8. Backend issues internal JWT with role
-9. Redirect to frontend with JWT in URL fragment or set cookie
-```
-
-**New backend module: `backend/app/services/feishu_auth_service.py`**
-
-Responsibilities:
-- Exchange OAuth code for Feishu user_access_token
-- Fetch user identity from Feishu
-- Map Feishu user to internal role (via config or DB table)
-- Issue internal JWT
-
-**New model (optional): `FeishuUserMapping`**
-
-```python
-class FeishuUserMapping(Base):
-    feishu_user_id: str       # From Feishu OAuth
-    feishu_name: str          # Display name
-    internal_role: AuthRole   # admin | hr
-    is_active: bool
-```
-
-This can also be a simple JSON config file if the number of Feishu-mapped users is small (< 20).
-
-### 5. External API Layer
-
-**Purpose:** Allow external tools/scripts to programmatically access system data.
-
-**Recommendation: Reuse existing API structure with API key authentication.**
-
-The current `/api/v1/` routes already form a reasonable REST API. The "external API" does not need a separate set of endpoints. Instead:
-
-1. **Add API key authentication as an alternative to JWT.** External tools send `X-API-Key` header instead of Bearer token.
-2. **API keys are scoped to a role** (admin or hr), so existing permission checks work unchanged.
-3. **API keys are stored in the database** with hashed values, created/revoked by admins.
-
-**New model: `ApiKey`**
-
-```python
-class ApiKey(Base):
-    id: UUID
-    name: str                # Human-readable label ("HR automation script")
-    key_hash: str            # SHA-256 of the actual key
-    role: AuthRole           # Permission scope
-    is_active: bool
-    created_by: str          # Admin who created it
-    last_used_at: datetime
-    expires_at: datetime | None
-```
-
-**Extend `require_authenticated_user` dependency:**
-
-```python
-def require_authenticated_user(request, credentials, x_api_key):
-    # 1. Check Bearer token first (existing flow)
-    # 2. If no Bearer, check X-API-Key header
-    # 3. If API key found, look up in DB, verify hash, return AuthUser with key's role
-    # 4. If neither, raise 401
-```
-
-This approach means zero new endpoints needed for external API access. External tools call the same `/api/v1/imports`, `/api/v1/employees`, etc. endpoints.
-
-**New API router: `backend/app/api/v1/api_keys.py`**
-
-```
-POST   /api-keys            -> create API key (admin only, returns key once)
-GET    /api-keys             -> list API keys (admin only, no key values)
-DELETE /api-keys/{key_id}    -> revoke API key (admin only)
-```
-
-## Data Flow Summary
-
-```
-                    INBOUND DATA
-                    ============
-
-Excel Upload ──────────> Pipeline ──────> SQLite (NormalizedRecords)
-                                              |
-Feishu Bitable Pull ──> Diff Review ──> Apply to SQLite (manual)
-                                              |
-                    OUTBOUND DATA             |
-                    =============             |
-                                              v
-Admin/HR Console <──── REST API <──── Service Layer <── SQLite
-Employee Portal  <──── Portal API <── Portal Service <── SQLite (scoped)
-External Tools   <──── REST API   <── Service Layer  <── SQLite
-Feishu Bitable   <──── Sync Push  <── Sync Service   <── SQLite
-Dual Templates   <──── Export     <── Export Service  <── SQLite
-```
-
-## Component Dependency Graph (Build Order)
-
-Build order follows dependency arrows. Items at the same level can be built in parallel.
-
-```
-Level 0 (foundation - no dependencies):
-  [A] Auth role extension (add 'employee' role, require_role() helper)
-  [B] Settings extension (feishu config entries, api key config)
-
-Level 1 (depends on Level 0):
-  [C] Employee Portal backend (depends on A: employee token)
-  [D] API Key model + auth extension (depends on A: role-based keys)
-  [E] Feishu Sync Service skeleton (depends on B: feishu config)
-
-Level 2 (depends on Level 1):
-  [F] Employee Portal frontend (depends on C: portal API)
-  [G] Feishu OAuth login (depends on E: feishu client setup)
-  [H] API Key management UI (depends on D: api key CRUD)
-  [I] Feishu push/pull implementation (depends on E: sync skeleton)
-
-Level 3 (depends on Level 2):
-  [J] Frontend redesign (depends on F, G, H: all new pages exist)
-  [K] Feishu webhook listener (depends on I: sync is working)
-```
-
-**Suggested phase mapping:**
-
-| Phase | Components | Rationale |
-|-------|-----------|-----------|
-| Phase 1 | A, B, C, D | Auth foundation + portal backend. No external dependencies. |
-| Phase 2 | F, H | Portal frontend + API key UI. Delivers user-facing value. |
-| Phase 3 | E, I | Feishu sync. Requires Feishu app credentials (external dependency). |
-| Phase 4 | G | Feishu OAuth. Nice-to-have, depends on Feishu app being configured. |
-| Phase 5 | J | Frontend redesign. Do last so all pages/routes are stable. |
-
-## Patterns to Follow
-
-### Pattern 1: Role-Scoped Dependencies
-
-**What:** Use FastAPI dependency injection to enforce role-based access at the router level, not inside each endpoint.
-
-**When:** Every protected route.
-
-**Example:**
-
-```python
-# dependencies.py
-def require_role(*allowed: AuthRole):
-    def _guard(user: AuthUser = Depends(require_authenticated_user)):
-        if user.role not in allowed:
-            raise HTTPException(status_code=403, detail='Insufficient permissions.')
-        return user
-    return Depends(_guard)
-
-# router.py
-api_router.include_router(imports_router, dependencies=[require_role('admin', 'hr')])
-api_router.include_router(portal_router, dependencies=[require_role('employee')])
-api_router.include_router(api_keys_router, dependencies=[require_role('admin')])
-```
-
-### Pattern 2: Token Scope Separation
-
-**What:** Employee tokens and admin/hr tokens are distinct token types with different payloads and expiry.
-
-**When:** Issuing tokens, verifying tokens.
-
-**Example:**
-
-```python
-# Employee token payload includes scope field
-{
-    "sub": "EMP001",
-    "role": "employee",
-    "scope": "portal",
-    "employee_master_id": "uuid-here",
-    "exp": 1711540800  # 60 min
-}
-
-# Admin/HR token payload (existing format, unchanged)
-{
-    "sub": "admin",
-    "role": "admin",
-    "exp": 1711569600  # 480 min
-}
-```
-
-### Pattern 3: Feature Flags for External Integrations
-
-**What:** Gate Feishu sync and OAuth behind feature flags in Settings. System must work with these disabled.
-
-**When:** Any external integration.
-
-**Example:**
-
-```python
-# config.py
-feishu_sync_enabled: bool = False
-feishu_oauth_enabled: bool = False
-
-# feishu router
-@router.post('/sync/push')
-def push_to_feishu(settings = Depends(get_settings)):
-    if not settings.feishu_sync_enabled:
-        raise HTTPException(501, 'Feishu sync is not enabled.')
-```
-
-### Pattern 4: Sync as Explicit Action, Not Background Process
-
-**What:** All data synchronization (Feishu push/pull) is triggered by explicit user action via API call. No background polling, no cron jobs.
-
-**When:** Feishu integration.
-
-**Why:** SQLite does not handle concurrent writes well. A background sync process competing with user-initiated pipeline operations will cause locking issues. Explicit triggers let the user control when writes happen.
-
-## Anti-Patterns to Avoid
-
-### Anti-Pattern 1: Shared Token Namespace
-
-**What:** Using the same token format/verification for admin/hr and employee roles without scope distinction.
-
-**Why bad:** An employee token that passes `require_authenticated_user` could be used to access admin endpoints if role checking is done inconsistently. A missing `require_role()` on one endpoint becomes a privilege escalation.
-
-**Instead:** Always use `require_role()` at the router level. The `require_authenticated_user` dependency alone is not sufficient for authorization.
-
-### Anti-Pattern 2: Real-Time Feishu Sync
-
-**What:** Building a webhook listener or polling loop for continuous Feishu sync.
-
-**Why bad:** SQLite WAL mode allows one writer at a time. A background sync writer competing with the import pipeline will cause `SQLITE_BUSY` errors under load. Also, real-time sync is complex to get right (conflict resolution, ordering, retries).
-
-**Instead:** Manual push/pull with explicit triggers. Add webhook support only after migrating to PostgreSQL (if ever).
-
-### Anti-Pattern 3: Separate API for External Consumers
-
-**What:** Creating a `/api/external/` or `/api/public/` route namespace that duplicates existing endpoints.
-
-**Why bad:** Doubles maintenance burden. API drift between internal and external versions. Double the test surface.
-
-**Instead:** Reuse existing `/api/v1/` endpoints. Add API key auth as an alternative credential type. External consumers get the same API as the frontend.
-
-### Anti-Pattern 4: Storing Employee Passwords
-
-**What:** Creating a user account table with passwords for the employee portal.
-
-**Why bad:** Employees already have identity data in `EmployeeMaster` (employee_id, id_number, name). Creating a separate password system adds registration flow, password reset, and account management overhead for a simple lookup portal.
-
-**Instead:** Verify identity using existing `EmployeeMaster` fields (employee_id + id_number + name), issue a short-lived scoped token. No passwords stored.
-
-## Scalability Considerations
-
-| Concern | Current (< 100 users) | At 500 users | At 2000+ users |
-|---------|----------------------|-------------|----------------|
-| **Auth** | Hardcoded users in env | Still fine for admin/hr; employee tokens scale naturally | Consider DB-backed user table for admin/hr |
-| **SQLite concurrency** | No issues | WAL handles reads well; serialize writes | Migrate to PostgreSQL if write contention appears |
-| **Feishu sync volume** | < 1000 records/sync | Batch in 500-record pages | Add progress streaming for large syncs |
-| **API key management** | 1-5 keys | DB-backed, fine | Add rate limiting per key |
-| **Employee portal** | Few concurrent users | Read-only queries, SQLite handles well | Add query caching if slow |
-
-## SQLite Compatibility Notes
-
-The architecture deliberately avoids patterns that stress SQLite:
-
-1. **No background workers** -- all processing is request-scoped or explicitly triggered
-2. **No concurrent writes** -- Feishu sync is manual, not background
-3. **Employee portal is read-only** -- no write contention from portal users
-4. **API keys verified via single SELECT** -- minimal DB load per request
-
-If the system ever needs concurrent background processing (e.g., scheduled Feishu sync, automatic re-parsing), that is the signal to migrate to PostgreSQL. Until then, SQLite is appropriate.
-
-## New Database Models Summary
-
-| Model | Purpose | Phase |
-|-------|---------|-------|
-| `ApiKey` | External API authentication | Phase 1 |
-| `FeishuUserMapping` | Map Feishu users to internal roles | Phase 3 (or config file) |
-| `FeishuSyncLog` | Track sync operations and status | Phase 3 |
-
-No changes needed to existing models. The employee portal queries existing `NormalizedRecord` and `MatchResult` tables.
-
-## New Config Entries Summary
-
-```python
-# Auth extensions
-employee_token_expire_minutes: int = 60
-
-# Feishu integration
-feishu_app_id: str = ''
-feishu_app_secret: str = ''
-feishu_bitable_app_token: str = ''
-feishu_bitable_table_id: str = ''
-feishu_sync_enabled: bool = False
-feishu_oauth_enabled: bool = False
-feishu_oauth_redirect_uri: str = ''
-
-# API keys
-api_key_enabled: bool = True
-```
-
-## Sources
-
-- [Feishu Bitable API Overview](https://open.larkoffice.com/document/server-docs/docs/bitable-v1/bitable-overview) -- Bitable endpoints, auth requirements, batch limits
-- [Feishu Bitable Data Structure](https://open.larkoffice.com/document/server-docs/docs/bitable-v1/bitable-structure) -- Table/record/field model
-- [lark-oapi on PyPI](https://pypi.org/project/lark-oapi/) -- v1.5.3, Python SDK for all Feishu APIs
-- [Feishu OAuth Login Overview](https://open.feishu.cn/document/sso/web-application-sso/login-overview) -- SSO login flow documentation
-- [Feishu user_access_token API](https://open.feishu.cn/document/authentication-management/access-token/get-user-access-token) -- OAuth code exchange endpoint
-- [Feishu OAuth implementation guide](https://iamazing.cn/page/feishu-oauth-login) -- Practical implementation walkthrough
+**Key architectural facts:**
+- 24 page components in `frontend/src/pages/`
+- 14 flat navigation items in MainLayout + dynamic Feishu items
+- Theme is a single static `ThemeConfig` in `theme/index.ts`, injected once via ConfigProvider
+- MainLayout has responsive sidebar collapse via `useResponsiveCollapse(1440)` -- but no mobile drawer mode
+- Backend users API is fully implemented (CRUD + password reset) with no frontend consumer
+- `from __future__ import annotations` in all 128 backend Python files
+- 10 `@dataclass(slots=True)` usages across 5 files -- Python 3.10+ only feature
+
+## Feature Integration Map
+
+### 1. Responsive Design (Full-Page)
+
+**Current state:** MainLayout has `useResponsiveCollapse(1440)` for sidebar auto-collapse. Individual pages use Ant Design `Row/Col` with `xs/sm/md/lg` breakpoints (e.g., Compare.tsx `<Col xs={24} md={12}>`). CSS modules are minimal (only `MainLayout.module.css`).
+
+**Integration points:**
+
+| What | Where | Change Type |
+|------|-------|-------------|
+| Sidebar breakpoint for mobile | `MainLayout.tsx` `useResponsiveCollapse` | Modify -- add Drawer mode at ~768px |
+| Header layout | `MainLayout.tsx` Header inline styles | Modify -- stack breadcrumb/user on mobile |
+| Content padding | `MainLayout.tsx` Content `padding: '24px'` | Modify -- reduce on mobile |
+| Page-level responsive | Each page in `pages/` (24 files) | Modify -- audit all pages |
+| Table horizontal scroll | Pages with Ant `Table` | Modify -- add `scroll={{ x: true }}` |
+| Card grid layouts | Dashboard, DataManagement, etc. | Modify -- verify Col breakpoints |
+
+**New components needed:**
+- `hooks/useBreakpoint.ts` -- centralized responsive breakpoint hook. Wraps Ant Grid's `useBreakpoint` or `window.matchMedia`. Multiple pages need consistent breakpoint logic.
+
+**Approach:**
+1. MainLayout: mobile sidebar becomes Ant Drawer below 768px, triggered by hamburger icon in Header
+2. Header: compact layout on mobile (hamburger + breadcrumb, user menu collapses)
+3. Each page: audit table columns (hide low-priority on mobile), enable horizontal scroll
+4. SimpleAggregate file upload area must work on mobile
+
+**Risk:** 24 page files need individual auditing. Some pages (Compare.tsx at 870 lines) have complex custom layouts that don't use Ant Grid consistently.
 
 ---
 
-*Architecture research: 2026-03-27*
+### 2. Dark Mode Toggle
+
+**Current state:** Theme defined in `frontend/src/theme/index.ts` as static `ThemeConfig`. Colors are hardcoded in inline styles throughout MainLayout (e.g., `background: '#fff'`, `borderBottom: '1px solid #DEE0E3'`, `background: '#F5F6F7'`). Module CSS also hardcodes colors (`.logo { color: #fff }`).
+
+**Integration points:**
+
+| What | Where | Change Type |
+|------|-------|-------------|
+| Theme config | `theme/index.ts` | Modify -- export light + dark ThemeConfig |
+| Theme provider | `main.tsx` ConfigProvider | Modify -- dynamic theme switching |
+| Theme context | New | **New** -- ThemeProvider with localStorage persistence |
+| Toggle button | `MainLayout.tsx` Header | Modify -- add sun/moon toggle |
+| Inline style colors | `MainLayout.tsx` + ~15 pages | Modify -- replace hardcoded colors with tokens |
+| Module CSS colors | `MainLayout.module.css` | Modify -- use CSS variables |
+| Sider theme prop | `MainLayout.tsx` `<Sider theme="dark">` | Evaluate -- may need dynamic theme prop |
+
+**New files needed:**
+- `theme/darkTheme.ts` -- dark mode token overrides
+- `hooks/useThemeMode.ts` -- theme mode state + localStorage persistence
+
+**Approach:** Ant Design 5 has first-class dark mode via `algorithm: theme.darkAlgorithm`:
+
+```typescript
+import { theme as antTheme } from 'antd';
+
+export const darkTheme: ThemeConfig = {
+  ...lightTheme,
+  algorithm: antTheme.darkAlgorithm,
+  token: { /* dark-specific overrides */ },
+  components: {
+    Layout: { siderBg: '#141414', ... },
+  },
+};
+```
+
+**Critical prerequisite:** All inline `style={{ background: '#fff' }}` and hardcoded color values MUST be replaced with Ant Design token references (`token.colorBgContainer`, etc.) or they will look broken in dark mode. This "color extraction" work is the largest effort and MUST come before the dark mode toggle itself.
+
+**Estimated touch points:** MainLayout + ~15 pages with hardcoded colors.
+
+---
+
+### 3. Diff-Style Comparison (Redesign)
+
+**Current state:** `Compare.tsx` (870 lines) renders comparison as card-per-row with tabs (left/right) and inline Input fields for cell editing. Backend `compare_service.py` returns `CompareRowRead` with `left`/`right` record sides, `diff_status`, and `different_fields`. Backend is well-structured; the redesign is purely frontend.
+
+**Integration points:**
+
+| What | Where | Change Type |
+|------|-------|-------------|
+| Compare page UI | `pages/Compare.tsx` | **Rewrite** -- dual-panel Excel layout |
+| Compare service API | `services/compare.ts` | Keep -- API contract unchanged |
+| Backend compare_service | `services/compare_service.py` | Keep -- no changes needed |
+| Field label map | `pages/Compare.tsx` FIELD_LABELS | Extract to shared constant |
+
+**New components needed:**
+- `components/DiffTable.tsx` -- reusable side-by-side diff table
+- `components/DiffCell.tsx` -- cell-level diff highlighting
+
+**Target UX:** "左右 Excel 表格 + 差异高亮"
+
+```
++--------+---------------------------+---+---------------------------+
+| Status | Left (Base)               |   | Right (New)               |
++--------+---------------------------+---+---------------------------+
+| same   | 张三 | 1000 | 500        |   | 张三 | 1000 | 500        |
+| diff   | 李四 | [800] | 400       | > | 李四 | [900] | 400       |
+| left   | 王五 | 700 | 350         |   |      |      |            |
+| right  |      |      |            |   | 赵六 | 600 | 300         |
++--------+---------------------------+---+---------------------------+
+```
+
+Two synchronized scrolling tables. Changed cells get background highlighting (red for removed, green for added, yellow for changed). Row-level status indicators in gutter column. Scroll sync via `onScroll` + `requestAnimationFrame`.
+
+**Backend is already sufficient.** `CompareRowRead` has `left.values`, `right.values`, `different_fields`, `diff_status`. No API changes required.
+
+---
+
+### 4. Account Management (Admin CRUD)
+
+**Current state:** Backend already has full CRUD in `api/v1/users.py`: create, list, get by ID, update, reset password. `user_service.py` has all business logic. `User` model has username, hashed_password, role, display_name, is_active, must_change_password, feishu_open_id. **There is NO frontend page for this.** The API is fully implemented but unconsumed by the frontend.
+
+**Integration points:**
+
+| What | Where | Change Type |
+|------|-------|-------------|
+| New page | `pages/UserManagement.tsx` | **New** |
+| Route | `App.tsx` | Modify -- add admin-only route |
+| Navigation | `MainLayout.tsx` ALL_NAV_ITEMS | Modify -- add nav item |
+| Frontend service | `services/users.ts` | **New** -- API client |
+| Backend | `api/v1/users.py`, `user_service.py` | **Keep** -- already complete |
+
+**New files needed:**
+- `pages/UserManagement.tsx` -- CRUD table with create modal, edit drawer, password reset
+- `services/users.ts` -- API client (createUser, listUsers, updateUser, resetPassword)
+
+**Approach:** Standard Ant Design CRUD page:
+- Table listing users (username, display_name, role, is_active, created_at)
+- "Create" button -> Modal with form
+- Row actions: Edit, Reset Password, Toggle Active
+- Admin-only route at `/users`
+
+**This is the simplest feature.** Backend is 100% done; just needs frontend page + API client.
+
+---
+
+### 5. Python 3.9 Compatibility
+
+**Current state:** Development runs Python 3.14. All 128 backend Python files use `from __future__ import annotations`, which means type hints like `list[str]` are strings at runtime and won't break on 3.9.
+
+**Incompatibilities found:**
+
+| Issue | Files Affected | Severity |
+|-------|---------------|----------|
+| `@dataclass(slots=True)` | 10 usages in 5 files: `header_extraction.py`, `workbook_discovery.py`, `export_utils.py`, `manual_field_aliases.py`, `non_detail_row_filter.py` | **Critical** -- requires Python 3.10+ |
+| `@dataclass(frozen=True, slots=True)` | `compare_service.py`, `manual_field_aliases.py` | **Critical** -- same issue |
+| `match/case` statements | **None found** | Safe |
+| `X \| Y` union syntax at runtime | **None found** -- all behind `__future__` | Safe |
+
+**Fix strategy:** Remove `slots=True` from all dataclass decorators. It's a micro-optimization (saves ~16 bytes per instance) with zero functional impact for an Excel processing tool. Keep `frozen=True` where present (available since Python 3.0).
+
+```python
+# Before (3.10+ only)
+@dataclass(frozen=True, slots=True)
+class CompareIdentity:
+    basis: str
+    value: str
+
+# After (3.9 compatible)
+@dataclass(frozen=True)
+class CompareIdentity:
+    basis: str
+    value: str
+```
+
+**Dependency compatibility:** FastAPI 0.115, SQLAlchemy 2.0, pandas, openpyxl, PyJWT, pwdlib all support Python 3.9. No dependency blockers.
+
+**Integration points:**
+
+| What | Where | Change Type |
+|------|-------|-------------|
+| Dataclass slots | 5 backend files, 12 decorators | Modify -- remove `slots=True` |
+| Dependencies | `requirements.txt` | Verify -- ensure all support 3.9 |
+| CI/test | If exists | Modify -- add 3.9 target |
+
+**This is the smallest change** -- 12 lines across 5 files.
+
+---
+
+### 6. Data Cascade Delete (Batch Delete -> Period Data Cleanup)
+
+**Current state:** `delete_import_batch` in `import_service.py` deletes batch via `db.delete(batch)` + `db.commit()`, relying on SQLAlchemy cascade. Also cleans up file artifacts on disk. The `data_management` API is currently **read-only** (no delete endpoints).
+
+**Integration points:**
+
+| What | Where | Change Type |
+|------|-------|-------------|
+| Period delete service | `services/data_management_service.py` | **New function** -- `delete_records_by_period()` |
+| Period delete endpoint | `api/v1/data_management.py` | **New** -- DELETE endpoint |
+| Batch delete cascade verification | `models/import_batch.py` relationships | Verify -- ensure cascade="all, delete-orphan" |
+| Frontend delete UI | `pages/DataManagement.tsx` | Modify -- add delete actions |
+| Audit logging | `services/data_management_service.py` | **New** -- log deletions |
+
+**Key design question:** When user says "delete period 2026-02", should we:
+- (A) Delete NormalizedRecords only, keeping batch metadata -- simpler, but orphans batches
+- (B) Find and delete entire batches belonging to that period -- cleaner, but a period can span multiple batches
+
+**Recommendation:** Option A (delete records only) with a "batch cleanup" follow-up. Delete NormalizedRecords + related MatchResults + ValidationIssues for the period. Mark affected batches as "partially deleted" in status. This is safer and more granular.
+
+```python
+def delete_records_by_period(db: Session, billing_period: str, region: Optional[str] = None) -> int:
+    query = db.query(NormalizedRecord).filter(NormalizedRecord.billing_period == billing_period)
+    if region:
+        query = query.filter(NormalizedRecord.region == region)
+    count = query.count()
+    # Also delete related match_results and validation_issues
+    record_ids = [r.id for r in query.all()]
+    db.query(MatchResult).filter(MatchResult.normalized_record_id.in_(record_ids)).delete(synchronize_session=False)
+    db.query(ValidationIssue).filter(ValidationIssue.normalized_record_id.in_(record_ids)).delete(synchronize_session=False)
+    query.delete(synchronize_session=False)
+    db.commit()
+    return count
+```
+
+---
+
+### 7. Menu Reorganization (Multi-Level Collapsible)
+
+**Current state:** `MainLayout.tsx` has flat `ALL_NAV_ITEMS` array (14 items + dynamic Feishu). Menu renders as `<Menu mode="inline">` with no nesting.
+
+**Integration points:**
+
+| What | Where | Change Type |
+|------|-------|-------------|
+| Menu structure | `MainLayout.tsx` ALL_NAV_ITEMS | **Rewrite** -- hierarchical structure |
+| Menu builder | `MainLayout.tsx` buildMenuItems | Modify -- support nested children |
+| Menu open state | `MainLayout.tsx` | Modify -- track `openKeys` for SubMenu |
+| Role filtering | `MainLayout.tsx` buildMenuItems | Modify -- recursive role filtering |
+
+**Proposed hierarchy:**
+
+```
+Core Operations:
+  快速融合, 处理看板
+
+Data Analysis:
+  月度对比, 跨期对比, 异常检测
+
+Data Management:
+  批次管理, 数据管理, 映射修正, 校验匹配, 导出结果, 员工主档
+
+Advanced Settings (collapsed by default):
+  审计日志 (admin), API 密钥 (admin), 账号管理 (admin, NEW)
+  飞书同步, 飞书设置 (admin)
+```
+
+**Implementation:** Ant Design Menu supports `children` for SubMenu. Role filtering must work recursively -- hide a SubMenu group if ALL its children are hidden for the current role.
+
+---
+
+### 8. Settings Search + Quick Navigation
+
+**Current state:** No unified settings page. Settings spread across FeishuSettings, ApiKeys, Mappings pages.
+
+**Integration points:**
+
+| What | Where | Change Type |
+|------|-------|-------------|
+| Settings page | `pages/Settings.tsx` | **New** |
+| Route | `App.tsx` | Modify -- add route |
+| Navigation | `MainLayout.tsx` | Modify -- add to Advanced Settings group |
+| Search index | `config/settingsIndex.ts` | **New** |
+
+**Approach:** Navigation hub page with a search input. Static list of settings entries with keywords. Typing filters entries, clicking navigates. Lightweight implementation.
+
+---
+
+### 9. Audit Log Improvements (Real IP)
+
+**Current state:** `get_client_ip()` in `request_helpers.py` reads `X-Forwarded-For`, falls back to `request.client.host`. AuditLog model stores `ip_address` as `String(45)`.
+
+**Integration points:**
+
+| What | Where | Change Type |
+|------|-------|-------------|
+| IP extraction | `utils/request_helpers.py` | Modify -- add X-Real-IP support |
+| Audit log display | `pages/AuditLogs.tsx` | Verify -- IP column visible |
+| Deployment docs | New | **New** -- trusted proxy config |
+
+**Implementation:** Add `X-Real-IP` header priority (common with Nginx):
+
+```python
+def get_client_ip(request: Request) -> str:
+    real_ip = request.headers.get("x-real-ip")
+    if real_ip:
+        return real_ip.strip()
+    forwarded = request.headers.get("x-forwarded-for")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+```
+
+---
+
+### 10. Fusion Enhancements (Special Rules, File Count, Defaults)
+
+**Current state:** `SimpleAggregate.tsx` has employee master mode selection (none/existing/upload). `aggregate_service.py` handles full pipeline. Current default employee master mode is selectable.
+
+**Integration points:**
+
+| What | Where | Change Type |
+|------|-------|-------------|
+| Special rules config UI | `pages/SimpleAggregate.tsx` | Modify -- add rules section |
+| Special rules backend | `services/aggregate_service.py` | Modify -- apply rules post-normalization |
+| Special rules model | `models/special_rule.py` | **New** -- persist saved rules |
+| Special rules API | `api/v1/aggregate.py` or new router | **New** -- CRUD for rule sets |
+| File count display | `pages/SimpleAggregate.tsx` | Modify -- show count badge |
+| Default employee master | `pages/SimpleAggregate.tsx` | Modify -- change default to "existing" |
+| Insurance base fix | `services/normalization_service.py` | Modify |
+
+**Special rules spec:** "选人+选字段+覆盖值，可保存复用"
+
+**New model:**
+```python
+class SpecialRule(Base):
+    __tablename__ = "special_rules"
+    id: Mapped[str]             # UUID
+    name: Mapped[str]           # Rule set name
+    rules_json: Mapped[str]     # JSON: [{employee_filter, field, override_value}]
+    created_at: Mapped[datetime]
+    updated_at: Mapped[datetime]
+```
+
+**Application point:** After normalization, before export -- iterate rules, find matching records by employee filter, override specified fields.
+
+---
+
+### 11. Data Management Filter Enhancements
+
+**Current state:** Single-select cascading filters (region -> company -> period). Backend uses `==` comparison.
+
+**Integration points:**
+
+| What | Where | Change Type |
+|------|-------|-------------|
+| Multi-select filters | `pages/DataManagement.tsx` | Modify -- `Select mode="multiple"` |
+| Backend filter params | `api/v1/data_management.py` | Modify -- accept comma-separated values |
+| Backend query | `services/data_management_service.py` | Modify -- `.in_()` instead of `==` |
+| Match status filter | `pages/DataManagement.tsx` | Modify -- add toggle |
+| Match status query | `services/data_management_service.py` | Modify -- join MatchResult |
+
+---
+
+## Component Boundaries
+
+| Component | Responsibility | Communicates With |
+|-----------|---------------|-------------------|
+| **ThemeProvider** (new) | Dark/light mode state + localStorage persistence | ConfigProvider, MainLayout |
+| **useBreakpoint** (new) | Centralized responsive breakpoints | All page components |
+| **DiffTable** (new) | Side-by-side comparison Excel-style rendering | Compare page |
+| **UserManagement** (new page) | Account CRUD UI | users API service |
+| **SpecialRulesEditor** (new component) | Rule set creation/editing | aggregate API |
+| **SettingsHub** (new page) | Searchable settings navigation | Router |
+| **MainLayout** (modified) | Menu hierarchy, mobile drawer, dark mode toggle, responsive header | All pages |
+| **SpecialRule** (new model) | Persist reusable override rules | aggregate_service |
+
+## Data Flow Changes
+
+### Existing Flow (unchanged)
+```
+Upload -> Parse -> Normalize -> Validate -> Match -> Export
+```
+
+### New Flows
+
+**Special Rules Application:**
+```
+SpecialRulesEditor -> POST /api/v1/special-rules -> DB (save)
+SimpleAggregate -> aggregate_service -> normalize -> apply_special_rules(records, rules) -> Export
+```
+
+**Cascade Delete:**
+```
+DataManagement -> DELETE /api/v1/data-management/records?period=X
+  -> delete NormalizedRecords WHERE billing_period = X
+  -> cascade delete related MatchResults, ValidationIssues
+  -> audit_log entry
+```
+
+**Dark Mode:**
+```
+User toggles -> useThemeMode -> localStorage + state
+  -> ConfigProvider re-renders with darkTheme/lightTheme
+  -> All Ant Design components auto-adapt
+  -> Custom inline styles / CSS must already use token variables
+```
+
+## Anti-Patterns to Avoid
+
+### Anti-Pattern 1: Hardcoded Colors in Inline Styles
+**What:** `style={{ background: '#fff' }}` instead of Ant Design tokens
+**Why bad:** Breaks dark mode, creates maintenance burden
+**Instead:** Use `token.colorBgContainer` via `useToken()` hook or CSS custom properties
+
+### Anti-Pattern 2: Per-Page Responsive Logic
+**What:** Each page implementing its own breakpoint detection
+**Why bad:** Inconsistent breakpoints, duplicated code
+**Instead:** Central `useBreakpoint` hook with shared breakpoint constants
+
+### Anti-Pattern 3: Synchronized Scroll via setTimeout
+**What:** Syncing two scrollable containers with timers
+**Why bad:** Janky, race conditions
+**Instead:** `onScroll` event + `requestAnimationFrame` + `scrollLeft` assignment
+
+### Anti-Pattern 4: Deleting Records Without Audit Trail
+**What:** Cascade delete without logging
+**Why bad:** Violates audit requirements, no recovery information
+**Instead:** Log counts, period, affected batches to audit_log BEFORE deletion
+
+### Anti-Pattern 5: Dark Mode as Afterthought
+**What:** Adding dark mode toggle without first extracting hardcoded colors
+**Why bad:** Toggle works but half the UI is still white/hardcoded
+**Instead:** Phase the work: extract colors to tokens FIRST, then add toggle
+
+## Suggested Build Order
+
+Based on dependency analysis and risk:
+
+```
+Phase 1: Foundation (no cross-dependencies)
+  1. Python 3.9 compatibility (remove slots=True) -- deployment prerequisite
+  2. Audit log IP improvement -- isolated 1-file backend change
+  3. Account management page -- backend done, just frontend + API client
+
+Phase 2: Theme System (prerequisite for dark mode + responsive)
+  4. Theme token extraction (replace all hardcoded colors with Ant tokens)
+  5. Dark mode toggle (ThemeProvider + theme switching)
+  6. Responsive design (MainLayout mobile drawer + page audits)
+  7. Menu reorganization (hierarchy + mobile hamburger)
+
+Phase 3: Feature Enhancements
+  8. Diff-style comparison redesign (page rewrite)
+  9. Data management filters (multi-select, match status filter)
+  10. Data cascade delete (new endpoint + UI)
+  11. Settings search page
+
+Phase 4: Fusion & Polish
+  12. Special rules config (new model + API + UI)
+  13. File count display + employee master default change
+  14. Personal insurance base data fix
+  15. Feishu frontend enhancements
+  16. v1.0 tech debt cleanup (5 deprecated component files)
+```
+
+**Phase ordering rationale:**
+- Python 3.9 is Phase 1 because it blocks cloud deployment
+- Theme token extraction MUST precede dark mode (extracting hardcoded colors is a prerequisite)
+- Responsive and dark mode share "remove hardcoded styles" work, so adjacent phases
+- Menu reorg pairs with responsive (mobile hamburger trigger)
+- Diff comparison is self-contained, no deps on other features
+- Special rules are the most complex new feature (new model + CRUD + application logic)
+- Tech debt cleanup is lowest priority, can slot anywhere
+
+## Scalability Considerations
+
+| Concern | Current (v1.1) | Future (v2.0) |
+|---------|----------------|---------------|
+| Dark mode system | Ant Design CSS-in-JS tokens | Could add custom branded themes |
+| Menu structure | Static hierarchical config | Could load from backend/permissions |
+| Comparison rendering | Client-side diff | Virtual scroll for 1000+ row comparisons |
+| Special rules | JSON column in SQLite | Full rules engine with conditions |
+| Cascade delete | Direct SQL delete | Soft-delete for recovery in multi-tenant |
+
+## Sources
+
+- Codebase analysis (HIGH confidence): `MainLayout.tsx`, `theme/index.ts`, `main.tsx`, `App.tsx`, `compare_service.py`, `Compare.tsx`, `users.py`, `user_service.py`, `audit_service.py`, `data_management_service.py`, `import_service.py`, `request_helpers.py`, all backend model files
+- `@dataclass(slots=True)` Python 3.10 requirement (HIGH confidence): verified via Python language spec
+- `from __future__ import annotations` coverage (HIGH confidence): verified 128/128 backend files
+- Ant Design 5 dark mode via `theme.darkAlgorithm` (HIGH confidence): standard Ant Design 5 feature, codebase already uses ConfigProvider with ThemeConfig
+- Ant Design Menu SubMenu/children support (HIGH confidence): standard Ant Design 5 feature
+
+---
+
+*Architecture research for v1.1: 2026-04-04*

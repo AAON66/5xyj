@@ -1,229 +1,218 @@
-# Domain Pitfalls
+# Domain Pitfalls: v1.1 Feature Additions
 
-**Domain:** Social insurance & housing fund management system (Excel merge tool -> management platform)
-**Researched:** 2026-03-27
+**Domain:** Social insurance management system — retrofitting responsive design, dark mode, diff UI, account management, Python 3.9 compat, cascade delete to existing React 18 + Ant Design 5 + FastAPI + SQLite app
+**Researched:** 2026-04-04
+**Overall confidence:** HIGH (based on direct codebase inspection + known ecosystem patterns)
 
 ---
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites, data breaches, or major regressions.
+Mistakes that cause rewrites, data loss, or major regressions.
 
-### Pitfall 1: Auth Retrofit Breaks Existing Unauthenticated Workflows
+### Pitfall 1: SQLite CASCADE DELETE silent failure without PRAGMA foreign_keys
 
-**What goes wrong:** Adding authentication to an app that currently works without it causes the working upload/parse/export pipeline to break. The employees router is already inconsistently protected -- it lacks router-level `dependencies=[Depends(require_authenticated_user)]` while most other routers have it. The self-service endpoint at `/employees/self-service/query` is completely unauthenticated. When adding a third role ("employee"), the existing two-role system (`admin`/`hr` as a `Literal` type) needs to expand, and every `_normalize_role`, `AuthUser`, and role-check callsite must be updated.
+**What goes wrong:** SQLite ignores `ON DELETE CASCADE` by default. Even though `ForeignKey(..., ondelete="CASCADE")` is declared on every child model (source_files, normalized_records, match_results, export_jobs, etc.), deleting an ImportBatch will silently leave orphan rows if `PRAGMA foreign_keys=ON` is not active on the connection.
 
-**Why it happens:** The current auth is a bolt-on with hardcoded credentials in `config.py` (`admin123`/`hr123`) and a custom HMAC token scheme. There are ghost dependencies (`python-jose`, `passlib`) in `requirements.server.txt` that suggest an abandoned JWT migration. Teams add the third role and miss callsites, or they add middleware-level auth and break the streaming NDJSON endpoints that the frontend depends on.
+**Why it happens:** SQLite requires `PRAGMA foreign_keys=ON` on every new connection. The codebase already does this in `database.py:_apply_sqlite_pragmas`, but test sessions, migration scripts, manual DB access, or any code path that bypasses the configured engine will produce silent orphans.
 
-**Consequences:**
-- Working Salary template export pipeline breaks because auth middleware interferes with streaming responses
-- Employee self-service is either left wide open (PII exposure) or locked behind credentials employees don't have
-- Role checks scattered across individual endpoints rather than router-level, leading to forgotten unprotected routes
+**Consequences:** Deleting a batch leaves orphaned normalized_records, match_results, validation_issues, export_jobs, and export_artifacts. The "batch delete cascading to month data" feature becomes unreliable. Orphan data appears in queries and corrupts dashboard statistics.
 
 **Prevention:**
-1. Use router-level `dependencies=` for auth, not per-endpoint decorators -- this is already the pattern for most routers, just not `employees_router`. Fix the inconsistency first.
-2. Expand `AuthRole` Literal type to include `'employee'` and audit every usage with `grep -r "AuthRole\|admin.*hr\|role.*admin"`.
-3. Keep the employee "login" as a separate mechanism (ID number + name verification) that issues a restricted token, not a full user/password account.
-4. Test the NDJSON streaming aggregate endpoint specifically after adding auth -- streaming responses + auth middleware is a known conflict point in FastAPI.
-5. Replace the custom HMAC token with PyJWT before adding the third role. The custom scheme has no `iss`/`aud` claims and no refresh tokens, which matters once employees are logging in.
+1. Before implementing cascade batch delete, write an integration test that deletes a batch and asserts all child table counts drop to zero.
+2. Add a `PRAGMA foreign_keys` check assertion to the test fixture that creates DB sessions.
+3. For the v1.1 "data cascade delete" feature, do NOT rely solely on database-level CASCADE. Use SQLAlchemy's `cascade="all, delete-orphan"` (already present on ImportBatch relationships) AND verify with explicit count queries in the service layer.
+4. Add a startup assertion that verifies `PRAGMA foreign_keys` returns `1`.
 
-**Detection:** Any existing integration test that calls the aggregate or export endpoints without a token should fail after auth changes. If they still pass, auth was applied inconsistently.
-
-**Phase:** Auth & Roles phase (should be early, before frontend redesign)
+**Detection:** Run `SELECT COUNT(*) FROM normalized_records WHERE batch_id NOT IN (SELECT id FROM import_batches)` after any delete operation in tests.
 
 ---
 
-### Pitfall 2: Frontend Redesign Accidentally Breaks Backend Contract
+### Pitfall 2: Python 3.9 downgrade breaks `X | Y` union type syntax in 30+ files
 
-**What goes wrong:** The frontend is rebuilt with new UI (Feishu-inspired design), new routing, and new state management. During the rewrite, the API contract drifts: request body shapes change, the NDJSON streaming protocol is replaced with a simpler polling approach "temporarily," or the upload flow changes from multipart to a different pattern. The Salary template export -- which works perfectly -- breaks because someone refactored the frontend export trigger.
+**What goes wrong:** The codebase uses `str | None`, `dict[str, object] | None`, `Awaitable[None] | None` extensively in service layer type hints (found in import_service.py, aggregate_service.py, feishu_sync_service.py, housing_fund_service.py, export_utils.py, and 25+ more files). Python 3.9 does not support `X | Y` syntax for type unions at runtime.
 
-**Why it happens:** Frontend redesigns create pressure to "clean up" everything. Developers see the old API calls and decide to "improve" them. The NDJSON streaming pattern (`/api/v1/aggregate/stream`) is non-trivial to re-implement in a new frontend framework/state management approach. There are no frontend tests (zero test files exist), so regressions are invisible.
+**Why it happens:** Most files use `from __future__ import annotations` (which defers annotation evaluation and makes `X | Y` syntax work as strings), BUT several files use `X | Y` in runtime contexts — default arguments, isinstance checks, or files that lack the `__future__` import. Mixed patterns across the codebase make it easy to miss problematic files.
 
-**Consequences:**
-- Salary template export (the one thing that works perfectly and MUST NOT be touched) breaks
-- Streaming progress feedback regresses to polling, losing real-time UX
-- Months of working pipeline integration lost to a UI rewrite
+**Consequences:** `TypeError: unsupported operand type(s) for |: 'type' and 'NoneType'` at import time on Python 3.9, crashing the entire application on startup.
 
 **Prevention:**
-1. Create an API contract snapshot (OpenAPI spec export) BEFORE starting frontend work. Compare against it during development.
-2. Write E2E smoke tests for the critical path (upload -> parse -> export Salary template) BEFORE redesigning anything. These become the safety net.
-3. Treat the frontend redesign as a new app that consumes the existing API. Do NOT modify any backend endpoint signatures during the frontend phase.
-4. Keep the old frontend accessible at a `/legacy` route until the new frontend passes all smoke tests against the same API.
-5. The NDJSON streaming consumer code should be extracted into a standalone hook/utility early -- it is the most fragile integration point.
+1. Systematically audit every `.py` file: ensure ALL files have `from __future__ import annotations` as the first import.
+2. Search for runtime `X | Y` usage outside annotations: `isinstance()` checks, `typing.get_type_hints()` calls, any place types are evaluated at runtime.
+3. Run the full test suite under Python 3.9 before merging — set up CI to test on 3.9 as a gate.
+4. For Pydantic v2 models (schemas/), `X | Y` in field annotations is safe WITH `from __future__ import annotations`, but `model_validator` and discriminated unions may evaluate types at runtime — test thoroughly.
+5. `collections.abc` imports (used in database.py, import_service.py) are fine in 3.9, but verify each import path.
 
-**Detection:** If any backend endpoint signature changes during the frontend redesign phase, something went wrong. If the Salary export test fails, stop immediately.
-
-**Phase:** Frontend redesign phase. Must be sequenced AFTER auth is stable, AFTER Tool template fix is done. The Salary export E2E test must exist before this phase begins.
+**Detection:** `python3.9 -c "import backend.app.main"` will immediately fail on any problematic file.
 
 ---
 
-### Pitfall 3: Feishu Bitable Sync Becomes an Uncontrollable Data Consistency Problem
+### Pitfall 3: `dict[str, ...]` and `list[...]` built-in generics fail at runtime on Python 3.9
 
-**What goes wrong:** Bidirectional sync with Feishu Bitable sounds simple ("push data to Feishu, pull changes back") but creates a distributed data consistency nightmare. Feishu Bitable has strict rate limits (50 writes/sec, max 1000 records per batch insert; 20 reads/sec, max 50 records per query). A typical monthly batch with 6 regions and hundreds of employees easily exceeds these limits. Worse, "bidirectional" means conflicts: if someone edits a record in Feishu and someone else edits the same record in the system, which wins?
+**What goes wrong:** Python 3.9 supports `list[X]` and `dict[K, V]` in annotations only with `from __future__ import annotations`. Without it, `dict[str, object]` raises `TypeError` at runtime. The codebase uses these generics pervasively in function signatures and variable annotations.
 
-**Why it happens:** Teams underestimate Feishu API constraints:
-- Token expiry: `user_access_token` expires every 2 hours, `tenant_access_token` every 2 hours. Forgetting to refresh = silent sync failures.
-- Rate limits are per-app, not per-user. Multiple HR users triggering sync simultaneously exhaust the quota.
-- Feishu Bitable field types are restrictive -- they don't map 1:1 to the system's canonical fields. Currency fields, date formats, and multi-line text behave differently.
-- WebSocket events from Feishu can be delivered multiple times, causing duplicate processing.
-- The Feishu China platform (`feishu.cn`) and international Lark platform (`larksuite.com`) are completely separate -- apps built for one do not work on the other.
+**Why it happens:** PEP 585 made built-in generics work at runtime in Python 3.10+, but 3.9 only supports them as string annotations (via `__future__`). Most app files have the import, but test files and alembic migrations may not.
 
-**Consequences:**
-- Partial sync failures leave Feishu and system out of sync with no way to reconcile
-- Rate limit hits during large batch pushes cause data loss (records that didn't make it)
-- Duplicate records from retry logic or duplicate WebSocket events
-- HR manually "fixes" data in Feishu, creating conflicts that the system doesn't know about
+**Consequences:** Same crash as Pitfall 2 — immediate `TypeError` on import.
 
 **Prevention:**
-1. Start with ONE direction first: system -> Feishu (push only). Get this reliable before attempting pull.
-2. Implement a sync log table that records every push/pull operation with status, timestamp, and Feishu record ID. This is the reconciliation source of truth.
-3. Build rate limiting into the sync client: queue operations, batch them (max 1000 per request for inserts), and respect the 50 req/sec ceiling with backpressure.
-4. Use `tenant_access_token` (app-level) rather than `user_access_token` for sync operations -- longer-lived and doesn't require user interaction. Implement automatic refresh 5 minutes before expiry.
-5. Make Feishu sync idempotent: use a unique key (e.g., `id_number + billing_period`) to upsert, never blind-insert.
-6. For "bidirectional," define clear ownership: system owns insurance data (Feishu is read-only for these fields), Feishu owns annotations/comments (system is read-only for those). Never allow both sides to write the same field.
-7. Defer WebSocket/event-driven pull until push is proven stable. Start with scheduled pull (every N minutes) which is debuggable.
+1. Same `from __future__ import annotations` audit as Pitfall 2.
+2. Alembic migration files (versions/) already use `Sequence` and `Union` from typing — verify any new migrations follow this pattern.
+3. For runtime-evaluated annotations (FastAPI dependency injection, Pydantic schema construction), verify the framework handles deferred annotations correctly under 3.9.
 
-**Detection:** If the sync log shows any failed operations that weren't retried, or if record counts differ between system and Feishu after a full sync, the consistency model is broken.
-
-**Phase:** Feishu integration should be its own dedicated phase, sequenced AFTER auth and AFTER the core data pipeline is stable. Never bundle it with other work.
+**Detection:** Full import scan under Python 3.9.
 
 ---
 
-### Pitfall 4: PII Exposure Through Inadequate Access Controls on Social Insurance Data
+### Pitfall 4: Dark mode breaks 329 hardcoded inline styles across 22 page files
 
-**What goes wrong:** Social insurance data contains some of the most sensitive PII in China: national ID numbers (`id_number`), social security numbers, salary-derived payment bases, and medical insurance details. Under PIPL (Personal Information Protection Law), ID numbers and financial data are classified as sensitive personal information with heightened processing requirements. The current system has an unauthenticated endpoint that returns PII, default credentials, and no audit logging.
+**What goes wrong:** The codebase has 329 occurrences of `style={...}` across 22 page files with hardcoded colors like `background: '#F5F6F7'`, `color: '#1F2329'`, `borderBottom: '1px solid #DEE0E3'`. The MainLayout itself has hardcoded `background: '#fff'` and `background: '#F5F6F7'` in inline styles. These ignore Ant Design's theme tokens and will remain light-colored in dark mode.
 
-**Why it happens:** The system started as an internal Excel merge tool where security wasn't a priority. Now it's becoming a management platform with employee self-service access, REST API, and Feishu sync -- dramatically expanding the attack surface. Specific existing vulnerabilities from CONCERNS.md:
-- Self-service endpoint has no authentication (exposes name + ID number matching without any gate)
-- Default passwords `admin123`/`hr123` are active in "local" mode, which is the default
-- No rate limiting on the self-service query (enables ID number enumeration)
-- No audit trail for who accessed whose data
-- Uploaded Excel files accumulate forever in `data/uploads/` with no cleanup
+**Why it happens:** v1.0 Phase 8 did a "full page rebuild" using inline styles for development speed. The `theme/index.ts` defines tokens but they are only consumed by Ant Design components, not by inline styles in page code.
 
-**Consequences:**
-- PIPL non-compliance: mandatory compliance audits became effective May 1, 2025. Processing sensitive PI without proper safeguards can result in fines up to 50 million RMB or 5% of annual revenue.
-- ID number enumeration attack: attacker can cycle through ID number patterns on the unauthenticated endpoint to extract employee data
-- Data retention violation: social insurance records stored indefinitely without purpose limitation or deletion policy
+**Consequences:** Dark mode toggle changes Ant Design component colors but leaves page backgrounds, card borders, text colors, and layout chrome in light mode. The result looks broken — white content areas floating in a dark shell, unreadable text on wrong backgrounds.
 
 **Prevention:**
-1. **Immediate (before any new feature work):**
-   - Add authentication to the self-service endpoint
-   - Add rate limiting (max 5 queries per minute per IP) to self-service
-   - Remove or disable default credentials in any non-explicitly-local deployment
-   - Add audit logging: every data access must record who, when, what records, from which IP
+1. Before implementing dark mode, refactor inline color styles to use Ant Design's `token` via `theme.useToken()` hook or CSS custom properties.
+2. Prioritize the MainLayout (Header background, Content background, Sider logo text) — this is the shell wrapping everything.
+3. For page-level styles, create a shared pattern: `const { token } = theme.useToken()` and replace hardcoded hex values.
+4. Do NOT attempt dark mode until at least MainLayout and top-5 most-used pages (Dashboard, DataManagement, SimpleAggregate, Imports, Employees) have their inline styles tokenized.
+5. Ant Design 5's `ConfigProvider` supports `theme.algorithm: theme.darkAlgorithm` — use this as the toggle mechanism, but understand it only affects components, not inline styles.
 
-2. **During auth phase:**
-   - Employee self-service should require ID number + name + a verification code (sent to their registered contact), not just ID number + name alone
-   - Implement field-level access control: employees see only their own records; HR sees all records but with ID numbers partially masked in the UI; only admin sees unmasked data
-   - Add a `data_access_log` table: `(user_id, action, resource, record_ids, ip, timestamp)`
+**Detection:** Visually test every page in dark mode. Grep for hardcoded hex colors in `.tsx` files: `#F5F6F7`, `#FFFFFF`, `#fff`, `#1F2329`, `#DEE0E3`, `#646A73`.
 
-3. **During Feishu sync phase:**
-   - ID numbers must be masked or encrypted before pushing to Feishu Bitable (Feishu storage is outside your direct control)
-   - Define data retention: auto-delete uploaded files after 30 days, archive processed data after 12 months
+---
 
-4. **Ongoing:**
-   - Implement data export logging (who downloaded what template, when)
-   - Add a `/api/v1/audit/log` endpoint for admins to review access history
+### Pitfall 5: Responsive retrofit breaks complex social insurance data tables
 
-**Detection:** If you cannot answer "who accessed employee X's data in the last 30 days" from system logs, the audit trail is insufficient. If the self-service endpoint responds to requests without any form of authentication, the PII gate is missing.
+**What goes wrong:** Social insurance data tables have 15-25 columns (pension_company, pension_personal, medical_company, medical_personal, unemployment_company, etc.). On mobile or narrow windows, these tables become completely unusable. Naive responsive approaches (hiding columns, wrapping text) lose critical data visibility that HR users depend on.
 
-**Phase:** PII protections are cross-cutting. Rate limiting and audit logging should be in the auth phase. Field-level masking should be in the frontend redesign phase. Feishu data masking should be in the Feishu integration phase.
+**Why it happens:** Ant Design Table does not automatically handle horizontal scrolling for many columns. The existing tables use fixed column definitions without `scroll={{ x: ... }}` or responsive column visibility logic.
+
+**Consequences:** Mobile users see broken tables with overlapping columns. HR users on tablets cannot do their core work. Worse: if columns are hidden for responsive layout, users may not realize data is missing and make decisions on incomplete information.
+
+**Prevention:**
+1. Do NOT hide insurance columns to fit mobile screens. Instead: use `scroll={{ x: true }}` with a fixed left column (person_name) for horizontal scrolling on narrow screens.
+2. For mobile-first views, consider a card-based layout showing summary (name, total_amount, company_total, personal_total) with expandable detail for per-insurance-type breakdown.
+3. Test with real data widths — Chinese insurance field names are long (e.g., "职工基本养老保险(单位缴纳)") and numeric values have decimal places.
+4. The DataManagement page has cascading filters (region + company + period) — these Row/Col layouts need responsive breakpoints. Use Ant Design's `<Col xs={24} sm={12} lg={8}>` pattern.
+5. The SimpleAggregate page has a multi-step upload flow with WorkflowSteps — test this on mobile.
+
+**Detection:** Resize browser to 375px width and verify every page is usable. Test on actual mobile device with touch interactions.
 
 ---
 
 ## Moderate Pitfalls
 
-### Pitfall 5: Tool Template Fix Accidentally Breaks Salary Template
+### Pitfall 6: Account management CRUD without self-demotion protection
 
-**What goes wrong:** The Tool template export has field mapping issues that need fixing. The Salary template export works perfectly. Both templates share code in `template_exporter.py` (1160 lines, a single monolithic file). Fixing the Tool template changes shared logic and regresses the Salary template.
-
-**Prevention:**
-1. Split `template_exporter.py` into three modules BEFORE fixing the Tool template: `salary_exporter.py`, `tool_exporter.py`, `export_utils.py`. The split itself should be a zero-behavior-change refactor with existing tests passing.
-2. Write a Salary template regression test using real production templates (not synthetic fixtures) before touching any export code.
-3. The Tool template fix should only touch `tool_exporter.py` after the split.
-
-**Detection:** Run the Salary template export test after every change to export code. If it fails, revert immediately.
-
-**Phase:** This must be the FIRST phase. It de-risks everything else.
-
----
-
-### Pitfall 6: SQLite Concurrency Collapse Under Multi-User Access
-
-**What goes wrong:** The system moves from single-user (one HR person running batch imports) to multi-user (admin + HR + employees querying simultaneously). SQLite with WAL mode supports concurrent reads but only one writer at a time. The current busy timeout is 120 seconds. When HR triggers a batch import (heavy write) while employees are querying (reads that become writes for audit logs), everything queues.
+**What goes wrong:** Adding account management (create/edit/delete users, change roles, reset passwords) to the existing JWT auth system. An admin accidentally changes their own role to 'hr' or 'employee', or deletes their own account, locking themselves out of the system.
 
 **Prevention:**
-1. Accept SQLite for this milestone -- the project constraint says single company use. But design the data access layer so PostgreSQL migration is a config change, not a rewrite.
-2. Move batch import writes to a background task with a dedicated connection, not the request connection.
-3. Use read-only connections for employee queries: `engine.connect().execution_options(sqlite_read_only=True)`.
-4. If audit logging causes write contention, write audit logs to a separate SQLite database file.
+1. Prevent admins from changing their own role or deactivating their own account via API-level validation.
+2. Require at least one admin account to exist at all times — block the last admin from being demoted or deleted.
+3. Password changes for other users should not invalidate existing JWT tokens immediately (tokens are stateless). Consider adding a `password_changed_at` field and checking it during token verification to force re-login.
+4. The existing `user_service.py` has `create_user` and `authenticate_user_login` but no `update_user` or `delete_user` — these need careful implementation with the above guards.
 
-**Detection:** If employee self-service queries take >2 seconds during a batch import, concurrency is the bottleneck.
+### Pitfall 7: Cascade delete deletes more than intended (month data cleanup ambiguity)
 
-**Phase:** Addressed during auth phase (when multi-user access is introduced).
-
----
-
-### Pitfall 7: Feishu OAuth Login vs. Internal Auth Creates Identity Split
-
-**What goes wrong:** The system implements both internal auth (username/password for admin/HR) and Feishu OAuth (for employees or all users). Two identity systems create confusion: which login does a user use? What happens when a Feishu user doesn't have a matching internal account? What if someone logs in via Feishu but their Feishu identity doesn't map to an employee record?
+**What goes wrong:** The v1.1 feature "batch delete cascading to month data" is ambiguous. If it means deleting a batch should also clean up all data for that billing_period, a billing_period may contain records from multiple batches. Naive implementation could delete records belonging to batch B when only batch A is being targeted.
 
 **Prevention:**
-1. Make Feishu OAuth optional and additive, not a replacement. Internal auth stays primary.
-2. Link Feishu identity to employee records via a `feishu_user_id` column on the employee table, populated during first OAuth login by matching email or phone number.
-3. Never create a "new user" automatically from Feishu OAuth -- require admin approval or pre-registration.
-4. If Feishu OAuth is used for employee self-service, the flow is: Feishu login -> look up `feishu_user_id` in employee table -> if found, issue restricted token -> if not found, show "contact HR" message. No silent account creation.
+1. Cascade delete should ONLY delete records belonging to the specific batch, not all records for the billing_period.
+2. The current ImportBatch model already has `cascade="all, delete-orphan"` on normalized_records relationship — this correctly scopes deletion to the batch's own records. Use this mechanism.
+3. If the feature intent is "delete all data for a month" (not just one batch), implement this as a separate service method that explicitly queries by billing_period, NOT by cascading from batch delete.
+4. Add a confirmation step in the UI that shows exactly what will be deleted (X records from Y batches for period Z) before executing.
+5. Log every cascade delete operation in the audit trail with the full scope of what was deleted.
 
-**Detection:** If users report "I can log in via Feishu but see no data" or "I have two accounts," the identity linking is broken.
+### Pitfall 8: Dark mode theme duplication and drift
 
-**Phase:** Feishu integration phase, specifically after basic auth is working.
-
----
-
-### Pitfall 8: Normalization Service Becomes Unmaintainable Before New Regions Are Added
-
-**What goes wrong:** `normalization_service.py` is already 863 lines with Wuhan and Changsha special-case logic hardcoded. The next milestone adds more regions or housing fund variants. Each new region adds another 50-100 lines of special cases to a file that's already hard to test in isolation.
+**What goes wrong:** Creating a separate `darkTheme` object that duplicates all token values from the light theme but with dark colors. Over time, the two theme objects drift — new component customizations get added to light theme but not dark, causing visual inconsistencies.
 
 **Prevention:**
-1. Extract region-specific normalizers into a strategy pattern: `backend/app/services/region_normalizers/{region}.py` with a common interface.
-2. Do this refactor BEFORE adding any new region or housing fund logic.
-3. Each region normalizer should be independently testable with its own sample files.
+1. Use Ant Design 5's built-in dark algorithm: `{ algorithm: theme.darkAlgorithm }` as the primary mechanism — it automatically derives dark variants.
+2. Keep ONE base theme config (the existing `theme/index.ts`) and compose dark mode as an override layer, not a copy.
+3. Structure: `const darkOverrides: ThemeConfig = { algorithm: theme.darkAlgorithm, token: { /* only explicit overrides */ }, components: { /* only explicit overrides */ } }`.
+4. The existing Feishu-style dark sider (`siderBg: '#1F2329'`) is already dark — in dark mode, the sider should stay similar while the content area darkens. Test that the sider doesn't become indistinguishable from content background.
 
-**Detection:** If `normalization_service.py` exceeds 1000 lines, the refactor was skipped.
+### Pitfall 9: Diff-style comparison UI performance with large datasets
 
-**Phase:** Should happen during the Tool template fix phase as preparatory cleanup.
+**What goes wrong:** The "left-right Excel table + diff highlighting" approach for monthly comparison renders two full tables side-by-side. With 500+ employee records per period and 20+ columns, this means rendering 20,000+ cells with diff computation. React re-renders on scroll and filter become visibly sluggish.
+
+**Prevention:**
+1. Use virtualized tables (`react-window` or Ant Design's `virtual` prop on Table) for both sides.
+2. Compute diffs server-side and send only diff metadata (changed cells, added/removed rows), not raw data for client-side diffing.
+3. The existing `PeriodCompare.tsx` already fetches diff data from the backend `compare_service.py` — extend this pattern rather than building client-side diffing from scratch.
+4. For the "Excel-like" visual experience, consider `react-data-grid` or similar, but weigh the added dependency against Ant Design Table's virtual mode.
+
+### Pitfall 10: Menu reorganization breaks bookmarked URLs and browser history
+
+**What goes wrong:** Moving menu items into sub-menus or "advanced settings" changes the URL structure. Users who bookmarked `/audit-logs` or `/api-keys` get 404s. The existing `App.tsx` routes are flat — no nested route groups.
+
+**Prevention:**
+1. Keep existing URLs unchanged. Menu reorganization should only affect visual grouping in the sidebar, not route paths.
+2. Use Ant Design Menu's items with `children` for visual nesting while keeping `key` values as the same flat paths.
+3. If URLs must change, add permanent redirects from old paths to new paths in the router.
+4. The `LABEL_MAP` in MainLayout.tsx and `ALL_NAV_ITEMS` array both need updating for any new groupings — keep them in sync.
+
+### Pitfall 11: `from __future__ import annotations` breaks Pydantic model validation edge cases
+
+**What goes wrong:** Adding `from __future__ import annotations` to schema files for Python 3.9 compatibility can break Pydantic v2 model validation. When annotations are deferred (become strings), Pydantic v2 must evaluate them at model creation time. Edge cases with complex validators, `model_validator`, `Literal`, and discriminated unions can fail.
+
+**Prevention:**
+1. Test every Pydantic schema file individually after adding the import.
+2. Pay special attention to files using `Literal`, discriminated unions, or custom validators.
+3. The existing schemas (auth.py, users.py, data_management.py, etc.) appear straightforward, but run the full test suite after changes.
+4. If issues arise, use `typing.Optional` and `typing.Union` explicitly instead of relying on `__future__` for those specific files.
+
+### Pitfall 12: Settings search exposes admin-only settings to lower roles
+
+**What goes wrong:** A global settings search indexes all settings pages. If search results include links to admin-only pages (API Keys, Feishu Settings, Audit Logs), HR or employee users see results they cannot access, leading to confusing 403 errors or automatic redirects.
+
+**Prevention:**
+1. Filter search results by the current user's role using the existing `RoleRoute` allowedRoles logic.
+2. Index settings with role metadata so search only returns accessible items.
+3. The existing `ALL_NAV_ITEMS` array in MainLayout.tsx already has `roles` per item — reuse this as the search index with role filtering built in.
 
 ---
 
 ## Minor Pitfalls
 
-### Pitfall 9: CORS Configuration Breaks After Frontend Redeploy
+### Pitfall 13: CSS module isolation insufficient for dark mode propagation
 
-**What goes wrong:** The frontend is rebuilt and deployed to a new URL or port. The backend CORS config still points to the old origin. All API calls fail with opaque CORS errors that are hard to debug.
+**What goes wrong:** Only 2 CSS module files exist (MainLayout.module.css, animations.module.css). All other styling is inline. Dark mode CSS variable propagation only works through CSS files or the theme token system, not through inline style objects.
 
-**Prevention:**
-- Make CORS origins configurable via environment variable (already partially done in `config.py`)
-- Add the new frontend origin to CORS config BEFORE deploying the new frontend
-- Never use `allow_origins=["*"]` with `allow_credentials=True` -- this is already a noted concern
+**Prevention:** Accept that dark mode implementation requires a style refactoring pass first. Budget time for this preparatory work in the roadmap — it is not optional.
 
-**Detection:** Frontend shows "network error" on all API calls after deployment.
+### Pitfall 14: Responsive sidebar overlay on mobile doesn't close on navigation
 
-**Phase:** Frontend redesign phase.
+**What goes wrong:** On mobile, the sidebar should overlay content and close after a menu item is clicked. The existing `useResponsiveCollapse` hook collapses the sider at 1440px but doesn't implement drawer behavior for small screens.
 
----
+**Prevention:** For mobile (<768px), switch from `Sider` to Ant Design's `Drawer` component. Trigger `onClose` on route change via `useEffect` on `location.pathname`.
 
-### Pitfall 10: Alembic Migrations Drift From Actual Schema
+### Pitfall 15: Employee self-service portal overlooked in responsive design
 
-**What goes wrong:** The SQLite database (`data/app.db`) is in version control and has been modified directly. Alembic migrations exist but may not reflect the actual schema. Adding new tables for auth (users, roles, sessions, audit_log) via Alembic when the migration history doesn't match reality causes migration failures.
+**What goes wrong:** The employee role only has one page (`/employee/query`) which is the most likely to be accessed on a phone (employees checking their social insurance on mobile). But responsive design efforts focus on admin/HR pages because they have more visual complexity.
 
-**Prevention:**
-1. Before writing any new migration, dump the current schema with `sqlite3 data/app.db .schema` and compare to the latest Alembic migration state.
-2. If they diverge, create a "stamp" migration that marks current state as baseline.
-3. Remove `data/app.db` from version control (add to `.gitignore`). It's already showing as modified in git status.
+**Prevention:** Prioritize the EmployeeSelfService page for mobile responsiveness — it is the highest-value mobile use case. Design it mobile-first.
 
-**Detection:** `alembic upgrade head` fails or produces a different schema than the running database.
+### Pitfall 16: Audit log real IP fix breaks behind reverse proxy
 
-**Phase:** Auth phase (first migration will add user/role tables).
+**What goes wrong:** The v1.1 feature "audit log real IP address" reads client IP from `request.client.host`. Behind a reverse proxy (nginx, cloud load balancer), this returns `127.0.0.1` or the proxy's internal IP.
+
+**Prevention:** Use `X-Forwarded-For` header with a trusted proxy configuration. FastAPI's `Request.client.host` is not sufficient alone. Add a configurable `TRUSTED_PROXIES` environment variable. Use the `X-Real-IP` header as fallback.
+
+### Pitfall 17: Dark mode preference not persisted across sessions
+
+**What goes wrong:** User toggles dark mode, refreshes page, and it resets to light mode.
+
+**Prevention:** Store preference in `localStorage`. Load it before initial React render to prevent flash of wrong theme (FOWT). Use `prefers-color-scheme` media query as the initial default for first-time visitors.
+
+### Pitfall 18: Fusion personal insurance/housing fund amounts break Salary template
+
+**What goes wrong:** Adding personal social insurance and personal housing fund contribution fields to the fusion pipeline. The Salary template export is explicitly marked as "must not be modified" in project constraints. Adding new fields could accidentally change the Salary export mapping.
+
+**Prevention:** The fusion enhancement should only affect data ingestion and storage. Salary exporter must remain completely untouched. Add new fields to normalized_records if needed, but ensure the Salary exporter's field list is frozen. Write a regression test asserting the Salary template output is byte-identical before and after the fusion enhancement.
 
 ---
 
@@ -231,34 +220,66 @@ Mistakes that cause rewrites, data breaches, or major regressions.
 
 | Phase Topic | Likely Pitfall | Mitigation |
 |-------------|---------------|------------|
-| Tool template fix | Salary template regression (#5) | Split exporter first, regression test before any fix |
-| Auth & roles | Inconsistent route protection (#1) | Router-level deps, audit all endpoints |
-| Auth & roles | SQLite write contention (#6) | Background tasks, read-only connections |
-| Auth & roles | PII exposure during transition (#4) | Rate limit + audit log as first commits |
-| Auth & roles | Migration drift (#10) | Schema baseline before first migration |
-| Frontend redesign | Backend contract drift (#2) | API snapshot, E2E smoke tests as gate |
-| Frontend redesign | CORS breakage (#9) | Environment-driven CORS config |
-| Feishu integration | Rate limit data loss (#3) | Queue + batch + sync log table |
-| Feishu integration | Identity split (#7) | Feishu OAuth as additive, not primary |
-| Feishu integration | PII in Feishu storage (#4) | Mask ID numbers before push |
-| New regions / housing fund | Normalization bloat (#8) | Strategy pattern extraction first |
+| Python 3.9 compat | Pitfall 2, 3, 11 — union types, built-in generics, Pydantic interaction | Do this FIRST. Run full test suite under 3.9. Systematic `__future__` audit across all files. |
+| Dark mode | Pitfall 4, 8, 13, 17 — inline styles, theme duplication, CSS modules, persistence | Refactor inline styles to tokens BEFORE enabling dark toggle. Budget 2x estimated time. |
+| Responsive design | Pitfall 5, 14, 15 — data tables, mobile sidebar, employee portal | Start with layout shell (MainLayout), then employee portal, then data pages. Never hide insurance columns. |
+| Cascade delete | Pitfall 1, 7 — SQLite FK enforcement, scope of deletion | Write integration tests first. Verify PRAGMA. Separate batch-delete from period-delete semantics. |
+| Account management | Pitfall 6 — self-demotion, last-admin protection | Add guard rails before CRUD. Token invalidation strategy needed. |
+| Diff comparison UI | Pitfall 9 — performance with large datasets | Server-side diff computation. Virtualized rendering. |
+| Menu reorganization | Pitfall 10 — broken bookmarks | Visual-only grouping, keep flat URL paths. |
+| Settings search | Pitfall 12 — role-based filtering | Reuse existing NAV_ITEMS roles array as search index. |
+| Audit log fix | Pitfall 16 — reverse proxy IP | X-Forwarded-For + trusted proxy config. |
+| Fusion enhancements | Pitfall 18 — Salary template regression | Freeze Salary exporter, regression test with byte-identical output check. |
+
+---
+
+## Integration Pitfalls (Cross-Feature Interactions)
+
+### Dark mode + Responsive design timing
+
+**Risk:** If responsive design is done first with new inline styles, then dark mode has to re-refactor those same styles. If dark mode is done first, responsive breakpoints may need to account for both themes.
+
+**Mitigation:** Do the inline-style-to-token refactoring as a preparatory phase before either feature. This single refactoring step enables both features cleanly.
+
+### Python 3.9 compat + All subsequent backend features
+
+**Risk:** If Python 3.9 compat is done late, all new code written for cascade delete, account management, and fusion enhancements may use 3.10+ syntax, requiring a second audit pass.
+
+**Mitigation:** Do Python 3.9 compat FIRST. Set up CI to test on 3.9 so all subsequent work is automatically validated against the target runtime.
+
+### Account management + Audit logs
+
+**Risk:** New account CRUD operations (create user, change role, change password, delete user) should generate audit log entries. If audit log enhancement and account management are in different phases, the audit entries are likely to be forgotten.
+
+**Mitigation:** Define audit event types for account operations upfront. Implement audit logging as part of the account management feature, not as a separate effort.
+
+### Cascade delete + Data management filters
+
+**Risk:** The "data management multi-select filter + matched/unmatched filter" feature changes how data is queried. If cascade delete introduces soft-delete patterns (is_deleted flags), all existing filter queries need to exclude soft-deleted records.
+
+**Mitigation:** Use hard deletes (matching the existing CASCADE pattern in the models) rather than soft deletes. This avoids complicating every existing query with `WHERE is_deleted = false`.
+
+### Fusion enhancements + Feishu sync
+
+**Risk:** Adding personal insurance/housing fund amounts to fusion output changes the data model. If Feishu sync pushes these records to Bitable, the field mapping configuration needs updating. Implementing both features independently could leave Feishu sync unaware of new fields.
+
+**Mitigation:** Define the extended data model (with new personal contribution fields) before implementing either feature. Both fusion and Feishu sync should target the same schema.
 
 ---
 
 ## Sources
 
-- [FastAPI Security Documentation](https://fastapi.tiangolo.com/tutorial/security/)
-- [FastAPI Auth: Router-Level Dependencies vs Middleware](https://medium.com/@anto18671/efficiency-of-using-dependencies-on-router-in-fastapi-c3b288ac408b)
-- [Feishu Bitable API Overview](https://open.feishu.cn/document/server-docs/docs/bitable-v1/bitable-overview)
-- [Feishu Bitable Rate Limits](https://open.feishu.cn/document/server-docs/docs/bitable-v1/bitable-structure)
-- [Feishu Server SDK](https://open.feishu.cn/document/server-docs/server-side-sdk)
-- [PIPL Compliance Guide - China Briefing](https://www.china-briefing.com/doing-business-guide/china/company-establishment/pipl-personal-information-protection-law)
-- [Sensitive Personal Data Standards GB/T 45574-2025](https://www.china-briefing.com/news/sensitive-personal-data-in-china-guidelines/)
-- [China Data Protection 2025 Review - Bird & Bird](https://www.twobirds.com/en/insights/2026/china/china-data-protection-and-cybersecurity-annual-review-of-2025-and-outlook-for-2026)
-- [Frontend Migration Guide - Frontend Mastery](https://frontendmastery.com/posts/frontend-migration-guide/)
-- [Feishu Bitable Python Tool](https://github.com/dungeer619/feishu-bitable-python-tool)
-- Codebase analysis: `backend/app/core/auth.py`, `backend/app/api/v1/router.py`, `.planning/codebase/CONCERNS.md`
+- Direct codebase inspection: `backend/app/core/database.py` lines 29-36 (PRAGMA foreign_keys enforcement)
+- Direct codebase inspection: `backend/app/models/import_batch.py` (ForeignKey + cascade="all, delete-orphan" declarations)
+- Direct codebase inspection: 30+ backend service files with `X | Y` type syntax (grep results documented above)
+- Direct codebase inspection: `frontend/src/theme/index.ts` (hardcoded Feishu-style theme tokens, no dark variant)
+- Direct codebase inspection: `frontend/src/layouts/MainLayout.tsx` (inline styles with hardcoded hex colors, useResponsiveCollapse hook)
+- Direct codebase inspection: 22 page files with 329 inline style occurrences (grep count documented above)
+- Direct codebase inspection: `backend/app/services/user_service.py` (existing create_user/authenticate, no update/delete)
+- SQLite documentation: PRAGMA foreign_keys default-off behavior (HIGH confidence, well-documented)
+- Python 3.9 release notes: PEP 585 built-in generic limitations (HIGH confidence)
+- Ant Design 5 theming documentation: darkAlgorithm + ConfigProvider pattern (HIGH confidence)
 
 ---
 
-*Pitfalls audit: 2026-03-27*
+*Pitfalls audit: 2026-04-04 (v1.1 milestone)*
