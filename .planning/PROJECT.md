@@ -43,7 +43,27 @@
 
 ### Active
 
-（v1.0 全部需求已验证完成，等待下一个里程碑规划）
+## Current Milestone: v1.1 体验优化与功能完善
+
+**Goal:** 清理技术债、全面提升前端体验（响应式+暗黑模式+菜单重组）、补齐账号管理和融合能力短板、适配云服务器部署环境。
+
+**Target features:**
+- 融合增加个人社保承担额 + 个人公积金承担额（支持 Excel 上传或飞书同步）
+- 快速融合上传文件计数、特殊规则配置（选人+选字段+覆盖值，可保存复用）
+- 员工主档默认使用服务器已有主档
+- 个人险种缴费基数数据修复
+- 数据管理批次删除联动月份数据清理
+- 全页面响应式自适应（手机端+不同窗口尺寸）
+- 黑夜模式切换
+- 左侧菜单多级折叠（低频功能收进高级设置）
+- 设置页搜索 + 快速导航
+- 数据管理筛选多选 + 已匹配/未匹配过滤
+- 账号管理系统（创建账号/修改权限/改密码）
+- 月度对比 diff 风格重做（左右 Excel 表格 + 差异高亮）
+- 飞书功能前端完善
+- 审计日志完善（真实 IP 地址等）
+- 适配 Python 3.9（云服务器部署）
+- v1.0 遗留技术债清理
 
 ### Out of Scope
 
@@ -111,4 +131,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-04 after v1.0 milestone*
+*Last updated: 2026-04-04 after v1.1 milestone started*
