@@ -1,15 +1,16 @@
 from __future__ import annotations
 
+from typing import Optional
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from backend.app.api.v1.responses import success_response
 from backend.app.dependencies import get_db
 from backend.app.schemas.compare import CompareExportRequest
-from backend.app.services.compare_service import build_compare_export_workbook, compare_batches
+from backend.app.services.compare_service import build_compare_export_workbook, compare_batches, compare_periods
 from backend.app.services.import_service import BatchNotFoundError
 
 # Error code prefix: CMP_xxx
@@ -36,3 +37,29 @@ def export_batch_comparison_endpoint(request_body: CompareExportRequest):
         media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         headers=headers,
     )
+
+
+@router.get(
+    '/periods',
+    summary="跨账期对比",
+    description="对比两个账期的社保数据差异，返回新增、删除和变更记录。支持按地区和公司筛选。",
+)
+def compare_periods_endpoint(
+    left_period: str = Query(..., description="左侧账期"),
+    right_period: str = Query(..., description="右侧账期"),
+    region: Optional[str] = Query(None, description="地区筛选"),
+    company_name: Optional[str] = Query(None, description="公司筛选"),
+    page: int = Query(0, ge=0, description="页码"),
+    page_size: int = Query(50, ge=1, le=200, description="每页条数"),
+    db: Session = Depends(get_db),
+):
+    payload = compare_periods(
+        db,
+        left_period,
+        right_period,
+        region=region,
+        company_name=company_name,
+        page=page,
+        page_size=page_size,
+    )
+    return success_response(payload.model_dump(mode='json'), message='Period comparison retrieved.')

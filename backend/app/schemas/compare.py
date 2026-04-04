@@ -63,3 +63,26 @@ class CompareExportRequest(BaseModel):
     right_batch_name: str
     fields: list[str]
     rows: list[CompareRowInput]
+
+
+class PeriodCompareSummaryGroup(BaseModel):
+    company_name: Optional[str] = None
+    region: Optional[str] = None
+    total_count: int = 0
+    changed_count: int = 0
+    left_only_count: int = 0
+    right_only_count: int = 0
+    same_count: int = 0
+
+
+class PeriodCompareRead(BaseModel):
+    left_period: str
+    right_period: str
+    fields: list[str]
+    total_row_count: int
+    same_row_count: int
+    changed_row_count: int
+    left_only_count: int
+    right_only_count: int
+    rows: list[CompareRowRead]
+    summary_groups: list[PeriodCompareSummaryGroup] = []
