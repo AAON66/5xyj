@@ -131,6 +131,114 @@ def test_standardize_housing_fund_workbook_changsha_reads_total_and_period() -> 
     assert first.values['housing_fund_total'] == Decimal('350')
 
 
+def test_standardize_housing_fund_workbook_xiamen_housing_fund_parse() -> None:
+    sample = find_sample('厦门')
+    result = standardize_housing_fund_workbook(sample, region='xiamen')
+
+    assert len(result.records) > 0
+    first = result.records[0]
+    assert first.values.get('person_name')
+    # At least one housing fund amount must be present
+    assert any(
+        first.values.get(key) is not None
+        for key in ('housing_fund_base', 'housing_fund_personal', 'housing_fund_company', 'housing_fund_total')
+    )
+    # No non-detail rows should appear
+    non_detail_tokens = ('合计', '小计', '经办网点', '打印日期', '管理中心', '制表人', '说明', '备注', '汇总')
+    for record in result.records:
+        name = str(record.values.get('person_name', ''))
+        assert not any(token in name for token in non_detail_tokens), f'Non-detail row leaked: {name}'
+
+
+def test_guangzhou_housing_fund_parse() -> None:
+    sample = find_sample('广分')
+    result = standardize_housing_fund_workbook(sample, region='guangzhou')
+
+    assert len(result.records) > 0
+    first = result.records[0]
+    assert first.values.get('person_name')
+    assert any(
+        first.values.get(key) is not None
+        for key in ('housing_fund_base', 'housing_fund_personal', 'housing_fund_company', 'housing_fund_total')
+    )
+    non_detail_tokens = ('合计', '小计', '经办网点', '打印日期', '管理中心', '制表人', '说明', '备注', '汇总')
+    for record in result.records:
+        name = str(record.values.get('person_name', ''))
+        assert not any(token in name for token in non_detail_tokens), f'Non-detail row leaked: {name}'
+
+
+def test_hangzhou_housing_fund_parse() -> None:
+    sample = find_sample('杭州聚变')
+    result = standardize_housing_fund_workbook(sample, region='hangzhou')
+
+    assert len(result.records) > 0
+    first = result.records[0]
+    assert first.values.get('person_name')
+    assert any(
+        first.values.get(key) is not None
+        for key in ('housing_fund_base', 'housing_fund_personal', 'housing_fund_company', 'housing_fund_total')
+    )
+    non_detail_tokens = ('合计', '小计', '经办网点', '打印日期', '管理中心', '制表人', '说明', '备注', '汇总')
+    for record in result.records:
+        name = str(record.values.get('person_name', ''))
+        assert not any(token in name for token in non_detail_tokens), f'Non-detail row leaked: {name}'
+
+
+def test_shenzhen_housing_fund_parse() -> None:
+    sample = find_sample('深圳创造欢乐')
+    result = standardize_housing_fund_workbook(sample, region='shenzhen')
+
+    assert len(result.records) > 0
+    first = result.records[0]
+    assert first.values.get('person_name')
+    assert any(
+        first.values.get(key) is not None
+        for key in ('housing_fund_base', 'housing_fund_personal', 'housing_fund_company', 'housing_fund_total')
+    )
+    non_detail_tokens = ('合计', '小计', '经办网点', '打印日期', '管理中心', '制表人', '说明', '备注', '汇总')
+    for record in result.records:
+        name = str(record.values.get('person_name', ''))
+        assert not any(token in name for token in non_detail_tokens), f'Non-detail row leaked: {name}'
+
+
+@pytest.mark.skipif(
+    not any(SAMPLES_DIR.glob('*武汉*')),
+    reason='Wuhan housing fund sample not available in samples directory',
+)
+def test_wuhan_housing_fund_parse() -> None:
+    sample = find_sample('武汉')
+    result = standardize_housing_fund_workbook(sample, region='wuhan')
+
+    assert len(result.records) > 0
+    first = result.records[0]
+    assert first.values.get('person_name')
+    assert any(
+        first.values.get(key) is not None
+        for key in ('housing_fund_base', 'housing_fund_personal', 'housing_fund_company', 'housing_fund_total')
+    )
+    non_detail_tokens = ('合计', '小计', '经办网点', '打印日期', '管理中心', '制表人', '说明', '备注', '汇总')
+    for record in result.records:
+        name = str(record.values.get('person_name', ''))
+        assert not any(token in name for token in non_detail_tokens), f'Non-detail row leaked: {name}'
+
+
+def test_changsha_housing_fund_parse() -> None:
+    sample = find_sample('长沙')
+    result = standardize_housing_fund_workbook(sample, region='changsha')
+
+    assert len(result.records) > 0
+    first = result.records[0]
+    assert first.values.get('person_name')
+    assert any(
+        first.values.get(key) is not None
+        for key in ('housing_fund_base', 'housing_fund_personal', 'housing_fund_company', 'housing_fund_total')
+    )
+    non_detail_tokens = ('合计', '小计', '经办网点', '打印日期', '管理中心', '制表人', '说明', '备注', '汇总')
+    for record in result.records:
+        name = str(record.values.get('person_name', ''))
+        assert not any(token in name for token in non_detail_tokens), f'Non-detail row leaked: {name}'
+
+
 def test_standardize_housing_fund_workbook_wuhan_two_level_headers() -> None:
     workbook = Workbook()
     sheet = workbook.active
