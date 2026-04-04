@@ -76,35 +76,35 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| INFRA-01 | — | Pending |
-| INFRA-02 | — | Pending |
-| INFRA-03 | — | Pending |
-| INFRA-04 | — | Pending |
-| UX-01 | — | Pending |
-| UX-02 | — | Pending |
-| UX-03 | — | Pending |
-| UX-04 | — | Pending |
-| UX-05 | — | Pending |
-| ACCT-01 | — | Pending |
-| ACCT-02 | — | Pending |
-| ACCT-03 | — | Pending |
-| ACCT-04 | — | Pending |
-| DATA-01 | — | Pending |
-| DATA-02 | — | Pending |
-| DATA-03 | — | Pending |
-| DATA-04 | — | Pending |
-| COMP-01 | — | Pending |
-| FUSE-01 | — | Pending |
-| FUSE-02 | — | Pending |
-| FUSE-03 | — | Pending |
-| FUSE-04 | — | Pending |
-| FEISHU-01 | — | Pending |
+| INFRA-01 | Phase 13 | Pending |
+| INFRA-02 | Phase 13 | Pending |
+| INFRA-03 | Phase 13 | Pending |
+| INFRA-04 | Phase 13 | Pending |
+| UX-01 | Phase 14 | Pending |
+| UX-02 | Phase 14 | Pending |
+| UX-03 | Phase 18 | Pending |
+| UX-04 | Phase 15 | Pending |
+| UX-05 | Phase 15 | Pending |
+| ACCT-01 | Phase 16 | Pending |
+| ACCT-02 | Phase 16 | Pending |
+| ACCT-03 | Phase 16 | Pending |
+| ACCT-04 | Phase 16 | Pending |
+| DATA-01 | Phase 17 | Pending |
+| DATA-02 | Phase 17 | Pending |
+| DATA-03 | Phase 17 | Pending |
+| DATA-04 | Phase 17 | Pending |
+| COMP-01 | Phase 20 | Pending |
+| FUSE-01 | Phase 19 | Pending |
+| FUSE-02 | Phase 13 | Pending |
+| FUSE-03 | Phase 19 | Pending |
+| FUSE-04 | Phase 13 | Pending |
+| FEISHU-01 | Phase 20 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 23 total
-- Mapped to phases: 0
-- Unmapped: 23 ⚠️
+- Mapped to phases: 23
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-04*
-*Last updated: 2026-04-04 after initial definition*
+*Last updated: 2026-04-04 after roadmap creation*
