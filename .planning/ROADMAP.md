@@ -23,7 +23,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 9: API System** - RESTful API formalization with API key authentication for external access
 - [x] **Phase 10: Feishu Integration** - Bidirectional Bitable sync with manual triggers and OAuth login (completed 2026-04-02)
 - [x] **Phase 11: Intelligence & Polish** - Cross-period comparison, anomaly detection, housing fund coverage (completed 2026-04-04)
-- [ ] **Phase 12: Integration Wiring Fix** - Fix Feishu OAuth/fields path mismatches, add API Keys navigation
+- [x] **Phase 12: Integration Wiring Fix** - Fix Feishu OAuth/fields path mismatches, add API Keys navigation (completed 2026-04-04)
 
 ## Phase Details
 
@@ -231,7 +231,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 12-01-PLAN.md -- Fix Feishu OAuth/fields path mismatches + add API Keys nav item
+- [x] 12-01-PLAN.md -- Fix Feishu OAuth/fields path mismatches + add API Keys nav item
 
 ## Progress
 
@@ -253,4 +253,4 @@ Note: Phases 4, 5, 6 can partially overlap (4 unblocks 5; 4 and 6 share the Phas
 | 9. API System | 0/2 | Planning complete | - |
 | 10. Feishu Integration | 4/4 | Complete   | 2026-04-02 |
 | 11. Intelligence & Polish | 5/5 | Complete    | 2026-04-04 |
-| 12. Integration Wiring Fix | 0/1 | Planning complete | - |
+| 12. Integration Wiring Fix | 1/1 | Complete   | 2026-04-04 |
