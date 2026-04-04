@@ -22,6 +22,7 @@ import {
   TeamOutlined,
   DatabaseOutlined,
   AuditOutlined,
+  KeyOutlined,
   LogoutOutlined,
   SearchOutlined,
   UserOutlined,
@@ -59,6 +60,7 @@ const ALL_NAV_ITEMS: NavItem[] = [
   { key: '/employees', icon: <TeamOutlined />, label: '员工主档', roles: ['admin', 'hr'] },
   { key: '/data-management', icon: <DatabaseOutlined />, label: '数据管理', roles: ['admin', 'hr'] },
   { key: '/audit-logs', icon: <AuditOutlined />, label: '审计日志', roles: ['admin'] },
+  { key: '/api-keys', icon: <KeyOutlined />, label: 'API 密钥', roles: ['admin'] },
   { key: '/employee/query', icon: <SearchOutlined />, label: '员工查询', roles: ['employee'] },
 ];
 
@@ -91,6 +93,7 @@ const LABEL_MAP: Record<string, string> = {
   new: '新建',
   'period-compare': '跨期对比',
   'anomaly-detection': '异常检测',
+  'api-keys': 'API 密钥',
   'feishu-sync': '飞书同步',
   'feishu-settings': '飞书设置',
   'feishu-mapping': '字段映射',
