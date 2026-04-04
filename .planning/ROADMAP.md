@@ -253,4 +253,4 @@ Note: Phases 4, 5, 6 can partially overlap (4 unblocks 5; 4 and 6 share the Phas
 | 9. API System | 0/2 | Planning complete | - |
 | 10. Feishu Integration | 4/4 | Complete   | 2026-04-02 |
 | 11. Intelligence & Polish | 5/5 | Complete    | 2026-04-04 |
-| 12. Integration Wiring Fix | 1/1 | Complete   | 2026-04-04 |
+| 12. Integration Wiring Fix | 1/1 | Complete    | 2026-04-04 |
