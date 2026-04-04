@@ -41,7 +41,9 @@
 - [ ] 飞书多维表格双向同步（系统↔飞书，数据读写）
 - [ ] 飞书 OAuth 登录（可选，为飞书集成准备）
 - [ ] 融合后的数据作为系统录入源（从工具模式到管理系统模式转变）
-- [ ] 公积金表格全地区覆盖与标准化
+- ✓ 公积金表格全地区覆盖与标准化 — Validated in Phase 11: intelligence-polish
+- ✓ 跨期对比与异常检测 — Validated in Phase 11: intelligence-polish
+- ✓ 字段映射管理 UI（内嵌编辑+独立页面）— Validated in Phase 11: intelligence-polish
 
 ### Out of Scope
 
@@ -117,4 +119,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-03-27 after initialization*
+*Last updated: 2026-04-04 after Phase 11 completion*
