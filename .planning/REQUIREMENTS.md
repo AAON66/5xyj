@@ -7,10 +7,10 @@
 
 ### 导出稳定化 (EXPORT)
 
-- [ ] **EXPORT-01**: Tool 模板导出的字段与标题正确匹配，不再错位
-- [ ] **EXPORT-02**: Salary 模板导出保持完美运行（回归测试覆盖）
-- [ ] **EXPORT-03**: 导出器代码拆分为独立模块（salary_exporter / tool_exporter / export_utils）
-- [ ] **EXPORT-04**: 两份模板可同时成功导出
+- [x] **EXPORT-01**: Tool 模板导出的字段与标题正确匹配，不再错位
+- [x] **EXPORT-02**: Salary 模板导出保持完美运行（回归测试覆盖）
+- [x] **EXPORT-03**: 导出器代码拆分为独立模块（salary_exporter / tool_exporter / export_utils）
+- [x] **EXPORT-04**: 两份模板可同时成功导出
 
 ### 认证与权限 (AUTH)
 
@@ -20,8 +20,8 @@
 - [x] **AUTH-04**: 管理员可管理用户账号（创建/编辑/禁用）
 - [x] **AUTH-05**: 用户会话在浏览器刷新后保持
 - [x] **AUTH-06**: PyJWT 替换已废弃的 python-jose
-- [ ] **AUTH-07**: API Key 认证机制（供外部程序调用）
-- [ ] **AUTH-08**: 管理员可创建和管理 API Key
+- [x] **AUTH-07**: API Key 认证机制（供外部程序调用）
+- [x] **AUTH-08**: 管理员可创建和管理 API Key
 
 ### 安全加固 (SEC)
 
@@ -68,15 +68,15 @@
 - [x] **API-01**: RESTful API 覆盖所有核心功能（社保查询/员工管理/导入导出）
 - [x] **API-02**: API 文档自动生成（OpenAPI/Swagger）
 - [x] **API-03**: API 响应格式统一且规范
-- [ ] **API-04**: 外部程序可通过 API Key 调用所有公开接口
+- [x] **API-04**: 外部程序可通过 API Key 调用所有公开接口
 
 ### 飞书集成 (FEISHU)
 
 - [x] **FEISHU-01**: 系统数据可推送到飞书多维表格（push sync）
 - [x] **FEISHU-02**: 飞书多维表格数据可拉取到系统（pull sync）
-- [x] **FEISHU-03**: 同步状态可查看（成功/失败/冲突记录）
+- [ ] **FEISHU-03**: 同步状态可查看（成功/失败/冲突记录）
 - [x] **FEISHU-04**: 同步操作为手动触发（非后台自动）
-- [x] **FEISHU-05**: 飞书 OAuth 登录支持（可选功能，feature flag 控制）
+- [ ] **FEISHU-05**: 飞书 OAuth 登录支持（可选功能，feature flag 控制）
 
 ### 智能与完善 (INTEL)
 
@@ -110,10 +110,10 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| EXPORT-01 | Phase 1 | Pending |
-| EXPORT-02 | Phase 1 | Pending |
-| EXPORT-03 | Phase 1 | Pending |
-| EXPORT-04 | Phase 1 | Pending |
+| EXPORT-01 | Phase 1 | Complete |
+| EXPORT-02 | Phase 1 | Complete |
+| EXPORT-03 | Phase 1 | Complete |
+| EXPORT-04 | Phase 1 | Complete |
 | AUTH-01 | Phase 2 | Complete |
 | AUTH-02 | Phase 2 | Complete |
 | AUTH-03 | Phase 2 | Complete |
@@ -148,14 +148,15 @@
 | API-01 | Phase 9 | Complete |
 | API-02 | Phase 9 | Complete |
 | API-03 | Phase 9 | Complete |
-| API-04 | Phase 9 | Pending |
-| AUTH-07 | Phase 9 | Pending |
-| AUTH-08 | Phase 9 | Pending |
+| API-01 | Phase 9, Phase 12 | Pending |
+| API-04 | Phase 9 | Complete |
+| AUTH-07 | Phase 9 | Complete |
+| AUTH-08 | Phase 9 | Complete |
 | FEISHU-01 | Phase 10 | Complete |
 | FEISHU-02 | Phase 10 | Complete |
-| FEISHU-03 | Phase 10 | Complete |
+| FEISHU-03 | Phase 10, Phase 12 | Pending |
 | FEISHU-04 | Phase 10 | Complete |
-| FEISHU-05 | Phase 10 | Complete |
+| FEISHU-05 | Phase 10, Phase 12 | Pending |
 | INTEL-01 | Phase 11 | Complete |
 | INTEL-02 | Phase 11 | Complete |
 | INTEL-03 | Phase 11 | Complete |
@@ -168,4 +169,4 @@
 
 ---
 *Requirements defined: 2026-03-27*
-*Last updated: 2026-03-27 after roadmap creation (11 phases, fine granularity)*
+*Last updated: 2026-04-04 after milestone audit gap closure (Phase 12 added)*

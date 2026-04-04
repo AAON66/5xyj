@@ -23,6 +23,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [ ] **Phase 9: API System** - RESTful API formalization with API key authentication for external access
 - [x] **Phase 10: Feishu Integration** - Bidirectional Bitable sync with manual triggers and OAuth login (completed 2026-04-02)
 - [x] **Phase 11: Intelligence & Polish** - Cross-period comparison, anomaly detection, housing fund coverage (completed 2026-04-04)
+- [ ] **Phase 12: Integration Wiring Fix** - Fix Feishu OAuth/fields path mismatches, add API Keys navigation
 
 ## Phase Details
 
@@ -218,10 +219,21 @@ Plans:
 
 **UI hint**: yes
 
+### Phase 12: Integration Wiring Fix
+**Goal**: All cross-phase integration paths work at runtime — Feishu OAuth login completes, Feishu field mapping loads columns, API Keys page reachable from sidebar
+**Depends on**: Phase 10, Phase 9
+**Requirements**: FEISHU-05, FEISHU-03, API-01
+**Gap Closure**: Closes gaps from v1.0 milestone audit
+**Success Criteria** (what must be TRUE):
+  1. Feishu OAuth authorize-url and callback requests reach the correct backend endpoints (no 404)
+  2. FeishuFieldMapping page successfully loads Feishu column definitions from the API
+  3. API Keys page is accessible from the sidebar navigation for admin users
+**Plans**: 0 plans
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10 -> 11
+Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10 -> 11 -> 12
 
 Note: Phases 4, 5, 6 can partially overlap (4 unblocks 5; 4 and 6 share the Phase 2 dependency). Phases 7 and 8 are sequential. Phase 9 can start after Phase 3.
 
@@ -238,3 +250,4 @@ Note: Phases 4, 5, 6 can partially overlap (4 unblocks 5; 4 and 6 share the Phas
 | 9. API System | 0/2 | Planning complete | - |
 | 10. Feishu Integration | 4/4 | Complete   | 2026-04-02 |
 | 11. Intelligence & Polish | 5/5 | Complete    | 2026-04-04 |
+| 12. Integration Wiring Fix | 0/0 | Not started | - |
