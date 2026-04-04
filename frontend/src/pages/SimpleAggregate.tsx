@@ -180,6 +180,7 @@ export function SimpleAggregatePage() {
   const [downloadingTemplate, setDownloadingTemplate] = useState<string | null>(null);
 
   const employeeInputRef = useRef<HTMLInputElement | null>(null);
+  const employeeMasterManualRef = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -193,7 +194,18 @@ export function SimpleAggregatePage() {
     let active = true;
     setLoadingEmployeeMasters(true);
     fetchEmployeeMasters({ activeOnly: true })
-      .then((payload) => { if (active) setExistingEmployeeMasterCount(payload.total); })
+      .then((payload) => {
+        if (active) {
+          setExistingEmployeeMasterCount(payload.total);
+          // D-18: smart default -- only set when user has not manually changed
+          if (!employeeMasterManualRef.current) {
+            if (payload.total > 0) {
+              setEmployeeMasterMode('existing');
+            }
+            // payload.total === 0: keep initial 'none'
+          }
+        }
+      })
       .catch(() => { if (active) setExistingEmployeeMasterCount(0); })
       .finally(() => { if (active) setLoadingEmployeeMasters(false); });
     return () => { active = false; };
@@ -421,6 +433,11 @@ export function SimpleAggregatePage() {
               <p>点击或拖拽社保 Excel 文件到此区域</p>
               <p style={{ color: '#8F959E', fontSize: 12 }}>支持 .xlsx, .xls 格式，可多选</p>
             </Dragger>
+            {socialDisplayList.length > 0 && (
+              <Text type="secondary" style={{ marginTop: 4 }}>
+                {socialDisplayList.length} 个文件
+              </Text>
+            )}
 
             {/* Housing fund files dragger */}
             <Title level={5} style={{ marginTop: 16, marginBottom: 8 }}>公积金文件</Title>
@@ -443,6 +460,19 @@ export function SimpleAggregatePage() {
               <p>点击或拖拽公积金 Excel 文件到此区域</p>
               <p style={{ color: '#8F959E', fontSize: 12 }}>支持 .xlsx, .xls 格式，可多选</p>
             </Dragger>
+            {housingDisplayList.length > 0 && (
+              <Text type="secondary" style={{ marginTop: 4 }}>
+                {housingDisplayList.length} 个文件
+              </Text>
+            )}
+
+            {/* File count summary */}
+            {(socialDisplayList.length + housingDisplayList.length) > 0 && (
+              <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
+                共 {socialDisplayList.length + housingDisplayList.length} 个文件
+                （社保 {socialDisplayList.length} | 公积金 {housingDisplayList.length}）
+              </Text>
+            )}
 
             {/* Employee master section */}
             <Card size="small" title="员工主档（可选）" style={{ marginTop: 16 }}>
@@ -454,6 +484,7 @@ export function SimpleAggregatePage() {
                 <Select
                   value={effectiveEmployeeMasterMode}
                   onChange={(val) => {
+                    employeeMasterManualRef.current = true;
                     setEmployeeMasterMode(val);
                     if (val !== 'upload') setEmployeeMasterFile(null);
                     setSelectionError(null);
