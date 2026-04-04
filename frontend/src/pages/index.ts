@@ -1,3 +1,4 @@
+export { default as AnomalyDetectionPage } from './AnomalyDetection';
 export * from './ApiKeys';
 export * from './AuditLogs';
 export * from './Compare';

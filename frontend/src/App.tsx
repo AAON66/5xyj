@@ -5,6 +5,7 @@ import { MainLayout } from './layouts/MainLayout';
 import { useAuth } from './hooks';
 import {
   AdminWorkspacePage,
+  AnomalyDetectionPage,
   ApiKeysPage,
   AuditLogsPage,
   ComparePage,
@@ -123,6 +124,7 @@ export default function App() {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/compare" element={<ComparePage />} />
             <Route path="/period-compare" element={<PeriodComparePage />} />
+            <Route path="/anomaly-detection" element={<AnomalyDetectionPage />} />
             <Route path="/imports" element={<ImportsPage />} />
             <Route path="/imports/:batchId" element={<ImportBatchDetailPage />} />
             <Route path="/mappings" element={<MappingsPage />} />

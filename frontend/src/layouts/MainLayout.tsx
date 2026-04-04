@@ -11,6 +11,7 @@ import {
 } from 'antd';
 import type { MenuProps } from 'antd';
 import {
+  AlertOutlined,
   UploadOutlined,
   DashboardOutlined,
   SwapOutlined,
@@ -50,6 +51,7 @@ const ALL_NAV_ITEMS: NavItem[] = [
   { key: '/dashboard', icon: <DashboardOutlined />, label: '处理看板', roles: ['admin', 'hr'] },
   { key: '/compare', icon: <SwapOutlined />, label: '月度对比', roles: ['admin', 'hr'] },
   { key: '/period-compare', icon: <SwapOutlined />, label: '跨期对比', roles: ['admin', 'hr'] },
+  { key: '/anomaly-detection', icon: <AlertOutlined />, label: '异常检测', roles: ['admin', 'hr'] },
   { key: '/imports', icon: <ImportOutlined />, label: '批次管理', roles: ['admin', 'hr'] },
   { key: '/mappings', icon: <ToolOutlined />, label: '映射修正', roles: ['admin', 'hr'] },
   { key: '/results', icon: <CheckCircleOutlined />, label: '校验匹配', roles: ['admin', 'hr'] },
@@ -88,6 +90,7 @@ const LABEL_MAP: Record<string, string> = {
   hr: 'HR',
   new: '新建',
   'period-compare': '跨期对比',
+  'anomaly-detection': '异常检测',
   'feishu-sync': '飞书同步',
   'feishu-settings': '飞书设置',
   'feishu-mapping': '字段映射',
