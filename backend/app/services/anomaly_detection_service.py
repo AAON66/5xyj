@@ -73,6 +73,12 @@ def detect_anomalies(
     if thresholds:
         effective_thresholds.update(thresholds)
 
+    # Delete existing anomaly records for this period pair (idempotent re-run)
+    db.query(AnomalyRecord).filter(
+        AnomalyRecord.left_period == left_period,
+        AnomalyRecord.right_period == right_period,
+    ).delete(synchronize_session="fetch")
+
     left_records = db.query(NormalizedRecord).filter(
         NormalizedRecord.billing_period == left_period
     ).all()

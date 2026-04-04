@@ -4,7 +4,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Optional
 
-from sqlalchemy import DateTime, Float, Numeric, String
+from sqlalchemy import DateTime, Float, Numeric, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.app.models.base import Base, CreatedAtMixin, UUIDPrimaryKeyMixin
@@ -14,6 +14,12 @@ class AnomalyRecord(UUIDPrimaryKeyMixin, CreatedAtMixin, Base):
     """Persisted anomaly detection result for cross-period comparison."""
 
     __tablename__ = "anomaly_records"
+    __table_args__ = (
+        UniqueConstraint(
+            "employee_identifier", "left_period", "right_period", "field_name",
+            name="uq_anomaly_identity",
+        ),
+    )
 
     employee_identifier: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
     person_name: Mapped[Optional[str]] = mapped_column(String(255))
