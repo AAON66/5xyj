@@ -1,256 +1,46 @@
 # Roadmap: 社保公积金管理系统
 
-## Overview
+## Milestones
 
-Transform the existing Excel merge tool into a complete social insurance & housing fund management platform. The journey starts by stabilizing the one broken feature (Tool template export), then layers on access control, employee-facing capabilities, a professional UI redesign, external API access, Feishu integration, and finally intelligence features. Each phase delivers a coherent, verifiable capability that builds on the previous ones.
+- ✅ **v1.0 社保公积金管理系统** — Phases 1-12 (shipped 2026-04-04)
 
 ## Phases
 
-**Phase Numbering:**
-- Integer phases (1, 2, 3): Planned milestone work
-- Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
+<details>
+<summary>✅ v1.0 社保公积金管理系统 (Phases 1-12) — SHIPPED 2026-04-04</summary>
 
-Decimal phases appear between their surrounding integers in numeric order.
+- [x] Phase 1: Export Stabilization (2/2 plans)
+- [x] Phase 2: Authentication & RBAC (3/3 plans)
+- [x] Phase 3: Security Hardening (2/2 plans)
+- [x] Phase 4: Employee Master Data (2/2 plans) — completed 2026-03-29
+- [x] Phase 5: Employee Portal (2/2 plans) — completed 2026-03-30
+- [x] Phase 6: Data Management (2/2 plans)
+- [x] Phase 7: Design System & UI Foundation (4/4 plans)
+- [x] Phase 8: Page Rebuild & UX Flow (2/2 plans)
+- [x] Phase 9: API System (2/2 plans)
+- [x] Phase 10: Feishu Integration (4/4 plans) — completed 2026-04-02
+- [x] Phase 11: Intelligence & Polish (5/5 plans) — completed 2026-04-04
+- [x] Phase 12: Integration Wiring Fix (1/1 plan) — completed 2026-04-04
 
-- [ ] **Phase 1: Export Stabilization** - Fix Tool template, split exporter, protect Salary template with regression tests
-- [ ] **Phase 2: Authentication & RBAC** - Three-role login system with PyJWT tokens and session persistence
-- [ ] **Phase 3: Security Hardening** - PII protection, rate limiting, audit logging, ID masking
-- [x] **Phase 4: Employee Master Data** - HR can manage and import employee registry for matching (completed 2026-03-29)
-- [x] **Phase 5: Employee Portal** - Employees can verify identity and view personal contribution records (completed 2026-03-30)
-- [ ] **Phase 6: Data Management** - HR can filter, browse, and audit all social insurance data
-- [ ] **Phase 7: Design System & UI Foundation** - Ant Design 5 adoption, Feishu-inspired theme, animations
-- [ ] **Phase 8: Page Rebuild & UX Flow** - Role-aware routing, responsive layout, localization, workflow optimization
-- [ ] **Phase 9: API System** - RESTful API formalization with API key authentication for external access
-- [x] **Phase 10: Feishu Integration** - Bidirectional Bitable sync with manual triggers and OAuth login (completed 2026-04-02)
-- [x] **Phase 11: Intelligence & Polish** - Cross-period comparison, anomaly detection, housing fund coverage (completed 2026-04-04)
-- [x] **Phase 12: Integration Wiring Fix** - Fix Feishu OAuth/fields path mismatches, add API Keys navigation (completed 2026-04-04)
+**Total:** 12 phases, 31 plans, 56 tasks
 
-## Phase Details
+See: `.planning/milestones/v1.0-ROADMAP.md` for full details
 
-### Phase 1: Export Stabilization
-**Goal**: Both dual templates export correctly with maintainable, separated exporter code and a permanent Salary regression safety net
-**Depends on**: Nothing (first phase)
-**Requirements**: EXPORT-01, EXPORT-02, EXPORT-03, EXPORT-04
-**Success Criteria** (what must be TRUE):
-  1. Tool template exports with all fields correctly matched to their column headers (no field-title misalignment)
-  2. Salary template continues to export identically to its current output (regression test passes)
-  3. Exporter code is split into salary_exporter.py, tool_exporter.py, and export_utils.py with no shared mutable state
-  4. User can trigger both exports in a single operation and receive two correct files
-**Plans**: 2 plans
-
-Plans:
-- [x] 01-01-PLAN.md -- Split monolithic exporter into 3 modules + Salary regression tests
-- [x] 01-02-PLAN.md -- Fix Tool template field-title alignment + dual export verification
-
-### Phase 2: Authentication & RBAC
-**Goal**: Admin and HR users can log in with credentials, employees can verify identity, and all routes enforce role-based access
-**Depends on**: Phase 1
-**Requirements**: AUTH-01, AUTH-02, AUTH-03, AUTH-04, AUTH-05, AUTH-06
-**Success Criteria** (what must be TRUE):
-  1. Admin/HR can log in with username+password and receive a JWT token (PyJWT, not python-jose)
-  2. Employee can verify identity using employee_id + id_number + name combination
-  3. Three roles (admin/HR/employee) enforced at route level -- HR cannot access admin routes, employee cannot access HR routes
-  4. Admin can create, edit, and disable user accounts from a management interface
-  5. User session persists across browser refresh (token stored and auto-attached)
-**Plans**: 3 plans
-
-Plans:
-- [x] 02-01-PLAN.md -- Backend auth core: PyJWT migration, User model, employee verification, require_role, rate limiter
-- [x] 02-02-PLAN.md -- User management CRUD endpoints + RBAC route protection
-- [x] 02-03-PLAN.md -- Frontend auth: employee role, localStorage persistence, dual-mode login page
-
-**UI hint**: yes
-
-### Phase 3: Security Hardening
-**Goal**: PII data is protected behind authentication with rate limiting, audit trails, and ID masking
-**Depends on**: Phase 2
-**Requirements**: SEC-01, SEC-02, SEC-03, SEC-04
-**Success Criteria** (what must be TRUE):
-  1. Every endpoint returning PII (id_number, contribution amounts) requires a valid auth token -- unauthenticated requests receive 401
-  2. Employee verification endpoint enforces rate limiting (repeated failed attempts are blocked)
-  3. Login, export, and data modification events are recorded in an audit log viewable by admin
-  4. ID card numbers display as masked (e.g., 310***1234) in all non-export contexts
-**Plans**: 2 plans
-
-Plans:
-- [x] 03-01-PLAN.md -- 后端安全基础设施：AuditLog 模型、审计服务、脱敏工具、登录限流、CORS 修复、测试
-- [x] 03-02-PLAN.md -- 前端审计日志页面 + 人工验证
-
-### Phase 4: Employee Master Data
-**Goal**: HR can maintain a complete employee registry that powers identity verification and data matching
-**Depends on**: Phase 2
-**Requirements**: MASTER-01, MASTER-02, MASTER-03, MASTER-04
-**Success Criteria** (what must be TRUE):
-  1. HR can add/edit individual employee records (name, employee_id, id_number, company, region)
-  2. HR can bulk-import employee master data from an Excel file
-  3. HR can search and filter employee list by name, employee_id, company, or region
-  4. Newly imported social insurance data automatically matches against employee master records by employee_id or id_number
-**Plans**: 2 plans
-
-Plans:
-- [x] 04-01-PLAN.md -- 后端全链路：region 字段迁移、导入容错、双维度匹配、筛选 API、辅助端点
-- [x] 04-02-PLAN.md -- 前端完善：地区/公司筛选下拉、region 表单字段、导入反馈增强
-
-**UI hint**: yes
-
-### Phase 5: Employee Portal
-**Goal**: Employees can securely view their own social insurance and housing fund contribution records
-**Depends on**: Phase 2, Phase 4
-**Requirements**: PORTAL-01, PORTAL-02, PORTAL-03, PORTAL-04, PORTAL-05
-**Success Criteria** (what must be TRUE):
-  1. Employee can view monthly social insurance breakdown (each insurance type, company/personal split)
-  2. Employee can view monthly housing fund contribution details
-  3. Employee can browse historical records across multiple billing periods
-  4. Employee cannot access any other employee's data (attempting to query another ID returns 403)
-  5. Contribution details show payment base, each insurance type amount for both company and personal portions
-**Plans**: TBD
-
-Plans:
-- [x] 05-01: TBD
-- [x] 05-02: TBD
-
-**UI hint**: yes
-
-### Phase 6: Data Management
-**Goal**: HR can efficiently browse, filter, and audit all social insurance data across regions and periods
-**Depends on**: Phase 2, Phase 4
-**Requirements**: DATA-01, DATA-02, DATA-03, DATA-04
-**Success Criteria** (what must be TRUE):
-  1. HR can filter social insurance records by region, company, and billing period in a single view
-  2. HR can view a full-employee summary with totals across all insurance types
-  3. Data quality dashboard shows import health metrics (missing fields, anomalies, duplicates) per import batch
-  4. Import history page shows each upload with filename, timestamp, operator name, and record count
-**Plans**: 2 plans
-
-Plans:
-- [x] 06-01-PLAN.md -- Backend infrastructure: migration, schemas, services, API endpoints, quality metrics, tests
-- [x] 06-02-PLAN.md -- Frontend: DataManagement page, Dashboard quality section, Imports enhancement, navigation
-
-**UI hint**: yes
-
-### Phase 7: Design System & UI Foundation
-**Goal**: The application adopts Ant Design 5 with a Feishu-inspired theme and polished visual identity
-**Depends on**: Phase 2, Phase 5, Phase 6
-**Requirements**: UI-01, UI-02, UI-03, UI-04
-**Success Criteria** (what must be TRUE):
-  1. All pages use Ant Design 5.x components (no legacy custom components remain)
-  2. Application has a cohesive Feishu-inspired visual theme (card-based layout, clean typography, professional color palette)
-  3. Page transitions and key interactions have smooth animations (not jarring full-page reloads)
-  4. Background, spacing, and scrolling have intentional design details that create a premium feel
-**Plans**: 4 plans
-
-Plans:
-- [x] 07-01-PLAN.md -- Ant Design 基础设施：安装依赖、飞书主题配置、MainLayout 主布局、ConfigProvider 包装
-- [ ] 07-02-PLAN.md -- 核心页面重写：Login + Dashboard + SimpleAggregate
-- [ ] 07-03-PLAN.md -- 数据页面重写：DataManagement + Employees + EmployeeCreate + Imports + ImportBatchDetail
-- [ ] 07-04-PLAN.md -- 剩余页面重写 + 旧组件清理：EmployeeSelfService/Portal/Results/Exports/Mappings/Compare/AuditLogs/Workspace/NotFound
-
-**UI hint**: yes
-
-### Phase 8: Page Rebuild & UX Flow
-**Goal**: Every page is rebuilt for role-aware navigation, responsive layout, and a smooth end-to-end workflow
-**Depends on**: Phase 7
-**Requirements**: UI-05, UI-06, UI-07, UI-08
-**Success Criteria** (what must be TRUE):
-  1. Navigation menu shows different items based on user role (admin sees admin tools, HR sees data management, employee sees portal)
-  2. All pages render correctly at 1920x1080, 1440x900, and 1366x768 resolutions
-  3. All UI text, labels, and messages display in Chinese with no untranslated strings
-  4. Upload-to-export workflow completes in a logical sequence without dead ends or confusing navigation
-**Plans**: 2 plans
-
-Plans:
-- [x] 08-01-PLAN.md -- 响应式侧边栏 1440px 断点 + 中文错误消息映射 + 角色导航验证
-- [x] 08-02-PLAN.md -- WorkflowSteps 工作流引导组件 + 表格滚动/固定列配置
-
-**UI hint**: yes
-
-### Phase 9: API System
-**Goal**: External programs can access all core functions through a documented REST API with API key authentication
-**Depends on**: Phase 2, Phase 3
-**Requirements**: API-01, API-02, API-03, API-04, AUTH-07, AUTH-08
-**Success Criteria** (what must be TRUE):
-  1. REST endpoints cover social insurance queries, employee management, and import/export operations
-  2. Swagger/OpenAPI documentation is auto-generated and accessible at /docs
-  3. All API responses follow a consistent envelope format (status, data, error, pagination)
-  4. External program can authenticate with an API key and call any public endpoint
-  5. Admin can create, view, and revoke API keys from the admin interface
-**Plans**: 2 plans
-
-Plans:
-- [x] 09-01-PLAN.md -- API Key 模型/服务/CRUD 端点 + 双认证依赖注入（JWT + API Key）
-- [ ] 09-02-PLAN.md -- 响应格式规范化 + 中文文档 + /docs 保护 + Markdown 文档生成 + 前端 API Key 管理页
-
-### Phase 10: Feishu Integration
-**Goal**: System data syncs bidirectionally with Feishu Bitable via manual triggers, with optional Feishu OAuth login
-**Depends on**: Phase 2, Phase 9
-**Requirements**: FEISHU-01, FEISHU-02, FEISHU-03, FEISHU-04, FEISHU-05
-**Success Criteria** (what must be TRUE):
-  1. HR can push social insurance data from the system to a Feishu Bitable with one click
-  2. HR can pull updated data from Feishu Bitable back into the system with conflict preview
-  3. Sync status page shows history of sync operations (timestamp, direction, records synced, success/failure)
-  4. All sync operations are manually triggered (no background auto-sync)
-  5. Feishu OAuth login works when enabled via feature flag (disabled by default)
-**Plans**: 4 plans
-
-Plans:
-- [x] 10-01-PLAN.md -- Feishu backend foundation (models, client, sync service)
-- [x] 10-02-PLAN.md -- Feishu API endpoints (OAuth, CRUD, sync triggers)
-- [x] 10-03-PLAN.md -- Frontend Feishu pages (sync, settings, navigation)
-- [x] 10-04-PLAN.md -- Advanced frontend features (field mapping, conflict modals, OAuth login)
-
-**UI hint**: yes
-
-### Phase 11: Intelligence & Polish
-**Goal**: HR can compare data across periods, detect anomalies, and manage field mappings with full housing fund coverage
-**Depends on**: Phase 6
-**Requirements**: INTEL-01, INTEL-02, INTEL-03, INTEL-04
-**Success Criteria** (what must be TRUE):
-  1. HR can view a side-by-side comparison of contribution data across two or more billing periods
-  2. System flags records where payment base or amounts changed significantly between periods (configurable threshold)
-  3. Housing fund data parses and normalizes correctly for all six supported regions
-  4. HR can view and manually override field mappings from a UI when automatic mapping is incorrect
-**Plans**: 4 plans
-
-Plans:
-- [x] 11-01-PLAN.md -- 跨期对比后端 + 异常检测模型/服务/API（INTEL-01, INTEL-02）
-- [x] 11-02-PLAN.md -- 公积金全地区解析验证 + 映射审计日志（INTEL-03, INTEL-04）
-- [x] 11-03-PLAN.md -- 前端跨期对比页 + 异常检测页（INTEL-01, INTEL-02）
-- [x] 11-04-PLAN.md -- 前端映射管理增强 + 导入批次内嵌映射编辑器（INTEL-04）
-
-**UI hint**: yes
-
-### Phase 12: Integration Wiring Fix
-**Goal**: All cross-phase integration paths work at runtime — Feishu OAuth login completes, Feishu field mapping loads columns, API Keys page reachable from sidebar
-**Depends on**: Phase 10, Phase 9
-**Requirements**: FEISHU-05, FEISHU-03, API-01
-**Gap Closure**: Closes gaps from v1.0 milestone audit
-**Success Criteria** (what must be TRUE):
-  1. Feishu OAuth authorize-url and callback requests reach the correct backend endpoints (no 404)
-  2. FeishuFieldMapping page successfully loads Feishu column definitions from the API
-  3. API Keys page is accessible from the sidebar navigation for admin users
-**Plans**: 1 plan
-
-Plans:
-- [x] 12-01-PLAN.md -- Fix Feishu OAuth/fields path mismatches + add API Keys nav item
+</details>
 
 ## Progress
 
-**Execution Order:**
-Phases execute in numeric order: 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7 -> 8 -> 9 -> 10 -> 11 -> 12
-
-Note: Phases 4, 5, 6 can partially overlap (4 unblocks 5; 4 and 6 share the Phase 2 dependency). Phases 7 and 8 are sequential. Phase 9 can start after Phase 3.
-
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Export Stabilization | 0/2 | Not started | - |
-| 2. Authentication & RBAC | 0/3 | Planning complete | - |
-| 3. Security Hardening | 1/2 | In Progress|  |
-| 4. Employee Master Data | 2/2 | Complete   | 2026-03-29 |
-| 5. Employee Portal | 2/2 | Complete   | 2026-03-30 |
-| 6. Data Management | 1/2 | In Progress|  |
-| 7. Design System & UI Foundation | 1/4 | In Progress|  |
-| 8. Page Rebuild & UX Flow | 1/2 | In Progress|  |
-| 9. API System | 0/2 | Planning complete | - |
-| 10. Feishu Integration | 4/4 | Complete   | 2026-04-02 |
-| 11. Intelligence & Polish | 5/5 | Complete    | 2026-04-04 |
-| 12. Integration Wiring Fix | 1/1 | Complete    | 2026-04-04 |
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 1. Export Stabilization | v1.0 | 2/2 | Complete | - |
+| 2. Authentication & RBAC | v1.0 | 3/3 | Complete | - |
+| 3. Security Hardening | v1.0 | 2/2 | Complete | - |
+| 4. Employee Master Data | v1.0 | 2/2 | Complete | 2026-03-29 |
+| 5. Employee Portal | v1.0 | 2/2 | Complete | 2026-03-30 |
+| 6. Data Management | v1.0 | 2/2 | Complete | - |
+| 7. Design System & UI Foundation | v1.0 | 4/4 | Complete | - |
+| 8. Page Rebuild & UX Flow | v1.0 | 2/2 | Complete | - |
+| 9. API System | v1.0 | 2/2 | Complete | - |
+| 10. Feishu Integration | v1.0 | 4/4 | Complete | 2026-04-02 |
+| 11. Intelligence & Polish | v1.0 | 5/5 | Complete | 2026-04-04 |
+| 12. Integration Wiring Fix | v1.0 | 1/1 | Complete | 2026-04-04 |

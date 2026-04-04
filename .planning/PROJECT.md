@@ -2,7 +2,7 @@
 
 ## What This Is
 
-公司内部社保公积金管理系统。从"Excel 融合工具"升级为完整的管理平台：支持多地区社保/公积金表格导入融合、数据标准化存储、员工自助查询、飞书多维表格双向同步，以及对外 API 接口。面向公司管理员、HR 和普通员工三类用户。
+公司内部社保公积金全流程管理平台。支持多地区（广州、杭州、厦门、深圳、武汉、长沙）社保/公积金 Excel 导入融合、数据标准化存储、三角色权限管理（管理员/HR/员工）、员工自助查询、跨期对比与异常检测、飞书多维表格双向同步，以及对外 REST API 接口。
 
 ## Core Value
 
@@ -12,75 +12,66 @@
 
 ### Validated
 
-<!-- 已有代码中已经实现并可用的能力 -->
-
 - ✓ 多地区社保 Excel 上传与解析（广州、杭州、厦门、深圳、武汉、长沙）— existing
 - ✓ 多层表头自动识别与结构发现 — existing
 - ✓ 规则优先 + DeepSeek LLM 兜底的字段映射 — existing
 - ✓ 非明细行过滤（合计/小计/分组标题）— existing
 - ✓ 标准字段归一化（canonical fields）— existing
 - ✓ 员工工号匹配 — existing
-- ✓ Salary 模板导出（薪酬模板）— existing, 完美运行
-- ✓ Tool 模板导出（工具表最终版模板）— Phase 1 修复完成, 字段对齐正确
+- ✓ Salary 模板导出（薪酬模板）— existing
 - ✓ NDJSON 流式进度反馈 — existing
 - ✓ SQLite + SQLAlchemy 数据持久化 — existing
-- ✓ 公积金表格解析（部分地区已覆盖）— existing
+- ✓ Tool 模板导出修复与字段对齐 — v1.0 Phase 1
+- ✓ 导出器代码拆分（salary_exporter / tool_exporter / export_utils）— v1.0 Phase 1
+- ✓ 双模板同时导出 — v1.0 Phase 1
+- ✓ 回归测试覆盖 Salary 模板 — v1.0 Phase 1
+- ✓ 用户角色与权限系统（管理员/HR/员工三角色 RBAC）— v1.0 Phase 2
+- ✓ PyJWT 认证 + bcrypt 密码 — v1.0 Phase 2
+- ✓ 员工三要素验证（工号+身份证号+姓名）— v1.0 Phase 2
+- ✓ PII 保护、登录频率限制、审计日志、身份证号脱敏 — v1.0 Phase 3
+- ✓ 员工主数据管理（批量导入、区域/公司筛选）— v1.0 Phase 4
+- ✓ 员工自助查询页面（个人社保公积金明细）— v1.0 Phase 5
+- ✓ HR 数据管理界面（级联筛选、URL 状态持久化）— v1.0 Phase 6
+- ✓ Ant Design 5 飞书风格主题 + 页面动画 — v1.0 Phase 7
+- ✓ 全页面重建（响应式布局、中文本地化、流程优化）— v1.0 Phase 8
+- ✓ REST API 体系 + API Key 双重认证 — v1.0 Phase 9
+- ✓ 飞书多维表格双向同步 + OAuth 登录 — v1.0 Phase 10
+- ✓ 跨期对比与异常检测 — v1.0 Phase 11
+- ✓ 公积金表格全地区标准化覆盖 — v1.0 Phase 11
+- ✓ 字段映射管理 UI（独立页面+内嵌编辑器）— v1.0 Phase 11
+- ✓ 集成路径修复（飞书 OAuth/字段路径、API 密钥导航）— v1.0 Phase 12
 
 ### Active
 
-<!-- 本轮要建设的能力 -->
-
-- [ ] 用户角色与权限系统（管理员 / HR / 员工三角色）
-- [ ] 员工自助查询页面（工号+身份证号+姓名登录，查看个人社保公积金）
-- [ ] 管理员/HR 数据管理界面（全员数据查看、筛选、导出）
-- ✓ Tool 模板融合修复 — Validated in Phase 1: export-stabilization
-- ✓ 导出器代码拆分（salary_exporter / tool_exporter / export_utils）— Validated in Phase 1
-- [ ] 前端整体重设计（飞书风格 + 差异化高级设计感）
-- [ ] 前端交互逻辑优化（使用流程顺畅化）
-- [ ] 完善的 REST API 体系（供外部程序调用）
-- [ ] 飞书多维表格双向同步（系统↔飞书，数据读写）
-- [ ] 飞书 OAuth 登录（可选，为飞书集成准备）
-- [ ] 融合后的数据作为系统录入源（从工具模式到管理系统模式转变）
-- ✓ 公积金表格全地区覆盖与标准化 — Validated in Phase 11: intelligence-polish
-- ✓ 跨期对比与异常检测 — Validated in Phase 11: intelligence-polish
-- ✓ 字段映射管理 UI（内嵌编辑+独立页面）— Validated in Phase 11: intelligence-polish
+（v1.0 全部需求已验证完成，等待下一个里程碑规划）
 
 ### Out of Scope
 
-- 移动端原生 App — 当前阶段只做 Web
+- 移动端原生 App — 当前只做 Web
 - 薪资计算 — 本系统只管社保公积金数据，不涉及薪资核算
 - 多租户/SaaS — 单公司内部使用
 - Salary 模板融合逻辑改动 — 已完美运行，禁止修改
+- 后台定时同步飞书 — 需迁移到 PostgreSQL，v2 考虑
 
 ## Context
 
-**现有系统状态：**
-- 前后端可正常启动运行（React + FastAPI）
-- 数据处理管线已打通：上传 → 解析 → 归一化 → 校验 → 匹配 → 导出
-- Salary 模板导出完美，Tool 模板导出有字段映射错位问题
-- 前端 UX 不顺畅，需要整体重设计
-- 当前无用户认证/权限体系
-- 6 个地区的社保样例已覆盖，公积金部分地区已覆盖
+**v1.0 已发布状态：**
+- 完整管理平台已上线：上传 → 解析 → 归一化 → 校验 → 匹配 → 导出 → 查询 → 同步
+- 12 个阶段、31 个计划、56 个任务全部完成
+- 378 个文件修改，53,276 行新增代码
+- 开发周期：2026-03-26 → 2026-04-04（10 天）
 
 **技术环境：**
 - Backend: FastAPI 0.115 + SQLAlchemy 2.0 + pandas + openpyxl
-- Frontend: React 18 + TypeScript 5.8 + Vite 6.2
+- Frontend: React 18 + TypeScript 5.8 + Vite 6.2 + Ant Design 5
 - Database: SQLite (WAL mode)
+- UI: 飞书风格主题 + 响应式布局 + 页面动画
 - 部署: Uvicorn
 
-**用户角色定义：**
-- **管理员**: 系统维护、高级设置、全部数据访问
-- **HR**: 功能模块操作、全员数据查看与管理
-- **员工**: 仅查询个人社保公积金信息（工号+身份证号+姓名验证）
-
-**飞书集成需求：**
-- 多维表格双向同步（系统数据推送到飞书 / 飞书数据拉取到系统）
-- 可能需要飞书 OAuth 登录
-
-**前端设计方向：**
-- 整体风格参考飞书官网（简洁、卡片化）
-- 差异化：更高级的设计感，背景与滚动配合的小设计，有审美的细节
-- 不是简单复制飞书，而是在其基础上更精致
+**已知技术债务：**
+- Phase 7 遗留 5 个废弃组件文件（AppShell, GlobalFeedback, PageContainer, SectionState, SurfaceNotice）
+- 飞书凭证管理端点无前端消费者（仅 API 可用）
+- 武汉公积金样例文件缺失（测试标记为 skipif）
 
 ## Constraints
 
@@ -88,35 +79,36 @@
 - **Salary 逻辑**: Salary 模板融合逻辑绝对不能改动
 - **数据处理**: 现有的解析管线（规则优先 + LLM 兜底）保持不变
 - **部署**: 单机部署，无需分布式
-- **Timeline**: 无硬性截止日期，按质量优先
 
 ## Key Decisions
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| 三角色权限模型（管理员/HR/员工）| 覆盖公司实际使用场景 | — Pending |
-| 员工用工号+身份证号+姓名查询 | 不依赖额外账号体系，利用已有数据 | — Pending |
-| 飞书多维表格双向同步 | 公司已使用飞书，数据需在两端保持一致 | — Pending |
-| 前端飞书风格+差异化设计 | 用户熟悉飞书交互，但希望更精致的体验 | — Pending |
-| REST API 对外开放 | 用户有自研工具需要调用系统数据 | — Pending |
-| 保持 SQLite | 单公司使用，无需 PostgreSQL 的复杂度 | — Pending |
+| 三角色权限模型（管理员/HR/员工）| 覆盖公司实际使用场景 | ✓ v1.0 Phase 2 |
+| 员工用工号+身份证号+姓名查询 | 不依赖额外账号体系，利用已有数据 | ✓ v1.0 Phase 2 |
+| PyJWT 替换 python-jose | python-jose 已废弃 | ✓ v1.0 Phase 2 |
+| pwdlib BcryptHasher | 避免 argon2 依赖 | ✓ v1.0 Phase 2 |
+| Ant Design 5 + 飞书风格 | 用户熟悉飞书交互，专业感 | ✓ v1.0 Phase 7 |
+| REST API + API Key 双重认证 | 支持外部程序调用 | ✓ v1.0 Phase 9 |
+| 飞书多维表格双向同步 | 公司已使用飞书，数据需在两端保持一致 | ✓ v1.0 Phase 10 |
+| 保持 SQLite | 单公司使用，无需 PostgreSQL 的复杂度 | ✓ v1.0 |
+| 可配置异常检测阈值 | 不同险种阈值不同，支持请求级覆盖 | ✓ v1.0 Phase 11 |
 
 ## Evolution
 
 This document evolves at phase transitions and milestone boundaries.
 
-**After each phase transition** (via `/gsd:transition`):
+**After each phase transition:**
 1. Requirements invalidated? → Move to Out of Scope with reason
 2. Requirements validated? → Move to Validated with phase reference
 3. New requirements emerged? → Add to Active
 4. Decisions to log? → Add to Key Decisions
-5. "What This Is" still accurate? → Update if drifted
 
-**After each milestone** (via `/gsd:complete-milestone`):
+**After each milestone:**
 1. Full review of all sections
 2. Core Value check — still the right priority?
 3. Audit Out of Scope — reasons still valid?
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-04 after Phase 11 completion*
+*Last updated: 2026-04-04 after v1.0 milestone*
