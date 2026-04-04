@@ -8,6 +8,7 @@ from backend.app.mappings import CANONICAL_FIELDS
 from backend.app.models import HeaderMapping, SourceFile
 from backend.app.models.enums import MappingSource
 from backend.app.schemas.mappings import HeaderMappingListRead, HeaderMappingRead
+from backend.app.services.audit_service import log_audit
 
 
 class HeaderMappingNotFoundError(Exception):
@@ -23,6 +24,9 @@ def list_header_mappings(
     *,
     batch_id: Optional[str] = None,
     source_file_id: Optional[str] = None,
+    mapping_source: Optional[str] = None,
+    confidence_min: Optional[float] = None,
+    confidence_max: Optional[float] = None,
 ) -> HeaderMappingListRead:
     query = (
         db.query(HeaderMapping)
@@ -33,6 +37,12 @@ def list_header_mappings(
         query = query.filter(SourceFile.batch_id == batch_id)
     if source_file_id:
         query = query.filter(SourceFile.id == source_file_id)
+    if mapping_source:
+        query = query.filter(HeaderMapping.mapping_source == mapping_source)
+    if confidence_min is not None:
+        query = query.filter(HeaderMapping.confidence >= confidence_min)
+    if confidence_max is not None:
+        query = query.filter(HeaderMapping.confidence <= confidence_max)
 
     mappings = query.order_by(HeaderMapping.created_at.asc(), HeaderMapping.raw_header_signature.asc()).all()
     return HeaderMappingListRead(
@@ -41,7 +51,13 @@ def list_header_mappings(
     )
 
 
-def update_header_mapping(db: Session, mapping_id: str, canonical_field: Optional[str]) -> HeaderMappingRead:
+def update_header_mapping(
+    db: Session,
+    mapping_id: str,
+    canonical_field: Optional[str],
+    actor_username: str = "system",
+    actor_role: str = "admin",
+) -> HeaderMappingRead:
     if canonical_field is not None and canonical_field not in CANONICAL_FIELDS:
         raise InvalidCanonicalFieldError(f"Canonical field '{canonical_field}' is not supported.")
 
@@ -53,6 +69,8 @@ def update_header_mapping(db: Session, mapping_id: str, canonical_field: Optiona
     )
     if mapping is None:
         raise HeaderMappingNotFoundError(f"Header mapping '{mapping_id}' was not found.")
+
+    old_canonical_field = mapping.canonical_field
 
     mapping.canonical_field = canonical_field
     mapping.mapping_source = MappingSource.MANUAL
@@ -66,6 +84,22 @@ def update_header_mapping(db: Session, mapping_id: str, canonical_field: Optiona
 
     db.commit()
     db.refresh(mapping)
+
+    log_audit(
+        db,
+        action="mapping_override",
+        actor_username=actor_username,
+        actor_role=actor_role,
+        detail={
+            "mapping_id": mapping_id,
+            "raw_header": mapping.raw_header,
+            "old_canonical_field": old_canonical_field,
+            "new_canonical_field": canonical_field,
+        },
+        resource_type="header_mapping",
+        resource_id=mapping_id,
+    )
+
     return _to_schema(mapping)
 
 

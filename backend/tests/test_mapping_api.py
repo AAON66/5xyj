@@ -127,6 +127,97 @@ def test_mapping_api_lists_second_region_batch() -> None:
     assert any(item['canonical_field'] == 'person_name' for item in payload['items'])
 
 
+def test_mapping_update_creates_audit_log() -> None:
+    client, _ = build_test_client('audit_log')
+    sample_path = find_sample('深圳')
+
+    with client:
+        created = client.post(
+            '/api/v1/imports',
+            files=[('files', (sample_path.name, sample_path.read_bytes(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))],
+            data={'regions': 'shenzhen', 'company_names': '深圳公司'},
+        )
+        batch_id = created.json()['data']['id']
+        client.post(f'/api/v1/imports/{batch_id}/parse')
+        mappings_response = client.get(f'/api/v1/mappings?batch_id={batch_id}')
+        mapping = mappings_response.json()['data']['items'][0]
+        mapping_id = mapping['id']
+
+        patch_response = client.patch(
+            f'/api/v1/mappings/{mapping_id}',
+            json={'canonical_field': 'employee_id'},
+        )
+        assert patch_response.status_code == 200
+
+        # Check audit log was created
+        audit_response = client.get('/api/v1/audit-logs')
+        assert audit_response.status_code == 200
+        logs = audit_response.json()['data']['items']
+        mapping_override_logs = [log for log in logs if log['action'] == 'mapping_override']
+        assert len(mapping_override_logs) >= 1
+        latest = mapping_override_logs[-1]
+        assert latest['resource_type'] == 'header_mapping'
+        assert latest['resource_id'] == mapping_id
+
+
+def test_mapping_list_filter_by_source() -> None:
+    client, _ = build_test_client('filter_source')
+    sample_path = find_sample('深圳')
+
+    with client:
+        created = client.post(
+            '/api/v1/imports',
+            files=[('files', (sample_path.name, sample_path.read_bytes(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))],
+            data={'regions': 'shenzhen', 'company_names': '深圳公司'},
+        )
+        batch_id = created.json()['data']['id']
+        client.post(f'/api/v1/imports/{batch_id}/parse')
+
+        # First override one to make it 'manual'
+        mappings_response = client.get(f'/api/v1/mappings?batch_id={batch_id}')
+        mapping_id = mappings_response.json()['data']['items'][0]['id']
+        client.patch(f'/api/v1/mappings/{mapping_id}', json={'canonical_field': 'employee_id'})
+
+        # Filter by manual
+        manual_response = client.get(f'/api/v1/mappings?batch_id={batch_id}&mapping_source=manual')
+        assert manual_response.status_code == 200
+        manual_items = manual_response.json()['data']['items']
+        assert len(manual_items) >= 1
+        assert all(item['mapping_source'] == 'manual' for item in manual_items)
+
+        # Filter by rule
+        rule_response = client.get(f'/api/v1/mappings?batch_id={batch_id}&mapping_source=rule')
+        assert rule_response.status_code == 200
+        rule_items = rule_response.json()['data']['items']
+        assert all(item['mapping_source'] == 'rule' for item in rule_items)
+
+
+def test_mapping_list_filter_by_confidence() -> None:
+    client, _ = build_test_client('filter_confidence')
+    sample_path = find_sample('深圳')
+
+    with client:
+        created = client.post(
+            '/api/v1/imports',
+            files=[('files', (sample_path.name, sample_path.read_bytes(), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))],
+            data={'regions': 'shenzhen', 'company_names': '深圳公司'},
+        )
+        batch_id = created.json()['data']['id']
+        client.post(f'/api/v1/imports/{batch_id}/parse')
+
+        # Filter by confidence_min=0.9 should return high-confidence mappings
+        high_conf = client.get(f'/api/v1/mappings?batch_id={batch_id}&confidence_min=0.9')
+        assert high_conf.status_code == 200
+        high_items = high_conf.json()['data']['items']
+        assert all(item['confidence'] is not None and item['confidence'] >= 0.9 for item in high_items)
+
+        # Filter by confidence_max=0.5 should return fewer or no items
+        low_conf = client.get(f'/api/v1/mappings?batch_id={batch_id}&confidence_max=0.5')
+        assert low_conf.status_code == 200
+        low_items = low_conf.json()['data']['items']
+        assert all(item['confidence'] is not None and item['confidence'] <= 0.5 for item in low_items)
+
+
 def test_mapping_api_rejects_unknown_canonical_field() -> None:
     client, _ = build_test_client('invalid_canonical_field')
     sample_path = find_sample('深圳')
