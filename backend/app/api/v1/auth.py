@@ -42,6 +42,7 @@ def login_endpoint(request: Request, payload: AuthLoginRequest = Body(...), db: 
         _login_rate_limiter.record_failure(rate_key)
         log_audit(db, action="login_failed", actor_username=payload.username,
                   actor_role="unknown", ip_address=get_client_ip(request),
+                  resource_type="session", resource_id=payload.username,
                   detail={"reason": "invalid_credentials"}, success=False)
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
 
@@ -58,6 +59,7 @@ def login_endpoint(request: Request, payload: AuthLoginRequest = Body(...), db: 
 
     log_audit(db, action="login", actor_username=user.username,
               actor_role=user.role, ip_address=get_client_ip(request),
+              resource_type="session", resource_id=user.username,
               detail={"method": "password"}, success=True)
 
     response = AuthLoginResponse(
@@ -102,6 +104,7 @@ def employee_verify_endpoint(
         _employee_rate_limiter.record_failure(payload.employee_id)
         log_audit(db, action="employee_verify_failed", actor_username=payload.employee_id,
                   actor_role="unknown", ip_address=get_client_ip(request),
+                  resource_type="session", resource_id=payload.employee_id,
                   detail={"reason": "not_found"}, success=False)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -111,7 +114,9 @@ def employee_verify_endpoint(
     # Success -- reset rate limiter and issue token
     _employee_rate_limiter.reset(payload.employee_id)
     log_audit(db, action="employee_verify", actor_username=payload.employee_id,
-              actor_role="employee", ip_address=get_client_ip(request), success=True)
+              actor_role="employee", ip_address=get_client_ip(request),
+              resource_type="session", resource_id=payload.employee_id,
+              detail={"method": "three_factor"}, success=True)
     settings = request.app.state.settings
     access_token, expires_at = issue_access_token(
         settings.auth_secret_key,

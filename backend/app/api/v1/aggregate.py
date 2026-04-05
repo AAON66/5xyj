@@ -59,6 +59,7 @@ async def run_simple_aggregate_endpoint(
 
     log_audit(db, action="aggregate", actor_username=user.username,
               actor_role=user.role, ip_address=get_client_ip(request),
+              resource_type="batch", resource_id=batch_name or "unnamed",
               detail={"file_count": len(files), "batch_name": batch_name or ""},
               success=True)
 

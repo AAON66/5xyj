@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.orm import Session
 
 from backend.app.api.v1.responses import paginated_response, success_response
@@ -19,6 +19,7 @@ from backend.app.services.anomaly_detection_service import (
     list_anomalies,
 )
 from backend.app.services.audit_service import log_audit
+from backend.app.utils.request_helpers import get_client_ip
 
 # Error code prefix: ANM_xxx
 router = APIRouter(prefix='/anomalies', tags=['数据质量'])
@@ -98,6 +99,7 @@ def list_anomalies_endpoint(
     description="批量将异常记录标记为已确认或已排除。",
 )
 def batch_update_status_endpoint(
+    request: Request,
     request_body: AnomalyStatusUpdateRequest,
     user: AuthUser = Depends(require_role("admin", "hr")),
     db: Session = Depends(get_db),
@@ -113,11 +115,14 @@ def batch_update_status_endpoint(
         "anomaly_status_update",
         user.username,
         user.role,
+        ip_address=get_client_ip(request),
         detail={
             "anomaly_ids": request_body.anomaly_ids,
             "new_status": request_body.status,
             "updated_count": count,
         },
         resource_type="anomaly_record",
+        resource_id=",".join(str(x) for x in request_body.anomaly_ids),
+        success=True,
     )
     return success_response({"updated_count": count}, message=f"已更新 {count} 条异常记录状态。")

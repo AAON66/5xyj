@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   Button,
@@ -76,6 +76,13 @@ export function AuditLogsPage() {
   const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const allLocalIp = useMemo(() => {
+    if (!items || items.length < 5) return false;
+    return items.every(
+      (log) => !log.ip_address || log.ip_address === '127.0.0.1'
+    );
+  }, [items]);
 
   const fetchLogs = useCallback(async (currentPage: number, filterAction: string, filterDateRange: [Dayjs | null, Dayjs | null] | null) => {
     setLoading(true);
@@ -184,6 +191,16 @@ export function AuditLogsPage() {
 
       {error && (
         <Alert type="error" message={error} style={{ marginBottom: 16 }} />
+      )}
+
+      {allLocalIp && (
+        <Alert
+          type="warning"
+          showIcon
+          message="所有审计日志的 IP 地址均为 127.0.0.1"
+          description="这通常是因为系统通过反向代理（如 nginx）访问但未配置 X-Forwarded-For 头。请参考部署文档 docs/nginx-reverse-proxy.md 配置 nginx。"
+          style={{ marginBottom: 16 }}
+        />
       )}
 
       <Card style={{ marginBottom: 16 }}>
