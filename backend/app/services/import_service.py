@@ -40,39 +40,19 @@ from backend.app.services.header_normalizer import (
 from backend.app.services.housing_fund_service import analyze_housing_fund_workbook
 from backend.app.services.normalization_service import StandardizationResult, standardize_workbook
 from backend.app.services.region_detection_service import detect_region_for_workbook, detect_region_from_filename
+from backend.app.mappings.regions import REGION_LABELS
+from backend.app.utils.filename_utils import (
+    DATE_PATTERN,
+    FILENAME_NOISE,
+    infer_company_name_from_filename,
+)
 
 ALLOWED_EXTENSIONS = {'.xlsx', '.xls'}
 ALLOWED_SOURCE_KINDS = {item.value for item in SourceFileKind}
 LLM_FALLBACK_CONFIDENCE_THRESHOLD = 0.72
 UPLOAD_CHUNK_SIZE = 1024 * 1024
 MAX_PARSE_WORKERS = 5
-DATE_PATTERN = re.compile(r'(20\d{2}\u5e74\d{1,2}\u6708|20\d{4}|\d{6})')
-FILENAME_NOISE = (
-    '\u793e\u4f1a\u4fdd\u9669\u8d39\u7533\u62a5\u4e2a\u4eba\u660e\u7ec6\u8868',
-    '\u793e\u4fdd\u7f34\u8d39\u660e\u7ec6',
-    '\u793e\u4fdd\u660e\u7ec6',
-    '\u793e\u4fdd\u8d26\u5355',
-    '\u793e\u4fdd\u53f0\u8d26',
-    '\u516c\u79ef\u91d1\u8d26\u5355',
-    '\u516c\u79ef\u91d1\u6c47\u7f34\u660e\u7ec6',
-    '\u516c\u79ef\u91d1',
-    '\u4f4f\u623f\u516c\u79ef\u91d1\u5355\u4f4d\u6c47\u7f34\u660e\u7ec6',
-    '\u5355\u7b14\u7f34\u5b58\u6e05\u5355',
-    '\u8d26\u5355',
-    '\u660e\u7ec6',
-    '\u53f0\u8d26',
-    '\u8865\u7f34',
-)
 ImportProgressCallback = Callable[[dict[str, object]], Awaitable[None] | None]
-
-REGION_LABELS = {
-    'guangzhou': '\u5e7f\u5dde',
-    'hangzhou': '\u676d\u5dde',
-    'xiamen': '\u53a6\u95e8',
-    'shenzhen': '\u6df1\u5733',
-    'wuhan': '\u6b66\u6c49',
-    'changsha': '\u957f\u6c99',
-}
 
 
 
@@ -220,7 +200,7 @@ async def create_import_batch(
                     source_kind=runtime_file_kinds[index - 1],
                     region=detected_region,
                     company_name=runtime_companies[index - 1]
-                    or _infer_company_name_from_filename(stored.original_name, detected_region),
+                    or infer_company_name_from_filename(stored.original_name, detected_region),
                     file_hash=stored.file_hash,
                 )
             )
@@ -873,22 +853,6 @@ def _run_progress_callback(
 
 def _build_batch_name() -> str:
     return f"import-batch-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
-
-
-def _infer_company_name_from_filename(filename: str, region: Optional[str]) -> Optional[str]:
-    stem = Path(filename).stem
-    if '--' in stem:
-        tail = stem.split('--')[-1].strip()
-        return tail or None
-
-    cleaned = DATE_PATTERN.sub('', stem)
-    cleaned = cleaned.replace('??1???2?', '')
-    for noise in FILENAME_NOISE:
-        cleaned = cleaned.replace(noise, '')
-    if region:
-        cleaned = cleaned.replace(REGION_LABELS.get(region, ''), '')
-    cleaned = re.sub(r'[()??_\-\s]+', '', cleaned)
-    return cleaned or (REGION_LABELS.get(region) if region else None)
 
 
 def _normalize_metadata_list(values: Optional[list[str]], file_count: int, field_name: str) -> Optional[list[str]]:

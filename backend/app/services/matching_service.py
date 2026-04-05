@@ -9,6 +9,7 @@ from backend.app.models.enums import MatchStatus
 from backend.app.models.match_result import MatchResult
 from backend.app.models.normalized_record import NormalizedRecord
 from backend.app.services.normalization_service import NormalizedPreviewRecord
+from backend.app.validators.constants import ID_NUMBER_PATTERN, NON_MAINLAND_ID_NUMBER_PATTERN
 
 HEADER_LIKE_IDENTITY_VALUES = {
     '姓名',
@@ -20,8 +21,6 @@ HEADER_LIKE_IDENTITY_VALUES = {
     '员工姓名',
     '员工工号',
 }
-ID_NUMBER_PATTERN = re.compile(r'^\d{15}$|^\d{17}[\dX]$')
-NON_MAINLAND_ID_NUMBER_PATTERN = re.compile(r'^[A-Z]{1,2}\d{6,10}[A-Z0-9]?$')
 
 
 @dataclass

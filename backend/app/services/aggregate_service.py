@@ -23,26 +23,14 @@ from backend.app.services.employee_service import import_employee_master_file, l
 from backend.app.services.import_service import InvalidUploadError, create_import_batch, get_import_batch, parse_import_batch
 from backend.app.services.matching_service import apply_match_results_to_normalized_records, build_match_result_models, match_preview_records
 from backend.app.services.normalization_service import NormalizedPreviewRecord
-from backend.app.services.region_detection_service import REGION_LABELS, detect_region_from_filename as detect_region_from_filename_by_rules
-
-FILENAME_NOISE = (
-    '\u793e\u4f1a\u4fdd\u9669\u8d39\u7533\u62a5\u4e2a\u4eba\u660e\u7ec6\u8868',
-    '\u793e\u4fdd\u7f34\u8d39\u660e\u7ec6',
-    '\u793e\u4fdd\u660e\u7ec6',
-    '\u793e\u4fdd\u8d26\u5355',
-    '\u793e\u4fdd\u53f0\u8d26',
-    '\u516c\u79ef\u91d1\u8d26\u5355',
-    '\u516c\u79ef\u91d1\u6c47\u7f34\u660e\u7ec6',
-    '\u516c\u79ef\u91d1',
-    '\u4f4f\u623f\u516c\u79ef\u91d1\u5355\u4f4d\u6c47\u7f34\u660e\u7ec6',
-    '\u5355\u7b14\u7f34\u5b58\u6e05\u5355',
-    '\u8d26\u5355',
-    '\u660e\u7ec6',
-    '\u53f0\u8d26',
-    '\u8865\u7f34',
+from backend.app.services.region_detection_service import detect_region_from_filename as detect_region_from_filename_by_rules
+from backend.app.mappings.regions import REGION_LABELS
+from backend.app.utils.filename_utils import (
+    DATE_PATTERN,
+    FILENAME_NOISE,
+    infer_company_name_from_filename as _infer_company_name_from_filename_shared,
 )
 
-DATE_PATTERN = re.compile(r'(20\d{2}\u5e74\d{1,2}\u6708|20\d{4}|\d{6})')
 ProgressCallback = Callable[[dict[str, object]], Awaitable[None] | None]
 PARSE_PROGRESS_HEARTBEAT_SECONDS = 4.0
 PARSE_PROGRESS_POLL_INTERVAL_SECONDS = 0.1
@@ -665,19 +653,7 @@ def infer_region_from_filename(filename: str) -> Optional[str]:
 
 
 def infer_company_name_from_filename(filename: str, region: Optional[str]) -> Optional[str]:
-    stem = Path(filename).stem
-    if '--' in stem:
-        tail = stem.split('--')[-1].strip()
-        return tail or None
-
-    cleaned = DATE_PATTERN.sub('', stem)
-    cleaned = cleaned.replace('\u8865\u7f341\u6708\u5165\u804c2\u4eba', '')
-    for noise in FILENAME_NOISE:
-        cleaned = cleaned.replace(noise, '')
-    if region:
-        cleaned = cleaned.replace(REGION_LABELS.get(region, ''), '')
-    cleaned = re.sub(r'[()\uff08\uff09_\-\s]+', '', cleaned)
-    return cleaned or (REGION_LABELS.get(region) if region else None)
+    return _infer_company_name_from_filename_shared(filename, region)
 
 
 async def _emit_progress(

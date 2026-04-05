@@ -15,8 +15,10 @@ from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
 from backend.app.core.config import Settings, get_settings
+from backend.app.mappings.regions import REGION_LABELS
 from backend.app.models.enums import TemplateType
 from backend.app.models.normalized_record import NormalizedRecord
+from backend.app.validators.constants import ID_NUMBER_PATTERN, NON_MAINLAND_ID_NUMBER_PATTERN
 
 HEADER_LIKE_PERSON_VALUES = {
     '\u59d3\u540d',
@@ -30,8 +32,6 @@ HEADER_LIKE_PERSON_VALUES = {
     '(\u7a7a\u767d)',
     '\uff08\u7a7a\u767d\uff09',
 }
-ID_NUMBER_PATTERN = re.compile(r'^\d{15}$|^\d{17}[\dX]$')
-NON_MAINLAND_ID_NUMBER_PATTERN = re.compile(r'^[A-Z]{1,2}\d{6,10}[A-Z0-9]?$')
 EXPORT_AMOUNT_FIELDS = (
     'housing_fund_personal',
     'housing_fund_company',
@@ -157,16 +157,6 @@ SOURCE_KIND_BY_AMOUNT_FIELD = {
     'late_fee': SOCIAL_SOURCE_KIND,
     'interest': SOCIAL_SOURCE_KIND,
 }
-
-REGION_LABELS = {
-    'guangzhou': '\u5e7f\u5dde',
-    'hangzhou': '\u676d\u5dde',
-    'xiamen': '\u53a6\u95e8',
-    'shenzhen': '\u6df1\u5733',
-    'wuhan': '\u6b66\u6c49',
-    'changsha': '\u957f\u6c99',
-}
-
 
 class ExportServiceError(Exception):
     pass

@@ -9,6 +9,7 @@ from typing import Any, Optional
 import httpx
 
 from backend.app.core.config import get_settings
+from backend.app.mappings.regions import REGION_LABELS
 from backend.app.parsers.workbook_loader import load_workbook_compatible
 
 DEEPSEEK_COMPLETIONS_PATH = "/chat/completions"
@@ -17,14 +18,18 @@ REGION_LLM_CONFIDENCE_THRESHOLD = 0.8
 STRONG_RULE_CONFIDENCE_THRESHOLD = 0.96
 LOCAL_RULE_LLM_FALLBACK_THRESHOLD = 0.72
 
-REGION_LABELS = {
-    "guangzhou": "\u5e7f\u5dde",
-    "hangzhou": "\u676d\u5dde",
-    "xiamen": "\u53a6\u95e8",
-    "shenzhen": "\u6df1\u5733",
-    "wuhan": "\u6b66\u6c49",
-    "changsha": "\u957f\u6c99",
-}
+__all__ = [
+    "REGION_LABELS",
+    "detect_region_from_filename",
+    "detect_region_for_workbook",
+    "detect_region_with_local_rules",
+    "build_workbook_region_context",
+    "detect_region_with_llm_sync",
+    "merge_region_detection_results",
+    "RegionDetectionResult",
+    "LLMRegionResult",
+    "WorkbookRegionContext",
+]
 
 REGION_KEYWORDS = {
     "guangzhou": ("\u5e7f\u5dde", "\u5e7f\u5206", "\u89c6\u64ad", "\u7a57"),
