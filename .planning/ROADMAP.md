@@ -33,7 +33,7 @@ See: `.planning/milestones/v1.0-ROADMAP.md` for full details
 
 **Milestone Goal:** 清理技术债、全面提升前端体验（响应式+暗黑模式+菜单重组）、补齐账号管理和融合能力短板、适配云服务器部署环境。
 
-- [ ] **Phase 13: 基础准备与部署适配** - Python 3.9 适配 + 技术债清理 + 审计日志增强 + 快速见效修复
+- [x] **Phase 13: 基础准备与部署适配** - Python 3.9 适配 + 技术债清理 + 审计日志增强 + 快速见效修复 (completed 2026-04-05)
 - [ ] **Phase 14: 样式 Token 化与暗黑模式** - 内联样式迁移到 AntD token + 暗黑模式切换
 - [ ] **Phase 15: 菜单重组与设置导航** - 左侧菜单多级折叠 + 设置页搜索导航
 - [ ] **Phase 16: 账号管理** - 管理员用户 CRUD + 用户自改密码
@@ -54,7 +54,7 @@ See: `.planning/milestones/v1.0-ROADMAP.md` for full details
   3. 审计日志记录显示真实客户端 IP 地址（经过反向代理时正确解析 X-Forwarded-For）
   4. 快速融合页面显示已上传文件数量计数
   5. 员工主档上传步骤默认选择"使用服务器已有主档"
-**Plans:** 4 plans
+**Plans:** 4/4 plans complete
 Plans:
 - [ ] 13-01-PLAN.md — Python 3.9 兼容性修复 + 依赖清理
 - [ ] 13-02-PLAN.md — 前端废弃组件清理 + 快速融合页面小修复
@@ -162,7 +162,7 @@ Phases execute in numeric order. Phases 15-18 depend on 14 (token化); Phases 16
 | 10. Feishu Integration | v1.0 | 4/4 | Complete | 2026-04-02 |
 | 11. Intelligence & Polish | v1.0 | 5/5 | Complete | 2026-04-04 |
 | 12. Integration Wiring Fix | v1.0 | 1/1 | Complete | 2026-04-04 |
-| 13. 基础准备与部署适配 | v1.1 | 0/4 | In progress | - |
+| 13. 基础准备与部署适配 | v1.1 | 0/4 | Complete    | 2026-04-05 |
 | 14. 样式 Token 化与暗黑模式 | v1.1 | 0/0 | Not started | - |
 | 15. 菜单重组与设置导航 | v1.1 | 0/0 | Not started | - |
 | 16. 账号管理 | v1.1 | 0/0 | Not started | - |
