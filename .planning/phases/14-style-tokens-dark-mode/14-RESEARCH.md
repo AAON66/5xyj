@@ -606,26 +606,26 @@ function AnomalyDetectionPage() {
 
 所有其他声明均已通过 package.json 文件、frontend/src grep、CONTEXT.md、AntD 5 公开 API 文档验证。
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **暗模下 Layout.Sider 是否需要微调？**
    - 已知：D-16 要求亮暗统一深色
    - 未明：STATE.md 已标记风险 "暗黑模式下现有暗色侧边栏可能与内容区背景无法区分"
-   - 推荐：实现后视觉测试，必要时在暗模 bodyBg 调至 `#1F1F1F` 或给 Sider 加右边框（见 Example 2）
+   - RESOLVED：暗模 bodyBg 设为 `#1F1F1F`（见 Plan 14-01 Task 1 buildTheme）。若实测仍融合则后续微调 border。
 
 2. **styles.css 死代码清理是否纳入本 phase？**
    - 已知：全项目零 import，3520 行
    - 未明：CONTEXT.md 未提及
-   - 推荐：纳入本 phase 一并清理（属于 token 化的副产物）；若担心 scope 可作为独立可选子任务
+   - RESOLVED：纳入本 phase，由 Plan 14-04 Task 1 执行删除。
 
 3. **FeishuFieldMapping 的 React Flow Background 点阵颜色在暗模下的视觉效果？**
    - 已知：D-20 要求全部 token 化
    - 未明：React Flow 的 Dots variant 在深色底上是否清晰
-   - 推荐：暗模下用 `token.colorBorderSecondary` 或 `token.colorFillQuaternary`
+   - RESOLVED：使用 `token.colorBorder`（见 Plan 14-03 Task 3）。
 
 4. **MainLayout.module.css 中 `color: #fff` (Sider 内 logo) 是否要改？**
    - 已知：Sider 始终深色（D-16）
-   - 推荐：保持不动（在深色 Sider 上始终是白字）
+   - RESOLVED：保留不动（Plan 14-01 Task 3 明确不改，Sider 常驻深色，白字始终成立）。
 
 ## Environment Availability
 
