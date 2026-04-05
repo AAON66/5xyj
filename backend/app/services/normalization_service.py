@@ -130,7 +130,7 @@ MERGE_VALUE_FIELDS = (
 )
 
 
-@dataclass(slots=True)
+@dataclass
 class NormalizedPreviewRecord:
     source_row_number: int
     values: dict[str, Any]
@@ -139,7 +139,7 @@ class NormalizedPreviewRecord:
     raw_payload: dict[str, Any]
 
 
-@dataclass(slots=True)
+@dataclass
 class StandardizationResult:
     source_file: str
     sheet_name: str
@@ -149,7 +149,7 @@ class StandardizationResult:
     unmapped_headers: list[str]
 
 
-@dataclass(slots=True)
+@dataclass
 class SourceRecordBundle:
     source_file_id: str
     source_file_name: str
@@ -157,7 +157,7 @@ class SourceRecordBundle:
     standardized: StandardizationResult
 
 
-@dataclass(slots=True)
+@dataclass
 class _MergedRecordEntry:
     source_file_id: str
     source_row_number: int

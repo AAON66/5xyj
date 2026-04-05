@@ -67,7 +67,7 @@ EXPLICIT_SKIP_SIGNATURE_KEYWORDS = EXPLICIT_SKIP_SIGNATURE_KEYWORDS + (
 )
 
 
-@dataclass(slots=True)
+@dataclass
 class HeaderMappingDecision:
     raw_header: str
     raw_header_signature: str
@@ -81,7 +81,7 @@ class HeaderMappingDecision:
     rule_overrode_llm: bool = False
 
 
-@dataclass(slots=True)
+@dataclass
 class HeaderNormalizationResult:
     source_file: str
     sheet_name: str

@@ -1,122 +1,62 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: Milestone complete
-stopped_at: Completed 13-02-PLAN.md
-last_updated: "2026-04-04T19:58:23.007Z"
+milestone: v1.1
+milestone_name: 体验优化与功能完善
+status: executing
+stopped_at: Phase 13 context gathered
+last_updated: "2026-04-04T19:54:15.284Z"
+last_activity: 2026-04-04 -- Phase 13 execution started
 progress:
-  total_phases: 12
-  completed_phases: 12
-  total_plans: 31
-  completed_plans: 31
+  total_phases: 8
+  completed_phases: 0
+  total_plans: 4
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-27)
+See: .planning/PROJECT.md (updated 2026-04-04)
 
 **Core value:** 社保公积金数据从多地区 Excel 汇入系统后，任何角色都能在正确的权限范围内快速查询和管理数据。
-**Current focus:** Phase 12 — integration-wiring-fix
+**Current focus:** Phase 13 — foundation-deploy-compat
 
 ## Current Position
 
-Phase: 12
-Plan: Not started
+Phase: 13 (foundation-deploy-compat) — EXECUTING
+Plan: 1 of 4
+Status: Executing Phase 13
+Last activity: 2026-04-04 -- Phase 13 execution started
+
+Progress: [░░░░░░░░░░] 0% (v1.1: 0/? plans)
 
 ## Performance Metrics
 
-**Velocity:**
+**Velocity (from v1.0):**
 
-- Total plans completed: 0
-- Average duration: -
-- Total execution time: 0 hours
+- Total plans completed: 31
+- Average duration: ~9 min/plan
+- Total execution time: ~4.7 hours
 
-**By Phase:**
+**By Phase (v1.1):**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | - | - | - | - |
 
-**Recent Trend:**
-
-- Last 5 plans: -
-- Trend: -
-
 *Updated after each plan completion*
-| Phase 02 P01 | 7min | 1 tasks | 13 files |
-| Phase 02 P02 | 15min | 2 tasks | 6 files |
-| Phase 02 P03 | 12min | 3 tasks | 6 files |
-| Phase 03 P01 | 12min | 2 tasks | 17 files |
-| Phase 03 P02 | 8min | 2 tasks | 3 files |
-| Phase 04 P01 | 13min | 3 tasks | 8 files |
-| Phase 04 P02 | 10min | 2 tasks | 3 files |
-| Phase 05 P01 | 28min | 1 tasks | 5 files |
-| Phase 05 P02 | 25min | 3 tasks | 3 files |
-| Phase 06 P01 | 18min | 2 tasks | 12 files |
-| Phase 06 P02 | 6min | 2 tasks | 10 files |
-| Phase 07 P01 | 7min | 2 tasks | 9 files |
-| Phase 07 P02 | 8min | 3 tasks | 3 files |
-| Phase 07 P03 | 8min | 2 tasks | 5 files |
-| Phase 07 P04 | 14min | 2 tasks | 10 files |
-| Phase 08 P01 | 5min | 2 tasks | 3 files |
-| Phase 08 P02 | 7min | 2 tasks | 9 files |
-| Phase 09 P01 | 6min | 2 tasks | 7 files |
-| Phase 09 P02 | 16min | 2 tasks | 22 files |
-| Phase 11 P01 | 8min | 2 tasks | 13 files |
-| Phase 11 P02 | 4min | 2 tasks | 5 files |
-| Phase 11 P04 | 3min | 2 tasks | 3 files |
-| Phase 11 P03 | 5min | 2 tasks | 7 files |
-| Phase 11 P05 | 2min | 2 tasks | 3 files |
-| Phase 12 P01 | 2min | 2 tasks | 2 files |
-| Phase 13 P02 | 2min | 2 tasks | 7 files |
 
 ## Accumulated Context
 
 ### Decisions
 
-Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
-
-- Roadmap: AUTH-07/AUTH-08 (API keys) assigned to Phase 9 (API System) rather than Phase 2 (Auth) since API keys serve external API access
-- Roadmap: UI split into Phase 7 (design system) and Phase 8 (page rebuild) to separate foundation from page-level work
-- Roadmap: SEC split from AUTH to isolate security hardening as its own verifiable phase
-- [Phase 02]: Used pwdlib BcryptHasher instead of recommended() to avoid argon2 dependency
-- [Phase 02]: Rate limiter keys on employee_id not IP address per D-04
-- [Phase 02]: Used StaticPool for in-memory SQLite in tests to prevent cross-connection issues
-- [Phase 02]: CORS allow_origins=['*'] hardcoded for dev -- must restrict in Phase 3
-- [Phase 03]: AuditLog append-only (CreatedAtMixin only, no update/delete endpoints per D-08)
-- [Phase 03]: Login rate limiter keys on username per D-04; CORS from settings.backend_cors_origins
-- [Phase 03]: Used readAuthSession() from AuthProvider instead of raw localStorage for token access
-- [Phase 04]: Import fault tolerance at caller level; employee_id match highest priority; SUPPORTED_REGIONS static list
-- [Phase 04]: Filter dropdowns load options from API on mount; filter change resets pagination to page 0
-- [Phase 05]: Created separate employee_portal router to bypass admin/hr router-level RBAC for employee role endpoints
-- [Phase 05]: Restricted all non-portal routes with RoleRoute(['admin','hr']) to prevent employee role from accessing admin/hr pages
-- [Phase 06]: Anomaly thresholds 100-80000 for regional variation; id_number+billing_period as primary duplicate key
-- [Phase 06]: URL persistence via useSearchParams for cascading filter state
-- [Phase 06]: Roles-based nav filtering with roles array property (backward compatible with adminOnly)
-- [Phase 07]: Kept PageContainer/SectionState/SurfaceNotice barrel exports for backward compatibility with existing pages
-- [Phase 07]: ApiFeedbackProvider uses App.useApp() for Ant message toast integration
-- [Phase 07]: Used Radio.Group for login role selection; Upload.Dragger with manual beforeUpload for file handling; Modal.confirm for cancel confirmation
-- [Phase 07]: Used Ant Drawer for employee editing, Modal.confirm for destructive actions, message API for feedback
-- [Phase 07]: Retained old custom components for parallel agent compatibility during migration
-- [Phase 08]: getChineseErrorMessage returns fallback with error code suffix when no mapping found
-- [Phase 08]: useResponsiveCollapse hook resets manual override on breakpoint crossing
-- [Phase 08]: WorkflowSteps uses useAggregateSession for status derivation and react-router for navigation
-- [Phase 09]: Used sha256 hashing for API key storage with lazy imports to avoid circular deps
-- [Phase 09]: API Key checked before JWT in dual-auth flow; CreatedAtMixin (not TimestampMixin) for ApiKey model
-- [Phase 09]: Chinese summary/description on all FastAPI endpoints for Swagger grouping
-- [Phase 09]: Admin-gated /docs with openapi_url=None + custom route for full schema protection
-- [Phase 11]: Excluded billing_period/period_start/period_end from period comparison diff fields to avoid false positives
-- [Phase 11]: Per-field anomaly thresholds configurable via Settings with request-level override support
-- [Phase 11]: Wuhan housing fund test skipif due to missing sample; audit log after commit for data integrity; default actor params for backward compatibility
-- [Phase 11]: MappingListParams overload preserves backward compatibility with existing callers
-- [Phase 11]: Used bracket quotes in JSX to avoid Chinese curly quote parse errors
-- [Phase 11]: Threshold slider range 5-80% per review; client-side multi-field anomaly filter
-- [Phase 11]: Used delete-before-insert instead of upsert for anomaly dedup (SQLite compat)
-- [Phase 13]: Used useRef for manual-selection tracking to avoid race conditions with async API callback
+- [v1.1 Roadmap]: Python 3.9 适配必须最先做（阻断部署）
+- [v1.1 Roadmap]: 样式 token 化必须在暗黑模式和响应式之前（329 处硬编码样式）
+- [v1.1 Roadmap]: 零新依赖策略 -- AntD 5 内置暗黑模式/响应式/多级菜单
+- [v1.1 Roadmap]: 融合特殊规则是唯一新数据模型+API+管线功能，放在后半段
+- [v1.1 Roadmap]: Phases 16/17/19 仅依赖 Phase 13，可与 14-15 并行
 
 ### Pending Todos
 
@@ -124,12 +64,12 @@ None yet.
 
 ### Blockers/Concerns
 
-- Tool template exact field mapping bugs need diagnosis at start of Phase 1
-- Employee master data source/seeding strategy needed before Phase 4
-- Feishu app credentials must be registered before Phase 10 can begin
+- SQLite CASCADE DELETE 默认不生效，Phase 17 批次删除需验证 PRAGMA foreign_keys=ON
+- 融合特殊规则 UI/UX 交互细节待 Phase 19 规划时确定
+- 暗黑模式下现有暗色侧边栏可能与内容区背景无法区分，需视觉测试
 
 ## Session Continuity
 
-Last session: 2026-04-04T19:58:18.612Z
-Stopped at: Completed 13-02-PLAN.md
-Resume file: None
+Last session: 2026-04-04T11:40:17.011Z
+Stopped at: Phase 13 context gathered
+Resume file: .planning/phases/13-foundation-deploy-compat/13-CONTEXT.md

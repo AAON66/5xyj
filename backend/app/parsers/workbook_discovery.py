@@ -55,7 +55,7 @@ DETAIL_SHEET_TOKENS = ("\u660e\u7ec6",)
 SUMMARY_SHEET_TOKENS = ("\u901a\u77e5\u4e66", "\u6c47\u603b", "\u5bf9\u8d26")
 
 
-@dataclass(slots=True)
+@dataclass
 class SheetDiscovery:
     sheet_name: str
     score: int
@@ -66,7 +66,7 @@ class SheetDiscovery:
     reasoning: list[str]
 
 
-@dataclass(slots=True)
+@dataclass
 class WorkbookDiscovery:
     source_file: str
     sheet_names: list[str]

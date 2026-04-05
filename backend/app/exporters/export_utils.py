@@ -172,7 +172,7 @@ class ExportServiceError(Exception):
     pass
 
 
-@dataclass(slots=True)
+@dataclass
 class ExportArtifactResult:
     template_type: str
     status: str
@@ -181,7 +181,7 @@ class ExportArtifactResult:
     row_count: int = 0
 
 
-@dataclass(slots=True)
+@dataclass
 class DualTemplateExportResult:
     status: str
     artifacts: list[ExportArtifactResult]

@@ -57,7 +57,7 @@ def _normalize_confidence(value: float) -> Optional[float]:
     return value
 
 
-@dataclass(slots=True)
+@dataclass
 class LLMMappingResult:
     raw_header_signature: str
     canonical_field: Optional[str]

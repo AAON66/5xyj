@@ -40,7 +40,7 @@ MISSING_HOUSING_WARNING_COVERAGE_RATIO = Decimal('0.7')
 MISSING_HOUSING_WARNING_MIN_COMPANY_RECORDS = 3
 
 
-@dataclass(slots=True)
+@dataclass
 class _SourceFileValidationContext:
     source_file_id: str
     file_name: str
@@ -48,7 +48,7 @@ class _SourceFileValidationContext:
     issues: list[ValidationIssueRead]
 
 
-@dataclass(slots=True)
+@dataclass
 class _SourceFileMatchContext:
     source_file_id: str
     file_name: str
@@ -156,7 +156,7 @@ def validate_batch(db: Session, batch_id: str) -> BatchValidationRead:
     )
 
 
-@dataclass(slots=True)
+@dataclass
 class _MissingHousingWarningContext:
     source_file_id: str
     normalized_record_id: str

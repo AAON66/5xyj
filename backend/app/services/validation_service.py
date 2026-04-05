@@ -17,7 +17,7 @@ AMOUNT_TOLERANCE = Decimal("0.01")
 UNKNOWN_PERIOD_KEY = "__missing_period__"
 
 
-@dataclass(slots=True)
+@dataclass
 class ValidationPreviewIssue:
     source_row_number: int
     issue_type: str
@@ -26,7 +26,7 @@ class ValidationPreviewIssue:
     message: str
 
 
-@dataclass(slots=True)
+@dataclass
 class ValidationResult:
     source_file: str
     sheet_name: str

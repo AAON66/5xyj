@@ -29,7 +29,7 @@ class ExportBlockedError(Exception):
     """Raised when a batch cannot be exported yet."""
 
 
-@dataclass(slots=True)
+@dataclass
 class ExportExecutionResult:
     job: ExportJob
     artifacts: list[ExportArtifactRead]

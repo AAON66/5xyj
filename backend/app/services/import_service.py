@@ -110,7 +110,7 @@ class AnalyzedSourceFile:
     standardized: StandardizationResult
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class ManualMappingSnapshot:
     raw_header_signature: str
     canonical_field: Optional[str]
@@ -119,7 +119,7 @@ class ManualMappingSnapshot:
     manually_overridden: bool
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class SourceFileAnalysisContext:
     source_file_id: str
     file_name: str

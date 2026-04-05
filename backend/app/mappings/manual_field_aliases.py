@@ -64,7 +64,7 @@ def normalize_signature(signature: str) -> str:
     return normalized
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class AliasRule:
     canonical_field: str
     patterns: tuple[str, ...]

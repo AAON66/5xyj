@@ -29,13 +29,13 @@ PLACEHOLDER_STRINGS = {"", "-", "--", "\u2014\u2014", "none", "null", "(\u7a7a\u
 NON_DETAIL_NAME_PATTERNS = ("经办网点", "打印日期", "管理中心", "制表人", "说明", "备注", "汇总", "合计")
 
 
-@dataclass(slots=True)
+@dataclass
 class HousingFundWorkbookAnalysis:
     normalization: HeaderNormalizationResult
     standardized: StandardizationResult
 
 
-@dataclass(slots=True)
+@dataclass
 class _WorkbookCandidate:
     sheet_name: str
     header_row: int

@@ -54,7 +54,7 @@ TRUE_VALUES = {"1", "true", "yes", "y", "是", "在职", "启用", "active"}
 FALSE_VALUES = {"0", "false", "no", "n", "否", "离职", "停用", "inactive"}
 
 
-@dataclass(slots=True)
+@dataclass
 class _EmployeeImportRow:
     employee_id: str
     person_name: str
@@ -66,7 +66,7 @@ class _EmployeeImportRow:
     row_number: int
 
 
-@dataclass(slots=True)
+@dataclass
 class HistoricalEmployeeIdentity:
     employee_id: str
     person_name: str

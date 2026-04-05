@@ -76,7 +76,7 @@ HEADER_FILL = PatternFill(fill_type='solid', fgColor='EAF0F9')
 HEADER_FONT = Font(bold=True)
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class CompareIdentity:
     basis: str
     value: str

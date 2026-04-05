@@ -12,7 +12,7 @@ from backend.app.parsers.workbook_discovery import WorkbookDiscoveryError, disco
 from backend.app.parsers.workbook_loader import load_workbook_compatible
 
 
-@dataclass(slots=True)
+@dataclass
 class HeaderColumn:
     column_index: int
     excel_column: str
@@ -20,7 +20,7 @@ class HeaderColumn:
     signature: str
 
 
-@dataclass(slots=True)
+@dataclass
 class HeaderTreeNode:
     label: str
     row_number: int
@@ -29,7 +29,7 @@ class HeaderTreeNode:
     children: list["HeaderTreeNode"]
 
 
-@dataclass(slots=True)
+@dataclass
 class HeaderExtraction:
     source_file: str
     sheet_name: str

@@ -22,7 +22,7 @@ HEADER_ROW_TOKENS = {
 }
 
 
-@dataclass(slots=True)
+@dataclass
 class RowFilterDecision:
     row_number: int
     keep: bool
@@ -31,13 +31,13 @@ class RowFilterDecision:
     normalized_values: list[str]
 
 
-@dataclass(slots=True)
+@dataclass
 class FilteredRow:
     row_number: int
     values: list[object]
 
 
-@dataclass(slots=True)
+@dataclass
 class FilteredRowsResult:
     kept_rows: list[FilteredRow]
     filtered_rows: list[RowFilterDecision]

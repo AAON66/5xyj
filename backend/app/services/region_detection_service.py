@@ -140,7 +140,7 @@ def _normalize_confidence(value: float) -> Optional[float]:
     return value
 
 
-@dataclass(slots=True)
+@dataclass
 class RegionDetectionResult:
     region: Optional[str]
     confidence: float
@@ -150,7 +150,7 @@ class RegionDetectionResult:
     llm_confidence: Optional[float] = None
 
 
-@dataclass(slots=True)
+@dataclass
 class LLMRegionResult:
     region: Optional[str]
     confidence: Optional[float]
@@ -159,7 +159,7 @@ class LLMRegionResult:
     reason: str
 
 
-@dataclass(slots=True)
+@dataclass
 class WorkbookRegionContext:
     filename: str
     source_kind: Optional[str]
