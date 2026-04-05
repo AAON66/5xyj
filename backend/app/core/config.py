@@ -76,6 +76,7 @@ class Settings(BaseSettings):
     anomaly_threshold_payment_base: float = 15.0
 
     runtime_environment: str = 'local'
+    trusted_proxies: list[str] = Field(default_factory=lambda: ['127.0.0.1', '::1'])
     auth_enabled: bool = True
     auth_secret_key: str = DEFAULT_AUTH_SECRET_KEY
     auth_token_expire_minutes: int = 480
