@@ -5,6 +5,7 @@ import shutil
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from backend.app.core.auth import issue_access_token
 from backend.app.core.config import ROOT_DIR, Settings
 from backend.app.core.database import create_database_engine, create_session_factory
 from backend.app.dependencies import get_db
@@ -114,14 +115,25 @@ def test_me_endpoint_returns_authenticated_user_profile() -> None:
     assert payload['display_name'] == 'HR'
 
 
-def test_employee_self_service_query_remains_public() -> None:
-    client = build_test_client('self_service_public')
+def test_employee_self_service_query_requires_auth() -> None:
+    client = build_test_client('self_service_requires_auth')
 
     with client:
+        # Unauthenticated request should be rejected
         response = client.post(
             '/api/v1/employees/self-service/query',
             json={'person_name': 'missing-employee', 'id_number': '440101199001019999'},
         )
+        assert response.status_code == 401
+        assert response.json()['error']['code'] == 'http_error'
 
-    assert response.status_code == 404
-    assert response.json()['error']['code'] == 'not_found'
+        # Authenticated request returns 404 when employee not found
+        token, _exp = issue_access_token('auth-test-secret', sub='admin', role='admin', expire_minutes=30)
+        auth_response = client.post(
+            '/api/v1/employees/self-service/query',
+            json={'person_name': 'missing-employee', 'id_number': '440101199001019999'},
+            headers={'Authorization': f'Bearer {token}'},
+        )
+
+    assert auth_response.status_code == 404
+    assert auth_response.json()['error']['code'] == 'not_found'

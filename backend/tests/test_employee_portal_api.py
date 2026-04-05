@@ -321,12 +321,15 @@ def test_portal_requires_auth() -> None:
 # ---------------------------------------------------------------------------
 
 def test_old_query_endpoint_still_works() -> None:
-    client, _settings, _session_factory = build_test_context('old_endpoint', auth_enabled=False)
+    client, _settings, _session_factory = build_test_context('old_endpoint', auth_enabled=True)
+    # Issue an admin token (employees self-service lookup is protected behind HR/admin role at router level)
+    token, _exp = issue_access_token(TEST_SECRET, sub='admin', role='admin', expire_minutes=30)
 
     with client:
         response = client.post(
             '/api/v1/employees/self-service/query',
             json={'person_name': 'nobody', 'id_number': '000000000000000000'},
+            headers={'Authorization': f'Bearer {token}'},
         )
 
     # Should return 404 (not found), not 405 or 500

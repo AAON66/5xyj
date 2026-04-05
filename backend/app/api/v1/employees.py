@@ -110,6 +110,7 @@ def list_companies_endpoint(
 def employee_self_service_query_endpoint(
     payload: EmployeeSelfServiceQueryInput = Body(...),
     db: Session = Depends(get_db),
+    _user=Depends(require_authenticated_user),
 ):
     try:
         result = lookup_employee_self_service(db, payload)
