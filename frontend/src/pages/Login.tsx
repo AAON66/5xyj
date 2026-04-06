@@ -5,6 +5,7 @@ import { ApiOutlined, LockOutlined, UserOutlined, IdcardOutlined, SolutionOutlin
 
 import { useAuth } from '../hooks';
 import { useFeishuFeatureFlag } from '../hooks/useFeishuFeatureFlag';
+import { useSemanticColors } from '../theme/useSemanticColors';
 import { normalizeApiError } from '../services/api';
 import type { AuthRole } from '../services/authSession';
 import { writeAuthSession } from '../services/authSession';
@@ -28,6 +29,7 @@ export function LoginPage() {
   const location = useLocation();
   const { isAuthenticated, isInitializing, user, login, verifyEmployee } = useAuth();
   const { message } = App.useApp();
+  const colors = useSemanticColors();
 
   const { feishu_oauth_enabled } = useFeishuFeatureFlag();
   const [submitting, setSubmitting] = useState(false);
@@ -214,7 +216,7 @@ export function LoginPage() {
         justifyContent: 'center',
         alignItems: 'center',
         minHeight: '100vh',
-        background: '#F5F6F7',
+        background: colors.BG_LAYOUT,
         paddingBottom: 40,
       }}
     >

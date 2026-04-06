@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { Button, Card, Col, Row, Typography } from 'antd';
 import {
@@ -9,31 +10,9 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 
-const { Title, Text, Paragraph } = Typography;
+import { useSemanticColors } from '../theme/useSemanticColors';
 
-const ROLE_CARDS = [
-  {
-    to: '/workspace/admin',
-    icon: <AppstoreOutlined style={{ fontSize: 28, color: '#3370FF' }} />,
-    title: '管理员入口',
-    description: '查看全链路运行状态，维护模板、映射、导入批次、员工主档与月度比对。',
-    bullets: ['总览看板与异常治理', '导入批次、映射修正、员工主档', '导出结果与月度对比'],
-  },
-  {
-    to: '/workspace/hr',
-    icon: <TeamOutlined style={{ fontSize: 28, color: '#3370FF' }} />,
-    title: 'HR 入口',
-    description: '聚焦每月实操链路，从上传、校验、匹配到双模板导出都能在一个工作台里完成。',
-    bullets: ['快速聚合与批次追踪', '校验匹配与导出检查', '员工自助查询入口转发'],
-  },
-  {
-    to: '/employee/query',
-    icon: <UserOutlined style={{ fontSize: 28, color: '#3370FF' }} />,
-    title: '员工查询入口',
-    description: '无需登录，只需输入姓名和身份证号即可查看最近的社保公积金记录。',
-    bullets: ['姓名 + 身份证号查询', '查看最近批次与金额摘要', '适合员工自助核对'],
-  },
-];
+const { Title, Text, Paragraph } = Typography;
 
 const DIRECT_LINKS = [
   { to: '/aggregate', label: '快速聚合', hint: '保留原有上传即导出双模板能力', icon: <CloudUploadOutlined /> },
@@ -42,6 +21,32 @@ const DIRECT_LINKS = [
 ];
 
 export function ManagementPortalPage() {
+  const colors = useSemanticColors();
+
+  const ROLE_CARDS = useMemo(() => [
+    {
+      to: '/workspace/admin',
+      icon: <AppstoreOutlined style={{ fontSize: 28, color: colors.BRAND }} />,
+      title: '管理员入口',
+      description: '查看全链路运行状态，维护模板、映射、导入批次、员工主档与月度比对。',
+      bullets: ['总览看板与异常治理', '导入批次、映射修正、员工主档', '导出结果与月度对比'],
+    },
+    {
+      to: '/workspace/hr',
+      icon: <TeamOutlined style={{ fontSize: 28, color: colors.BRAND }} />,
+      title: 'HR 入口',
+      description: '聚焦每月实操链路，从上传、校验、匹配到双模板导出都能在一个工作台里完成。',
+      bullets: ['快速聚合与批次追踪', '校验匹配与导出检查', '员工自助查询入口转发'],
+    },
+    {
+      to: '/employee/query',
+      icon: <UserOutlined style={{ fontSize: 28, color: colors.BRAND }} />,
+      title: '员工查询入口',
+      description: '无需登录，只需输入姓名和身份证号即可查看最近的社保公积金记录。',
+      bullets: ['姓名 + 身份证号查询', '查看最近批次与金额摘要', '适合员工自助核对'],
+    },
+  ], [colors.BRAND]);
+
   return (
     <div style={{ maxWidth: 1200, margin: '0 auto', padding: '32px 24px' }}>
       <div style={{ textAlign: 'center', marginBottom: 48 }}>

@@ -3,6 +3,7 @@ import { Spin } from 'antd';
 
 import { MainLayout } from './layouts/MainLayout';
 import { useAuth } from './hooks';
+import { useSemanticColors } from './theme/useSemanticColors';
 import {
   AdminWorkspacePage,
   AnomalyDetectionPage,
@@ -37,8 +38,9 @@ const DEFAULT_WORKSPACE_BY_ROLE: Record<AuthRole, string> = {
 };
 
 function AuthRouteState({ message }: { message: string }) {
+  const colors = useSemanticColors();
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#F5F6F7' }}>
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: colors.BG_LAYOUT }}>
       <Spin tip={message} size="large"><div style={{ padding: 50 }} /></Spin>
     </div>
   );

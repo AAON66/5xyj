@@ -18,6 +18,8 @@ import {
 } from '@ant-design/icons';
 import type { ReactNode } from 'react';
 
+import { useSemanticColors } from '../theme/useSemanticColors';
+
 const { Title, Text, Paragraph } = Typography;
 
 type WorkspaceRole = 'admin' | 'hr';
@@ -96,6 +98,7 @@ const WORKSPACE_CONFIG: Record<
 
 function WorkspacePage({ role }: { role: WorkspaceRole }) {
   const config = WORKSPACE_CONFIG[role];
+  const colors = useSemanticColors();
 
   return (
     <div>
@@ -127,7 +130,7 @@ function WorkspacePage({ role }: { role: WorkspaceRole }) {
                 <Link to={item.to} style={{ display: 'block' }}>
                   <Card hoverable>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-                      <span style={{ fontSize: 20, color: '#3370FF' }}>{item.icon}</span>
+                      <span style={{ fontSize: 20, color: colors.BRAND }}>{item.icon}</span>
                       <Text strong>{item.title}</Text>
                     </div>
                     <Text type="secondary">{item.hint}</Text>
