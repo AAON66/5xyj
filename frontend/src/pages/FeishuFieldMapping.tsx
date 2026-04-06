@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Button, Modal, Space, Spin, Typography, message } from 'antd';
+import { Button, Modal, Space, Spin, Typography, message, theme } from 'antd';
+import { useSemanticColors } from '../theme/useSemanticColors';
 import { ClearOutlined, LinkOutlined, SaveOutlined } from '@ant-design/icons';
 import {
   ReactFlow,
@@ -61,51 +62,53 @@ const SYSTEM_FIELDS = [
 // ── Custom node components ───────────────────────────────────────
 
 function SystemFieldNode({ data }: { data: { label: string } }) {
+  const colors = useSemanticColors();
   return (
     <div
       style={{
         width: 200,
         height: 40,
-        background: '#FFFFFF',
-        border: '1px solid #DEE0E3',
+        background: colors.BG_CONTAINER,
+        border: `1px solid ${colors.BORDER}`,
         borderRadius: 8,
         display: 'flex',
         alignItems: 'center',
         padding: '0 12px',
         fontSize: 14,
-        color: '#1F2329',
+        color: colors.TEXT,
       }}
     >
       {data.label}
       <Handle
         type="source"
         position={Position.Right}
-        style={{ background: '#3370FF' }}
+        style={{ background: colors.BRAND }}
       />
     </div>
   );
 }
 
 function FeishuColumnNode({ data }: { data: { label: string } }) {
+  const colors = useSemanticColors();
   return (
     <div
       style={{
         width: 200,
         height: 40,
-        background: '#FFFFFF',
-        border: '1px solid #DEE0E3',
+        background: colors.BG_CONTAINER,
+        border: `1px solid ${colors.BORDER}`,
         borderRadius: 8,
         display: 'flex',
         alignItems: 'center',
         padding: '0 12px',
         fontSize: 14,
-        color: '#1F2329',
+        color: colors.TEXT,
       }}
     >
       <Handle
         type="target"
         position={Position.Left}
-        style={{ background: '#3370FF' }}
+        style={{ background: colors.BRAND }}
       />
       {data.label}
     </div>
@@ -117,14 +120,17 @@ const nodeTypes: NodeTypes = {
   feishuColumn: FeishuColumnNode,
 };
 
-const defaultEdgeOptions = {
-  style: { stroke: '#3370FF', strokeWidth: 2 },
-  type: 'smoothstep' as const,
-};
+// defaultEdgeOptions moved inside component (needs theme token)
 
 // ── Main component ───────────────────────────────────────────────
 
 export function FeishuFieldMappingPage() {
+  const colors = useSemanticColors();
+  const { token } = theme.useToken();
+  const defaultEdgeOptions = useMemo(() => ({
+    style: { stroke: colors.BRAND, strokeWidth: 2 },
+    type: 'smoothstep' as const,
+  }), [colors.BRAND]);
   const { configId } = useParams<{ configId: string }>();
   const [loading, setLoading] = useState(true);
   const [feishuFields, setFeishuFields] = useState<FeishuFieldInfo[]>([]);
@@ -202,7 +208,7 @@ export function FeishuFieldMappingPage() {
     }
 
     void load();
-  }, [configId, setNodes, setEdges]);
+  }, [configId, setNodes, setEdges, defaultEdgeOptions]);
 
   const onConnect: OnConnect = useCallback(
     (connection) => {
@@ -216,7 +222,7 @@ export function FeishuFieldMappingPage() {
         ),
       );
     },
-    [setEdges],
+    [setEdges, defaultEdgeOptions],
   );
 
   // Auto-match: exact label match first, then containment
@@ -250,7 +256,7 @@ export function FeishuFieldMappingPage() {
 
     setEdges(newEdges);
     message.success(`自动匹配完成，已匹配 ${newEdges.length} 个字段`);
-  }, [feishuFields, setEdges]);
+  }, [feishuFields, setEdges, defaultEdgeOptions]);
 
   // Save mapping
   const handleSave = useCallback(async () => {
@@ -350,7 +356,7 @@ export function FeishuFieldMappingPage() {
           maxZoom={1.5}
           fitView
         >
-          <Background color="#DEE0E3" gap={20} variant={BackgroundVariant.Dots} />
+          <Background color={token.colorBorder} gap={20} variant={BackgroundVariant.Dots} />
           <Controls position="bottom-left" />
         </ReactFlow>
       </div>
