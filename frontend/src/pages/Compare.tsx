@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
+import { useSemanticColors } from "../theme/useSemanticColors";
 import {
   Alert,
   Button,
@@ -327,6 +328,7 @@ function triggerBlobDownload(blob: Blob, fileName: string): void {
 }
 
 export function ComparePage() {
+  const colors = useSemanticColors();
   const [batches, setBatches] = useState<ImportBatchSummary[]>([]);
   const [leftMode, setLeftMode] = useState<SourceMode>("existing");
   const [rightMode, setRightMode] = useState<SourceMode>("existing");
@@ -607,7 +609,7 @@ export function ComparePage() {
             {localEntries.length > 0 ? (
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 {localEntries.map((entry) => (
-                  <div key={entry.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 8px", background: "#fafafa", borderRadius: 4 }}>
+                  <div key={entry.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "4px 8px", background: colors.FILL_QUATERNARY, borderRadius: 4 }}>
                     <div>
                       <Text strong style={{ fontSize: 13 }}>{entry.name}</Text>
                       <Text type="secondary" style={{ marginLeft: 8, fontSize: 12 }}>{entry.meta}</Text>
@@ -768,9 +770,9 @@ export function ComparePage() {
         {displayCompareData && (
           <Row gutter={[16, 16]} style={{ marginTop: 12 }}>
             <Col><Statistic title="总对比行数" value={displayCompareData.total_row_count} /></Col>
-            <Col><Statistic title="存在差异" value={displayCompareData.changed_row_count} valueStyle={{ color: "#FF7D00" }} /></Col>
-            <Col><Statistic title="仅左侧" value={displayCompareData.left_only_count} valueStyle={{ color: "#3370FF" }} /></Col>
-            <Col><Statistic title="仅右侧" value={displayCompareData.right_only_count} valueStyle={{ color: "#FF7D00" }} /></Col>
+            <Col><Statistic title="存在差异" value={displayCompareData.changed_row_count} valueStyle={{ color: colors.WARNING }} /></Col>
+            <Col><Statistic title="仅左侧" value={displayCompareData.left_only_count} valueStyle={{ color: colors.BRAND }} /></Col>
+            <Col><Statistic title="仅右侧" value={displayCompareData.right_only_count} valueStyle={{ color: colors.WARNING }} /></Col>
             <Col><Statistic title="完全一致" value={displayCompareData.same_row_count} /></Col>
           </Row>
         )}

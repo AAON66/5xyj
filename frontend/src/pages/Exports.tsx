@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSemanticColors } from '../theme/useSemanticColors';
 import {
   Alert,
   Button,
@@ -88,6 +89,7 @@ function sortArtifacts(artifacts: ExportArtifact[]): ExportArtifact[] {
 }
 
 export function ExportsPage() {
+  const colors = useSemanticColors();
   const [batches, setBatches] = useState<Array<{ id: string; batch_name: string; status: string; updated_at: string }>>([]);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [exportResult, setExportResult] = useState<BatchExport | null>(null);
@@ -266,7 +268,7 @@ export function ExportsPage() {
                 <Statistic
                   title="成功模板数"
                   value={artifacts.filter((item) => item.status === 'completed').length}
-                  valueStyle={{ color: '#00B42A' }}
+                  valueStyle={{ color: colors.SUCCESS }}
                 />
               </Col>
               <Col span={6}>

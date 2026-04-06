@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { useSemanticColors } from '../theme/useSemanticColors';
 import {
   Alert,
   Button,
@@ -69,6 +70,7 @@ function confidenceRangeToParams(range: ConfidenceRange | undefined): { confiden
 }
 
 export function MappingsPage() {
+  const colors = useSemanticColors();
   const [searchParams, setSearchParams] = useSearchParams();
   const [batches, setBatches] = useState<ImportBatchSummary[]>([]);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(searchParams.get('batchId'));
@@ -391,10 +393,10 @@ export function MappingsPage() {
                 <Statistic title="当前映射条目" value={summary.total} />
               </Col>
               <Col span={8}>
-                <Statistic title="人工修正条目" value={summary.manual} valueStyle={{ color: '#3370FF' }} />
+                <Statistic title="人工修正条目" value={summary.manual} valueStyle={{ color: colors.BRAND }} />
               </Col>
               <Col span={8}>
-                <Statistic title="仍未识别条目" value={summary.unmapped} valueStyle={{ color: '#F54A45' }} />
+                <Statistic title="仍未识别条目" value={summary.unmapped} valueStyle={{ color: colors.ERROR }} />
               </Col>
             </Row>
           </Card>

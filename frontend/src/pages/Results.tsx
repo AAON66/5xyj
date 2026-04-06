@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSemanticColors } from '../theme/useSemanticColors';
 import {
   Alert,
   Button,
@@ -69,6 +70,7 @@ function matchColor(value: string): string {
 }
 
 export function ResultsPage() {
+  const colors = useSemanticColors();
   const [batches, setBatches] = useState<Array<{ id: string; batch_name: string; status: string; updated_at: string }>>([]);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [validation, setValidation] = useState<BatchValidation | null>(null);
@@ -320,13 +322,13 @@ export function ResultsPage() {
                 <Statistic title="校验问题" value={validation?.total_issue_count ?? 0} />
               </Col>
               <Col span={6}>
-                <Statistic title="已匹配" value={matchResult?.matched_count ?? 0} valueStyle={{ color: '#00B42A' }} />
+                <Statistic title="已匹配" value={matchResult?.matched_count ?? 0} valueStyle={{ color: colors.SUCCESS }} />
               </Col>
               <Col span={6}>
-                <Statistic title="未匹配" value={matchResult?.unmatched_count ?? 0} valueStyle={{ color: '#F54A45' }} />
+                <Statistic title="未匹配" value={matchResult?.unmatched_count ?? 0} valueStyle={{ color: colors.ERROR }} />
               </Col>
               <Col span={6}>
-                <Statistic title="重复命中" value={matchResult?.duplicate_count ?? 0} valueStyle={{ color: '#FF7D00' }} />
+                <Statistic title="重复命中" value={matchResult?.duplicate_count ?? 0} valueStyle={{ color: colors.WARNING }} />
               </Col>
             </Row>
             <div style={{ marginTop: 12 }}>

@@ -5,8 +5,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="a614a6ab-24b5-4f20-8229-5cf8b352ba3a" name="更改" comment="v4.2.6&#10;新增武汉格式优化完毕">
-      <change beforePath="$PROJECT_DIR$/.idea/execl_mix.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/execl_mix.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/v1.0-MILESTONE-AUDIT.md" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
