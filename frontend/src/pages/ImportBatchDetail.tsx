@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
   Alert,
@@ -32,6 +32,10 @@ import {
   updateHeaderMapping,
   type HeaderMappingItem,
 } from '../services/mappings';
+import { useSemanticColors } from '../theme/useSemanticColors';
+import { useCardStatusColors } from '../theme/useCardStatusColors';
+import { getChartColors } from '../theme/chartColors';
+import { useThemeMode } from '../theme/useThemeMode';
 
 const { Title } = Typography;
 
@@ -72,16 +76,20 @@ function mappingSourceColor(value: string): string {
   }
 }
 
-function confidenceColor(confidence: number | null): string {
-  if (confidence === null) return 'default';
-  if (confidence >= 0.8) return '#00B42A';
-  if (confidence >= 0.5) return '#FF7D00';
-  return '#F54A45';
-}
-
 export function ImportBatchDetailPage() {
   const { batchId } = useParams<{ batchId: string }>();
   const navigate = useNavigate();
+  const colors = useSemanticColors();
+  const cardColors = useCardStatusColors();
+  const { isDark } = useThemeMode();
+  const chartColors = useMemo(() => getChartColors(isDark), [isDark]);
+
+  const confidenceColor = useCallback((confidence: number | null): string => {
+    if (confidence === null) return 'default';
+    if (confidence >= 0.8) return chartColors.success;
+    if (confidence >= 0.5) return chartColors.warning;
+    return chartColors.error;
+  }, [chartColors]);
   const [batchDetail, setBatchDetail] = useState<ImportBatchDetail | null>(null);
   const [previewByFileId, setPreviewByFileId] = useState<Record<string, SourceFilePreview>>({});
   const [selectedSourceFileId, setSelectedSourceFileId] = useState<string | null>(null);
@@ -258,7 +266,7 @@ export function ImportBatchDetailPage() {
         val !== null ? (
           <span style={{ color: confidenceColor(val) }}>{(val * 100).toFixed(0)}%</span>
         ) : (
-          <span style={{ color: '#999' }}>-</span>
+          <span style={{ color: colors.TEXT_TERTIARY }}>-</span>
         )
       ),
     },
@@ -311,7 +319,7 @@ export function ImportBatchDetailPage() {
         <Title level={4} style={{ margin: 0 }}>{batchDetail?.batch_name ?? '导入批次详情'}</Title>
       </Space>
 
-      {pageError && <Card style={{ marginBottom: 16, borderColor: '#F54A45' }}><Typography.Text type="danger">{pageError}</Typography.Text></Card>}
+      {pageError && <Card style={{ marginBottom: 16, borderColor: cardColors.errorBorder }}><Typography.Text type="danger">{pageError}</Typography.Text></Card>}
 
       {/* Batch info */}
       <Card style={{ marginBottom: 16 }}>
@@ -355,7 +363,7 @@ export function ImportBatchDetailPage() {
                     size="small"
                     hoverable
                     onClick={() => setSelectedSourceFileId(file.id)}
-                    style={{ borderColor: isActive ? '#3370FF' : undefined }}
+                    style={{ borderColor: isActive ? cardColors.primaryBorder : undefined }}
                   >
                     <Typography.Text strong ellipsis>{file.file_name}</Typography.Text>
                     <div><Typography.Text type="secondary">{file.region ?? '自动识别地区'}</Typography.Text></div>

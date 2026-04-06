@@ -6,6 +6,8 @@ import type { ColumnsType } from 'antd/es/table';
 import { WorkflowSteps } from '../components/WorkflowSteps';
 import { fetchDashboardOverview, fetchDataQuality, type DashboardOverview, type DataQualityOverview } from '../services/dashboard';
 import { fetchSystemHealth, type SystemHealth } from '../services/system';
+import { useCardStatusColors } from '../theme/useCardStatusColors';
+import { useSemanticColors } from '../theme/useSemanticColors';
 
 const { Title, Text } = Typography;
 
@@ -135,6 +137,8 @@ interface BatchQualityRow {
 }
 
 export function DashboardPage() {
+  const cardColors = useCardStatusColors();
+  const colors = useSemanticColors();
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
   const [quality, setQuality] = useState<DataQualityOverview | null>(null);
@@ -254,7 +258,7 @@ export function DashboardPage() {
       <WorkflowSteps />
 
       {pageError && (
-        <Card style={{ marginBottom: 16, borderColor: '#F54A45' }}>
+        <Card style={{ marginBottom: 16, borderColor: cardColors.errorBorder }}>
           <Text type="danger">{pageError}</Text>
         </Card>
       )}
@@ -276,7 +280,7 @@ export function DashboardPage() {
                 <Statistic
                   title={item.label}
                   value={item.value}
-                  valueStyle={{ fontSize: 24, color: idx === 0 ? '#3370FF' : undefined }}
+                  valueStyle={{ fontSize: 24, color: idx === 0 ? colors.BRAND : undefined }}
                 />
               </Card>
             </Col>

@@ -24,6 +24,7 @@ import { UploadOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons'
 import type { ColumnsType } from 'antd/es/table';
 
 import { normalizeApiError } from '../services/api';
+import { useCardStatusColors } from '../theme/useCardStatusColors';
 import {
   deleteEmployeeMasterAudit,
   deleteEmployeeMaster,
@@ -93,6 +94,7 @@ function toFormState(employee: EmployeeMasterItem | null): EmployeeFormState {
 }
 
 export function EmployeesPage() {
+  const cardColors = useCardStatusColors();
   const [employees, setEmployees] = useState<EmployeeMasterItem[]>([]);
   const [totalEmployees, setTotalEmployees] = useState(0);
   const [query, setQuery] = useState('');
@@ -430,7 +432,7 @@ export function EmployeesPage() {
         </Card>
       )}
 
-      {pageError && <Card style={{ marginBottom: 16, borderColor: '#F54A45' }}><Typography.Text type="danger">{pageError}</Typography.Text></Card>}
+      {pageError && <Card style={{ marginBottom: 16, borderColor: cardColors.errorBorder }}><Typography.Text type="danger">{pageError}</Typography.Text></Card>}
 
       {/* Filter bar */}
       <Card style={{ marginBottom: 16 }}>
