@@ -70,12 +70,7 @@ Plans:
   2. 用户点击切换按钮可在亮色/暗黑模式间切换，所有页面颜色正确响应
   3. 暗黑模式偏好持久化到 localStorage，刷新后保持用户选择
   4. 暗黑模式下无"半白半黑"的混合颜色问题
-**Plans**: 4 plans
-Plans:
-- [ ] 14-01-PLAN.md — 主题基础设施（buildTheme + ThemeModeProvider + hooks + FOUC + 切换按钮 + MainLayout token 化）
-- [ ] 14-02-PLAN.md — 核心业务页面 token 化（App/Login/Workspace/Portal/Dashboard/Employees/ImportBatchDetail/SimpleAggregate/Imports）
-- [ ] 14-03-PLAN.md — 结果/对比/飞书页面 token 化（Results/Exports/Mappings/AnomalyDetection/Compare/PeriodCompare/FeishuFieldMapping/FeishuSync/ApiKeys）
-- [ ] 14-04-PLAN.md — 死代码清理 + 硬编码色审计脚本 + 视觉验证 checkpoint
+**Plans**: TBD
 **UI hint**: yes
 
 ### Phase 15: 菜单重组与设置导航
@@ -168,7 +163,7 @@ Phases execute in numeric order. Phases 15-18 depend on 14 (token化); Phases 16
 | 11. Intelligence & Polish | v1.0 | 5/5 | Complete | 2026-04-04 |
 | 12. Integration Wiring Fix | v1.0 | 1/1 | Complete | 2026-04-04 |
 | 13. 基础准备与部署适配 | v1.1 | 0/4 | Complete    | 2026-04-05 |
-| 14. 样式 Token 化与暗黑模式 | v1.1 | 0/4 | Planned | - |
+| 14. 样式 Token 化与暗黑模式 | v1.1 | 0/0 | Not started | - |
 | 15. 菜单重组与设置导航 | v1.1 | 0/0 | Not started | - |
 | 16. 账号管理 | v1.1 | 0/0 | Not started | - |
 | 17. 数据管理增强 | v1.1 | 0/0 | Not started | - |
