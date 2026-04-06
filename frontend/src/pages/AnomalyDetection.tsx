@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSemanticColors } from "../theme/useSemanticColors";
+import { getChartColors } from "../theme/chartColors";
+import { useThemeMode } from "../theme/useThemeMode";
 import {
   Alert,
   Button,
@@ -80,6 +83,9 @@ const FIELD_FILTER_OPTIONS = Object.entries(FIELD_LABELS).map(([key, label]) => 
 }));
 
 export default function AnomalyDetectionPage() {
+  const colors = useSemanticColors();
+  const { isDark } = useThemeMode();
+  const chartCols = useMemo(() => getChartColors(isDark), [isDark]);
   const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(null);
   const [leftPeriod, setLeftPeriod] = useState<string | undefined>();
   const [rightPeriod, setRightPeriod] = useState<string | undefined>();
@@ -212,7 +218,7 @@ export default function AnomalyDetectionPage() {
     [filterOptions],
   );
 
-  const columns: ColumnsType<AnomalyRecord> = [
+  const columns: ColumnsType<AnomalyRecord> = useMemo(() => [
     {
       title: "姓名",
       dataIndex: "person_name",
@@ -264,7 +270,7 @@ export default function AnomalyDetectionPage() {
       key: "change_percent",
       width: 100,
       render: (v: number) => {
-        const color = v > 0 ? "#F54A45" : v < 0 ? "#00B42A" : undefined;
+        const color = v > 0 ? chartCols.error : v < 0 ? chartCols.success : undefined;
         return <span style={{ color }}>{v > 0 ? "+" : ""}{v.toFixed(1)}%</span>;
       },
     },
@@ -282,9 +288,9 @@ export default function AnomalyDetectionPage() {
       width: 100,
       render: (v: string) => {
         const map: Record<string, { color: string; label: string }> = {
-          pending: { color: "#FF7D00", label: "待处理" },
-          confirmed: { color: "#F54A45", label: "已确认" },
-          excluded: { color: "#00B42A", label: "已排除" },
+          pending: { color: chartCols.warning, label: "待处理" },
+          confirmed: { color: chartCols.error, label: "已确认" },
+          excluded: { color: chartCols.success, label: "已排除" },
         };
         const info = map[v] ?? { color: "default", label: v };
         return <Tag color={info.color}>{info.label}</Tag>;
@@ -319,7 +325,7 @@ export default function AnomalyDetectionPage() {
         );
       },
     },
-  ];
+  ], [chartCols, handleUpdateStatus, updatingStatus]);
 
   return (
     <div>
@@ -446,14 +452,14 @@ export default function AnomalyDetectionPage() {
               <Statistic
                 title="待处理"
                 value={stats.pending}
-                valueStyle={{ color: "#FF7D00" }}
+                valueStyle={{ color: colors.WARNING }}
               />
             </Col>
             <Col>
               <Statistic
                 title="已确认"
                 value={stats.confirmed}
-                valueStyle={{ color: "#F54A45" }}
+                valueStyle={{ color: colors.ERROR }}
               />
             </Col>
           </Row>

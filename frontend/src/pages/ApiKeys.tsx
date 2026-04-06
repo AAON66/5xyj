@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { useSemanticColors } from '../theme/useSemanticColors';
 import {
   Button,
   Card,
@@ -32,6 +33,7 @@ interface UserOption {
 }
 
 export function ApiKeysPage() {
+  const colors = useSemanticColors();
   const [keys, setKeys] = useState<ApiKeyRead[]>([]);
   const [loading, setLoading] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
@@ -257,7 +259,7 @@ export function ApiKeysPage() {
               <Text type="secondary">绑定用户：</Text>
               <Text>{createdKey.owner_username} ({createdKey.owner_role})</Text>
             </div>
-            <div style={{ background: '#f5f5f5', padding: '12px 16px', borderRadius: 6 }}>
+            <div style={{ background: colors.FILL_QUATERNARY, padding: '12px 16px', borderRadius: 6 }}>
               <Text type="secondary" style={{ display: 'block', marginBottom: 4 }}>API Key：</Text>
               <Text copyable strong style={{ fontSize: 14, wordBreak: 'break-all' }}>
                 {createdKey.key}

@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSemanticColors } from "../theme/useSemanticColors";
+import { getChartColors } from "../theme/chartColors";
+import { useThemeMode } from "../theme/useThemeMode";
 import {
   Alert,
   Button,
@@ -63,17 +66,19 @@ function fieldLabel(field: string): string {
 function diffCellStyle(
   leftVal: number | null | undefined,
   rightVal: number | null | undefined,
+  successColor: string,
+  errorColor: string,
 ): React.CSSProperties {
   const l = typeof leftVal === "number" ? leftVal : null;
   const r = typeof rightVal === "number" ? rightVal : null;
   if (l === null || r === null || l === r) return {};
-  if (r > l) return { color: "#00B42A" };
-  return { color: "#F54A45" };
+  if (r > l) return { color: successColor };
+  return { color: errorColor };
 }
 
-function rowBackground(status: string): string | undefined {
-  if (status === "right_only") return "#F0F5FF";
-  if (status === "left_only") return "#FFF1F0";
+function rowBackground(status: string, brandBg: string, errorBg: string): string | undefined {
+  if (status === "right_only") return brandBg;
+  if (status === "left_only") return errorBg;
   return undefined;
 }
 
@@ -82,6 +87,9 @@ interface SummaryRow extends PeriodCompareSummaryGroup {
 }
 
 export default function PeriodComparePage() {
+  const colors = useSemanticColors();
+  const { isDark } = useThemeMode();
+  const chartCols = useMemo(() => getChartColors(isDark), [isDark]);
   const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(null);
   const [leftPeriod, setLeftPeriod] = useState<string | undefined>();
   const [rightPeriod, setRightPeriod] = useState<string | undefined>();
@@ -163,19 +171,19 @@ export default function PeriodComparePage() {
       title: "有差异",
       dataIndex: "changed_count",
       key: "changed_count",
-      render: (v: number) => <span style={{ color: v > 0 ? "#FF7D00" : undefined }}>{v}</span>,
+      render: (v: number) => <span style={{ color: v > 0 ? chartCols.warning : undefined }}>{v}</span>,
     },
     {
       title: "仅左侧",
       dataIndex: "left_only_count",
       key: "left_only_count",
-      render: (v: number) => <span style={{ color: v > 0 ? "#F54A45" : undefined }}>{v}</span>,
+      render: (v: number) => <span style={{ color: v > 0 ? chartCols.error : undefined }}>{v}</span>,
     },
     {
       title: "仅右侧",
       dataIndex: "right_only_count",
       key: "right_only_count",
-      render: (v: number) => <span style={{ color: v > 0 ? "#3370FF" : undefined }}>{v}</span>,
+      render: (v: number) => <span style={{ color: v > 0 ? chartCols.brand : undefined }}>{v}</span>,
     },
     { title: "一致", dataIndex: "same_count", key: "same_count" },
   ];
@@ -227,10 +235,12 @@ export default function PeriodComparePage() {
           const leftVal = row.left.values[field];
           const rightVal = row.right.values[field];
           const isChanged = row.different_fields.includes(field);
-          const cellBg = isChanged ? "#FFF7E6" : undefined;
+          const cellBg = isChanged ? colors.HIGHLIGHT_BG : undefined;
           const style = diffCellStyle(
             leftVal as number | null | undefined,
             rightVal as number | null | undefined,
+            chartCols.success,
+            chartCols.error,
           );
           const leftStr = leftVal !== null && leftVal !== undefined ? String(leftVal) : "-";
           const rightStr = rightVal !== null && rightVal !== undefined ? String(rightVal) : "-";
@@ -277,7 +287,7 @@ export default function PeriodComparePage() {
         scroll={{ x: "max-content" }}
         rowClassName={(row) => ""}
         onRow={(row) => ({
-          style: { background: rowBackground(row.diff_status) },
+          style: { background: rowBackground(row.diff_status, colors.HIGHLIGHT_BG_PRIMARY, colors.HIGHLIGHT_BG_ERROR) },
         })}
       />
     );
@@ -344,7 +354,7 @@ export default function PeriodComparePage() {
             />
           </Col>
           <Col style={{ display: "flex", alignItems: "flex-end", paddingBottom: 4 }}>
-            <SwapOutlined style={{ fontSize: 18, color: "#8F959E" }} />
+            <SwapOutlined style={{ fontSize: 18, color: colors.TEXT_TERTIARY }} />
           </Col>
           <Col>
             <Text type="secondary" style={{ display: "block", marginBottom: 4 }}>
@@ -409,21 +419,21 @@ export default function PeriodComparePage() {
               <Statistic
                 title="有差异"
                 value={data.changed_row_count}
-                valueStyle={{ color: "#FF7D00" }}
+                valueStyle={{ color: colors.WARNING }}
               />
             </Col>
             <Col>
               <Statistic
                 title="仅左侧"
                 value={data.left_only_count}
-                valueStyle={{ color: "#F54A45" }}
+                valueStyle={{ color: colors.ERROR }}
               />
             </Col>
             <Col>
               <Statistic
                 title="仅右侧"
                 value={data.right_only_count}
-                valueStyle={{ color: "#3370FF" }}
+                valueStyle={{ color: colors.BRAND }}
               />
             </Col>
             <Col>

@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useSemanticColors } from '../theme/useSemanticColors';
+import { getChartColors } from '../theme/chartColors';
+import { useThemeMode } from '../theme/useThemeMode';
 import { useNavigate } from 'react-router-dom';
 import {
   Alert,
@@ -41,13 +44,7 @@ import { useFeishuFeatureFlag } from '../hooks/useFeishuFeatureFlag';
 
 const { Title, Text } = Typography;
 
-const STATUS_COLOR: Record<string, string> = {
-  success: '#00B42A',
-  failed: '#F54A45',
-  partial: '#FF7D00',
-  running: 'processing',
-  pending: 'default',
-};
+// STATUS_COLOR moved inside component as useMemo (see below)
 
 const STATUS_LABEL: Record<string, string> = {
   success: '成功',
@@ -63,6 +60,16 @@ const DIRECTION_CONFIG: Record<string, { color: string; label: string }> = {
 };
 
 export function FeishuSyncPage() {
+  const colors = useSemanticColors();
+  const { isDark } = useThemeMode();
+  const chartCols = useMemo(() => getChartColors(isDark), [isDark]);
+  const STATUS_COLOR: Record<string, string> = useMemo(() => ({
+    success: chartCols.success,
+    failed: chartCols.error,
+    partial: chartCols.warning,
+    running: 'processing',
+    pending: 'default',
+  }), [chartCols]);
   const navigate = useNavigate();
   const {
     feishu_sync_enabled,
@@ -370,7 +377,7 @@ export function FeishuSyncPage() {
           {record.diff_fields.map((field) => (
             <div
               key={field}
-              style={{ background: '#FFF7E6', padding: '2px 4px', marginBottom: 2 }}
+              style={{ background: colors.HIGHLIGHT_BG, padding: '2px 4px', marginBottom: 2 }}
             >
               {field}: {String(record.system_values[field] ?? '-')}
             </div>
@@ -387,7 +394,7 @@ export function FeishuSyncPage() {
           {record.diff_fields.map((field) => (
             <div
               key={field}
-              style={{ background: '#FFF7E6', padding: '2px 4px', marginBottom: 2 }}
+              style={{ background: colors.HIGHLIGHT_BG, padding: '2px 4px', marginBottom: 2 }}
             >
               {field}: {String(record.feishu_values[field] ?? '-')}
             </div>
@@ -460,7 +467,7 @@ export function FeishuSyncPage() {
             dataIndex: 'system',
             key: 'system',
             render: (val: string, row: { field: string; system: string; feishu: string }) => (
-              <span style={val !== row.feishu ? { background: '#FFF7E6', padding: '2px 4px' } : {}}>
+              <span style={val !== row.feishu ? { background: colors.HIGHLIGHT_BG, padding: '2px 4px' } : {}}>
                 {val}
               </span>
             ),
@@ -470,7 +477,7 @@ export function FeishuSyncPage() {
             dataIndex: 'feishu',
             key: 'feishu',
             render: (val: string, row: { field: string; system: string; feishu: string }) => (
-              <span style={val !== row.system ? { background: '#FFF7E6', padding: '2px 4px' } : {}}>
+              <span style={val !== row.system ? { background: colors.HIGHLIGHT_BG, padding: '2px 4px' } : {}}>
                 {val}
               </span>
             ),
