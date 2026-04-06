@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { ConfigProvider, App as AntApp } from "antd";
@@ -6,12 +6,24 @@ import zhCN from "antd/locale/zh_CN";
 
 import App from "./App";
 import { ApiFeedbackProvider, AuthProvider } from "./components";
-import { theme } from "./theme";
+import { ThemeModeProvider } from "./theme/ThemeModeProvider";
+import { useThemeMode } from "./theme/useThemeMode";
+import { buildTheme } from "./theme";
+
+function ThemedConfig({ children }: { children: React.ReactNode }) {
+  const { mode } = useThemeMode();
+  const themeConfig = useMemo(() => buildTheme(mode), [mode]);
+  return (
+    <ConfigProvider theme={themeConfig} componentSize="small" locale={zhCN}>
+      <AntApp>{children}</AntApp>
+    </ConfigProvider>
+  );
+}
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <ConfigProvider theme={theme} componentSize="small" locale={zhCN}>
-      <AntApp>
+    <ThemeModeProvider>
+      <ThemedConfig>
         <BrowserRouter>
           <AuthProvider>
             <ApiFeedbackProvider>
@@ -19,7 +31,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
             </ApiFeedbackProvider>
           </AuthProvider>
         </BrowserRouter>
-      </AntApp>
-    </ConfigProvider>
+      </ThemedConfig>
+    </ThemeModeProvider>
   </React.StrictMode>,
 );

@@ -4,6 +4,20 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>社保表格聚合工具</title>
+    <script>
+      (function() {
+        try {
+          var saved = localStorage.getItem('theme-mode');
+          var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var mode = (saved === 'light' || saved === 'dark') ? saved : (prefersDark ? 'dark' : 'light');
+          document.documentElement.setAttribute('data-theme', mode);
+          if (mode === 'dark') {
+            document.documentElement.style.backgroundColor = '#1F1F1F';
+            if (document.body) document.body.style.backgroundColor = '#1F1F1F';
+          }
+        } catch(e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

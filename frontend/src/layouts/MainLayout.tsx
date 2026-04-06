@@ -28,12 +28,16 @@ import {
   UserOutlined,
   CloudSyncOutlined,
   SettingOutlined,
+  SunOutlined,
+  MoonOutlined,
 } from '@ant-design/icons';
 
 import { useAuth } from '../hooks/useAuth';
 import { useAggregateSession } from '../hooks/useAggregateSession';
 import { useApiFeedback } from '../hooks/useApiFeedback';
 import { useFeishuFeatureFlag } from '../hooks/useFeishuFeatureFlag';
+import { useThemeMode } from '../theme/useThemeMode';
+import { useSemanticColors } from '../theme/useSemanticColors';
 import { cancelAggregateSession, clearAggregateSession } from '../services/aggregateSessionStore';
 import animations from '../theme/animations.module.css';
 import styles from './MainLayout.module.css';
@@ -209,6 +213,8 @@ export function MainLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const { feishu_sync_enabled } = useFeishuFeatureFlag();
+  const { isDark, toggleMode } = useThemeMode();
+  const colors = useSemanticColors();
 
   const dynamicNavItems = useMemo(() => {
     const items = [...ALL_NAV_ITEMS];
@@ -268,17 +274,23 @@ export function MainLayout() {
       <Layout>
         <Header
           style={{
-            background: '#fff',
+            background: colors.BG_CONTAINER,
             padding: '0 24px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            borderBottom: '1px solid #DEE0E3',
+            borderBottom: `1px solid ${colors.BORDER}`,
           }}
         >
           <Breadcrumb items={buildBreadcrumbItems(location.pathname)} />
           <Space>
             <span>{user?.displayName || '未登录'}</span>
+            <Button
+              type="text"
+              icon={isDark ? <SunOutlined /> : <MoonOutlined />}
+              onClick={toggleMode}
+              aria-label={isDark ? '切换到亮色模式' : '切换到暗色模式'}
+            />
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
               <Button type="text" icon={<UserOutlined />} />
             </Dropdown>
@@ -288,7 +300,7 @@ export function MainLayout() {
           style={{
             margin: '0',
             padding: '24px',
-            background: '#F5F6F7',
+            background: colors.BG_LAYOUT,
             height: 'calc(100vh - 56px)',
             overflowY: 'auto',
           }}
