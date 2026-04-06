@@ -21,6 +21,7 @@ import { InboxOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons
 import type { ColumnsType } from 'antd/es/table';
 
 import { normalizeApiError } from '../services/api';
+import { useSemanticColors } from '../theme/useSemanticColors';
 import {
   bulkDeleteImportBatches,
   createImportBatch,
@@ -77,6 +78,7 @@ function statusTagColor(status: string): string {
 }
 
 export function ImportsPage() {
+  const colors = useSemanticColors();
   const [batches, setBatches] = useState<ImportBatchSummary[]>([]);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [selectedBatch, setSelectedBatch] = useState<ImportBatchDetail | null>(null);
@@ -324,9 +326,9 @@ export function ImportsPage() {
               fileList={files.map((f) => ({ uid: `${f.name}-${f.size}`, name: f.name, status: 'done' as const }))}
               style={{ marginBottom: 12 }}
             >
-              <p><InboxOutlined style={{ fontSize: 32, color: '#3370FF' }} /></p>
+              <p><InboxOutlined style={{ fontSize: 32, color: colors.BRAND }} /></p>
               <p>点击或拖拽上传 Excel 文件</p>
-              <p style={{ color: '#8F959E' }}>支持 .xlsx / .xls</p>
+              <p style={{ color: colors.TEXT_TERTIARY }}>支持 .xlsx / .xls</p>
             </Dragger>
             <Space>
               <Button type="primary" onClick={() => void handleCreateBatch()} disabled={submitting || files.length === 0} loading={submitting}>
@@ -373,7 +375,7 @@ export function ImportsPage() {
                 }}
                 onRow={(record) => ({
                   onClick: () => setSelectedBatchId(record.id),
-                  style: { cursor: 'pointer', background: record.id === selectedBatchId ? '#F0F5FF' : undefined },
+                  style: { cursor: 'pointer', background: record.id === selectedBatchId ? colors.HIGHLIGHT_BG_PRIMARY : undefined },
                 })}
               />
             )}

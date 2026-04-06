@@ -32,6 +32,10 @@ import {
 
 import { useAggregateSession } from '../hooks';
 import { WorkflowSteps } from '../components/WorkflowSteps';
+import { useSemanticColors } from '../theme/useSemanticColors';
+import { useCardStatusColors } from '../theme/useCardStatusColors';
+import { getChartColors } from '../theme/chartColors';
+import { useThemeMode } from '../theme/useThemeMode';
 import { downloadAggregateArtifact, type AggregateArtifact, type AggregateProgressEvent } from '../services/aggregate';
 import { cancelAggregateSession, clearAggregateSession, startAggregateSession } from '../services/aggregateSessionStore';
 import { fetchEmployeeMasters } from '../services/employees';
@@ -168,6 +172,10 @@ function triggerBlobDownload(blob: Blob, fileName: string): void {
 export function SimpleAggregatePage() {
   const aggregateSession = useAggregateSession();
   const { message: messageApi } = App.useApp();
+  const colors = useSemanticColors();
+  const cardColors = useCardStatusColors();
+  const { isDark } = useThemeMode();
+  const chartColors = useMemo(() => getChartColors(isDark), [isDark]);
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [existingEmployeeMasterCount, setExistingEmployeeMasterCount] = useState(0);
   const [loadingEmployeeMasters, setLoadingEmployeeMasters] = useState(true);
@@ -372,13 +380,13 @@ export function SimpleAggregatePage() {
       <WorkflowSteps />
 
       {health && (
-        <Card size="small" style={{ marginBottom: 16, borderColor: '#00B42A' }}>
+        <Card size="small" style={{ marginBottom: 16, borderColor: cardColors.successBorder }}>
           <Text type="success">后端已就绪 - 社保表格聚合工具 {health.version}</Text>
         </Card>
       )}
 
       {pageError && (
-        <Card size="small" style={{ marginBottom: 16, borderColor: '#F54A45' }}>
+        <Card size="small" style={{ marginBottom: 16, borderColor: cardColors.errorBorder }}>
           <Text type="danger">{pageError}</Text>
         </Card>
       )}
@@ -394,7 +402,7 @@ export function SimpleAggregatePage() {
       )}
 
       {result && result.blocked_reason && (
-        <Card size="small" style={{ marginBottom: 16, borderColor: '#FF7D00' }}>
+        <Card size="small" style={{ marginBottom: 16, borderColor: cardColors.warningBorder }}>
           <Text type="warning">{TEXT.blockedTitle}: {result.blocked_reason}</Text>
         </Card>
       )}
@@ -429,9 +437,9 @@ export function SimpleAggregatePage() {
               disabled={lockSelection}
               style={{ marginBottom: 16 }}
             >
-              <p><InboxOutlined style={{ fontSize: 48, color: '#3370FF' }} /></p>
+              <p><InboxOutlined style={{ fontSize: 48, color: colors.BRAND }} /></p>
               <p>点击或拖拽社保 Excel 文件到此区域</p>
-              <p style={{ color: '#8F959E', fontSize: 12 }}>支持 .xlsx, .xls 格式，可多选</p>
+              <p style={{ color: colors.TEXT_TERTIARY, fontSize: 12 }}>支持 .xlsx, .xls 格式，可多选</p>
             </Dragger>
             {socialDisplayList.length > 0 && (
               <Text type="secondary" style={{ marginTop: 4 }}>
@@ -456,9 +464,9 @@ export function SimpleAggregatePage() {
               disabled={lockSelection}
               style={{ marginBottom: 16 }}
             >
-              <p><InboxOutlined style={{ fontSize: 48, color: '#3370FF' }} /></p>
+              <p><InboxOutlined style={{ fontSize: 48, color: colors.BRAND }} /></p>
               <p>点击或拖拽公积金 Excel 文件到此区域</p>
-              <p style={{ color: '#8F959E', fontSize: 12 }}>支持 .xlsx, .xls 格式，可多选</p>
+              <p style={{ color: colors.TEXT_TERTIARY, fontSize: 12 }}>支持 .xlsx, .xls 格式，可多选</p>
             </Dragger>
             {housingDisplayList.length > 0 && (
               <Text type="secondary" style={{ marginTop: 4 }}>
@@ -552,7 +560,7 @@ export function SimpleAggregatePage() {
                 style={{
                   width: '100%',
                   padding: '4px 11px',
-                  border: '1px solid #DEE0E3',
+                  border: `1px solid ${colors.BORDER}`,
                   borderRadius: 4,
                   fontSize: 14,
                   lineHeight: '22px',
@@ -603,7 +611,7 @@ export function SimpleAggregatePage() {
                     {parseFiles.length > 0 && (
                       <div style={{ marginTop: 12, maxHeight: 200, overflowY: 'auto' }}>
                         {parseFiles.map((item) => (
-                          <div key={item.source_file_id ?? `${item.file_index}_${item.file_name}`} style={{ padding: '4px 0', borderBottom: '1px solid #E8E8E8' }}>
+                          <div key={item.source_file_id ?? `${item.file_index}_${item.file_name}`} style={{ padding: '4px 0', borderBottom: `1px solid ${colors.BORDER_SECONDARY}` }}>
                             <Text strong>{`${item.file_index}. ${item.file_name}`}</Text>
                             <Tag style={{ marginLeft: 8 }} color={item.phase === 'parse_saved' ? 'success' : item.phase === 'parse_started' ? 'processing' : 'default'}>
                               {item.phase === 'parse_saved' ? '已保存' : item.phase === 'parse_started' ? '解析中' : item.phase === 'parse_analyzed' ? '待保存' : '排队中'}
@@ -659,7 +667,7 @@ export function SimpleAggregatePage() {
                         key={artifact.template_type}
                         size="small"
                         style={{
-                          borderColor: artifact.status === 'completed' ? '#00B42A' : artifact.status === 'failed' ? '#F54A45' : '#FF7D00',
+                          borderColor: artifact.status === 'completed' ? chartColors.success : artifact.status === 'failed' ? chartColors.error : chartColors.warning,
                         }}
                       >
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
