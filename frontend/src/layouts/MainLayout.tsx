@@ -99,6 +99,7 @@ const MENU_GROUPS: MenuGroupConfig[] = [
       { key: '/data-management', icon: <DatabaseOutlined />, label: '数据管理', roles: ['admin', 'hr'] },
       { key: '/audit-logs', icon: <AuditOutlined />, label: '审计日志', roles: ['admin'] },
       { key: '/api-keys', icon: <KeyOutlined />, label: 'API 密钥', roles: ['admin'] },
+      { key: '/settings', icon: <SettingOutlined />, label: '系统设置', roles: ['admin', 'hr'] },
     ],
   },
 ];

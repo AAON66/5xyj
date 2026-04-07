@@ -27,6 +27,7 @@ import {
   NotFoundPage,
   PeriodComparePage,
   ResultsPage,
+  SettingsPage,
   SimpleAggregatePage,
 } from './pages';
 import type { AuthRole } from './services/authSession';
@@ -135,6 +136,7 @@ export default function App() {
             <Route path="/employees/new" element={<EmployeeCreatePage />} />
             <Route path="/employees" element={<EmployeesPage />} />
             <Route path="/data-management" element={<DataManagementPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
             <Route path="/feishu-sync" element={<FeishuSyncPage />} />
           </Route>
           <Route element={<RoleRoute allowedRoles={['admin']} />}>

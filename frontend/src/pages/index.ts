@@ -19,5 +19,6 @@ export * from './NotFound';
 export { default as PeriodComparePage } from './PeriodCompare';
 export * from './Portal';
 export * from './Results';
+export { default as SettingsPage } from './Settings';
 export * from './SimpleAggregate';
 export * from './Workspace';
