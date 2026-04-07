@@ -62,3 +62,10 @@ export async function fetchAuthenticatedUser(): Promise<AuthenticatedUserProfile
   const response = await apiClient.get<ApiSuccessResponse<AuthenticatedUserProfile>>('/auth/me');
   return response.data.data;
 }
+
+export async function changeOwnPassword(oldPassword: string, newPassword: string): Promise<void> {
+  await apiClient.put('/auth/change-password', {
+    old_password: oldPassword,
+    new_password: newPassword,
+  });
+}
