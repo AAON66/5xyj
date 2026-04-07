@@ -239,7 +239,7 @@ export function UsersPage() {
       title: '操作',
       key: 'actions',
       width: 140,
-      render: (_: unknown, record: UserItem) => (
+      render: (_value: unknown, record: UserItem) => (
         <Space>
           <Button type="link" size="small" icon={<EditOutlined />} onClick={() => handleEditOpen(record)}>
             编辑

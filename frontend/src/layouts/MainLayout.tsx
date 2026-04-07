@@ -27,6 +27,7 @@ import {
   DatabaseOutlined,
   AuditOutlined,
   KeyOutlined,
+  LockOutlined,
   LogoutOutlined,
   SearchOutlined,
   UserOutlined,
@@ -44,6 +45,7 @@ import { useMenuOpenKeys } from '../hooks/useMenuOpenKeys';
 import { useThemeMode } from '../theme/useThemeMode';
 import { useSemanticColors } from '../theme/useSemanticColors';
 import { cancelAggregateSession, clearAggregateSession } from '../services/aggregateSessionStore';
+import { ChangePasswordModal } from '../components/ChangePasswordModal';
 import animations from '../theme/animations.module.css';
 import styles from './MainLayout.module.css';
 
@@ -97,6 +99,7 @@ const MENU_GROUPS: MenuGroupConfig[] = [
     icon: <SettingOutlined />,
     defaultOpen: false,
     children: [
+      { key: '/users', icon: <UserOutlined />, label: '账号管理', roles: ['admin'] },
       { key: '/employees', icon: <TeamOutlined />, label: '员工主档', roles: ['admin', 'hr'] },
       { key: '/data-management', icon: <DatabaseOutlined />, label: '数据管理', roles: ['admin', 'hr'] },
       { key: '/audit-logs', icon: <AuditOutlined />, label: '审计日志', roles: ['admin'] },
@@ -193,6 +196,7 @@ const LABEL_MAP: Record<string, string> = {
   'feishu-settings': '飞书设置',
   'feishu-mapping': '字段映射',
   settings: '系统设置',
+  users: '账号管理',
 };
 
 function useResponsiveCollapse(breakpoint: number = 1440): boolean {
@@ -404,7 +408,22 @@ export function MainLayout() {
     try { localStorage.setItem('sider-collapsed', JSON.stringify(value)); } catch { /* ignore */ }
   };
 
+  // Change password modal state (voluntary mode, triggered from Header dropdown)
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
+
+  // Build user menu items -- only admin/hr see "change password" option
+  const changePasswordItem: MenuProps['items'] = user?.role !== 'employee' ? [
+    {
+      key: 'change-password',
+      icon: <LockOutlined />,
+      label: '修改密码',
+      onClick: () => setChangePasswordOpen(true),
+    },
+    { type: 'divider' as const },
+  ] : [];
+
   const userMenuItems: MenuProps['items'] = [
+    ...changePasswordItem,
     {
       key: 'logout',
       icon: <LogoutOutlined />,
@@ -501,6 +520,24 @@ export function MainLayout() {
           </AnimatedContent>
         </Content>
       </Layout>
+      {/* Voluntary change password (Header dropdown trigger) */}
+      <ChangePasswordModal
+        open={changePasswordOpen}
+        forced={false}
+        onSuccess={() => setChangePasswordOpen(false)}
+        onCancel={() => setChangePasswordOpen(false)}
+      />
+      {/* Forced change password (mustChangePassword=true, admin/hr only) */}
+      {user?.mustChangePassword && user?.role !== 'employee' && (
+        <ChangePasswordModal
+          open={true}
+          forced={true}
+          onSuccess={() => {
+            // writeAuthSession already called inside Modal
+            // AUTH_SESSION_EVENT dispatched -> AuthProvider syncs -> mustChangePassword becomes false
+          }}
+        />
+      )}
     </Layout>
   );
 }

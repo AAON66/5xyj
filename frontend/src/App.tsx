@@ -29,6 +29,7 @@ import {
   ResultsPage,
   SettingsPage,
   SimpleAggregatePage,
+  UsersPage,
 } from './pages';
 import type { AuthRole } from './services/authSession';
 
@@ -141,6 +142,7 @@ export default function App() {
           </Route>
           <Route element={<RoleRoute allowedRoles={['admin']} />}>
             <Route path="/workspace/admin" element={<AdminWorkspacePage />} />
+            <Route path="/users" element={<UsersPage />} />
             <Route path="/audit-logs" element={<AuditLogsPage />} />
             <Route path="/api-keys" element={<ApiKeysPage />} />
             <Route path="/feishu-settings" element={<FeishuSettingsPage />} />

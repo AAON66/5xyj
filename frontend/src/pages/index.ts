@@ -21,4 +21,5 @@ export * from './Portal';
 export * from './Results';
 export { default as SettingsPage } from './Settings';
 export * from './SimpleAggregate';
+export { UsersPage } from './Users';
 export * from './Workspace';
