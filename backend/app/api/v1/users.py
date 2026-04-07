@@ -73,6 +73,14 @@ def update_user_endpoint(
     db: Session = Depends(get_db),
     current_user: AuthUser = Depends(require_authenticated_user),
 ):
+    # Self-protection: admin cannot disable self or change own role
+    user_record = get_user_by_id(db, user_id)
+    if user_record and user_record.username == current_user.username:
+        if body.is_active is not None and body.is_active is False:
+            raise HTTPException(status_code=403, detail="Cannot disable your own account.")
+        if body.role is not None and body.role != user_record.role:
+            raise HTTPException(status_code=403, detail="Cannot change your own role.")
+
     kwargs = body.model_dump(exclude_unset=True)
     try:
         user = update_user(db, user_id, **kwargs)
@@ -100,6 +108,11 @@ def reset_password_endpoint(
     db: Session = Depends(get_db),
     current_user: AuthUser = Depends(require_authenticated_user),
 ):
+    # Self-protection: admin cannot reset own password via this endpoint
+    user_record = get_user_by_id(db, user_id)
+    if user_record and user_record.username == current_user.username:
+        raise HTTPException(status_code=403, detail="Cannot reset your own password. Use change-password instead.")
+
     user = reset_user_password(db, user_id, body.new_password)
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")

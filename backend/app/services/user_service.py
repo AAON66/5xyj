@@ -65,7 +65,7 @@ def create_user(
         role=role,
         display_name=display_name,
         is_active=True,
-        must_change_password=False,
+        must_change_password=True,
     )
     db.add(user)
     db.commit()
@@ -104,7 +104,7 @@ def reset_user_password(db: Session, user_id: str, new_password: str) -> Optiona
         return None
 
     user.hashed_password = hash_password(new_password)
-    user.must_change_password = False
+    user.must_change_password = True
     db.commit()
     db.refresh(user)
     return user
