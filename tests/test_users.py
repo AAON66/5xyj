@@ -304,3 +304,74 @@ class TestAuthMe:
         assert resp.status_code == 200
         data = resp.json()["data"]
         assert data["display_name"] == "Custom Display Name"
+
+
+# ---------------------------------------------------------------------------
+# Task 2: must_change_password fixes + admin self-protection
+# ---------------------------------------------------------------------------
+
+class TestResetPasswordMustChange:
+    def test_reset_sets_must_change_password(self, test_client, seed_test_admin, seed_test_hr):
+        """Reset password should set must_change_password=True."""
+        headers = _admin_headers(test_client, seed_test_admin)
+        user_id = str(seed_test_hr.id)
+        resp = test_client.put(f"/api/v1/users/{user_id}/password", json={
+            "new_password": "brandnewpass123",
+        }, headers=headers)
+        assert resp.status_code == 200
+        # Verify must_change_password is True
+        resp2 = test_client.get(f"/api/v1/users/{user_id}", headers=headers)
+        assert resp2.json()["data"]["must_change_password"] is True
+
+
+class TestCreateUserMustChange:
+    def test_create_user_sets_must_change_password(self, test_client, seed_test_admin):
+        """Newly created user should have must_change_password=True."""
+        headers = _admin_headers(test_client, seed_test_admin)
+        resp = test_client.post("/api/v1/users/", json={
+            "username": "newuser_mcp",
+            "password": "securepass123",
+            "role": "hr",
+        }, headers=headers)
+        assert resp.status_code == 201
+        data = resp.json()["data"]
+        assert data["must_change_password"] is True
+
+
+class TestSelfProtection:
+    def test_admin_cannot_disable_self(self, test_client, seed_test_admin):
+        """Admin cannot disable their own account (returns 403)."""
+        headers = _admin_headers(test_client, seed_test_admin)
+        user_id = str(seed_test_admin.id)
+        resp = test_client.put(f"/api/v1/users/{user_id}", json={
+            "is_active": False,
+        }, headers=headers)
+        assert resp.status_code == 403
+
+    def test_admin_cannot_change_own_role(self, test_client, seed_test_admin):
+        """Admin cannot change their own role (returns 403)."""
+        headers = _admin_headers(test_client, seed_test_admin)
+        user_id = str(seed_test_admin.id)
+        resp = test_client.put(f"/api/v1/users/{user_id}", json={
+            "role": "hr",
+        }, headers=headers)
+        assert resp.status_code == 403
+
+    def test_admin_can_update_own_display_name(self, test_client, seed_test_admin):
+        """Admin can update their own display_name (returns 200)."""
+        headers = _admin_headers(test_client, seed_test_admin)
+        user_id = str(seed_test_admin.id)
+        resp = test_client.put(f"/api/v1/users/{user_id}", json={
+            "display_name": "New Admin Name",
+        }, headers=headers)
+        assert resp.status_code == 200
+        assert resp.json()["data"]["display_name"] == "New Admin Name"
+
+    def test_admin_cannot_reset_own_password(self, test_client, seed_test_admin):
+        """Admin cannot reset their own password via admin endpoint (returns 403)."""
+        headers = _admin_headers(test_client, seed_test_admin)
+        user_id = str(seed_test_admin.id)
+        resp = test_client.put(f"/api/v1/users/{user_id}/password", json={
+            "new_password": "brandnewpass123",
+        }, headers=headers)
+        assert resp.status_code == 403
