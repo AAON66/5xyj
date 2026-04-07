@@ -8,6 +8,8 @@ import {
   Dropdown,
   Alert,
   Space,
+  Input,
+  Tooltip,
 } from 'antd';
 import type { MenuProps } from 'antd';
 import {
@@ -345,14 +347,44 @@ export function MainLayout() {
     }
   }, [resolvedKey]); // eslint-disable-line react-hooks/exhaustive-deps -- only trigger on route change
 
-  // Build grouped menu items
-  const menuItems = useMemo(
-    () => buildMenuItems(TOP_ITEM, MENU_GROUPS, feishuItems, user?.role || ''),
-    [feishuItems, user?.role]
-  );
+  // Global menu search
+  const [menuSearch, setMenuSearch] = useState('');
+
+  // Collect all searchable items (flat list for search filtering)
+  const allNavItems = useMemo(() => {
+    const role = user?.role || '';
+    if (role === 'employee') return [{ key: '/employee/query', icon: <SearchOutlined />, label: '员工查询', roles: ['employee'] }];
+    const items: NavItem[] = [];
+    if (TOP_ITEM.roles.includes(role)) items.push(TOP_ITEM);
+    for (const group of MENU_GROUPS) {
+      let children = [...group.children];
+      if (group.key === 'group-admin') children = [...children, ...feishuItems];
+      for (const child of children) {
+        if (child.roles.includes(role)) items.push(child);
+      }
+    }
+    return items;
+  }, [user?.role, feishuItems]);
+
+  // Build grouped menu items (normal mode) or flat filtered list (search mode)
+  const menuItems = useMemo(() => {
+    if (!menuSearch) {
+      return buildMenuItems(TOP_ITEM, MENU_GROUPS, feishuItems, user?.role || '');
+    }
+    const term = menuSearch.toLowerCase();
+    return allNavItems
+      .filter(item => item.label.toLowerCase().includes(term))
+      .map(item => ({ key: item.key, icon: item.icon, label: item.label }));
+  }, [feishuItems, user?.role, menuSearch, allNavItems]);
 
   const autoCollapsed = useResponsiveCollapse(1440);
-  const [manualCollapse, setManualCollapse] = useState<boolean | null>(null);
+  const [manualCollapse, setManualCollapse] = useState<boolean | null>(() => {
+    try {
+      const saved = localStorage.getItem('sider-collapsed');
+      if (saved !== null) return JSON.parse(saved);
+    } catch { /* ignore */ }
+    return null;
+  });
   const prevAutoCollapsed = useRef(autoCollapsed);
 
   // When breakpoint changes, reset manual override so auto-collapse takes effect
@@ -360,10 +392,17 @@ export function MainLayout() {
     if (prevAutoCollapsed.current !== autoCollapsed) {
       prevAutoCollapsed.current = autoCollapsed;
       setManualCollapse(null);
+      try { localStorage.removeItem('sider-collapsed'); } catch { /* ignore */ }
     }
   }, [autoCollapsed]);
 
   const collapsed = manualCollapse !== null ? manualCollapse : autoCollapsed;
+
+  // Persist sider collapsed state
+  const handleCollapse = (value: boolean) => {
+    setManualCollapse(value);
+    try { localStorage.setItem('sider-collapsed', JSON.stringify(value)); } catch { /* ignore */ }
+  };
 
   const userMenuItems: MenuProps['items'] = [
     {
@@ -380,21 +419,46 @@ export function MainLayout() {
         theme="dark"
         collapsible
         collapsed={collapsed}
-        onCollapse={(value) => setManualCollapse(value)}
+        onCollapse={handleCollapse}
         width={220}
         collapsedWidth={64}
       >
         <div className={collapsed ? styles.logoCollapsed : styles.logo}>
           {collapsed ? '社保' : '社保公积金管理系统'}
         </div>
+        <div style={{ padding: collapsed ? '8px 12px' : '8px 16px' }}>
+          {collapsed ? (
+            <Tooltip title="搜索功能" placement="right">
+              <Button
+                type="text"
+                icon={<SearchOutlined style={{ color: 'rgba(255,255,255,0.65)' }} />}
+                onClick={() => handleCollapse(false)}
+                style={{ width: '100%' }}
+              />
+            </Tooltip>
+          ) : (
+            <Input
+              placeholder="搜索功能..."
+              prefix={<SearchOutlined style={{ color: 'rgba(255,255,255,0.45)' }} />}
+              allowClear
+              value={menuSearch}
+              onChange={e => setMenuSearch(e.target.value)}
+              style={{
+                background: 'rgba(255,255,255,0.08)',
+                borderColor: 'rgba(255,255,255,0.15)',
+                color: '#fff',
+              }}
+            />
+          )}
+        </div>
         <Menu
           theme="dark"
           mode="inline"
           selectedKeys={[resolvedKey]}
-          openKeys={openKeys}
-          onOpenChange={onOpenChange}
+          openKeys={menuSearch ? [] : openKeys}
+          onOpenChange={menuSearch ? undefined : onOpenChange}
           items={menuItems}
-          onClick={({ key }) => navigate(key)}
+          onClick={({ key }) => { navigate(key); setMenuSearch(''); }}
         />
       </Sider>
       <Layout>

@@ -9,6 +9,11 @@ export function useMenuOpenKeys(defaultKeys: string[], validKeys: string[]) {
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
+          // When validKeys is empty (user not loaded yet), trust saved keys as-is
+          if (validKeys.length === 0) {
+            const strings = parsed.filter((k: unknown) => typeof k === 'string') as string[];
+            return strings.length > 0 ? strings : defaultKeys;
+          }
           const cleaned = parsed.filter(
             (k: unknown) => typeof k === 'string' && validKeys.includes(k)
           );
