@@ -11,12 +11,13 @@ from backend.app.schemas.auth import (
     AuthLoginRequest,
     AuthLoginResponse,
     AuthUserRead,
+    ChangePasswordRequest,
     EmployeeVerifyRequest,
     EmployeeVerifyResponse,
 )
 from backend.app.services.audit_service import log_audit
 from backend.app.services.rate_limiter import RateLimiter
-from backend.app.services.user_service import authenticate_user_login
+from backend.app.services.user_service import authenticate_user_login, change_own_password, get_user_by_username
 from backend.app.utils.request_helpers import get_client_ip
 
 # Error code prefix: AUTH_xxx
@@ -136,7 +137,52 @@ def employee_verify_endpoint(
     return success_response(response.model_dump(mode='json'), message='Employee verification succeeded.')
 
 
-@router.get('/me', summary="\u83b7\u53d6\u5f53\u524d\u7528\u6237\u4fe1\u606f", description="\u8fd4\u56de\u5f53\u524d\u5df2\u8ba4\u8bc1\u7528\u6237\u7684\u57fa\u672c\u4fe1\u606f\uff0c\u5305\u62ec\u7528\u6237\u540d\u548c\u89d2\u8272\u3002")
-def get_current_user_endpoint(user=Depends(require_authenticated_user)):
-    payload = AuthUserRead(username=user.username, role=user.role, display_name=role_display_name(user.role))
+@router.put('/change-password', summary="修改密码", description="用户修改自己的密码，需验证旧密码。仅 admin/hr 角色可用。")
+def change_password_endpoint(
+    request: Request,
+    body: ChangePasswordRequest,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_authenticated_user),
+):
+    # Employee uses three-factor auth, no password account
+    if current_user.role == 'employee':
+        raise HTTPException(status_code=403, detail="Employees do not have password-based accounts.")
+    try:
+        change_own_password(db, current_user.username, body.old_password, body.new_password)
+    except InvalidCredentialsError:
+        log_audit(db, action="change_password_failed", actor_username=current_user.username,
+                  actor_role=current_user.role, ip_address=get_client_ip(request),
+                  resource_type="user", resource_id=current_user.username,
+                  detail={"reason": "wrong_old_password"}, success=False)
+        raise HTTPException(status_code=400, detail="Old password is incorrect.")
+    log_audit(db, action="change_password", actor_username=current_user.username,
+              actor_role=current_user.role, ip_address=get_client_ip(request),
+              resource_type="user", resource_id=current_user.username,
+              detail={}, success=True)
+    return success_response({"message": "Password changed successfully."})
+
+
+@router.get('/me', summary="获取当前用户信息", description="返回当前已认证用户的基本信息，包括用户名、角色、显示名和强制改密状态。")
+def get_current_user_endpoint(
+    user=Depends(require_authenticated_user),
+    db: Session = Depends(get_db),
+):
+    # For admin/hr: look up real user record to get display_name and must_change_password
+    if user.role in ('admin', 'hr'):
+        db_user = get_user_by_username(db, user.username)
+        if db_user:
+            payload = AuthUserRead(
+                username=db_user.username,
+                role=db_user.role,
+                display_name=db_user.display_name or role_display_name(db_user.role),
+                must_change_password=db_user.must_change_password,
+            )
+            return success_response(payload.model_dump(mode='json'), message='Authenticated user retrieved.')
+    # For employee or fallback: no password account, must_change_password always False
+    payload = AuthUserRead(
+        username=user.username,
+        role=user.role,
+        display_name=role_display_name(user.role),
+        must_change_password=False,
+    )
     return success_response(payload.model_dump(mode='json'), message='Authenticated user retrieved.')

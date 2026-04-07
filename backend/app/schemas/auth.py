@@ -40,3 +40,8 @@ class EmployeeVerifyResponse(BaseModel):
     token_type: Literal['bearer'] = 'bearer'
     expires_at: datetime
     user: AuthUserRead
+
+
+class ChangePasswordRequest(BaseModel):
+    old_password: str = Field(min_length=1, max_length=200)
+    new_password: str = Field(min_length=8, max_length=200)

@@ -110,6 +110,24 @@ def reset_user_password(db: Session, user_id: str, new_password: str) -> Optiona
     return user
 
 
+def change_own_password(db: Session, username: str, old_password: str, new_password: str) -> User:
+    """Change a user's own password after verifying old password.
+
+    Raises InvalidCredentialsError if old password is wrong.
+    Raises ValueError if user not found.
+    """
+    user = get_user_by_username(db, username)
+    if user is None:
+        raise ValueError("User not found.")
+    if not verify_password(old_password, user.hashed_password):
+        raise InvalidCredentialsError("Old password is incorrect.")
+    user.hashed_password = hash_password(new_password)
+    user.must_change_password = False
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 def list_users(db: Session) -> list[User]:
     """Return all users ordered by created_at."""
     return db.query(User).order_by(User.created_at).all()

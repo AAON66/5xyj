@@ -224,7 +224,7 @@ class TestChangePassword:
             "new_password": "newsecurepass123",
         }, headers=headers)
         assert resp.status_code == 400
-        assert "Old password is incorrect" in resp.json()["detail"]
+        assert "Old password is incorrect" in resp.json()["error"]["message"]
 
     def test_change_password_too_short(self, test_client, seed_test_admin):
         """Test 3: New password < 8 chars returns 422 (Pydantic validation)."""
