@@ -4,7 +4,7 @@ milestone: v1.1
 milestone_name: 体验优化与功能完善
 status: executing
 stopped_at: Phase 16 UI-SPEC approved
-last_updated: "2026-04-07T07:40:42.509Z"
+last_updated: "2026-04-07T08:05:36.465Z"
 last_activity: 2026-04-07 -- Phase 16 planning complete
 progress:
   total_phases: 8
