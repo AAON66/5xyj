@@ -12,6 +12,8 @@ import {
 import type { MenuProps } from 'antd';
 import {
   AlertOutlined,
+  AppstoreOutlined,
+  BarChartOutlined,
   UploadOutlined,
   DashboardOutlined,
   SwapOutlined,
@@ -36,6 +38,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useAggregateSession } from '../hooks/useAggregateSession';
 import { useApiFeedback } from '../hooks/useApiFeedback';
 import { useFeishuFeatureFlag } from '../hooks/useFeishuFeatureFlag';
+import { useMenuOpenKeys } from '../hooks/useMenuOpenKeys';
 import { useThemeMode } from '../theme/useThemeMode';
 import { useSemanticColors } from '../theme/useSemanticColors';
 import { cancelAggregateSession, clearAggregateSession } from '../services/aggregateSessionStore';
@@ -51,31 +54,116 @@ interface NavItem {
   roles: string[];
 }
 
-const ALL_NAV_ITEMS: NavItem[] = [
-  { key: '/aggregate', icon: <UploadOutlined />, label: '快速融合', roles: ['admin', 'hr'] },
-  { key: '/dashboard', icon: <DashboardOutlined />, label: '处理看板', roles: ['admin', 'hr'] },
-  { key: '/compare', icon: <SwapOutlined />, label: '月度对比', roles: ['admin', 'hr'] },
-  { key: '/period-compare', icon: <SwapOutlined />, label: '跨期对比', roles: ['admin', 'hr'] },
-  { key: '/anomaly-detection', icon: <AlertOutlined />, label: '异常检测', roles: ['admin', 'hr'] },
-  { key: '/imports', icon: <ImportOutlined />, label: '批次管理', roles: ['admin', 'hr'] },
-  { key: '/mappings', icon: <ToolOutlined />, label: '映射修正', roles: ['admin', 'hr'] },
-  { key: '/results', icon: <CheckCircleOutlined />, label: '校验匹配', roles: ['admin', 'hr'] },
-  { key: '/exports', icon: <ExportOutlined />, label: '导出结果', roles: ['admin', 'hr'] },
-  { key: '/employees', icon: <TeamOutlined />, label: '员工主档', roles: ['admin', 'hr'] },
-  { key: '/data-management', icon: <DatabaseOutlined />, label: '数据管理', roles: ['admin', 'hr'] },
-  { key: '/audit-logs', icon: <AuditOutlined />, label: '审计日志', roles: ['admin'] },
-  { key: '/api-keys', icon: <KeyOutlined />, label: 'API 密钥', roles: ['admin'] },
-  { key: '/employee/query', icon: <SearchOutlined />, label: '员工查询', roles: ['employee'] },
+interface MenuGroupConfig {
+  key: string;
+  label: string;
+  icon: React.ReactNode;
+  children: NavItem[];
+  defaultOpen: boolean;
+}
+
+const TOP_ITEM: NavItem = { key: '/aggregate', icon: <UploadOutlined />, label: '快速融合', roles: ['admin', 'hr'] };
+
+const MENU_GROUPS: MenuGroupConfig[] = [
+  {
+    key: 'group-common',
+    label: '常用',
+    icon: <AppstoreOutlined />,
+    defaultOpen: true,
+    children: [
+      { key: '/dashboard', icon: <DashboardOutlined />, label: '处理看板', roles: ['admin', 'hr'] },
+      { key: '/imports', icon: <ImportOutlined />, label: '批次管理', roles: ['admin', 'hr'] },
+      { key: '/results', icon: <CheckCircleOutlined />, label: '校验匹配', roles: ['admin', 'hr'] },
+      { key: '/exports', icon: <ExportOutlined />, label: '导出结果', roles: ['admin', 'hr'] },
+    ],
+  },
+  {
+    key: 'group-analysis',
+    label: '数据分析',
+    icon: <BarChartOutlined />,
+    defaultOpen: false,
+    children: [
+      { key: '/compare', icon: <SwapOutlined />, label: '月度对比', roles: ['admin', 'hr'] },
+      { key: '/period-compare', icon: <SwapOutlined />, label: '跨期对比', roles: ['admin', 'hr'] },
+      { key: '/anomaly-detection', icon: <AlertOutlined />, label: '异常检测', roles: ['admin', 'hr'] },
+      { key: '/mappings', icon: <ToolOutlined />, label: '映射修正', roles: ['admin', 'hr'] },
+    ],
+  },
+  {
+    key: 'group-admin',
+    label: '管理',
+    icon: <SettingOutlined />,
+    defaultOpen: false,
+    children: [
+      { key: '/employees', icon: <TeamOutlined />, label: '员工主档', roles: ['admin', 'hr'] },
+      { key: '/data-management', icon: <DatabaseOutlined />, label: '数据管理', roles: ['admin', 'hr'] },
+      { key: '/audit-logs', icon: <AuditOutlined />, label: '审计日志', roles: ['admin'] },
+      { key: '/api-keys', icon: <KeyOutlined />, label: 'API 密钥', roles: ['admin'] },
+    ],
+  },
 ];
 
-function buildMenuItems(items: NavItem[], userRole: string): MenuProps['items'] {
-  return items
-    .filter((item) => item.roles.includes(userRole))
-    .map((item) => ({
-      key: item.key,
-      icon: item.icon,
-      label: item.label,
-    }));
+/** Map detail/sub-routes back to their parent menu key for selectedKeys highlight */
+function resolveSelectedMenuKey(pathname: string): string {
+  if (pathname.startsWith('/imports/')) return '/imports';
+  if (pathname.startsWith('/employees/')) return '/employees';
+  if (pathname.startsWith('/feishu-mapping/')) return '/feishu-settings';
+  return pathname;
+}
+
+/** Find which group contains the given menu key, used to auto-expand parent group */
+function findParentGroupKey(menuKey: string, groups: MenuGroupConfig[], feishuItems: NavItem[]): string | null {
+  for (const group of groups) {
+    const allChildren = group.key === 'group-admin'
+      ? [...group.children, ...feishuItems]
+      : group.children;
+    if (allChildren.some(child => child.key === menuKey)) {
+      return group.key;
+    }
+  }
+  return null;
+}
+
+function buildMenuItems(
+  topItem: NavItem,
+  groups: MenuGroupConfig[],
+  feishuItems: NavItem[],
+  userRole: string,
+): MenuProps['items'] {
+  // Employee role: no groups, single item only
+  if (userRole === 'employee') {
+    return [{ key: '/employee/query', icon: <SearchOutlined />, label: '员工查询' }];
+  }
+
+  const items: MenuProps['items'] = [];
+
+  // Top pinned item
+  if (topItem.roles.includes(userRole)) {
+    items.push({ key: topItem.key, icon: topItem.icon, label: topItem.label });
+  }
+
+  // Grouped SubMenus
+  for (const group of groups) {
+    let groupChildren = [...group.children];
+    if (group.key === 'group-admin' && feishuItems.length > 0) {
+      groupChildren = [...groupChildren, ...feishuItems];
+    }
+
+    const visibleChildren = groupChildren
+      .filter(child => child.roles.includes(userRole))
+      .map(child => ({ key: child.key, icon: child.icon, label: child.label }));
+
+    if (visibleChildren.length > 0) {
+      items.push({
+        key: group.key,
+        icon: group.icon,
+        label: group.label,
+        children: visibleChildren,
+      });
+    }
+  }
+
+  return items;
 }
 
 const LABEL_MAP: Record<string, string> = {
@@ -101,6 +189,7 @@ const LABEL_MAP: Record<string, string> = {
   'feishu-sync': '飞书同步',
   'feishu-settings': '飞书设置',
   'feishu-mapping': '字段映射',
+  settings: '系统设置',
 };
 
 function useResponsiveCollapse(breakpoint: number = 1440): boolean {
@@ -216,16 +305,50 @@ export function MainLayout() {
   const { isDark, toggleMode } = useThemeMode();
   const colors = useSemanticColors();
 
-  const dynamicNavItems = useMemo(() => {
-    const items = [...ALL_NAV_ITEMS];
-    if (feishu_sync_enabled) {
-      items.push(
-        { key: '/feishu-sync', icon: <CloudSyncOutlined />, label: '飞书同步', roles: ['admin', 'hr'] },
-        { key: '/feishu-settings', icon: <SettingOutlined />, label: '飞书设置', roles: ['admin'] },
-      );
+  // Feishu menu items conditionally injected into admin group
+  const feishuItems: NavItem[] = useMemo(() =>
+    feishu_sync_enabled ? [
+      { key: '/feishu-sync', icon: <CloudSyncOutlined />, label: '飞书同步', roles: ['admin', 'hr'] },
+      { key: '/feishu-settings', icon: <SettingOutlined />, label: '飞书设置', roles: ['admin'] },
+    ] : [],
+    [feishu_sync_enabled]
+  );
+
+  // Compute visible group keys for validKeys cleanup in useMenuOpenKeys
+  const visibleGroupKeys = useMemo(() => {
+    const role = user?.role || '';
+    if (role === 'employee') return [] as string[];
+    return MENU_GROUPS
+      .filter(g => {
+        let children = [...g.children];
+        if (g.key === 'group-admin') children = [...children, ...feishuItems];
+        return children.some(c => c.roles.includes(role));
+      })
+      .map(g => g.key);
+  }, [user?.role, feishuItems]);
+
+  const defaultOpenKeys = useMemo(
+    () => MENU_GROUPS.filter(g => g.defaultOpen).map(g => g.key),
+    []
+  );
+  const { openKeys, onOpenChange } = useMenuOpenKeys(defaultOpenKeys, visibleGroupKeys);
+
+  // Resolve sub-routes to parent menu key for correct highlight
+  const resolvedKey = resolveSelectedMenuKey(location.pathname);
+
+  // Auto-expand parent group when navigating to a child item
+  useEffect(() => {
+    const parentGroup = findParentGroupKey(resolvedKey, MENU_GROUPS, feishuItems);
+    if (parentGroup && !openKeys.includes(parentGroup)) {
+      onOpenChange([...openKeys, parentGroup]);
     }
-    return items;
-  }, [feishu_sync_enabled]);
+  }, [resolvedKey]); // eslint-disable-line react-hooks/exhaustive-deps -- only trigger on route change
+
+  // Build grouped menu items
+  const menuItems = useMemo(
+    () => buildMenuItems(TOP_ITEM, MENU_GROUPS, feishuItems, user?.role || ''),
+    [feishuItems, user?.role]
+  );
 
   const autoCollapsed = useResponsiveCollapse(1440);
   const [manualCollapse, setManualCollapse] = useState<boolean | null>(null);
@@ -266,8 +389,10 @@ export function MainLayout() {
         <Menu
           theme="dark"
           mode="inline"
-          selectedKeys={[location.pathname]}
-          items={buildMenuItems(dynamicNavItems, user?.role || '')}
+          selectedKeys={[resolvedKey]}
+          openKeys={openKeys}
+          onOpenChange={onOpenChange}
+          items={menuItems}
           onClick={({ key }) => navigate(key)}
         />
       </Sider>
