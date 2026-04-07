@@ -81,7 +81,10 @@ Plans:
   1. 左侧菜单按功能分组为多级结构，低频功能（如高级设置）收入子菜单
   2. 菜单分组折叠/展开状态在页面导航间保持
   3. 设置页提供搜索框，输入关键词可快速定位并导航到对应设置项
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 15-01-PLAN.md — 菜单分组重构 + openKeys 持久化 hook
+- [ ] 15-02-PLAN.md — 统一设置页 + 路由注册 + 菜单入口
 **UI hint**: yes
 
 ### Phase 16: 账号管理
@@ -164,7 +167,7 @@ Phases execute in numeric order. Phases 15-18 depend on 14 (token化); Phases 16
 | 12. Integration Wiring Fix | v1.0 | 1/1 | Complete | 2026-04-04 |
 | 13. 基础准备与部署适配 | v1.1 | 0/4 | Complete    | 2026-04-05 |
 | 14. 样式 Token 化与暗黑模式 | v1.1 | 4/4 | Complete    | 2026-04-07 |
-| 15. 菜单重组与设置导航 | v1.1 | 0/0 | Not started | - |
+| 15. 菜单重组与设置导航 | v1.1 | 0/2 | Planning    | - |
 | 16. 账号管理 | v1.1 | 0/0 | Not started | - |
 | 17. 数据管理增强 | v1.1 | 0/0 | Not started | - |
 | 18. 全页面响应式适配 | v1.1 | 0/0 | Not started | - |
