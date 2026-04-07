@@ -96,7 +96,10 @@ Plans:
   2. 管理员可修改已有用户的角色权限
   3. 管理员可为用户重置密码
   4. 普通用户可在个人设置中修改自己的密码
-**Plans**: TBD
+**Plans:** 2 plans
+Plans:
+- [ ] 16-01-PLAN.md — 后端 change-password 端点 + must_change_password 修复 + 自我保护
+- [ ] 16-02-PLAN.md — 前端账号管理页面 + ChangePasswordModal + 路由菜单集成
 **UI hint**: yes
 
 ### Phase 17: 数据管理增强
@@ -168,7 +171,7 @@ Phases execute in numeric order. Phases 15-18 depend on 14 (token化); Phases 16
 | 13. 基础准备与部署适配 | v1.1 | 0/4 | Complete    | 2026-04-05 |
 | 14. 样式 Token 化与暗黑模式 | v1.1 | 4/4 | Complete    | 2026-04-07 |
 | 15. 菜单重组与设置导航 | v1.1 | 2/2 | Complete    | 2026-04-07 |
-| 16. 账号管理 | v1.1 | 0/0 | Not started | - |
+| 16. 账号管理 | v1.1 | 0/2 | Planned | - |
 | 17. 数据管理增强 | v1.1 | 0/0 | Not started | - |
 | 18. 全页面响应式适配 | v1.1 | 0/0 | Not started | - |
 | 19. 融合能力增强 | v1.1 | 0/0 | Not started | - |
