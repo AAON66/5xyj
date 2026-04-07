@@ -197,3 +197,110 @@ class TestResetPassword:
             headers=headers,
         )
         assert resp.status_code == 404
+
+
+# ---------------------------------------------------------------------------
+# PUT /auth/change-password - Change own password
+# ---------------------------------------------------------------------------
+
+class TestChangePassword:
+    def test_change_password_success(self, test_client, seed_test_admin):
+        """Test 1: Admin user can change password with correct old password."""
+        headers = _admin_headers(test_client, seed_test_admin)
+        resp = test_client.put("/api/v1/auth/change-password", json={
+            "old_password": "testpass123",
+            "new_password": "newsecurepass123",
+        }, headers=headers)
+        assert resp.status_code == 200
+        # Verify new password works
+        resp2 = _login(test_client, "testadmin", "newsecurepass123")
+        assert resp2.status_code == 200
+
+    def test_change_password_wrong_old(self, test_client, seed_test_admin):
+        """Test 2: Wrong old password returns 400."""
+        headers = _admin_headers(test_client, seed_test_admin)
+        resp = test_client.put("/api/v1/auth/change-password", json={
+            "old_password": "wrongpassword",
+            "new_password": "newsecurepass123",
+        }, headers=headers)
+        assert resp.status_code == 400
+        assert "Old password is incorrect" in resp.json()["detail"]
+
+    def test_change_password_too_short(self, test_client, seed_test_admin):
+        """Test 3: New password < 8 chars returns 422 (Pydantic validation)."""
+        headers = _admin_headers(test_client, seed_test_admin)
+        resp = test_client.put("/api/v1/auth/change-password", json={
+            "old_password": "testpass123",
+            "new_password": "short",
+        }, headers=headers)
+        assert resp.status_code == 422
+
+    def test_change_password_clears_must_change(self, test_client, seed_test_admin, db_session):
+        """Test 4: After changing password, must_change_password is cleared to False."""
+        # Set must_change_password=True
+        seed_test_admin.must_change_password = True
+        db_session.commit()
+
+        headers = _admin_headers(test_client, seed_test_admin)
+        resp = test_client.put("/api/v1/auth/change-password", json={
+            "old_password": "testpass123",
+            "new_password": "newsecurepass123",
+        }, headers=headers)
+        assert resp.status_code == 200
+
+        # Verify must_change_password is now False
+        db_session.refresh(seed_test_admin)
+        assert seed_test_admin.must_change_password is False
+
+    def test_change_password_unauthenticated(self, test_client):
+        """Test 5: No token returns 401."""
+        resp = test_client.put("/api/v1/auth/change-password", json={
+            "old_password": "testpass123",
+            "new_password": "newsecurepass123",
+        })
+        assert resp.status_code == 401
+
+    def test_change_password_employee_forbidden(self, test_client, seed_test_admin, seed_test_employee):
+        """Test 6: Employee role returns 403."""
+        headers = _employee_headers(test_client, seed_test_employee)
+        resp = test_client.put("/api/v1/auth/change-password", json={
+            "old_password": "anything",
+            "new_password": "newsecurepass123",
+        }, headers=headers)
+        assert resp.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# GET /auth/me - Current user info
+# ---------------------------------------------------------------------------
+
+class TestAuthMe:
+    def test_me_returns_must_change_password_true(self, test_client, seed_test_admin, db_session):
+        """Test 7: When must_change_password=True, GET /auth/me returns it as true."""
+        seed_test_admin.must_change_password = True
+        db_session.commit()
+
+        headers = _admin_headers(test_client, seed_test_admin)
+        resp = test_client.get("/api/v1/auth/me", headers=headers)
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["must_change_password"] is True
+
+    def test_me_returns_must_change_password_false(self, test_client, seed_test_admin):
+        """Test 8: When must_change_password=False, GET /auth/me returns it as false."""
+        headers = _admin_headers(test_client, seed_test_admin)
+        resp = test_client.get("/api/v1/auth/me", headers=headers)
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["must_change_password"] is False
+
+    def test_me_returns_real_display_name(self, test_client, seed_test_admin, db_session):
+        """Test 9: GET /auth/me returns real display_name, not role_display_name."""
+        seed_test_admin.display_name = "Custom Display Name"
+        db_session.commit()
+
+        headers = _admin_headers(test_client, seed_test_admin)
+        resp = test_client.get("/api/v1/auth/me", headers=headers)
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["display_name"] == "Custom Display Name"
