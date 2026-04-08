@@ -80,16 +80,24 @@ export interface PaginatedPeriodSummary {
 }
 
 export async function fetchNormalizedRecords(params: {
-  region?: string;
-  companyName?: string;
-  billingPeriod?: string;
+  regions?: string[];
+  companyNames?: string[];
+  billingPeriods?: string[];
+  matchStatus?: string;
   page?: number;
   pageSize?: number;
 }): Promise<PaginatedRecords> {
   const searchParams = new URLSearchParams();
-  if (params.region) searchParams.set('region', params.region);
-  if (params.companyName) searchParams.set('company_name', params.companyName);
-  if (params.billingPeriod) searchParams.set('billing_period', params.billingPeriod);
+  if (params.regions?.length) {
+    params.regions.forEach((r) => searchParams.append('region', r));
+  }
+  if (params.companyNames?.length) {
+    params.companyNames.forEach((c) => searchParams.append('company_name', c));
+  }
+  if (params.billingPeriods?.length) {
+    params.billingPeriods.forEach((p) => searchParams.append('billing_period', p));
+  }
+  if (params.matchStatus) searchParams.set('match_status', params.matchStatus);
   if (params.page !== undefined) searchParams.set('page', String(params.page));
   if (params.pageSize !== undefined) searchParams.set('page_size', String(params.pageSize));
 
@@ -100,12 +108,16 @@ export async function fetchNormalizedRecords(params: {
 }
 
 export async function fetchFilterOptions(params?: {
-  region?: string;
-  companyName?: string;
+  regions?: string[];
+  companyNames?: string[];
 }): Promise<FilterOptions> {
   const searchParams = new URLSearchParams();
-  if (params?.region) searchParams.set('region', params.region);
-  if (params?.companyName) searchParams.set('company_name', params.companyName);
+  if (params?.regions?.length) {
+    params.regions.forEach((r) => searchParams.append('region', r));
+  }
+  if (params?.companyNames?.length) {
+    params.companyNames.forEach((c) => searchParams.append('company_name', c));
+  }
 
   const qs = searchParams.toString();
   const url = qs ? `/data-management/filter-options?${qs}` : '/data-management/filter-options';
@@ -114,16 +126,22 @@ export async function fetchFilterOptions(params?: {
 }
 
 export async function fetchEmployeeSummary(params: {
-  region?: string;
-  companyName?: string;
-  billingPeriod?: string;
+  regions?: string[];
+  companyNames?: string[];
+  billingPeriods?: string[];
   page?: number;
   pageSize?: number;
 }): Promise<PaginatedEmployeeSummary> {
   const searchParams = new URLSearchParams();
-  if (params.region) searchParams.set('region', params.region);
-  if (params.companyName) searchParams.set('company_name', params.companyName);
-  if (params.billingPeriod) searchParams.set('billing_period', params.billingPeriod);
+  if (params.regions?.length) {
+    params.regions.forEach((r) => searchParams.append('region', r));
+  }
+  if (params.companyNames?.length) {
+    params.companyNames.forEach((c) => searchParams.append('company_name', c));
+  }
+  if (params.billingPeriods?.length) {
+    params.billingPeriods.forEach((p) => searchParams.append('billing_period', p));
+  }
   if (params.page !== undefined) searchParams.set('page', String(params.page));
   if (params.pageSize !== undefined) searchParams.set('page_size', String(params.pageSize));
 
@@ -134,14 +152,18 @@ export async function fetchEmployeeSummary(params: {
 }
 
 export async function fetchPeriodSummary(params: {
-  region?: string;
-  companyName?: string;
+  regions?: string[];
+  companyNames?: string[];
   page?: number;
   pageSize?: number;
 }): Promise<PaginatedPeriodSummary> {
   const searchParams = new URLSearchParams();
-  if (params.region) searchParams.set('region', params.region);
-  if (params.companyName) searchParams.set('company_name', params.companyName);
+  if (params.regions?.length) {
+    params.regions.forEach((r) => searchParams.append('region', r));
+  }
+  if (params.companyNames?.length) {
+    params.companyNames.forEach((c) => searchParams.append('company_name', c));
+  }
   if (params.page !== undefined) searchParams.set('page', String(params.page));
   if (params.pageSize !== undefined) searchParams.set('page_size', String(params.pageSize));
 

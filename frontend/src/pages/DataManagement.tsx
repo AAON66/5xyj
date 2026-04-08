@@ -35,6 +35,8 @@ type SummaryMode = 'employee' | 'period';
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
+const ALL_VALUE = '__ALL__';
+
 function formatAmount(value: number | null): string {
   if (value === null || value === undefined) return '-';
   return value.toFixed(2);
@@ -53,10 +55,11 @@ function maskIdNumber(id: string | null): string {
 export function DataManagementPage() {
   const [searchParams, setSearchParams] = useSearchParams();
 
-  // Read state from URL
-  const region = searchParams.get('region') || '';
-  const company = searchParams.get('company') || '';
-  const period = searchParams.get('period') || '';
+  // Read multi-select state from URL (comma-separated)
+  const regions = searchParams.get('region')?.split(',').filter(Boolean) ?? [];
+  const companies = searchParams.get('company')?.split(',').filter(Boolean) ?? [];
+  const periods = searchParams.get('period')?.split(',').filter(Boolean) ?? [];
+  const matchStatus = searchParams.get('matchStatus') || 'matched';
   const activeTab = (searchParams.get('tab') as ActiveTab) || 'detail';
   const summaryMode = (searchParams.get('summaryMode') as SummaryMode) || 'employee';
   const page = Number(searchParams.get('page') || '0');
@@ -102,32 +105,38 @@ export function DataManagementPage() {
         const unscopedOptions = await fetchFilterOptions();
         if (!active) return;
 
-        let companies: string[] = unscopedOptions.companies;
-        let periods: string[] = unscopedOptions.periods;
+        let scopedCompanies: string[] = unscopedOptions.companies;
+        let scopedPeriods: string[] = unscopedOptions.periods;
 
-        if (region) {
-          const regionScoped = await fetchFilterOptions({ region });
+        if (regions.length > 0) {
+          const regionScoped = await fetchFilterOptions({ regions });
           if (!active) return;
-          companies = regionScoped.companies;
-          periods = regionScoped.periods;
+          scopedCompanies = regionScoped.companies;
+          scopedPeriods = regionScoped.periods;
 
-          if (company) {
-            const fullScoped = await fetchFilterOptions({ region, companyName: company });
+          if (companies.length > 0) {
+            const fullScoped = await fetchFilterOptions({ regions, companyNames: companies });
             if (!active) return;
-            periods = fullScoped.periods;
+            scopedPeriods = fullScoped.periods;
           }
         }
 
         setFilterOptions({
           regions: unscopedOptions.regions,
-          companies,
-          periods,
+          companies: scopedCompanies,
+          periods: scopedPeriods,
         });
 
-        if (company && !companies.includes(company)) {
-          updateParams({ company: '', period: '', page: '0' });
-        } else if (period && !periods.includes(period)) {
-          updateParams({ period: '', page: '0' });
+        // Cascade cleanup: remove selected values no longer in options
+        const validCompanies = companies.filter((c) => scopedCompanies.includes(c));
+        const validPeriods = periods.filter((p) => scopedPeriods.includes(p));
+
+        if (validCompanies.length !== companies.length || validPeriods.length !== periods.length) {
+          updateParams({
+            company: validCompanies.join(','),
+            period: validPeriods.join(','),
+            page: '0',
+          });
         }
       } catch {
         // Filter loading failure is non-critical
@@ -136,7 +145,8 @@ export function DataManagementPage() {
 
     void loadFilters();
     return () => { active = false; };
-  }, [region, company, updateParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [regions.join(','), companies.join(','), updateParams]);
 
   // Load data when filters/tab/page change
   useEffect(() => {
@@ -148,9 +158,10 @@ export function DataManagementPage() {
     async function loadData() {
       try {
         const filterParams = {
-          region: region || undefined,
-          companyName: company || undefined,
-          billingPeriod: period || undefined,
+          regions: regions.length > 0 ? regions : undefined,
+          companyNames: companies.length > 0 ? companies : undefined,
+          billingPeriods: periods.length > 0 ? periods : undefined,
+          matchStatus: matchStatus !== 'all' ? matchStatus : undefined,
           page,
           pageSize,
         };
@@ -167,8 +178,8 @@ export function DataManagementPage() {
           setTotalRecords(result.total);
         } else {
           const result = await fetchPeriodSummary({
-            region: region || undefined,
-            companyName: company || undefined,
+            regions: regions.length > 0 ? regions : undefined,
+            companyNames: companies.length > 0 ? companies : undefined,
             page,
             pageSize,
           });
@@ -189,23 +200,42 @@ export function DataManagementPage() {
 
     void loadData();
     return () => { active = false; };
-  }, [region, company, period, activeTab, summaryMode, page, pageSize]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [regions.join(','), companies.join(','), periods.join(','), matchStatus, activeTab, summaryMode, page, pageSize]);
 
-  function handleRegionChange(newRegion: string) {
-    updateParams({ region: newRegion, company: '', period: '', page: '0' });
-  }
-
-  function handleCompanyChange(newCompany: string) {
-    updateParams({ company: newCompany, period: '', page: '0' });
-    if (region && newCompany) {
-      fetchFilterOptions({ region, companyName: newCompany })
-        .then((opts) => setFilterOptions((prev) => ({ ...prev, periods: opts.periods })))
-        .catch(() => {});
+  function handleRegionChange(newRegions: string[]) {
+    if (newRegions.includes(ALL_VALUE)) {
+      // Toggle all selection
+      const allSelected = regions.length === filterOptions.regions.length;
+      const value = allSelected ? '' : filterOptions.regions.join(',');
+      updateParams({ region: value, company: '', period: '', page: '0' });
+    } else {
+      updateParams({ region: newRegions.join(','), company: '', period: '', page: '0' });
     }
   }
 
-  function handlePeriodChange(newPeriod: string) {
-    updateParams({ period: newPeriod, page: '0' });
+  function handleCompanyChange(newCompanies: string[]) {
+    if (newCompanies.includes(ALL_VALUE)) {
+      const allSelected = companies.length === filterOptions.companies.length;
+      const value = allSelected ? '' : filterOptions.companies.join(',');
+      updateParams({ company: value, period: '', page: '0' });
+    } else {
+      updateParams({ company: newCompanies.join(','), period: '', page: '0' });
+    }
+  }
+
+  function handlePeriodChange(newPeriods: string[]) {
+    if (newPeriods.includes(ALL_VALUE)) {
+      const allSelected = periods.length === filterOptions.periods.length;
+      const value = allSelected ? '' : filterOptions.periods.join(',');
+      updateParams({ period: value, page: '0' });
+    } else {
+      updateParams({ period: newPeriods.join(','), page: '0' });
+    }
+  }
+
+  function handleMatchStatusChange(value: string) {
+    updateParams({ matchStatus: value, page: '0' });
   }
 
   function handleTabChange(tab: string) {
@@ -217,7 +247,7 @@ export function DataManagementPage() {
   }
 
   function handleResetFilters() {
-    updateParams({ region: '', company: '', period: '', page: '0' });
+    updateParams({ region: '', company: '', period: '', matchStatus: 'matched', page: '0' });
     setSearchText('');
   }
 
@@ -324,37 +354,70 @@ export function DataManagementPage() {
       {/* Filter card */}
       <Card style={{ marginBottom: 16 }}>
         <Row gutter={[16, 16]} align="middle">
-          <Col xs={24} sm={12} md={6}>
+          <Col xs={24} sm={12} md={5}>
             <Select
-              placeholder="选择地区"
+              mode="multiple"
+              showSearch
               allowClear
-              value={region || undefined}
-              onChange={(v) => handleRegionChange(v ?? '')}
-              style={{ width: '100%' }}
-              options={filterOptions.regions.map((r) => ({ label: r, value: r }))}
+              maxTagCount={2}
+              maxTagPlaceholder={(omitted) => `+${omitted.length}...`}
+              placeholder="请选择地区"
+              value={regions.length > 0 ? regions : undefined}
+              onChange={handleRegionChange}
+              style={{ width: '100%', minWidth: 180 }}
+              options={[
+                { label: '全选', value: ALL_VALUE, style: { fontWeight: 600 } },
+                ...filterOptions.regions.map((r) => ({ label: r, value: r })),
+              ]}
             />
           </Col>
-          <Col xs={24} sm={12} md={6}>
+          <Col xs={24} sm={12} md={5}>
             <Select
-              placeholder="选择公司"
+              mode="multiple"
+              showSearch
               allowClear
-              value={company || undefined}
-              onChange={(v) => handleCompanyChange(v ?? '')}
-              style={{ width: '100%' }}
-              options={filterOptions.companies.map((c) => ({ label: c, value: c }))}
+              maxTagCount={2}
+              maxTagPlaceholder={(omitted) => `+${omitted.length}...`}
+              placeholder="请选择公司"
+              value={companies.length > 0 ? companies : undefined}
+              onChange={handleCompanyChange}
+              style={{ width: '100%', minWidth: 180 }}
+              options={[
+                { label: '全选', value: ALL_VALUE, style: { fontWeight: 600 } },
+                ...filterOptions.companies.map((c) => ({ label: c, value: c })),
+              ]}
             />
           </Col>
-          <Col xs={24} sm={12} md={6}>
+          <Col xs={24} sm={12} md={4}>
             <Select
-              placeholder="选择月份"
+              mode="multiple"
+              showSearch
               allowClear
-              value={period || undefined}
-              onChange={(v) => handlePeriodChange(v ?? '')}
-              style={{ width: '100%' }}
-              options={filterOptions.periods.map((p) => ({ label: formatPeriod(p), value: p }))}
+              maxTagCount={2}
+              maxTagPlaceholder={(omitted) => `+${omitted.length}...`}
+              placeholder="请选择账期"
+              value={periods.length > 0 ? periods : undefined}
+              onChange={handlePeriodChange}
+              style={{ width: '100%', minWidth: 180 }}
+              options={[
+                { label: '全选', value: ALL_VALUE, style: { fontWeight: 600 } },
+                ...filterOptions.periods.map((p) => ({ label: formatPeriod(p), value: p })),
+              ]}
             />
           </Col>
-          <Col xs={24} sm={12} md={6}>
+          <Col xs={24} sm={12} md={3}>
+            <Select
+              value={matchStatus}
+              onChange={handleMatchStatusChange}
+              style={{ width: '100%' }}
+              options={[
+                { label: '全部', value: 'all' },
+                { label: '已匹配', value: 'matched' },
+                { label: '未匹配', value: 'unmatched' },
+              ]}
+            />
+          </Col>
+          <Col xs={24} sm={12} md={4}>
             <Input.Search
               placeholder="搜索姓名或工号"
               value={searchText}
