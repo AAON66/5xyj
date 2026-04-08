@@ -126,6 +126,64 @@ def test_normalize_header_column_maps_changsha_large_medical_personal_explicitly
     assert decision.mapping_source == "rule"
 
 
+def _find_rules(canonical_field: str):
+    """Helper: return all MANUAL_ALIAS_RULES for the given canonical field."""
+    from backend.app.mappings.manual_field_aliases import MANUAL_ALIAS_RULES
+    return [r for r in MANUAL_ALIAS_RULES if r.canonical_field == canonical_field]
+
+
+class TestPaymentBaseExcludesInsuranceColumns:
+    """payment_base rules must NOT match insurance sub-column signatures."""
+
+    @pytest.mark.parametrize("insurance_sig", [
+        "基本养老保险(单位缴纳) / 缴费基数",
+        "失业保险 / 缴费基数",
+        "工伤保险 / 缴费基数",
+        "基本医疗保险(含生育) / 缴费基数",
+        "职工基本医疗保险 / 缴费基数",
+        "地方补充医疗 / 缴费基数",
+    ])
+    def test_payment_base_excludes_insurance_columns(self, insurance_sig: str) -> None:
+        rules = _find_rules("payment_base")
+        for rule in rules:
+            assert not rule.matches(insurance_sig), (
+                f"payment_base rule {rule.patterns} should NOT match '{insurance_sig}'"
+            )
+
+    def test_payment_base_matches_standalone_column(self) -> None:
+        rules = _find_rules("payment_base")
+        matched = any(r.matches("缴费基数") for r in rules)
+        assert matched, "payment_base should match standalone '缴费基数'"
+
+    def test_payment_base_matches_wuhan_standalone(self) -> None:
+        """武汉的 '职工明细 / 缴费基数' 应该仍然匹配 payment_base."""
+        rules = _find_rules("payment_base")
+        matched = any(r.matches("职工明细 / 缴费基数") for r in rules)
+        assert matched, "payment_base should match '职工明细 / 缴费基数'"
+
+
+class TestPaymentSalaryExcludesInsuranceColumns:
+    """payment_salary rules must NOT match insurance sub-column signatures."""
+
+    @pytest.mark.parametrize("insurance_sig", [
+        "基本养老保险 / 缴费工资",
+        "失业保险 / 缴费工资",
+        "基本医疗保险(含生育) / 缴费工资",
+        "职工基本医疗保险 / 缴费工资",
+    ])
+    def test_payment_salary_excludes_insurance_columns(self, insurance_sig: str) -> None:
+        rules = _find_rules("payment_salary")
+        for rule in rules:
+            assert not rule.matches(insurance_sig), (
+                f"payment_salary rule {rule.patterns} should NOT match '{insurance_sig}'"
+            )
+
+    def test_payment_salary_matches_standalone_column(self) -> None:
+        rules = _find_rules("payment_salary")
+        matched = any(r.matches("缴费工资") for r in rules)
+        assert matched, "payment_salary should match standalone '缴费工资'"
+
+
 @pytest.mark.parametrize(
     ("signature", "expected_status"),
     [
