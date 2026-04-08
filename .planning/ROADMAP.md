@@ -85,6 +85,7 @@ Plans:
 Plans:
 - [x] 15-01-PLAN.md — 菜单分组重构 + openKeys 持久化 hook
 - [x] 15-02-PLAN.md — 统一设置页 + 路由注册 + 菜单入口
+
 **UI hint**: yes
 
 ### Phase 16: 账号管理
@@ -111,7 +112,11 @@ Plans:
   2. 数据管理页面提供"已匹配/未匹配"过滤选项，默认显示已匹配数据
   3. 删除批次时自动清理关联的 NormalizedRecords、MatchResults、ValidationIssues
   4. 个人险种缴费基数显示真实基数值而非错误值
-**Plans**: TBD
+**Plans:** 3 plans
+Plans:
+- [ ] 17-01-PLAN.md — payment_base/payment_salary 缴费基数映射规则修复
+- [ ] 17-02-PLAN.md — 后端多值过滤 + 匹配状态过滤 + 前端多选下拉改造
+- [ ] 17-03-PLAN.md — 批次删除影响范围预查询 + 确认弹窗增强
 **UI hint**: yes
 
 ### Phase 18: 全页面响应式适配
@@ -172,7 +177,7 @@ Phases execute in numeric order. Phases 15-18 depend on 14 (token化); Phases 16
 | 14. 样式 Token 化与暗黑模式 | v1.1 | 4/4 | Complete    | 2026-04-07 |
 | 15. 菜单重组与设置导航 | v1.1 | 2/2 | Complete    | 2026-04-07 |
 | 16. 账号管理 | v1.1 | 2/2 | Complete    | 2026-04-08 |
-| 17. 数据管理增强 | v1.1 | 0/0 | Not started | - |
+| 17. 数据管理增强 | v1.1 | 0/3 | Not started | - |
 | 18. 全页面响应式适配 | v1.1 | 0/0 | Not started | - |
 | 19. 融合能力增强 | v1.1 | 0/0 | Not started | - |
 | 20. 对比重做与飞书完善 | v1.1 | 0/0 | Not started | - |
