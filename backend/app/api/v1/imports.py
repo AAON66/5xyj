@@ -23,6 +23,7 @@ from backend.app.services.import_service import (
     BatchNotFoundError,
     bulk_delete_import_batches,
     delete_import_batch,
+    get_batch_deletion_impact,
     InvalidUploadError,
     SourceFileNotFoundError,
     UploadTooLargeError,
@@ -106,6 +107,18 @@ def get_import_batch_endpoint(batch_id: str, db: Session = Depends(get_db)):
 
     payload = ImportBatchDetailRead.model_validate(serialize_import_batch(batch))
     return success_response(payload.model_dump(mode='json'), message='Import batch retrieved.')
+
+
+@router.get('/{batch_id}/deletion-impact', summary="\u67e5\u8be2\u5220\u9664\u5f71\u54cd\u8303\u56f4", description="\u67e5\u8be2\u5220\u9664\u6307\u5b9a\u6279\u6b21\u5c06\u5f71\u54cd\u7684\u5173\u8054\u6570\u636e\u8ba1\u6570\u3002")
+def batch_deletion_impact_endpoint(
+    batch_id: str,
+    db: Session = Depends(get_db),
+):
+    try:
+        result = get_batch_deletion_impact(db, batch_id)
+    except BatchNotFoundError as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return success_response(result.model_dump(mode='json'))
 
 
 @router.delete('/{batch_id}', status_code=status.HTTP_204_NO_CONTENT, summary="\u5220\u9664\u5bfc\u5165\u6279\u6b21", description="\u5220\u9664\u6307\u5b9a\u5bfc\u5165\u6279\u6b21\u53ca\u5176\u6240\u6709\u5173\u8054\u6570\u636e\u3002")

@@ -15,6 +15,7 @@ import re
 from uuid import uuid4
 
 from fastapi import UploadFile
+from sqlalchemy import func
 from sqlalchemy.orm import Session, load_only, selectinload
 
 from backend.app.core.config import Settings
@@ -22,6 +23,7 @@ from backend.app.models import ExportJob, HeaderMapping, ImportBatch, SourceFile
 from backend.app.models.enums import BatchStatus, MappingSource, SourceFileKind
 from backend.app.parsers import HeaderExtraction, extract_header_structure
 from backend.app.schemas.imports import (
+    BatchDeletionImpactRead,
     DeleteImportBatchesRead,
     FilteredRowPreviewRead,
     HeaderMappingPreviewRead,
@@ -239,6 +241,34 @@ def delete_import_batch(db: Session, settings: Settings, batch_id: str) -> None:
     db.delete(batch)
     db.commit()
     _cleanup_batch_artifacts(cleanup_paths, upload_batch_dir=settings.upload_path / batch_id)
+
+
+def get_batch_deletion_impact(db: Session, batch_id: str) -> BatchDeletionImpactRead:
+    from backend.app.models.normalized_record import NormalizedRecord
+    from backend.app.models.match_result import MatchResult
+    from backend.app.models.validation_issue import ValidationIssue
+
+    batch = db.query(ImportBatch).filter(ImportBatch.id == batch_id).first()
+    if batch is None:
+        raise BatchNotFoundError(f"Import batch '{batch_id}' was not found.")
+
+    record_count = db.query(func.count(NormalizedRecord.id)).filter(
+        NormalizedRecord.batch_id == batch_id
+    ).scalar() or 0
+    match_count = db.query(func.count(MatchResult.id)).filter(
+        MatchResult.batch_id == batch_id
+    ).scalar() or 0
+    issue_count = db.query(func.count(ValidationIssue.id)).filter(
+        ValidationIssue.batch_id == batch_id
+    ).scalar() or 0
+
+    return BatchDeletionImpactRead(
+        batch_id=batch_id,
+        batch_name=batch.batch_name,
+        record_count=record_count,
+        match_count=match_count,
+        issue_count=issue_count,
+    )
 
 
 def bulk_delete_import_batches(db: Session, settings: Settings, batch_ids: list[str]) -> DeleteImportBatchesRead:

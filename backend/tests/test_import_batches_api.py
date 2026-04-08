@@ -14,6 +14,10 @@ from backend.app.main import create_app
 from backend.app.services import import_service as import_service_module
 from backend.app.services.region_detection_service import RegionDetectionResult
 from backend.app.models import Base
+from backend.app.models.normalized_record import NormalizedRecord
+from backend.app.models.match_result import MatchResult
+from backend.app.models.validation_issue import ValidationIssue
+from backend.app.models.enums import MatchStatus
 
 
 ARTIFACTS_ROOT = ROOT_DIR / '.test_artifacts' / 'import_batches_api'
@@ -408,6 +412,85 @@ def test_create_import_batch_rejects_oversized_upload_without_content_length() -
     assert list_response.json()['data'] == []
     assert settings.upload_path.exists()
     assert list(settings.upload_path.iterdir()) == []
+
+
+def test_batch_deletion_impact_returns_related_counts() -> None:
+    client, settings = build_test_client('deletion_impact')
+
+    with client:
+        # Create a batch
+        created = client.post(
+            '/api/v1/imports',
+            files=[('files', ('test.xlsx', b'data', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'))],
+            data={'regions': 'shenzhen', 'company_names': 'Test'},
+        )
+        batch_id = created.json()['data']['id']
+        source_file_id = created.json()['data']['source_files'][0]['id']
+
+        # Insert some related records directly into the DB
+        db_path = settings.database_url.replace('sqlite:///', '')
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        engine = create_engine(settings.database_url)
+        SessionLocal = sessionmaker(bind=engine)
+        db = SessionLocal()
+
+        # Add normalized records
+        for i in range(3):
+            record = NormalizedRecord(
+                batch_id=batch_id,
+                source_file_id=source_file_id,
+                source_row_number=i + 1,
+                person_name=f'Person {i}',
+            )
+            db.add(record)
+        db.flush()
+
+        # Get the record IDs for match results and validation issues
+        records = db.query(NormalizedRecord).filter(NormalizedRecord.batch_id == batch_id).all()
+
+        # Add match results
+        for record in records[:2]:
+            match = MatchResult(
+                batch_id=batch_id,
+                normalized_record_id=record.id,
+                match_status=MatchStatus.UNMATCHED,
+            )
+            db.add(match)
+
+        # Add validation issues
+        issue = ValidationIssue(
+            batch_id=batch_id,
+            normalized_record_id=records[0].id,
+            issue_type='missing_field',
+            severity='warning',
+            message='Missing id_number',
+        )
+        db.add(issue)
+        db.commit()
+        db.close()
+
+        # Call the deletion impact endpoint
+        response = client.get(f'/api/v1/imports/{batch_id}/deletion-impact')
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload['success'] is True
+    data = payload['data']
+    assert data['batch_id'] == batch_id
+    assert data['record_count'] == 3
+    assert data['match_count'] == 2
+    assert data['issue_count'] == 1
+
+
+def test_batch_deletion_impact_returns_not_found_for_unknown_batch() -> None:
+    client, _ = build_test_client('deletion_impact_missing')
+
+    with client:
+        response = client.get('/api/v1/imports/missing-batch/deletion-impact')
+
+    assert response.status_code == 404
+    assert response.json()['error']['code'] == 'not_found'
 
 
 def test_create_import_batch_rejects_oversized_upload_with_understated_content_length() -> None:

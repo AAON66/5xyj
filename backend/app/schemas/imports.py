@@ -40,6 +40,14 @@ class DeleteImportBatchesInput(BaseModel):
     batch_ids: list[str] = Field(min_length=1)
 
 
+class BatchDeletionImpactRead(BaseModel):
+    batch_id: str
+    batch_name: str
+    record_count: int
+    match_count: int
+    issue_count: int
+
+
 class DeleteImportBatchesRead(BaseModel):
     deleted_count: int
     deleted_ids: list[str]
