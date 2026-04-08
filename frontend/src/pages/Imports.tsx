@@ -26,6 +26,7 @@ import {
   bulkDeleteImportBatches,
   createImportBatch,
   deleteImportBatch,
+  fetchBatchDeletionImpact,
   fetchImportBatches,
   fetchImportBatch,
   fetchImportBatchPreview,
@@ -195,32 +196,47 @@ export function ImportsPage() {
   }
 
   async function handleDeleteBatch(batchId: string, name: string) {
-    Modal.confirm({
-      title: '确认删除',
-      content: `确认删除批次"${name}"吗？这会同时删除已上传文件和相关导出结果，且无法撤销。`,
-      okText: '确认删除',
-      okType: 'danger',
-      onOk: async () => {
-        setDeletingBatchId(batchId);
-        try {
+    setDeletingBatchId(batchId);
+    try {
+      const impact = await fetchBatchDeletionImpact(batchId);
+      Modal.confirm({
+        title: '确认删除',
+        content: (
+          <div>
+            <p>确认删除批次&ldquo;{name}&rdquo;吗？</p>
+            <p>此操作将同时删除：</p>
+            <ul>
+              <li>{impact.record_count} 条明细记录</li>
+              <li>{impact.match_count} 条匹配结果</li>
+              <li>{impact.issue_count} 条校验问题</li>
+            </ul>
+            <p>删除后无法恢复。</p>
+          </div>
+        ),
+        okText: '确认删除',
+        okType: 'danger',
+        onOk: async () => {
           await deleteImportBatch(batchId);
           await reloadBatches(selectedBatchId === batchId ? null : undefined);
           setSelectedBatchIds((c) => c.filter((id) => id !== batchId));
           message.success(`批次已删除: ${name}`);
-        } catch (error) {
-          message.error(normalizeApiError(error).message || '批次删除失败');
-        } finally {
+        },
+        onCancel: () => {
           setDeletingBatchId(null);
-        }
-      },
-    });
+        },
+      });
+    } catch (error) {
+      message.error(normalizeApiError(error).message || '获取删除影响信息失败');
+    } finally {
+      setDeletingBatchId(null);
+    }
   }
 
   async function handleBulkDelete() {
     if (selectedBatchIds.length === 0) { message.warning('请先勾选至少一个批次。'); return; }
     Modal.confirm({
       title: '确认批量删除',
-      content: `确认批量删除 ${selectedBatchIds.length} 个批次吗？此操作不可撤销。`,
+      content: `确认批量删除 ${selectedBatchIds.length} 个批次吗？此操作将同时删除所有关联的明细记录、匹配结果和校验问题。删除后无法恢复。`,
       okText: '确认删除',
       okType: 'danger',
       onOk: async () => {

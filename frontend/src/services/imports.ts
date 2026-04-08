@@ -93,6 +93,21 @@ export interface FetchImportBatchPreviewOptions {
   sourceFileId?: string;
 }
 
+export interface BatchDeletionImpact {
+  batch_id: string;
+  batch_name: string;
+  record_count: number;
+  match_count: number;
+  issue_count: number;
+}
+
+export async function fetchBatchDeletionImpact(batchId: string): Promise<BatchDeletionImpact> {
+  const response = await apiClient.get<ApiSuccessResponse<BatchDeletionImpact>>(
+    `/imports/${batchId}/deletion-impact`,
+  );
+  return response.data.data;
+}
+
 export async function fetchImportBatches(): Promise<ImportBatchSummary[]> {
   const response = await apiClient.get<ApiSuccessResponse<ImportBatchSummary[]>>('/imports');
   return response.data.data;
