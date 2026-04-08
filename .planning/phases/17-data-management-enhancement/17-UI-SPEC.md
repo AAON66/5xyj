@@ -1,7 +1,7 @@
 ---
 phase: 17
 slug: data-management-enhancement
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-04-08
@@ -40,7 +40,7 @@ Source: `frontend/src/theme/index.ts` — buildTheme()
 | marginSM | 12px | 筛选行与表格之间 |
 | margin | 16px | 主要区块之间 |
 
-Exceptions: none
+Exceptions: 12px (paddingSM/marginSM) — Ant Design 内置 token，项目全局已在使用，Phase 17 沿用不新增。非自定义值，来自 AntD theme system 标准配置。
 
 Source: `frontend/src/theme/index.ts` token 配置
 
@@ -77,6 +77,14 @@ Source: `frontend/src/theme/index.ts` — fontSize/fontSizeHeading2/fontSizeSM/f
 Accent reserved for: 筛选下拉的选中态边框、匹配状态过滤下拉的"已匹配"选项图标、主操作按钮
 
 Source: `frontend/src/theme/semanticColors.ts` + `frontend/src/theme/index.ts`
+
+---
+
+## Visual Hierarchy
+
+**主视觉焦点:** 筛选栏区域 — Phase 17 的核心变更是将单选筛选改为多选筛选并新增匹配状态过滤，筛选栏是用户进入页面后首先交互的区域。
+
+**次要焦点:** 删除确认弹窗 — 增强后的弹窗展示具体影响数量，引导用户做出知情决策。
 
 ---
 
@@ -257,11 +265,11 @@ Source: D-08, D-09, D-10 from CONTEXT.md
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** approved 2026-04-08
