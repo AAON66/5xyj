@@ -4,9 +4,11 @@ from __future__ import annotations
 
 from typing import Optional
 
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
+from backend.app.models.enums import MatchStatus
+from backend.app.models.match_result import MatchResult
 from backend.app.models.normalized_record import NormalizedRecord
 from backend.app.schemas.data_management import (
     EmployeeSummaryRead,
@@ -29,21 +31,31 @@ def _to_float(val: object) -> float:
 def list_normalized_records(
     db: Session,
     *,
-    region: Optional[str] = None,
-    company_name: Optional[str] = None,
-    billing_period: Optional[str] = None,
+    regions: Optional[list[str]] = None,
+    company_names: Optional[list[str]] = None,
+    billing_periods: Optional[list[str]] = None,
+    match_filter: Optional[str] = None,
     page: int = 0,
     page_size: int = 20,
 ) -> PaginatedRecordsRead:
     """List normalized records with optional filters and deterministic pagination."""
     query = db.query(NormalizedRecord)
 
-    if region:
-        query = query.filter(NormalizedRecord.region == region)
-    if company_name:
-        query = query.filter(NormalizedRecord.company_name == company_name)
-    if billing_period:
-        query = query.filter(NormalizedRecord.billing_period == billing_period)
+    if regions:
+        query = query.filter(NormalizedRecord.region.in_(regions))
+    if company_names:
+        query = query.filter(NormalizedRecord.company_name.in_(company_names))
+    if billing_periods:
+        query = query.filter(NormalizedRecord.billing_period.in_(billing_periods))
+
+    if match_filter == 'matched':
+        query = query.join(MatchResult, MatchResult.normalized_record_id == NormalizedRecord.id)
+        query = query.filter(MatchResult.match_status == MatchStatus.MATCHED)
+    elif match_filter == 'unmatched':
+        query = query.outerjoin(MatchResult, MatchResult.normalized_record_id == NormalizedRecord.id)
+        query = query.filter(
+            or_(MatchResult.id.is_(None), MatchResult.match_status != MatchStatus.MATCHED)
+        )
 
     total = query.count()
 
@@ -93,14 +105,14 @@ def list_normalized_records(
 def get_filter_options(
     db: Session,
     *,
-    region: Optional[str] = None,
-    company_name: Optional[str] = None,
+    regions: Optional[list[str]] = None,
+    company_names: Optional[list[str]] = None,
 ) -> FilterOptionsRead:
     """Get cascading filter options.
 
     - regions: always all distinct regions (top-level, unscoped)
-    - companies: scoped by region if provided
-    - periods: scoped by region+company_name if provided
+    - companies: scoped by regions if provided
+    - periods: scoped by regions+company_names if provided
     """
     # Regions: always unscoped
     region_rows = (
@@ -110,37 +122,37 @@ def get_filter_options(
         .order_by(NormalizedRecord.region.asc())
         .all()
     )
-    regions = [r[0] for r in region_rows]
+    all_regions = [r[0] for r in region_rows]
 
-    # Companies: scoped by region
+    # Companies: scoped by regions
     company_query = db.query(NormalizedRecord.company_name).filter(
         NormalizedRecord.company_name.isnot(None)
     )
-    if region:
-        company_query = company_query.filter(NormalizedRecord.region == region)
+    if regions:
+        company_query = company_query.filter(NormalizedRecord.region.in_(regions))
     company_rows = company_query.distinct().order_by(NormalizedRecord.company_name.asc()).all()
     companies = [r[0] for r in company_rows]
 
-    # Periods: scoped by region and company_name
+    # Periods: scoped by regions and company_names
     period_query = db.query(NormalizedRecord.billing_period).filter(
         NormalizedRecord.billing_period.isnot(None)
     )
-    if region:
-        period_query = period_query.filter(NormalizedRecord.region == region)
-    if company_name:
-        period_query = period_query.filter(NormalizedRecord.company_name == company_name)
+    if regions:
+        period_query = period_query.filter(NormalizedRecord.region.in_(regions))
+    if company_names:
+        period_query = period_query.filter(NormalizedRecord.company_name.in_(company_names))
     period_rows = period_query.distinct().order_by(NormalizedRecord.billing_period.desc()).all()
     periods = [r[0] for r in period_rows]
 
-    return FilterOptionsRead(regions=regions, companies=companies, periods=periods)
+    return FilterOptionsRead(regions=all_regions, companies=companies, periods=periods)
 
 
 def get_employee_summary(
     db: Session,
     *,
-    region: Optional[str] = None,
-    company_name: Optional[str] = None,
-    billing_period: Optional[str] = None,
+    regions: Optional[list[str]] = None,
+    company_names: Optional[list[str]] = None,
+    billing_periods: Optional[list[str]] = None,
     page: int = 0,
     page_size: int = 20,
 ) -> PaginatedEmployeeSummaryRead:
@@ -156,12 +168,12 @@ def get_employee_summary(
         func.sum(NormalizedRecord.total_amount).label("total"),
     )
 
-    if region:
-        base_query = base_query.filter(NormalizedRecord.region == region)
-    if company_name:
-        base_query = base_query.filter(NormalizedRecord.company_name == company_name)
-    if billing_period:
-        base_query = base_query.filter(NormalizedRecord.billing_period == billing_period)
+    if regions:
+        base_query = base_query.filter(NormalizedRecord.region.in_(regions))
+    if company_names:
+        base_query = base_query.filter(NormalizedRecord.company_name.in_(company_names))
+    if billing_periods:
+        base_query = base_query.filter(NormalizedRecord.billing_period.in_(billing_periods))
 
     grouped = base_query.group_by(
         NormalizedRecord.employee_id,
@@ -205,8 +217,8 @@ def get_employee_summary(
 def get_period_summary(
     db: Session,
     *,
-    region: Optional[str] = None,
-    company_name: Optional[str] = None,
+    regions: Optional[list[str]] = None,
+    company_names: Optional[list[str]] = None,
     page: int = 0,
     page_size: int = 20,
 ) -> PaginatedPeriodSummaryRead:
@@ -221,10 +233,10 @@ def get_period_summary(
         func.avg(NormalizedRecord.company_total_amount).label("avg_company"),
     ).filter(NormalizedRecord.billing_period.isnot(None))
 
-    if region:
-        base_query = base_query.filter(NormalizedRecord.region == region)
-    if company_name:
-        base_query = base_query.filter(NormalizedRecord.company_name == company_name)
+    if regions:
+        base_query = base_query.filter(NormalizedRecord.region.in_(regions))
+    if company_names:
+        base_query = base_query.filter(NormalizedRecord.company_name.in_(company_names))
 
     grouped = base_query.group_by(NormalizedRecord.billing_period)
 
