@@ -31,6 +31,28 @@ import {
 
 const { Title } = Typography;
 
+function generatePassword(length = 12): string {
+  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+  const lower = 'abcdefghjkmnpqrstuvwxyz';
+  const digits = '23456789';
+  const all = upper + lower + digits;
+  // Ensure at least one of each type
+  const result = [
+    upper[Math.floor(Math.random() * upper.length)],
+    lower[Math.floor(Math.random() * lower.length)],
+    digits[Math.floor(Math.random() * digits.length)],
+  ];
+  for (let i = result.length; i < length; i++) {
+    result.push(all[Math.floor(Math.random() * all.length)]);
+  }
+  // Shuffle
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result.join('');
+}
+
 const ROLE_OPTIONS = [
   { label: '管理员', value: 'admin' as const },
   { label: 'HR', value: 'hr' as const },
@@ -105,7 +127,8 @@ export function UsersPage() {
     try {
       const values = await createForm.validateFields();
       setCreateLoading(true);
-      const { confirm_password: _, ...input } = values;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const { confirm_password: _confirm, ...input } = values;
       await createUser(input);
       message.success('用户创建成功');
       setCreateModalOpen(false);
@@ -320,15 +343,26 @@ export function UsersPage() {
           >
             <Select placeholder="请选择角色" options={ROLE_OPTIONS} />
           </Form.Item>
-          <Form.Item
-            name="password"
-            label="初始密码"
-            rules={[
-              { required: true, message: '请输入初始密码' },
-              { min: 8, message: '密码至少8位' },
-            ]}
-          >
-            <Input.Password prefix={<LockOutlined />} placeholder="请输入初始密码" />
+          <Form.Item label="初始密码" required>
+            <Space.Compact style={{ width: '100%' }}>
+              <Form.Item
+                name="password"
+                noStyle
+                rules={[
+                  { required: true, message: '请输入初始密码' },
+                  { min: 8, message: '密码至少8位' },
+                ]}
+              >
+                <Input.Password prefix={<LockOutlined />} placeholder="请输入初始密码" style={{ flex: 1 }} />
+              </Form.Item>
+              <Button onClick={() => {
+                const pwd = generatePassword();
+                createForm.setFieldsValue({ password: pwd, confirm_password: pwd });
+                createForm.validateFields(['password', 'confirm_password']);
+              }}>
+                随机生成
+              </Button>
+            </Space.Compact>
           </Form.Item>
           <Form.Item
             name="confirm_password"
@@ -401,15 +435,26 @@ export function UsersPage() {
         destroyOnClose
       >
         <Form form={resetPasswordForm} layout="vertical" autoComplete="off">
-          <Form.Item
-            name="new_password"
-            label="新密码"
-            rules={[
-              { required: true, message: '请输入新密码' },
-              { min: 8, message: '密码至少8位' },
-            ]}
-          >
-            <Input.Password prefix={<LockOutlined />} placeholder="请输入新密码（至少8位）" />
+          <Form.Item label="新密码" required>
+            <Space.Compact style={{ width: '100%' }}>
+              <Form.Item
+                name="new_password"
+                noStyle
+                rules={[
+                  { required: true, message: '请输入新密码' },
+                  { min: 8, message: '密码至少8位' },
+                ]}
+              >
+                <Input.Password prefix={<LockOutlined />} placeholder="请输入新密码（至少8位）" style={{ flex: 1 }} />
+              </Form.Item>
+              <Button onClick={() => {
+                const pwd = generatePassword();
+                resetPasswordForm.setFieldsValue({ new_password: pwd });
+                resetPasswordForm.validateFields(['new_password']);
+              }}>
+                随机生成
+              </Button>
+            </Space.Compact>
           </Form.Item>
         </Form>
       </Modal>
