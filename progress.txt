@@ -2064,3 +2064,22 @@ ormalization_service.py backendpp\services\import_service.py backendpp\service
 
 ### Notes:
 - The milestone was archived intentionally despite audit gaps because the issues are now explicitly bounded and should be planned into the next milestone instead of being hidden at closeout.
+
+## 2026-04-09 - Task: Phase 17 安全审计
+
+### What was done:
+- 按 `gsd-secure-phase` 工作流审阅了 Phase 17 的三个 `PLAN.md`、三个 `SUMMARY.md`、`17-VERIFICATION.md` 和相关实现代码。
+- 启动 `gsd-security-auditor` 复核 Phase 17 的威胁缓解证据，并汇总为正式安全结论。
+- 新增 `.planning/phases/17-data-management-enhancement/17-SECURITY.md`，记录 5 个威胁的审计状态、2 条 accepted risk，以及 1 条未关闭风险。
+
+### Testing:
+- 基于代码与规划产物完成静态安全审计；未执行新的运行时测试。
+- 审计证据覆盖 `backend/app/api/v1/data_management.py`、`backend/app/services/data_management_service.py`、`backend/app/api/v1/imports.py`、`backend/app/services/import_service.py`、`backend/app/api/v1/router.py` 和 `backend/app/dependencies.py`。
+
+### Risks / Open Questions:
+- `T-17-05` 仍为 open：`batch_id` 在 API 边界仍是普通 `str`，没有落实计划中声明的 UUID 校验。
+- Phase 17 当前不能标记为 threat-secure；需要补 UUID 校验实现，或显式接受该剩余风险后再重新执行 `/gsd-secure-phase 17`。
+
+### Notes:
+- `T-17-01` 和 `T-17-03` 已按 accepted risk 落档。
+- 本次安全审计结论是 `4/5` closed，`1/5` open，属于阻断状态。
