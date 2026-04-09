@@ -1,10 +1,11 @@
 ---
 phase: 18
 slug: responsive-adaptation
-status: draft
+status: approved
 shadcn_initialized: false
 preset: none
 created: 2026-04-09
+reviewed_at: 2026-04-09T10:16:44+0800
 ---
 
 # Phase 18 — UI Design Contract
@@ -122,6 +123,7 @@ Source: Phase 18 discretion on breakpoint alignment, existing `useResponsiveColl
 | Mobile header | Keep a single-line page title with ellipsis. Hide breadcrumb entirely. Left side is a `44px` hamburger trigger. Right side keeps only compact account/theme actions; page-level primary CTAs must move out of the header. |
 | Desktop/tablet header | Preserve current header structure and Phase 14 theme toggle placement. Do not redesign desktop navigation chrome. |
 | Content padding | Desktop `24px`, compact desktop/tablet `16px`, mobile `12px 12px 16px`. Any mobile page with a sticky action bar must add at least `96px` bottom padding to avoid content being obscured. |
+| Accessibility labels | Icon-only mobile controls must declare explicit text alternatives: hamburger trigger `aria-label="打开导航菜单"`, nav drawer close action `aria-label="关闭导航抽屉"`, filter drawer close action `aria-label="关闭筛选抽屉"`. Do not ship icon-only actions without a readable label. |
 
 ### Menu search
 
