@@ -2083,3 +2083,19 @@ ormalization_service.py backendpp\services\import_service.py backendpp\service
 ### Notes:
 - `T-17-01` 和 `T-17-03` 已按 accepted risk 落档。
 - 本次安全审计结论是 `4/5` closed，`1/5` open，属于阻断状态。
+
+## 2026-04-09 - Task: Phase 17 安全审计风险接受
+
+### What was done:
+- 按用户决策接受 `T-17-05` 剩余风险，并将该结论写入 `.planning/phases/17-data-management-enhancement/17-SECURITY.md`。
+- 将 Phase 17 安全状态从 `blocked` 更新为 `verified`，把 `threats_open` 收敛为 `0`。
+
+### Testing:
+- 未新增运行时测试；基于已有静态审计证据和用户风险接受决策完成收敛。
+
+### Risks / Open Questions:
+- `batch_id` 仍未在 API 边界做 UUID 校验；该问题没有被技术修复，只是被显式接受。
+- 如果后续 Phase 17 继续迭代导入删除接口，建议补齐 UUID 校验以消除这条 accepted risk。
+
+### Notes:
+- 当前 Phase 17 已可视为 threat-secure by accepted risk，不再被安全门阻断。

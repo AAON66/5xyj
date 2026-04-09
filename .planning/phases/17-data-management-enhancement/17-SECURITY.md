@@ -1,8 +1,8 @@
 ---
 phase: 17
 slug: data-management-enhancement
-status: blocked
-threats_open: 1
+status: verified
+threats_open: 0
 asvs_level: 1
 created: 2026-04-09
 ---
@@ -30,7 +30,7 @@ created: 2026-04-09
 | T-17-02 | Tampering | `data_management.py` query params | mitigate | FastAPI `Query(Optional[List[str]])` type validation constrains filter inputs on records, filter-options, and summary endpoints | closed |
 | T-17-03 | Denial of Service | `data_management_service.py` `IN` clause filtering | accept | Residual risk accepted because requests are paginated with `page_size <= 100` and selector sets are business-bounded | closed |
 | T-17-04 | Information Disclosure | `deletion-impact` endpoint | mitigate | Import routes are protected by `require_role("admin", "hr")`; endpoint returns counts only, not row-level data | closed |
-| T-17-05 | Tampering | `batch_id` parameter | mitigate | Expected UUID validation at the API boundary or explicit parsing before querying; current implementation only shows parameterized lookups | open |
+| T-17-05 | Tampering | `batch_id` parameter | accept | UUID validation is not implemented at the API boundary; residual risk is explicitly accepted while retaining SQLAlchemy parameterized lookups | closed |
 
 *Status: open · closed*  
 *Disposition: mitigate (implementation required) · accept (documented risk) · transfer (third-party)*
@@ -43,6 +43,7 @@ created: 2026-04-09
 |---------|------------|-----------|-------------|------|
 | AR-17-01 | T-17-01 | The alias-rule change only affects static internal mapping code and regression tests. The phase does not expose any new external write path into `manual_field_aliases.py`. | Codex security audit | 2026-04-09 |
 | AR-17-02 | T-17-03 | The multi-select feature still enforces `page_size <= 100`, and the `.in_()` selectors operate on small region/company/period sets rather than arbitrary unbounded payloads. Residual DoS risk is low and documented. | Codex security audit | 2026-04-09 |
+| AR-17-03 | T-17-05 | The current implementation uses parameterized SQLAlchemy lookups and authenticated routes, but does not implement the planned UUID path validation. This remaining gap is explicitly accepted per user decision on 2026-04-09. | User accepted via Codex | 2026-04-09 |
 
 *Accepted risks do not resurface in future audit runs.*
 
@@ -53,15 +54,7 @@ created: 2026-04-09
 - `T-17-02`: [backend/app/api/v1/data_management.py](/Users/mac/PycharmProjects/5xyj/backend/app/api/v1/data_management.py#L25) uses `Optional[List[str]]` query parameters, and [backend/app/api/v1/data_management.py](/Users/mac/PycharmProjects/5xyj/backend/app/api/v1/data_management.py#L30) caps `page_size` at `100`.
 - `T-17-03`: [backend/app/services/data_management_service.py](/Users/mac/PycharmProjects/5xyj/backend/app/services/data_management_service.py#L44) applies `.in_()` filters only after typed inputs are accepted, and the paginated query remains bounded.
 - `T-17-04`: [backend/app/api/v1/router.py](/Users/mac/PycharmProjects/5xyj/backend/app/api/v1/router.py#L41) mounts `imports_router` behind `require_role("admin", "hr")`; [backend/app/dependencies.py](/Users/mac/PycharmProjects/5xyj/backend/app/dependencies.py#L43) enforces authentication; [backend/app/schemas/imports.py](/Users/mac/PycharmProjects/5xyj/backend/app/schemas/imports.py#L34) limits the response to count fields.
-- `T-17-05`: [backend/app/api/v1/imports.py](/Users/mac/PycharmProjects/5xyj/backend/app/api/v1/imports.py#L113) and [backend/app/api/v1/imports.py](/Users/mac/PycharmProjects/5xyj/backend/app/api/v1/imports.py#L125) still type `batch_id` as plain `str`; [backend/app/services/import_service.py](/Users/mac/PycharmProjects/5xyj/backend/app/services/import_service.py#L215) and [backend/app/services/import_service.py](/Users/mac/PycharmProjects/5xyj/backend/app/services/import_service.py#L291) use safe parameterized lookups, but explicit UUID validation from the plan is absent.
-
----
-
-## Open Threat Follow-up
-
-| Threat ID | Gap | Required Action |
-|-----------|-----|-----------------|
-| T-17-05 | `batch_id` is not validated as UUID at the API boundary, so the planned mitigation is only partially implemented. | Change route parameters to UUID-typed values or parse/validate UUIDs before calling service-layer queries, then re-run `/gsd-secure-phase 17`. |
+- `T-17-05`: [backend/app/api/v1/imports.py](/Users/mac/PycharmProjects/5xyj/backend/app/api/v1/imports.py#L113) and [backend/app/api/v1/imports.py](/Users/mac/PycharmProjects/5xyj/backend/app/api/v1/imports.py#L125) still type `batch_id` as plain `str`; [backend/app/services/import_service.py](/Users/mac/PycharmProjects/5xyj/backend/app/services/import_service.py#L215) and [backend/app/services/import_service.py](/Users/mac/PycharmProjects/5xyj/backend/app/services/import_service.py#L291) use safe parameterized lookups. The missing UUID boundary validation remains documented as an accepted residual risk in `AR-17-03`.
 
 ---
 
@@ -70,6 +63,7 @@ created: 2026-04-09
 | Audit Date | Threats Total | Closed | Open | Run By |
 |------------|---------------|--------|------|--------|
 | 2026-04-09 | 5 | 4 | 1 | Codex + gsd-security-auditor |
+| 2026-04-09 | 5 | 5 | 0 | Codex + user risk acceptance |
 
 ---
 
@@ -77,7 +71,7 @@ created: 2026-04-09
 
 - [x] All threats have a disposition (mitigate / accept / transfer)
 - [x] Accepted risks documented in Accepted Risks Log
-- [ ] `threats_open: 0` confirmed
-- [ ] `status: verified` set in frontmatter
+- [x] `threats_open: 0` confirmed
+- [x] `status: verified` set in frontmatter
 
-**Approval:** pending - blocked by T-17-05
+**Approval:** verified 2026-04-09
