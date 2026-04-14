@@ -1,347 +1,297 @@
 # Feature Landscape
 
-**Domain:** 社保公积金管理系统 v1.1 体验优化与功能完善
-**Researched:** 2026-04-04
-**Scope:** v1.1 新增功能特性研究（v1.0 基线功能已全部实现）
+**Domain:** 飞书深度集成与登录体验升级（社保公积金管理系统 v1.2）
+**Researched:** 2026-04-14
+**Scope:** v1.2 三大新特性 — 飞书字段映射完善、飞书 OAuth 自动登录、登录页面改版
 
 ## Table Stakes
 
-v1.1 版本中，用户会直接期望的能力。缺失 = 产品体验不完整。
+用户期望一定存在的功能。缺失 = 产品感觉不完整。
+
+### 飞书字段映射完善
 
 | Feature | Why Expected | Complexity | Dependencies | Notes |
 |---------|--------------|------------|--------------|-------|
-| 全页面响应式自适应 | 用户在不同窗口尺寸和移动端使用 Web 应用已成为基本预期；v1.0 MainLayout 已有 useResponsiveCollapse 但数据表格在小屏仍体验差 | Medium | 现有 MainLayout + 各页面 Ant Design Table 逐一适配 | AntD Table 原生支持 `scroll.x`、`fixed` 列、`responsive` 列隐藏（HIGH confidence，官方文档） |
-| 暗黑模式切换 | 内部管理工具经常低光环境长时间使用，暗黑模式在 2025+ 是基本预期 | Low-Med | 现有 theme/index.ts 定义了完整的 light token 集 | AntD 5 内置 `theme.darkAlgorithm` 运行时切换，无需额外 CSS 文件（HIGH confidence） |
-| 账号管理系统前端 | 管理员需要创建/编辑用户、修改角色和重置密码；后端 `/api/v1/users` 全部 CRUD + password reset 已就绪但无前端页面 | Low-Med | 后端 users.py 已有 create/list/get/update/reset_password 五个端点 | 标准 Table + Modal 表单模式，后端零改动 |
-| 左侧菜单多级折叠 | 当前 ALL_NAV_ITEMS 有 14+ 个菜单项全部平铺，低频功能（飞书设置、API 密钥、审计日志）淹没在列表中导致导航效率低 | Low | 现有 MainLayout 侧边栏 buildMenuItems | 使用 AntD Menu 的 SubMenu children 嵌套分组（HIGH confidence） |
-| 数据管理筛选多选 | 当前 DataManagement 的 Select 筛选只支持单选，用户需要同时查看多个地区或公司 | Low | 现有 DataManagementPage + 后端 filter_options | 将 Select 改为 `mode="multiple"` + 后端支持逗号分隔或数组参数 |
-| 数据管理已匹配/未匹配过滤 | HR 最高频的操作之一：快速区分哪些记录已完成工号匹配、哪些还缺失 | Low | 现有 DataManagement 筛选栏 | 新增一个 Select/Radio 筛选项 + 后端新增 matched 查询参数 |
-| 员工主档默认使用服务器已有主档 | 当前 SimpleAggregate 中 employeeMasterMode 默认值是 'none'，但绝大多数场景应该用已有主档 | Trivial | SimpleAggregate 页面第 177 行 | 将默认值改为 'existing' 即可 |
-| 批次删除联动月份数据清理 | 删除批次时不清理关联的 normalized records 会留下脏数据 | Low-Med | 后端 import batch + normalized_records 表 | 需后端级联删除（SQLAlchemy cascade 或手动删除） |
+| 从飞书多维表格拉取真实字段列表 | 现有映射页右侧飞书字段依赖 `list_fields` API；用户需要看到真实飞书列名而非猜测 | Low | `FeishuClient.list_fields()` 已实现，前端 `fetchFeishuFields(configId)` 已调用 | 后端 API `GET /bitable/v1/apps/{app_token}/tables/{table_id}/fields` 已封装 |
+| 字段类型展示（文本/数字/单选等） | 用户需知道飞书端字段类型以避免类型不匹配的推送错误（飞书 API 返回 `type` 数字枚举 + `ui_type` 显示名） | Low | list_fields 已返回 type/ui_type | 在 FeishuColumnNode 中加 type badge（如 "文本"、"数字"、"单选"） |
+| 自动匹配优化（同义词库） | 现有自动匹配只做 label 包含检查，对 "养老保险(单位)" vs "pension_company" 之类中英文映射无效 | Med | 现有 `manual_field_aliases.py` 同义词规则 | 后端提供同义词匹配接口，或前端内嵌中文同义词表 |
+| 未映射关键字段警告 | person_name、employee_id 等核心字段未映射时，保存前弹出警告 | Low | 纯前端校验 | 阻断式 Modal.confirm |
+| 映射保存与加载 | 保存映射到后端、下次打开自动加载已有映射 | Done | `saveSyncConfigMapping` 已实现 | 现有功能已完整 |
+
+### 飞书 OAuth 扫码登录 + 自动匹配绑定
+
+| Feature | Why Expected | Complexity | Dependencies | Notes |
+|---------|--------------|------------|--------------|-------|
+| 扫码/重定向登录基础流程 | 已有后端 `/auth/feishu/authorize-url` + `/auth/feishu/callback`；前端 Login.tsx 已有飞书按钮和 callback 处理 | Done | OAuth 骨架已完成 | 用户点击 -> 跳转飞书授权页 -> code 回调 -> 换取 JWT |
+| 按姓名自动匹配 EmployeeMaster | OAuth 回调拿到飞书 `name` 后，查 `EmployeeMaster` 表按 `person_name` 匹配，唯一匹配则自动绑定 | Med | EmployeeMaster 表已有 person_name 索引 | 当前 `exchange_code_for_user` 只创建新 User，不做 EmployeeMaster 匹配 |
+| 多匹配/无匹配处理 | 飞书姓名匹配到 0 个或多个员工时，需引导用户手动确认（选择或输入工号） | Med | 前端需新增"匹配确认"步骤 | 0 匹配 -> 创建无绑定的 employee 用户；多匹配 -> 展示候选列表让用户选择 |
+| 已绑定用户直接登录 | `User.feishu_open_id` 已存在时跳过匹配步骤直接签发 JWT | Done | User 表已有 feishu_open_id 字段和查询 | 当前行为已正确 |
+| CSRF state 校验 | 防止攻击者将自己的飞书账号绑定到受害者系统账号 | Done | HMAC-signed cookie 已实现 | feishu_auth.py 中完整实现 |
+| 登录后角色正确 | 飞书登录用户默认 employee 角色，管理员可在用户管理页提升 | Low | 当前已默认 employee 角色 | 行为已正确 |
+
+### 登录页面改版
+
+| Feature | Why Expected | Complexity | Dependencies | Notes |
+|---------|--------------|------------|--------------|-------|
+| 左右分栏布局 | 左侧视觉展示区 + 右侧登录表单；企业 SaaS 登录页标准模式 | Low | CSS Grid/Flexbox | 50/50 分栏，右侧迁移现有 Login.tsx 全部内容 |
+| 右侧完整保留现有登录功能 | Tabs（账号登录/员工查询）+ 飞书登录按钮 + 员工查询入口链接 | Low | 现有 Login.tsx | 代码结构迁移，无功能改动 |
+| 移动端适配 | 小屏幕（<768px）隐藏左侧展示区，只显示登录表单 | Low | useResponsiveViewport 已有 | 媒体查询 `display: none` |
+| 暗黑模式兼容 | 登录页在暗黑模式下背景、表单卡片颜色正确 | Low | 暗黑模式已在 v1.1 完成 | token 引用即可 |
 
 ## Differentiators
 
-不一定被期望，但能显著提升产品价值的功能。
+不一定被期望，但能显著提升产品感知价值的功能。
 
 | Feature | Value Proposition | Complexity | Dependencies | Notes |
 |---------|-------------------|------------|--------------|-------|
-| 月度对比 diff 风格重做 | 当前 Compare.tsx 是单表+颜色标记，改为左右 Excel 表格 + 单元格级差异高亮后，HR 能直观看到"上月 vs 本月"每个人每个字段的变化量 | High | 现有 Compare.tsx / PeriodCompare.tsx 已有约 60% 基础 | **不要** 用 react-diff-viewer（代码 diff 库），应自建双 AntD Table + 单元格 diff |
-| 融合特殊规则配置 | 允许 HR 选定员工 + 选定字段 + 输入覆盖值，保存可复用；解决"某人社保基数需手动覆盖"的真实痛点 | High | 融合管线 + 新建后端规则模型/API/引擎 | v1.1 最复杂的新功能，核心难点在规则引擎与融合管线集成 |
-| 融合增加个人社保/公积金承担额 | 支持上传或飞书同步个人承担额独立数据，解决"个人实际承担额 != 标准扣缴额"的场景 | Med-High | 融合管线 + 新增 canonical fields + 模板列（仅 Tool 模板） | 不得修改 Salary 模板融合逻辑 |
-| 快速融合上传文件计数 | 让 HR 在上传区域直接看到"已选 N 个社保文件 / M 个公积金文件" | Trivial | SimpleAggregate 页面 | 纯前端 `socialFiles.length` 展示 |
-| 设置页搜索 + 快速导航 | 管理功能越来越多，搜索框让管理员快速跳转到目标设置项 | Med | 需新建设置项元数据列表或 Command Palette | 可做顶部搜索或 Cmd+K 面板 |
-| 飞书功能前端完善 | 飞书凭证管理后端已有但无前端，补齐后管理员不需 curl 操作 | Low-Med | 后端 feishu credentials API | 标准表单页 |
-| 审计日志完善（真实 IP） | 当前可能记录代理 IP 而非真实客户端 IP，影响安全审计可信度 | Low | 后端 request_helpers.get_client_ip | 解析 X-Forwarded-For / X-Real-IP 头 |
-| 个人险种缴费基数数据修复 | 确保各地区缴费基数字段正确映射存储 | Med | 后端解析管线 + 逐地区验证 | 属于数据质量修复 |
-| Python 3.9 适配 | 云服务器部署环境为 Python 3.9，需去除 3.10+ 语法 | Low-Med | 后端所有 Python 文件 | `match/case`、`X | Y` 类型联合、`list[int]` 等语法需降级 |
-| v1.0 遗留技术债清理 | 5 个废弃组件文件待删除，武汉公积金样例缺失 | Low | Phase 7 遗留组件 | 清理提升代码健康度 |
+| Three.js 3D 粒子波浪动态背景 | 视觉冲击力强，让内部工具看起来专业且现代；登录页是用户第一印象 | High | 需引入 `three` + `@react-three/fiber` + `@react-three/drei` | 打破 v1.1 "零新依赖"策略，但这是 v1.2 的明确需求 |
+| 粒子颜色跟随品牌主题 | 粒子使用飞书蓝（#3370FF）/品牌色，与 Ant Design theme token 联动 | Med | Three.js Canvas 外需读取 CSS 变量或 token | 暗黑模式下颜色也需联动 |
+| 鼠标交互效果（视差/跟随） | 鼠标移动时粒子产生微妙的波动跟随，增强沉浸感 | Med | `useFrame` + mouse position | 性能需谨慎，粒子数量控制在 5000-10000 |
+| 飞书通讯录 employee_no 精确拉取 | OAuth 时不仅拿 name，还通过 `contact/v3/users/{user_id}` 拉取工号，实现精确匹配 | Med | 需 "查看成员工号" 权限（`contact:user.employee_id:readonly`） | 需飞书应用后台配置额外权限 |
+| 已登录用户绑定飞书账号 | 用户设置页/个人信息页新增"绑定飞书"入口 | Med | 需新增绑定接口 + 前端 UI | 复用 OAuth 流程，绑定而非创建新用户 |
+| 映射结果预览 | 保存映射前 Modal 汇总"系统字段 X -> 飞书列 Y" | Low | 纯前端 | 减少误操作 |
+| 映射配置模板导入导出 | 将字段映射导出为 JSON，方便跨环境复用 | Low | 纯前端 | 锦上添花 |
+| 左侧面板品牌信息 | 公司名称 + 产品名 + 核心功能亮点文案 | Low | 纯 UI 内容 | 覆盖在 3D 背景上 |
+| WebGL 不可用时优雅降级 | 检测 WebGL 支持，不可用时显示 CSS 渐变动画背景 | Low | `try { canvas.getContext('webgl') }` | 兼顾极少数不支持 WebGL 的环境 |
 
 ## Anti-Features
 
-明确不应该构建的功能。
+明确不应构建的功能。
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| 完全自定义主题编辑器 | 过度工程化，内部工具只需亮/暗两套 | 提供亮色/暗色开关，不做颜色 picker |
-| 代码 diff 风格文本对比组件 | react-diff-viewer / diff2html 是文本/代码 diff 工具，社保数据是结构化表格，UX 完全不匹配 | 自建双 AntD Table + 单元格级条件样式 |
-| 拖拽式菜单自定义 | 内部工具不需要用户自己排列菜单顺序 | 按使用频率固定分组，SubMenu 嵌套 |
-| 细粒度权限矩阵 UI | 三角色模型（admin/hr/employee）已足够，字段级权限无人提需求 | 账号管理页只提供角色 Select 下拉 |
-| Salary 模板融合逻辑修改 | 已明确禁止修改，运行完美 | 任何新增字段只加到 Tool 模板 |
-| 实时协作编辑 | 单公司内部使用，无多人同时编辑场景 | 保持单用户操作模式 |
-| 移动端原生 App | 明确 Out of Scope | 仅做 Web 响应式适配 |
-| BPMN 审批流引擎 | 社保数据处理不需要多级审批流 | 简单状态推进 + 角色权限控制 |
+| 飞书字段自动创建/删除 | 修改用户的飞书多维表格结构风险极高，可能破坏其他应用数据 | 只读取字段列表，映射操作在本系统内完成 |
+| 飞书 OAuth 替代所有登录方式 | 管理员/HR 需要独立密码登录作为飞书不可用时的降级方案 | 飞书登录作为补充选项，不取代现有双模式登录 |
+| 复杂 3D 场景（模型/物理引擎） | 登录页只需视觉氛围，大型 3D 资源会严重拖慢首屏 | 轻量粒子系统，纯 shader/geometry，无外部模型文件 |
+| 自动同步飞书通讯录到员工主数据 | SQLite 不支持并发后台任务，且通讯录同步涉及隐私合规 | 仅在 OAuth 登录时按需拉取当前用户信息 |
+| 飞书字段双向同步（修改飞书字段定义） | 破坏飞书端用户自定义字段配置 | 只支持"系统字段 -> 飞书列"的单向映射 |
+| WebGL 复杂降级方案 | 在不支持 WebGL 的极少数浏览器上做复杂降级成本过高 | 检测 WebGL，不支持时隐藏左侧面板显示静态渐变 |
+| 飞书登录用户自动提升角色 | 安全风险，角色提升应由管理员显式操作 | 飞书登录默认 employee 角色，管理员在用户管理页手动提升 |
+| 粒子动画持续运行（用户登录后） | 浪费 GPU 资源，影响应用性能 | 登录成功后立即 unmount Canvas 组件 |
 
 ## Feature Dependencies
 
 ```
-[独立，无依赖]
-  |- 员工主档默认值 (trivial, 一行代码)
-  |- 文件计数显示 (trivial, 纯前端)
-  |- 技术债清理 (独立)
-  |- Python 3.9 适配 (独立，后端)
-  |- 审计日志 IP 修复 (独立，后端)
+[飞书字段映射完善]
+  飞书凭证配置(Done) -> list_fields API(Done) -> 字段类型展示(新)
+  飞书凭证配置(Done) -> list_fields API(Done) -> 同义词自动匹配(新)
+  同义词自动匹配 -> 映射结果预览(新)
+  映射结果预览 -> 未映射关键字段警告(新)
 
-[菜单 + 导航]
-  |- 左侧菜单多级折叠 (独立)
-  |- 设置页搜索 -> 依赖菜单重组完成后才能收集设置项元数据
+[飞书 OAuth 自动登录]
+  飞书凭证配置(Done) -> authorize-url(Done) -> exchange_code_for_user(Done)
+  exchange_code_for_user -> 按姓名匹配 EmployeeMaster(新)
+  按姓名匹配 -> 多匹配确认 UI(新)
+  按姓名匹配 -> 无匹配处理(新)
+  [可选] contact/v3 拉取 employee_no -> 精确工号匹配
 
-[主题系统]
-  |- 暗黑模式切换 -> 定义 dark tokens -> 处理非 AntD 元素颜色
-                   -> MainLayout 硬编码颜色替换为 token 引用
-                   -> Sider dark 主题调整
+[登录页面改版]
+  左右分栏布局(新) -> 右侧表单迁移(新)
+  Three.js 依赖安装(新) -> 粒子波浪组件(新) -> 左侧面板集成(新)
+  暗黑模式(Done) -> Three.js 颜色主题适配(新)
+  响应式(Done) -> 移动端适配(新)
 
-[响应式]
-  |- 全页面响应式 -> 逐页面适配（7+ 个数据表格页面）
-                  -> 移动端 Sider 改为 Drawer
-                  -> Row/Col 断点配置
-
-[数据管理增强]
-  |- 筛选多选 -> 后端支持数组参数
-  |- 已匹配/未匹配过滤 -> 后端新增 matched 查询参数
-  |- 批次删除联动 -> 后端级联删除逻辑
-
-[账号管理]
-  |- 账号管理前端 (独立，后端已就绪)
-
-[融合增强]
-  |- 融合增加个人承担额 -> 新增 canonical fields
-                        -> 映射规则扩展
-                        -> Tool 模板新列（不动 Salary 模板）
-  |- 融合特殊规则配置 -> 新建数据模型 OverrideRule
-                      -> 新建 CRUD API
-                      -> 融合管线插入规则应用步骤
-                      -> 前端配置 UI
-  (特殊规则配置可独立于个人承担额，但同属融合增强范畴)
-
-[对比重做]
-  |- 月度对比 diff 风格 -> 需重新设计 Compare 页面
-                        -> 双 Table 渲染组件
-                        -> 同步滚动机制
-                        -> 单元格 diff 计算
-                        -> "只看差异" 过滤
-
-[飞书]
-  |- 飞书前端完善 (独立)
-
-[数据修复]
-  |- 缴费基数修复 -> 逐地区验证映射规则
+[跨Feature依赖]
+  飞书 OAuth 自动匹配 -> 登录页飞书按钮交互可能需要更新
+  登录页改版 -> 飞书按钮位置/样式调整
 ```
-
-## Detailed Feature Specifications
-
-### 1. 响应式数据表格
-
-**Expected behavior:**
-- 所有 AntD Table 页面在 < 768px 宽度下能横向滚动
-- 关键列（姓名、工号）使用 `fixed: 'left'` 固定在左侧
-- 非关键列（补充医疗、滞纳金等低频字段）使用 `responsive: ['lg']` 在小屏隐藏
-- 每个表格设置合理的 `scroll={{ x: N }}`（N 根据可见列总宽度计算）
-- Sider 在移动端（< 768px）改为 Drawer 模式（点击汉堡菜单唤出）
-- 卡片网格使用 `<Row gutter>` + `<Col xs={24} sm={12} md={8} lg={6}>` 断点
-- Header 在移动端简化（隐藏面包屑，保留用户名和菜单按钮）
-
-**Affected pages（按优先级）:**
-1. DataManagement - 最多列（20+ 字段），最高频使用
-2. PeriodCompare - 双倍列宽
-3. Employees - 员工列表
-4. Results - 校验匹配结果
-5. Imports - 批次管理
-6. AuditLogs - 日志列表
-7. Exports - 导出记录
-
-**Implementation key points:**
-```typescript
-// 列配置示例
-{ title: '姓名', dataIndex: 'person_name', fixed: 'left', width: 100 },
-{ title: '工号', dataIndex: 'employee_id', fixed: 'left', width: 100 },
-{ title: '补充医疗', dataIndex: 'supplementary_medical_company', responsive: ['lg'] },
-```
-
-**Confidence:** HIGH - AntD 官方文档明确支持 `scroll.x`、`fixed`、`responsive` 属性。
-
-### 2. 暗黑模式切换
-
-**Expected behavior:**
-- Header 右侧用户信息旁提供亮/暗切换按钮（Sun/Moon 图标）
-- 用户偏好保存到 localStorage，刷新后保持
-- 首次访问跟随系统 `prefers-color-scheme`
-- 切换无闪烁（AntD 5 CSS-in-JS 运行时切换，不需 LESS 重编译）
-- 非 AntD 元素（MainLayout 的背景色、自定义 CSS Module 等）也要跟随主题
-
-**Implementation approach:**
-```typescript
-// theme/index.ts 扩展为 lightTheme + darkTheme
-import { theme as antdTheme } from 'antd';
-
-export const lightTheme: ThemeConfig = { /* 现有 theme 对象 */ };
-export const darkTheme: ThemeConfig = {
-  algorithm: antdTheme.darkAlgorithm,
-  token: {
-    colorPrimary: '#3370FF',  // 保持品牌色
-    colorBgContainer: '#1F1F1F',
-    colorBgLayout: '#141414',
-    colorBgElevated: '#2A2A2A',
-    colorText: '#E8E8E8',
-    // ... 其余 dark tokens
-  },
-  components: {
-    Layout: { siderBg: '#0D0D0D', bodyBg: '#141414' },
-    // ... 组件级 dark 覆盖
-  },
-};
-```
-
-**Critical caveat (HIGH confidence):** AntD 5 的 `darkAlgorithm` 只覆盖 AntD 组件内部。页面 body 背景、MainLayout 中 `background: '#F5F6F7'` 等硬编码颜色必须改为 token 引用或 CSS 变量。当前 MainLayout.tsx 第 286-290 行的 Content style 有硬编码颜色需要处理。
-
-**Storage:** `localStorage.setItem('theme-mode', 'dark' | 'light' | 'system')`
-
-### 3. 月度对比 diff 风格重做
-
-**Expected behavior:**
-- 左右两个独立 AntD Table，各自渲染一个月的完整数据
-- 同一员工行通过 employee_id 或 id_number 对齐
-- 差异单元格高亮：金额增加 = 绿色背景，金额减少 = 红色背景，不变 = 无色
-- 只在一侧出现的人员行整行标色（左侧独有 = 红底/删除，右侧独有 = 蓝底/新增）
-- 支持"只看差异行"过滤开关
-- 两个表格同步滚动（监听 `.ant-table-body` onScroll 事件互相同步 scrollTop/scrollLeft）
-- 单元格 hover tooltip 显示变化量（+500.00）和变化百分比（+5.2%）
-- 表格顶部统计卡片：变化人数、新增人数、减少人数、总额变化
-
-**Why NOT use react-diff-viewer / diff2html:**
-- 这些库设计用于代码/文本 diff，输出的是行级对比视图
-- 社保数据是结构化表格（姓名、工号、N 个金额字段），需要单元格级别对比
-- react-diff-viewer 的 split view 虽然左右分栏，但渲染的是文本行不是表格列
-- 自建双 Table 可以完全控制列配置、固定列、列隐藏等 AntD 特性
-
-**Implementation approach:**
-- 用 Map<string, LeftRow> + Map<string, RightRow> 按员工 ID 对齐
-- 合并为 unified list: `{ left: LeftRow | null, right: RightRow | null, status: 'match' | 'left_only' | 'right_only' }`
-- 逐字段比较生成 diff 标记
-- 渲染时通过 AntD Table 的 `onCell` 返回条件背景色
-- 同步滚动：两个 Table 的 `.ant-table-body` 互相监听 scroll 事件
-
-**Complexity note:** 现有 Compare.tsx 已有字段映射 FIELD_LABELS、diffCellStyle、rowBackground 等约 60% 的基础逻辑，重做主要是将单表渲染改为双表渲染。
-
-### 4. 账号管理系统
-
-**Expected behavior:**
-- 仅 admin 可访问的独立页面 `/accounts` 或 `/users`
-- 用户列表 Table：用户名、显示名、角色（Tag 颜色区分）、创建时间、操作列
-- "新建用户"按钮 -> Modal 表单（用户名、密码、确认密码、角色 Select、显示名）
-- "编辑"按钮 -> Modal 表单（角色 Select、显示名，用户名不可改）
-- "重置密码"按钮 -> Modal（新密码 + 确认密码）
-- 安全约束：不能删除/降级自己；不能降级唯一 admin
-- 所有操作自动记录审计日志（后端已实现）
-
-**Backend status (HIGH confidence):**
-- `POST /api/v1/users/` - 创建用户
-- `GET /api/v1/users/` - 列表查询
-- `GET /api/v1/users/:id` - 获取详情
-- `PUT /api/v1/users/:id` - 更新信息（role, display_name）
-- `PUT /api/v1/users/:id/password` - 重置密码
-- Schema: UserCreate(username, password, role, display_name), UserUpdate(role?, display_name?), UserPasswordReset(new_password)
-
-**Frontend implementation:** 标准 AntD Table + Modal.confirm/Form 模式，预计 200-300 行代码。
-
-### 5. 融合特殊规则配置
-
-**Expected behavior:**
-- 入口在快速融合页面的"高级设置"折叠面板中
-- 规则定义三要素：
-  1. 目标员工（姓名/工号搜索 AutoComplete）
-  2. 目标字段（canonical field 下拉 Select）
-  3. 覆盖值（数字 InputNumber）
-- 规则可保存命名（如"张三 2月基数调整"），下次融合勾选复用
-- 规则执行时机：标准化之后、导出之前（在融合管线中间插入）
-- 执行后在结果中标记"已被规则覆盖"（traceability）
-- 不得影响 Salary 模板融合逻辑
-
-**Backend design:**
-- 新模型：`OverrideRule(id, name, rules: JSON, created_by, created_at, updated_at)`
-- rules JSON 结构：`[{ employee_id?: string, person_name?: string, id_number?: string, field: string, value: number }]`
-- 新 API：`CRUD /api/v1/override-rules`
-- 融合管线新步骤：`apply_override_rules(normalized_records, rule_ids) -> modified_records`
-
-**Complexity analysis:** v1.1 最复杂的新功能。分三步递进实现：
-1. 规则存储 + CRUD API（Low-Med）
-2. 融合管线集成（Med）
-3. 前端配置 UI（Med）
-
-### 6. 菜单多级折叠
-
-**Recommended grouping:**
-```
-快速融合          (顶级，最高频)
-处理看板          (顶级)
-数据管理          (顶级)
-
-对比分析 >        (SubMenu)
-  |- 月度对比
-  |- 跨期对比
-  |- 异常检测
-
-基础数据 >        (SubMenu)
-  |- 批次管理
-  |- 映射修正
-  |- 校验匹配
-  |- 导出结果
-  |- 员工主档
-
-系统管理 >        (SubMenu, admin only)
-  |- 账号管理      (新增)
-  |- 审计日志
-  |- API 密钥
-
-飞书集成 >        (SubMenu, 条件显示)
-  |- 飞书同步
-  |- 飞书设置
-```
-
-**Implementation:** 将 ALL_NAV_ITEMS 改为嵌套结构，使用 AntD Menu 的 `children` 属性。折叠状态下 SubMenu 显示为 popover 子菜单。
-
-### 7. 暗黑模式 - 需要处理的非 AntD 元素清单
-
-| 位置 | 当前硬编码 | 需改为 |
-|------|-----------|--------|
-| MainLayout Content style | `background: '#F5F6F7'` | `token.colorBgLayout` |
-| MainLayout Header style | `background: '#fff'`, `borderBottom: '1px solid #DEE0E3'` | `token.colorBgContainer`, `token.colorBorder` |
-| AuthRouteState | `background: '#F5F6F7'` | `token.colorBgLayout` |
-| Login page | 可能有硬编码背景色 | token 引用 |
-| MainLayout.module.css | logo 样式 | CSS 变量或 className 条件切换 |
-| animations.module.css | 动画中可能有颜色值 | 检查并替换 |
-| PeriodCompare diffCellStyle | `color: '#00B42A'` / `'#F54A45'` | 可保持（绿红在暗黑模式下仍可读），但 rowBackground 的浅色背景需调整 |
 
 ## MVP Recommendation
 
-### Phase 1: 快速见效 + UI 基础整理（1-2 天）
-改动小、用户感知强的功能集中交付：
+**优先级排序（基于风险递增、依赖关系、用户价值）：**
 
-1. **员工主档默认使用已有主档** - Trivial
-2. **文件计数显示** - Trivial
-3. **左侧菜单多级折叠** - Low
-4. **数据管理筛选多选 + 匹配过滤** - Low
-5. **技术债清理**（废弃组件删除）- Low
-6. **Python 3.9 适配** - Low-Med（可并行）
+1. **飞书字段映射完善** — 最低风险，基础设施全部就绪
+   - 字段类型展示 + 同义词自动匹配 + 未映射警告 + 预览
+   - 无新依赖，现有 ReactFlow 映射页增强
+   - 预计 1-2 天
 
-### Phase 2: 账号管理 + 主题（2-3 天）
-7. **账号管理前端页面** - Low-Med
-8. **暗黑模式切换** - Low-Med
-9. **审计日志 IP 修复** - Low
+2. **飞书 OAuth 自动匹配绑定** — 中等风险，核心新逻辑在后端
+   - 修改 `exchange_code_for_user` 增加 EmployeeMaster 匹配
+   - 多匹配/无匹配前端确认流程
+   - 预计 2-3 天
 
-### Phase 3: 响应式全面适配（2-3 天）
-10. **全页面响应式** - Medium（7+ 页面逐一适配）
-11. **飞书前端完善** - Low-Med
+3. **登录页面改版** — 最高视觉冲击但也最高复杂度
+   - 先做左右分栏布局（不含 Three.js），确保功能完整
+   - 再加 Three.js 粒子背景（需 3 个新包：three、@react-three/fiber、@react-three/drei）
+   - 预计 3-4 天
 
-### Phase 4: 融合能力增强（3-4 天）
-12. **融合增加个人承担额** - Med-High
-13. **融合特殊规则配置** - High
-14. **缴费基数数据修复** - Med
-15. **批次删除联动清理** - Low-Med
+**Defer to later:**
+- 飞书通讯录 employee_no 拉取：需额外企业应用权限审批，不阻塞核心流程
+- 映射配置模板导入导出：锦上添花
+- 已登录用户绑定飞书：需新增绑定 API，可在 v1.3
 
-### Phase 5: 对比重做 + 收尾（2-3 天）
-16. **月度对比 diff 风格重做** - High
-17. **设置页搜索** - Med（评估菜单分组后是否仍需要）
+## Detailed Feature Specifications
 
-**Defer to v1.2:**
-- 设置页搜索（如果菜单分组足够清晰，可能不再需要）
-- Command Palette（优先级最低的 UX 增强）
+### 1. 飞书字段映射 — 期望行为
 
-## Phase Ordering Rationale
+**现有状态：** FeishuFieldMappingPage.tsx 已使用 ReactFlow 实现左右连线 UI：
+- 左侧：23 个系统标准字段（SYSTEM_FIELDS 数组，key + 中文 label）
+- 右侧：从 `fetchFeishuFields(configId)` 拉取的飞书字段
+- 拖拽连线创建映射，保存到 `saveSyncConfigMapping(configId, mapping)`
+- 自动匹配：精确 label 匹配 + 包含检查
 
-1. **Trivial + Low 优先**: 员工主档默认值、文件计数、菜单分组可以一天内全部完成，立刻改善日常使用体验
-2. **账号管理在主题之前**: 后端已就绪，纯前端工作，交付后管理员立刻可用；暗黑模式需要更多全局样式审计
-3. **响应式独立成 phase**: 涉及 7+ 个页面的逐一适配，工作量可预测但需要逐页测试
-4. **融合增强在后半段**: 复杂度最高（特别是特殊规则配置），需要新建后端模型/API/引擎，且依赖对现有融合管线的深入理解
-5. **对比重做最后**: 虽然用户价值高，但复杂度也最高，且不影响核心融合流程；放到最后可以把前面 phase 的响应式/暗黑模式经验带入
+**需要完善：**
+
+1. **字段类型 badge**
+   - 飞书 API 返回 `type`（1=文本, 2=数字, 3=单选, ...）和 `ui_type`（"Text", "Number", "SingleSelect"）
+   - 在 FeishuColumnNode 右侧加 Tag 显示类型
+   - 类型不匹配时（如系统数字字段连到飞书文本字段）连线标红警告
+
+2. **同义词自动匹配增强**
+   - 现有匹配只看 `field_name.includes(sysField.label)` 或反向
+   - 增加：中文同义词表（如 "养老保险(单位)" 应匹配 field_name 含 "养老" 且含 "单位"）
+   - 增加：系统 key 到常见中文名的映射（pension_company -> ["养老", "基本养老", "养老保险"] + ["单位", "企业"]）
+   - 匹配逻辑：模糊包含多个关键词都命中则视为匹配
+
+3. **未映射警告**
+   - 核心字段列表：`person_name`, `employee_id`, `billing_period`
+   - 保存时检查这些字段是否有映射连线
+   - 未映射 -> Modal.confirm 警告（可忽略继续保存）
+
+4. **映射预览 Modal**
+   - 保存按钮点击后先弹出预览 Modal
+   - 表格展示：系统字段名 | 飞书列名 | 飞书列类型
+   - 底部展示未映射的系统字段列表
+   - 确认后再调用 saveSyncConfigMapping
+
+### 2. 飞书 OAuth 自动匹配 — 期望行为
+
+**匹配策略（分层，后端实现）：**
+
+```
+Step 1: 查 User.feishu_open_id == open_id
+  -> 找到 -> 直接签发 JWT（已实现）
+
+Step 2: 用飞书返回的 name 查 EmployeeMaster.person_name
+  -> 唯一匹配 -> 自动绑定 open_id 到对应 User（或创建 User 并关联）
+  -> 多匹配 -> 返回候选列表给前端，用户选择后绑定
+  -> 无匹配 -> 创建新 employee 用户（当前行为），标记为"未绑定员工"
+
+Step 3 (可选): 如果有 contact/v3 权限，用 user_id 拉取 employee_no
+  -> 精确匹配 EmployeeMaster.employee_id
+  -> 比姓名匹配更可靠
+```
+
+**前端交互流程：**
+
+```
+用户点击"飞书登录" -> 跳转飞书授权页 -> 回调 code+state
+  -> 后端返回以下之一:
+     a) { status: "logged_in", access_token, ... }  -> 直接进入系统
+     b) { status: "need_confirm", candidates: [...] }  -> 展示匹配确认 Modal
+     c) { status: "new_user", access_token, ... }  -> 进入系统，提示"未绑定员工主数据"
+```
+
+**匹配确认 Modal（多匹配情况）：**
+- 标题："检测到多个同名员工，请选择您的账号"
+- 列表展示：姓名 + 工号 + 公司 + 部门
+- 用户点击选择 -> 调用绑定 API -> 签发 JWT -> 进入系统
+
+**后端 API 变更：**
+- 修改 `exchange_code_for_user` 增加 EmployeeMaster 查询逻辑
+- 新增返回 schema：包含 `status` 字段区分直接登录/需确认/新用户
+- 新增 `POST /auth/feishu/confirm-bind`：多匹配时用户选择后确认绑定
+
+### 3. 登录页面改版 — 期望行为
+
+**布局结构：**
+
+```
++------------------------------------------+
+|   Left Panel (50%)   |  Right Panel (50%)  |
+|                      |                     |
+|   Three.js Canvas    |  品牌标题            |
+|   (粒子波浪背景)      |  Tabs 登录表单       |
+|                      |  飞书登录按钮         |
+|   品牌文案叠加        |  员工查询链接         |
+|   (半透明白字)        |                     |
+|                      |                     |
++------------------------------------------+
+
+移动端 (<768px):
++---------------------+
+|  品牌标题            |
+|  Tabs 登录表单       |
+|  飞书登录按钮         |
+|  员工查询链接         |
++---------------------+
+```
+
+**Three.js 粒子波浪实现要点：**
+
+- 使用 `@react-three/fiber` 的 `Canvas` 组件
+- 粒子数量：5000-8000 个（平衡视觉效果与性能）
+- 波浪动画：`useFrame` 中通过 sin/cos 函数更新粒子 Y 坐标
+- 颜色：品牌蓝 #3370FF 渐变到 #667EEA，暗黑模式下降低亮度
+- 鼠标交互（可选）：鼠标位置影响波浪振幅
+- Canvas 设置 `position: absolute; z-index: 0`，品牌文案 `z-index: 1`
+
+**Three.js 技术方案：**
+
+```typescript
+// 推荐: @react-three/fiber（R3F）声明式 API
+import { Canvas, useFrame } from '@react-three/fiber';
+import { Points, PointMaterial } from '@react-three/drei';
+
+function ParticleWave() {
+  const ref = useRef<THREE.Points>(null);
+  useFrame(({ clock }) => {
+    // 更新每个粒子的 Y 坐标形成波浪
+    const positions = ref.current!.geometry.attributes.position.array;
+    for (let i = 0; i < positions.length; i += 3) {
+      positions[i + 1] = Math.sin(positions[i] * 0.5 + clock.elapsedTime) * 0.5;
+    }
+    ref.current!.geometry.attributes.position.needsUpdate = true;
+  });
+  return (
+    <Points ref={ref}>
+      <bufferGeometry>
+        <bufferAttribute ... />
+      </bufferGeometry>
+      <PointMaterial size={0.02} color="#3370FF" />
+    </Points>
+  );
+}
+```
+
+**新增依赖评估：**
+
+| Package | Size (gzip) | Purpose | Risk |
+|---------|-------------|---------|------|
+| three | ~150KB | 3D 渲染核心 | 必须，R3F peer dep |
+| @react-three/fiber | ~40KB | React 声明式 Three.js | 推荐方案 |
+| @react-three/drei | ~80KB | 工具组件（Points, PointMaterial 等） | 可选但大幅降低开发量 |
+| **Total** | **~270KB gzip** | | 首屏影响可通过 lazy import 缓解 |
+
+**性能优化：**
+- `React.lazy(() => import('./ParticleWave'))` 懒加载 Canvas 组件
+- 登录表单先渲染，3D 背景异步加载不阻塞交互
+- 登录成功后 unmount Canvas 释放 GPU 资源
+
+## Complexity Summary
+
+| Feature Area | Estimated Effort | Risk | Key Challenge |
+|-------------|-----------------|------|---------------|
+| 字段映射 UI 完善 | 1-2 天 | Low | 纯前端改进，后端已就绪 |
+| 字段同义词匹配 | 0.5-1 天 | Low | 词表维护 |
+| OAuth 后端匹配逻辑 | 1-2 天 | Med | 多匹配/无匹配边界 |
+| OAuth 前端确认 UI | 1 天 | Med | 新增 Modal/步骤 |
+| 登录页左右分栏 | 0.5-1 天 | Low | 纯 CSS 布局 |
+| Three.js 粒子波浪 | 2-3 天 | High | 新依赖 + 性能 + 暗黑适配 |
+| 移动端适配 | 0.5 天 | Low | 隐藏左侧面板 |
+| **Total** | **7-10 天** | | |
 
 ## Sources
 
-- [Ant Design 5 Customize Theme](https://ant.design/docs/react/customize-theme/) - darkAlgorithm 运行时切换，HIGH confidence
-- [Ant Design Table](https://ant.design/components/table/) - scroll.x / fixed / responsive 属性，HIGH confidence
-- [Ant Design Menu](https://ant.design/components/menu/) - SubMenu / inlineCollapsed 多级折叠，HIGH confidence
-- [Ant Design Select](https://ant.design/components/select/) - mode="multiple" 多选模式，HIGH confidence
-- [How To Toggle Dark Theme With Ant Design 5.0](https://betterprogramming.pub/how-to-toggle-dark-theme-with-ant-design-5-0-eb68552f62b8) - 实现参考，MEDIUM confidence
-- [Ant Design Pro Permission Management](https://beta-pro.ant.design/docs/authority-management/) - 权限管理模式参考
-- [react-diff-viewer (GitHub)](https://github.com/praneshr/react-diff-viewer) - 评估后决定不采用（代码 diff 工具，不适合表格数据）
-- [diff2html](https://diff2html.xyz/) - 评估后决定不采用（文本 diff 工具）
-- [AntD Table responsive](https://medium.com/@rohitkumar1351999rk/improving-horizontal-scroll-indication-in-ant-design-tables-43abe8ecaa02) - 横向滚动 UX 改进
+- [飞书 Bitable API 概述](https://open.feishu.cn/document/server-docs/docs/bitable-v1/bitable-overview) - HIGH confidence
+- [飞书 Bitable 字段列表 API](https://open.feishu.cn/document/server-docs/docs/bitable-v1/app-table-field/list) - HIGH confidence，已验证返回 field_id/field_name/type/ui_type
+- [飞书 Bitable 数据结构](https://open.feishu.cn/document/server-docs/docs/bitable-v1/bitable-structure) - HIGH confidence
+- [飞书 OAuth 授权登录实践](https://iamazing.cn/page/feishu-oauth-login) - MEDIUM confidence
+- [飞书通讯录用户信息 API](https://open.feishu.cn/document/server-docs/contact-v3/user/get) - HIGH confidence，确认 employee_no 需 "查看成员工号" 权限
+- [飞书 user_access_token 获取](https://open.feishu.cn/document/authentication-management/access-token/get-user-access-token) - HIGH confidence
+- [React Three Fiber 官方文档](https://r3f.docs.pmnd.rs/tutorials/basic-animations) - HIGH confidence
+- [Codrops: Shader Background with R3F](https://tympanus.net/codrops/2024/10/31/how-to-code-a-subtle-shader-background-effect-with-react-three-fiber/) - MEDIUM confidence
+- [Three.js Particle Wave CodePen](https://codepen.io/hellobrophy/pen/rKqYRo) - MEDIUM confidence，参考实现
+- [Split Panel Login 设计参考 (Dribbble)](https://dribbble.com/search/split-screen-login) - MEDIUM confidence
+- [50+ SaaS Login Page Examples](https://www.eleken.co/blog-posts/login-page-examples) - MEDIUM confidence
+- [Motion for React Three Fiber](https://motion.dev/docs/react-three-fiber) - MEDIUM confidence

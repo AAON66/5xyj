@@ -1,285 +1,244 @@
-# Domain Pitfalls: v1.1 Feature Additions
+# Pitfalls Research
 
-**Domain:** Social insurance management system — retrofitting responsive design, dark mode, diff UI, account management, Python 3.9 compat, cascade delete to existing React 18 + Ant Design 5 + FastAPI + SQLite app
-**Researched:** 2026-04-04
-**Overall confidence:** HIGH (based on direct codebase inspection + known ecosystem patterns)
+**Domain:** 飞书深度集成与登录体验升级 (v1.2 — Feishu Deep Integration + Login UX Upgrade)
+**Researched:** 2026-04-14
+**Confidence:** HIGH (基于现有代码深度分析 + 飞书官方文档 + Three.js/OAuth 社区报告)
 
 ---
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites, data loss, or major regressions.
+### Pitfall 1: 飞书字段类型序列化不对称 — 读写数据格式不一致
 
-### Pitfall 1: SQLite CASCADE DELETE silent failure without PRAGMA foreign_keys
+**What goes wrong:**
+飞书多维表格 API 的字段值在读取和写入时使用不同的 JSON 结构。Text 字段 (type=1) 写入时是 plain string，读取时是 `[{"type": "text", "text": "..."}]` 的富文本数组。Number 字段 (type=2) 读取时可能返回 string 而非 number。Date 字段 (type=5) 使用毫秒级 Unix 时间戳，显示时区默认 UTC+8。现有 `feishu_client.py` 的 `batch_create_records` 直接发送原始 dict（第 88 行 `{"records": [{"fields": r} for r in records]}`），没有做类型感知的序列化。飞书字段类型编码完整列表：type 1=文本, 2=数字, 3=单选, 4=多选, 5=日期, 7=复选框, 11=人员, 13=电话, 15=超链接, 17=附件, 18/21=关联, 20=公式, 1001-1005=系统字段。
 
-**What goes wrong:** SQLite ignores `ON DELETE CASCADE` by default. Even though `ForeignKey(..., ondelete="CASCADE")` is declared on every child model (source_files, normalized_records, match_results, export_jobs, etc.), deleting an ImportBatch will silently leave orphan rows if `PRAGMA foreign_keys=ON` is not active on the connection.
+**Why it happens:**
+这是飞书 API 的设计决策——读/写 contract 不对称。开发者通常假设"读出来的格式就是写进去的格式"，但实际上数据结构完全不同。现有 `SyncConfig.field_mapping` 只存 field_name 对应关系（JSON dict），不存 field_type，无法在写入时做类型转换。
 
-**Why it happens:** SQLite requires `PRAGMA foreign_keys=ON` on every new connection. The codebase already does this in `database.py:_apply_sqlite_pragmas`, but test sessions, migration scripts, manual DB access, or any code path that bypasses the configured engine will produce silent orphans.
+**How to avoid:**
+- 建立 `FeishuFieldSerializer` 类，根据 field_type 做双向转换（system -> feishu 和 feishu -> system）
+- `SyncConfig.field_mapping` 结构扩展为 `{canonical_field: {field_id, field_name, field_type}}`（从当前简单 dict 升级）
+- Date 字段统一 UTC 存储，写入飞书时转毫秒时间戳
+- Number 字段读取后强制 `float()` 转换
+- 为每种 field_type 编写序列化/反序列化单元测试
 
-**Consequences:** Deleting a batch leaves orphaned normalized_records, match_results, validation_issues, export_jobs, and export_artifacts. The "batch delete cascading to month data" feature becomes unreliable. Orphan data appears in queries and corrupts dashboard statistics.
+**Warning signs:**
+- 同步到飞书后数字字段变成文本，飞书端公式和求和失效
+- 拉取数据时 `TypeError: expected string, got list`
+- 日期偏差 8 小时
 
-**Prevention:**
-1. Before implementing cascade batch delete, write an integration test that deletes a batch and asserts all child table counts drop to zero.
-2. Add a `PRAGMA foreign_keys` check assertion to the test fixture that creates DB sessions.
-3. For the v1.1 "data cascade delete" feature, do NOT rely solely on database-level CASCADE. Use SQLAlchemy's `cascade="all, delete-orphan"` (already present on ImportBatch relationships) AND verify with explicit count queries in the service layer.
-4. Add a startup assertion that verifies `PRAGMA foreign_keys` returns `1`.
-
-**Detection:** Run `SELECT COUNT(*) FROM normalized_records WHERE batch_id NOT IN (SELECT id FROM import_batches)` after any delete operation in tests.
-
----
-
-### Pitfall 2: Python 3.9 downgrade breaks `X | Y` union type syntax in 30+ files
-
-**What goes wrong:** The codebase uses `str | None`, `dict[str, object] | None`, `Awaitable[None] | None` extensively in service layer type hints (found in import_service.py, aggregate_service.py, feishu_sync_service.py, housing_fund_service.py, export_utils.py, and 25+ more files). Python 3.9 does not support `X | Y` syntax for type unions at runtime.
-
-**Why it happens:** Most files use `from __future__ import annotations` (which defers annotation evaluation and makes `X | Y` syntax work as strings), BUT several files use `X | Y` in runtime contexts — default arguments, isinstance checks, or files that lack the `__future__` import. Mixed patterns across the codebase make it easy to miss problematic files.
-
-**Consequences:** `TypeError: unsupported operand type(s) for |: 'type' and 'NoneType'` at import time on Python 3.9, crashing the entire application on startup.
-
-**Prevention:**
-1. Systematically audit every `.py` file: ensure ALL files have `from __future__ import annotations` as the first import.
-2. Search for runtime `X | Y` usage outside annotations: `isinstance()` checks, `typing.get_type_hints()` calls, any place types are evaluated at runtime.
-3. Run the full test suite under Python 3.9 before merging — set up CI to test on 3.9 as a gate.
-4. For Pydantic v2 models (schemas/), `X | Y` in field annotations is safe WITH `from __future__ import annotations`, but `model_validator` and discriminated unions may evaluate types at runtime — test thoroughly.
-5. `collections.abc` imports (used in database.py, import_service.py) are fine in 3.9, but verify each import path.
-
-**Detection:** `python3.9 -c "import backend.app.main"` will immediately fail on any problematic file.
+**Phase to address:**
+飞书字段映射完善（第一阶段）— 这是所有后续飞书功能的基础
 
 ---
 
-### Pitfall 3: `dict[str, ...]` and `list[...]` built-in generics fail at runtime on Python 3.9
+### Pitfall 2: OAuth 登录与现有用户的身份割裂
 
-**What goes wrong:** Python 3.9 supports `list[X]` and `dict[K, V]` in annotations only with `from __future__ import annotations`. Without it, `dict[str, object]` raises `TypeError` at runtime. The codebase uses these generics pervasively in function signatures and variable annotations.
+**What goes wrong:**
+飞书 OAuth 登录创建的用户（`feishu_{open_id[:16]}`）与现有管理员/HR 用户使用同一个 JWT 体系，但 OAuth 新建用户默认 role=employee。当一个已有管理员通过飞书 OAuth 登录时，`feishu_oauth_service.py:58` 只按 `feishu_open_id` 查找 User，未找到则在 `:64-72` 创建新 employee 用户（username=`feishu_{open_id[:16]}`，role=`employee`）。同一个人在系统中产生两个账号——一个 admin 一个 employee，JWT token 和审计日志完全割裂。
 
-**Why it happens:** PEP 585 made built-in generics work at runtime in Python 3.10+, but 3.9 only supports them as string annotations (via `__future__`). Most app files have the import, but test files and alembic migrations may not.
+**Why it happens:**
+现有代码没有"飞书身份 -> 系统已有用户"的智能匹配层。OAuth 流程按 open_id 查找失败后直接创建新用户，没有尝试按姓名、工号等信息关联已有账号。User 模型（`user.py`）有 `feishu_open_id` 和 `feishu_union_id` 字段，但初始值为 None，需要手动或自动绑定。
 
-**Consequences:** Same crash as Pitfall 2 — immediate `TypeError` on import.
+**How to avoid:**
+- OAuth 回调时匹配顺序：(1) `feishu_open_id` 精确查找 -> (2) 飞书返回的 `name` + `employee_no`(需通讯录权限) 双因子匹配已有 User -> (3) 单独 `name` 匹配标记为"待确认" -> (4) 全部未命中才创建新用户
+- 匹配成功后绑定 `feishu_open_id`/`feishu_union_id` 到已有用户，保留原有 role
+- 管理后台提供"飞书账号绑定管理"页面，列出所有待确认和已绑定的映射
+- Employee master 已有 `employee_id`（工号）和 `person_name`（姓名），可作为匹配依据
 
-**Prevention:**
-1. Same `from __future__ import annotations` audit as Pitfall 2.
-2. Alembic migration files (versions/) already use `Sequence` and `Union` from typing — verify any new migrations follow this pattern.
-3. For runtime-evaluated annotations (FastAPI dependency injection, Pydantic schema construction), verify the framework handles deferred annotations correctly under 3.9.
+**Warning signs:**
+- 管理员飞书登录后只看到员工自助查询功能
+- `users` 表中出现大量 `feishu_` 前缀的 username
+- 审计日志中同一个人出现两个 username
 
-**Detection:** Full import scan under Python 3.9.
-
----
-
-### Pitfall 4: Dark mode breaks 329 hardcoded inline styles across 22 page files
-
-**What goes wrong:** The codebase has 329 occurrences of `style={...}` across 22 page files with hardcoded colors like `background: '#F5F6F7'`, `color: '#1F2329'`, `borderBottom: '1px solid #DEE0E3'`. The MainLayout itself has hardcoded `background: '#fff'` and `background: '#F5F6F7'` in inline styles. These ignore Ant Design's theme tokens and will remain light-colored in dark mode.
-
-**Why it happens:** v1.0 Phase 8 did a "full page rebuild" using inline styles for development speed. The `theme/index.ts` defines tokens but they are only consumed by Ant Design components, not by inline styles in page code.
-
-**Consequences:** Dark mode toggle changes Ant Design component colors but leaves page backgrounds, card borders, text colors, and layout chrome in light mode. The result looks broken — white content areas floating in a dark shell, unreadable text on wrong backgrounds.
-
-**Prevention:**
-1. Before implementing dark mode, refactor inline color styles to use Ant Design's `token` via `theme.useToken()` hook or CSS custom properties.
-2. Prioritize the MainLayout (Header background, Content background, Sider logo text) — this is the shell wrapping everything.
-3. For page-level styles, create a shared pattern: `const { token } = theme.useToken()` and replace hardcoded hex values.
-4. Do NOT attempt dark mode until at least MainLayout and top-5 most-used pages (Dashboard, DataManagement, SimpleAggregate, Imports, Employees) have their inline styles tokenized.
-5. Ant Design 5's `ConfigProvider` supports `theme.algorithm: theme.darkAlgorithm` — use this as the toggle mechanism, but understand it only affects components, not inline styles.
-
-**Detection:** Visually test every page in dark mode. Grep for hardcoded hex colors in `.tsx` files: `#F5F6F7`, `#FFFFFF`, `#fff`, `#1F2329`, `#DEE0E3`, `#646A73`.
+**Phase to address:**
+飞书 OAuth 自动登录（第二阶段）— 这是核心用户体验问题
 
 ---
 
-### Pitfall 5: Responsive retrofit breaks complex social insurance data tables
+### Pitfall 3: Three.js Canvas 在 React SPA 路由切换时内存泄漏
 
-**What goes wrong:** Social insurance data tables have 15-25 columns (pension_company, pension_personal, medical_company, medical_personal, unemployment_company, etc.). On mobile or narrow windows, these tables become completely unusable. Naive responsive approaches (hiding columns, wrapping text) lose critical data visibility that HR users depend on.
+**What goes wrong:**
+用户登录后路由离开登录页，Three.js 的 WebGLRenderer、BufferGeometry、Material 等 GPU 资源未释放。多次进出登录页后，浏览器内存持续增长，动画帧率下降。Chrome 限制约 16 个 WebGL context，泄漏会导致后续 Canvas 创建失败（黑屏）。react-three-fiber (R3F) 的 `<Canvas>` 组件卸载时也存在已知的 WebGLRenderer 泄漏问题（GitHub Issue #514）。
 
-**Why it happens:** Ant Design Table does not automatically handle horizontal scrolling for many columns. The existing tables use fixed column definitions without `scroll={{ x: ... }}` or responsive column visibility logic.
+**Why it happens:**
+React 组件卸载时 `useEffect` cleanup 只清理 JS 对象引用，但 Three.js 的 GPU 资源需要显式调用 `dispose()` 方法。WebGL context 是浏览器全局有限资源，不会被 JavaScript GC 回收。这是 React 声明式范式与 Three.js 命令式资源管理之间的根本冲突。
 
-**Consequences:** Mobile users see broken tables with overlapping columns. HR users on tablets cannot do their core work. Worse: if columns are hidden for responsive layout, users may not realize data is missing and make decisions on incomplete information.
+**How to avoid:**
+- 使用 raw Three.js 而非 react-three-fiber（登录页是单一粒子波浪场景，不需要 R3F 声明式组件系统；省去 R3F + drei 约 50KB+ gzipped 依赖）
+- `useEffect` cleanup 必须严格执行以下序列：
+  1. `cancelAnimationFrame(animationId)`
+  2. `scene.traverse(obj => { obj.geometry?.dispose(); obj.material?.dispose(); })`
+  3. `renderer.dispose()`
+  4. `renderer.forceContextLoss()`（释放 WebGL context）
+  5. 移除 resize event listener
+  6. 从 DOM 移除 canvas 元素
+- Canvas 初始化使用低功耗配置：`{ alpha: true, antialias: false, powerPreference: 'low-power' }`
 
-**Prevention:**
-1. Do NOT hide insurance columns to fit mobile screens. Instead: use `scroll={{ x: true }}` with a fixed left column (person_name) for horizontal scrolling on narrow screens.
-2. For mobile-first views, consider a card-based layout showing summary (name, total_amount, company_total, personal_total) with expandable detail for per-insurance-type breakdown.
-3. Test with real data widths — Chinese insurance field names are long (e.g., "职工基本养老保险(单位缴纳)") and numeric values have decimal places.
-4. The DataManagement page has cascading filters (region + company + period) — these Row/Col layouts need responsive breakpoints. Use Ant Design's `<Col xs={24} sm={12} lg={8}>` pattern.
-5. The SimpleAggregate page has a multi-step upload flow with WorkflowSteps — test this on mobile.
+**Warning signs:**
+- Chrome DevTools Performance > Memory 中 `WebGLRenderingContext` 实例数随路由切换递增
+- 控制台出现 `WARNING: Too many active WebGL contexts. Oldest context will be lost`
+- 动画帧率随使用时间下降
 
-**Detection:** Resize browser to 375px width and verify every page is usable. Test on actual mobile device with touch interactions.
-
----
-
-## Moderate Pitfalls
-
-### Pitfall 6: Account management CRUD without self-demotion protection
-
-**What goes wrong:** Adding account management (create/edit/delete users, change roles, reset passwords) to the existing JWT auth system. An admin accidentally changes their own role to 'hr' or 'employee', or deletes their own account, locking themselves out of the system.
-
-**Prevention:**
-1. Prevent admins from changing their own role or deactivating their own account via API-level validation.
-2. Require at least one admin account to exist at all times — block the last admin from being demoted or deleted.
-3. Password changes for other users should not invalidate existing JWT tokens immediately (tokens are stateless). Consider adding a `password_changed_at` field and checking it during token verification to force re-login.
-4. The existing `user_service.py` has `create_user` and `authenticate_user_login` but no `update_user` or `delete_user` — these need careful implementation with the above guards.
-
-### Pitfall 7: Cascade delete deletes more than intended (month data cleanup ambiguity)
-
-**What goes wrong:** The v1.1 feature "batch delete cascading to month data" is ambiguous. If it means deleting a batch should also clean up all data for that billing_period, a billing_period may contain records from multiple batches. Naive implementation could delete records belonging to batch B when only batch A is being targeted.
-
-**Prevention:**
-1. Cascade delete should ONLY delete records belonging to the specific batch, not all records for the billing_period.
-2. The current ImportBatch model already has `cascade="all, delete-orphan"` on normalized_records relationship — this correctly scopes deletion to the batch's own records. Use this mechanism.
-3. If the feature intent is "delete all data for a month" (not just one batch), implement this as a separate service method that explicitly queries by billing_period, NOT by cascading from batch delete.
-4. Add a confirmation step in the UI that shows exactly what will be deleted (X records from Y batches for period Z) before executing.
-5. Log every cascade delete operation in the audit trail with the full scope of what was deleted.
-
-### Pitfall 8: Dark mode theme duplication and drift
-
-**What goes wrong:** Creating a separate `darkTheme` object that duplicates all token values from the light theme but with dark colors. Over time, the two theme objects drift — new component customizations get added to light theme but not dark, causing visual inconsistencies.
-
-**Prevention:**
-1. Use Ant Design 5's built-in dark algorithm: `{ algorithm: theme.darkAlgorithm }` as the primary mechanism — it automatically derives dark variants.
-2. Keep ONE base theme config (the existing `theme/index.ts`) and compose dark mode as an override layer, not a copy.
-3. Structure: `const darkOverrides: ThemeConfig = { algorithm: theme.darkAlgorithm, token: { /* only explicit overrides */ }, components: { /* only explicit overrides */ } }`.
-4. The existing Feishu-style dark sider (`siderBg: '#1F2329'`) is already dark — in dark mode, the sider should stay similar while the content area darkens. Test that the sider doesn't become indistinguishable from content background.
-
-### Pitfall 9: Diff-style comparison UI performance with large datasets
-
-**What goes wrong:** The "left-right Excel table + diff highlighting" approach for monthly comparison renders two full tables side-by-side. With 500+ employee records per period and 20+ columns, this means rendering 20,000+ cells with diff computation. React re-renders on scroll and filter become visibly sluggish.
-
-**Prevention:**
-1. Use virtualized tables (`react-window` or Ant Design's `virtual` prop on Table) for both sides.
-2. Compute diffs server-side and send only diff metadata (changed cells, added/removed rows), not raw data for client-side diffing.
-3. The existing `PeriodCompare.tsx` already fetches diff data from the backend `compare_service.py` — extend this pattern rather than building client-side diffing from scratch.
-4. For the "Excel-like" visual experience, consider `react-data-grid` or similar, but weigh the added dependency against Ant Design Table's virtual mode.
-
-### Pitfall 10: Menu reorganization breaks bookmarked URLs and browser history
-
-**What goes wrong:** Moving menu items into sub-menus or "advanced settings" changes the URL structure. Users who bookmarked `/audit-logs` or `/api-keys` get 404s. The existing `App.tsx` routes are flat — no nested route groups.
-
-**Prevention:**
-1. Keep existing URLs unchanged. Menu reorganization should only affect visual grouping in the sidebar, not route paths.
-2. Use Ant Design Menu's items with `children` for visual nesting while keeping `key` values as the same flat paths.
-3. If URLs must change, add permanent redirects from old paths to new paths in the router.
-4. The `LABEL_MAP` in MainLayout.tsx and `ALL_NAV_ITEMS` array both need updating for any new groupings — keep them in sync.
-
-### Pitfall 11: `from __future__ import annotations` breaks Pydantic model validation edge cases
-
-**What goes wrong:** Adding `from __future__ import annotations` to schema files for Python 3.9 compatibility can break Pydantic v2 model validation. When annotations are deferred (become strings), Pydantic v2 must evaluate them at model creation time. Edge cases with complex validators, `model_validator`, `Literal`, and discriminated unions can fail.
-
-**Prevention:**
-1. Test every Pydantic schema file individually after adding the import.
-2. Pay special attention to files using `Literal`, discriminated unions, or custom validators.
-3. The existing schemas (auth.py, users.py, data_management.py, etc.) appear straightforward, but run the full test suite after changes.
-4. If issues arise, use `typing.Optional` and `typing.Union` explicitly instead of relying on `__future__` for those specific files.
-
-### Pitfall 12: Settings search exposes admin-only settings to lower roles
-
-**What goes wrong:** A global settings search indexes all settings pages. If search results include links to admin-only pages (API Keys, Feishu Settings, Audit Logs), HR or employee users see results they cannot access, leading to confusing 403 errors or automatic redirects.
-
-**Prevention:**
-1. Filter search results by the current user's role using the existing `RoleRoute` allowedRoles logic.
-2. Index settings with role metadata so search only returns accessible items.
-3. The existing `ALL_NAV_ITEMS` array in MainLayout.tsx already has `roles` per item — reuse this as the search index with role filtering built in.
+**Phase to address:**
+登录页面改版（第三阶段）
 
 ---
 
-## Minor Pitfalls
+### Pitfall 4: CSRF State Cookie 在生产环境跨域场景下丢失
 
-### Pitfall 13: CSS module isolation insufficient for dark mode propagation
+**What goes wrong:**
+现有 `feishu_auth.py:76-80` 设置 state cookie 参数为 `samesite="lax"` + `secure=False`。飞书授权页 (`accounts.feishu.cn`) 重定向回来时，如果前后端部署在不同域名/端口（生产环境 nginx 反代），浏览器因 SameSite 策略拒绝在 cross-site POST 中发送 cookie，导致 state 验证永远失败。开发环境 `localhost` 同源，此问题不会出现。
 
-**What goes wrong:** Only 2 CSS module files exist (MainLayout.module.css, animations.module.css). All other styling is inline. Dark mode CSS variable propagation only works through CSS files or the theme token system, not through inline style objects.
+**Why it happens:**
+OAuth 重定向是 cross-site navigation。SameSite=Lax 只允许 top-level GET 导航携带 cookie，不允许 cross-site POST。飞书 OAuth callback 是 GET 重定向，但如果前端将 code/state 通过 POST 发送给后端 `/auth/feishu/callback`（当前实现方式），cookie 不会被浏览器附带。
 
-**Prevention:** Accept that dark mode implementation requires a style refactoring pass first. Budget time for this preparatory work in the roadmap — it is not optional.
+**How to avoid:**
+- 生产环境设置 `secure=True` + `samesite="none"`（需 HTTPS）
+- 或者改用 server-side session 存储 state（将 state 存 DB 或内存，不依赖 cookie 传输）
+- `feishu_auth.py` 中根据 `settings.debug` 或环境变量动态设置 cookie 参数
+- 部署检查清单中加入"飞书 OAuth callback 端到端测试"
 
-### Pitfall 14: Responsive sidebar overlay on mobile doesn't close on navigation
+**Warning signs:**
+- 生产环境飞书登录 100% 失败："OAuth state 验证失败，请重新登录"
+- 开发环境测试全部通过
 
-**What goes wrong:** On mobile, the sidebar should overlay content and close after a menu item is clicked. The existing `useResponsiveCollapse` hook collapses the sider at 1440px but doesn't implement drawer behavior for small screens.
-
-**Prevention:** For mobile (<768px), switch from `Sider` to Ant Design's `Drawer` component. Trigger `onClose` on route change via `useEffect` on `location.pathname`.
-
-### Pitfall 15: Employee self-service portal overlooked in responsive design
-
-**What goes wrong:** The employee role only has one page (`/employee/query`) which is the most likely to be accessed on a phone (employees checking their social insurance on mobile). But responsive design efforts focus on admin/HR pages because they have more visual complexity.
-
-**Prevention:** Prioritize the EmployeeSelfService page for mobile responsiveness — it is the highest-value mobile use case. Design it mobile-first.
-
-### Pitfall 16: Audit log real IP fix breaks behind reverse proxy
-
-**What goes wrong:** The v1.1 feature "audit log real IP address" reads client IP from `request.client.host`. Behind a reverse proxy (nginx, cloud load balancer), this returns `127.0.0.1` or the proxy's internal IP.
-
-**Prevention:** Use `X-Forwarded-For` header with a trusted proxy configuration. FastAPI's `Request.client.host` is not sufficient alone. Add a configurable `TRUSTED_PROXIES` environment variable. Use the `X-Real-IP` header as fallback.
-
-### Pitfall 17: Dark mode preference not persisted across sessions
-
-**What goes wrong:** User toggles dark mode, refreshes page, and it resets to light mode.
-
-**Prevention:** Store preference in `localStorage`. Load it before initial React render to prevent flash of wrong theme (FOWT). Use `prefers-color-scheme` media query as the initial default for first-time visitors.
-
-### Pitfall 18: Fusion personal insurance/housing fund amounts break Salary template
-
-**What goes wrong:** Adding personal social insurance and personal housing fund contribution fields to the fusion pipeline. The Salary template export is explicitly marked as "must not be modified" in project constraints. Adding new fields could accidentally change the Salary export mapping.
-
-**Prevention:** The fusion enhancement should only affect data ingestion and storage. Salary exporter must remain completely untouched. Add new fields to normalized_records if needed, but ensure the Salary exporter's field list is frozen. Write a regression test asserting the Salary template output is byte-identical before and after the fusion enhancement.
+**Phase to address:**
+飞书 OAuth 自动登录（第二阶段）
 
 ---
 
-## Phase-Specific Warnings
+## Technical Debt Patterns
 
-| Phase Topic | Likely Pitfall | Mitigation |
-|-------------|---------------|------------|
-| Python 3.9 compat | Pitfall 2, 3, 11 — union types, built-in generics, Pydantic interaction | Do this FIRST. Run full test suite under 3.9. Systematic `__future__` audit across all files. |
-| Dark mode | Pitfall 4, 8, 13, 17 — inline styles, theme duplication, CSS modules, persistence | Refactor inline styles to tokens BEFORE enabling dark toggle. Budget 2x estimated time. |
-| Responsive design | Pitfall 5, 14, 15 — data tables, mobile sidebar, employee portal | Start with layout shell (MainLayout), then employee portal, then data pages. Never hide insurance columns. |
-| Cascade delete | Pitfall 1, 7 — SQLite FK enforcement, scope of deletion | Write integration tests first. Verify PRAGMA. Separate batch-delete from period-delete semantics. |
-| Account management | Pitfall 6 — self-demotion, last-admin protection | Add guard rails before CRUD. Token invalidation strategy needed. |
-| Diff comparison UI | Pitfall 9 — performance with large datasets | Server-side diff computation. Virtualized rendering. |
-| Menu reorganization | Pitfall 10 — broken bookmarks | Visual-only grouping, keep flat URL paths. |
-| Settings search | Pitfall 12 — role-based filtering | Reuse existing NAV_ITEMS roles array as search index. |
-| Audit log fix | Pitfall 16 — reverse proxy IP | X-Forwarded-For + trusted proxy config. |
-| Fusion enhancements | Pitfall 18 — Salary template regression | Freeze Salary exporter, regression test with byte-identical output check. |
+| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
+|----------|-------------------|----------------|-----------------|
+| field_mapping 只存 field_name 不存 field_id/field_type | 实现简单，少一层查找 | 飞书端重命名字段后映射失效；类型序列化缺失导致数据错误 | Never — field_id 是稳定标识，field_type 决定序列化方式 |
+| Three.js 打进主 bundle 不做 code splitting | 省去 dynamic import 配置 | 所有页面初始加载多 155KB+ gzipped | Never — 只有登录页需要 Three.js |
+| OAuth 用户直接创建 employee 不尝试匹配已有用户 | 避免匹配逻辑复杂度 | 同一个人两个账号，权限割裂，审计混乱 | 仅首个迭代可临时接受，但必须在下个 sprint 修复 |
+| 粒子数量/分辨率桌面/移动端统一 | 少写设备检测逻辑 | 移动端登录体验极差（5-10fps） | Never — 移动端用户会直接放弃登录 |
+| state cookie 写死 `secure=False, samesite=lax` | 开发环境即刻可用 | 生产环境 OAuth 100% 失败 | 仅开发阶段，上线前必须改为环境感知 |
+
+## Integration Gotchas
+
+| Integration | Common Mistake | Correct Approach |
+|-------------|----------------|------------------|
+| 飞书 Bitable list_fields | 每次打开映射 UI 都调 API，触发频率限制 | 本地缓存 TTL 5 分钟（已有 `_semaphore` 限流但不够） |
+| 飞书 Bitable batch_create | 用 field_id 作为 record fields 的 key | 必须用 field_name 作为 key；field_id 只用于映射查找，写入时转回最新 field_name |
+| 飞书 OAuth redirect_uri | 只在后端 Settings 配置 | 三处必须精确一致：飞书开放平台安全设置、后端 `feishu_oauth_redirect_uri`、前端回调 URL |
+| 飞书 token 类型混用 | tenant_access_token 和 user_access_token 互相替代 | OAuth 用 app_access_token 换 user info；Bitable 操作用 tenant_access_token（现有架构正确，不要改） |
+| 飞书 OAuth authorize URL | 硬编码 `accounts.feishu.cn`（`feishu_auth.py:69`） | 国际版用 `accounts.larksuite.com`；按部署环境配置化 |
+| Three.js dispose | 只清理顶层 scene.children | 必须 `scene.traverse()` 递归遍历，每个 mesh 的 geometry + material + texture 都要 dispose |
+| Three.js + React useEffect | 在 useEffect 中创建 renderer 但 cleanup 不完整 | cleanup 必须执行全部 6 步（见 Pitfall 3） |
+
+## Performance Traps
+
+| Trap | Symptoms | Prevention | When It Breaks |
+|------|----------|------------|----------------|
+| Three.js 粒子数量未适配设备 | 移动端 5-10fps，登录表单输入卡顿 | 移动端完全禁用 Three.js 动画或降到 1/4 粒子数；用 `useResponsiveViewport` 已有 hook 判断 | devicePixelRatio > 2 或 CPU 较弱的移动设备 |
+| Canvas pixelRatio 未限制 | 高 DPI 屏渲染像素是逻辑像素的 4-9 倍 | `renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))` | Retina/高 DPI 屏幕（iPhone 3x, MacBook 2x） |
+| 飞书字段列表未缓存 | 每次打开映射 UI 等待 1-2s + API 频率消耗 | 内存缓存 + TTL 5 分钟 | 多个 SyncConfig 同时操作时 |
+| Three.js 未做 dynamic import | 主 bundle 膨胀 155KB+ gzipped | `React.lazy(() => import('./ThreeWaveBackground'))` + Vite manualChunks | 首屏加载感知 |
+| 登录页 Three.js 动画持续 rAF | 即使窗口最小化仍在渲染 | `document.visibilitychange` 事件暂停/恢复动画 | 笔记本电脑电池消耗 |
+
+## Security Mistakes
+
+| Mistake | Risk | Prevention |
+|---------|------|------------|
+| OAuth state cookie SameSite/Secure 配置不当 | CSRF 攻击 / 生产环境 OAuth 100% 失败 | 生产环境 `secure=True, samesite=none`(HTTPS) |
+| 飞书 app_secret 存明文 system_settings 表 | 数据库泄露 = 飞书应用完全暴露 | 考虑 AES 加密存储或 keyring |
+| OAuth 自动绑定无二次确认 | 同名用户绑定错误 -> 权限越级 | 姓名+工号双因子匹配；同名标记为"待确认" |
+| redirect_uri 未做严格校验 | Open redirect 攻击 | 严格匹配预注册的 redirect_uri，不允许通配符 |
+| 飞书 OAuth code 未校验 audience | JWT 混淆攻击（不同应用的 code 互用） | 验证 code 对应的 app_id 与当前配置一致 |
+
+## UX Pitfalls
+
+| Pitfall | User Impact | Better Approach |
+|---------|-------------|-----------------|
+| 登录页三个入口（账号/员工/飞书）无主次区分 | 用户不知道该用哪个入口 | 飞书登录（如启用）视觉最突出；账号密码和员工查询为次级备选 |
+| 飞书登录后默认 employee 权限 | 管理员困惑"功能变少了" | 自动匹配已有用户并保留原角色 |
+| 粒子动画遮挡表单输入区域 | 登录信息看不清楚 | 左右分栏严格隔离：动画在左、表单在右，互不干扰 |
+| 移动端粒子动画卡顿 | 输入文字时手指跟不上光标 | 移动端禁用 Three.js 动画，用轻量 CSS 渐变替代 |
+| 飞书登录失败无明确原因 | 用户只看到"登录失败" | 区分具体原因：飞书服务不可用 / 未绑定系统用户 / 飞书应用权限不足 / state 过期 |
+| 字段映射 UI 无预览效果 | HR 不知道映射是否正确 | 映射保存后提供"预览同步"——展示 5 条示例数据的映射结果 |
+
+## "Looks Done But Isn't" Checklist
+
+- [ ] **飞书字段映射:** 看起来映射成功，但没有验证 Number/Date 类型值的序列化 — 用数字和日期字段创建记录后在飞书端检查值是否正确、公式是否可用
+- [ ] **OAuth 登录:** 看起来能登录，但没测试已有管理员用飞书登录的场景 — 用已有 admin 的飞书账号测试，验证返回 role=admin 而非 employee
+- [ ] **OAuth 登录:** 看起来安全，但没在生产环境测试 CSRF state — staging 环境（前后端分离部署 + HTTPS）跑完整 OAuth 流程
+- [ ] **Three.js 动画:** 看起来很炫，但没检查路由切换后的内存 — 来回切换登录页 5 次，Chrome Memory 快照对比 WebGLRenderingContext 实例数
+- [ ] **Three.js 动画:** 看起来桌面端流畅，但没在真实手机上测试 — iPhone SE + Android 低端机测试
+- [ ] **redirect_uri:** 后端配置了，但飞书开放平台安全设置没加 — 三处检查清单
+- [ ] **Python 3.9:** 本地 3.11 跑通所有测试，但新代码可能用了 3.10+ 语法 — CI 中用 Python 3.9 跑测试
+- [ ] **field_mapping 迁移:** 从简单 dict 升级到含 field_id/field_type 的结构，但旧数据没迁移 — 写 migration 脚本处理已有 SyncConfig 记录
+- [ ] **打包体积:** Three.js 加入了项目，但没确认 code splitting 是否生效 — `npx vite-bundle-visualizer` 检查 three.js chunk 独立性
+
+## Recovery Strategies
+
+| Pitfall | Recovery Cost | Recovery Steps |
+|---------|---------------|----------------|
+| #1 字段类型序列化错误 | MEDIUM | 建 FeishuFieldSerializer，修改 field_mapping 结构，重新同步受影响的记录 |
+| #2 用户身份割裂 | HIGH | 手动合并重复账号（数据迁移脚本迁移审计日志等关联数据），通知受影响用户 |
+| #3 WebGL 内存泄漏 | LOW | 补全 dispose cleanup 代码，无需改架构 |
+| #4 CSRF cookie 跨域 | LOW | 修改 cookie 参数为环境感知，或改用 server-side state 存储 |
+| #5 field_name 映射失效 | MEDIUM | 迁移 field_mapping 结构加入 field_id，写迁移脚本重新拉取 field_id |
+| Three.js 打包未分离 | LOW | 加 dynamic import + Vite manualChunks 配置 |
+| 移动端性能灾难 | LOW | 加设备检测条件渲染，禁用动画 |
+
+## Pitfall-to-Phase Mapping
+
+| Pitfall | Prevention Phase | Verification |
+|---------|------------------|--------------|
+| #1 字段类型序列化不对称 | 飞书字段映射完善（Phase 1） | 创建含 Number + Date 字段的记录，飞书端验证值格式正确、公式可用 |
+| #2 用户身份割裂 | 飞书 OAuth 自动登录（Phase 2） | 已有 admin 用户用飞书 OAuth 登录，验证 JWT role 保持 admin |
+| #3 WebGL 内存泄漏 | 登录页面改版（Phase 3） | 路由切换 5 次后 Chrome Memory 中 WebGLRenderingContext 数 = 0 |
+| #4 CSRF cookie 跨域 | 飞书 OAuth 自动登录（Phase 2） | Staging 环境（HTTPS + 前后端分离）跑完整 OAuth 流程成功 |
+| field_name vs field_id | 飞书字段映射完善（Phase 1） | 飞书端重命名已映射字段后，系统自动检测并提示更新 |
+| 移动端性能 | 登录页面改版（Phase 3） | iPhone SE 真机上登录页保持 30fps+ 且表单输入流畅 |
+| redirect_uri 三处一致 | 飞书 OAuth 自动登录（Phase 2） | 部署检查脚本自动验证三处 URI 一致性 |
+| 同名自动绑定 | 飞书 OAuth 自动登录（Phase 2） | 两个同名用户用飞书登录，系统标记为"待确认"而非自动绑定 |
+| 打包体积膨胀 | 登录页面改版（Phase 3） | `vite-bundle-visualizer` 确认 three.js 在独立 chunk 且不影响其他页面首屏 |
+| Python 3.9 兼容 | 所有阶段 | CI 在 Python 3.9 环境跑通全部测试（含新增代码） |
 
 ---
 
-## Integration Pitfalls (Cross-Feature Interactions)
+## Cross-Feature Integration Pitfalls
 
-### Dark mode + Responsive design timing
+### 飞书字段映射 + 现有同步流程的向后兼容
 
-**Risk:** If responsive design is done first with new inline styles, then dark mode has to re-refactor those same styles. If dark mode is done first, responsive breakpoints may need to account for both themes.
+**Risk:** 扩展 `SyncConfig.field_mapping` 结构（从 `{canonical: feishu_name}` 到 `{canonical: {field_id, field_name, field_type}}`）会破坏所有已有的 SyncConfig 记录和同步逻辑。`feishu_sync_service.py` 中现有的映射读取代码会报 KeyError 或 TypeError。
 
-**Mitigation:** Do the inline-style-to-token refactoring as a preparatory phase before either feature. This single refactoring step enables both features cleanly.
+**Mitigation:** 写 field_mapping 迁移逻辑：读取时检测旧格式（value 是 string）自动转换为新格式（value 是 dict），或者在 SyncConfig 模型上加 `@property` 做兼容适配。
 
-### Python 3.9 compat + All subsequent backend features
+### OAuth 登录 + 现有 RBAC 三角色体系
 
-**Risk:** If Python 3.9 compat is done late, all new code written for cascade delete, account management, and fusion enhancements may use 3.10+ syntax, requiring a second audit pass.
+**Risk:** 飞书 OAuth 创建的用户默认 role=employee。现有 RBAC 中 employee 角色的路由保护（`RoleRoute allowedRoles`）限制了可访问的页面。如果 OAuth 匹配绑定了已有 admin/HR 用户，JWT 中的 role 来自已有用户，一切正常。但如果创建了新 employee 用户，该用户无法通过前端看到管理功能——这可能是期望的行为，也可能不是（取决于飞书用户是否应该有更高权限）。
 
-**Mitigation:** Do Python 3.9 compat FIRST. Set up CI to test on 3.9 so all subsequent work is automatically validated against the target runtime.
+**Mitigation:** 明确定义：飞书 OAuth 未匹配已有用户时，新用户的默认角色。建议保持 employee（最小权限原则），管理员可在后台提升角色。
 
-### Account management + Audit logs
+### Three.js 登录页 + 现有暗黑模式
 
-**Risk:** New account CRUD operations (create user, change role, change password, delete user) should generate audit log entries. If audit log enhancement and account management are in different phases, the audit entries are likely to be forgotten.
+**Risk:** 登录页 Three.js 粒子动画的颜色方案需要适配暗黑/明亮两种模式。如果粒子颜色在明亮模式下是深色、暗黑模式下仍是深色，视觉效果会在其中一种模式下很差。
 
-**Mitigation:** Define audit event types for account operations upfront. Implement audit logging as part of the account management feature, not as a separate effort.
-
-### Cascade delete + Data management filters
-
-**Risk:** The "data management multi-select filter + matched/unmatched filter" feature changes how data is queried. If cascade delete introduces soft-delete patterns (is_deleted flags), all existing filter queries need to exclude soft-deleted records.
-
-**Mitigation:** Use hard deletes (matching the existing CASCADE pattern in the models) rather than soft deletes. This avoids complicating every existing query with `WHERE is_deleted = false`.
-
-### Fusion enhancements + Feishu sync
-
-**Risk:** Adding personal insurance/housing fund amounts to fusion output changes the data model. If Feishu sync pushes these records to Bitable, the field mapping configuration needs updating. Implementing both features independently could leave Feishu sync unaware of new fields.
-
-**Mitigation:** Define the extended data model (with new personal contribution fields) before implementing either feature. Both fusion and Feishu sync should target the same schema.
+**Mitigation:** 粒子颜色和背景色都从 theme token 读取（`useSemanticColors` 或 `useThemeMode`），确保两种模式下都有良好对比度。
 
 ---
 
 ## Sources
 
-- Direct codebase inspection: `backend/app/core/database.py` lines 29-36 (PRAGMA foreign_keys enforcement)
-- Direct codebase inspection: `backend/app/models/import_batch.py` (ForeignKey + cascade="all, delete-orphan" declarations)
-- Direct codebase inspection: 30+ backend service files with `X | Y` type syntax (grep results documented above)
-- Direct codebase inspection: `frontend/src/theme/index.ts` (hardcoded Feishu-style theme tokens, no dark variant)
-- Direct codebase inspection: `frontend/src/layouts/MainLayout.tsx` (inline styles with hardcoded hex colors, useResponsiveCollapse hook)
-- Direct codebase inspection: 22 page files with 329 inline style occurrences (grep count documented above)
-- Direct codebase inspection: `backend/app/services/user_service.py` (existing create_user/authenticate, no update/delete)
-- SQLite documentation: PRAGMA foreign_keys default-off behavior (HIGH confidence, well-documented)
-- Python 3.9 release notes: PEP 585 built-in generic limitations (HIGH confidence)
-- Ant Design 5 theming documentation: darkAlgorithm + ConfigProvider pattern (HIGH confidence)
+- [飞书 Bitable 记录数据结构](https://open.feishu.cn/document/docs/bitable-v1/app-table-record/bitable-record-data-structure-overview) — 字段类型及 JSON 格式 (HIGH confidence)
+- [飞书 Bitable 字段编辑指南](https://open.feishu.cn/document/server-docs/docs/bitable-v1/app-table-field/guide) — 字段类型编码完整列表（1-1005+3001） (HIGH confidence)
+- [飞书 List Fields API](https://open.feishu.cn/document/uAjLw4CM/ukTMukTMukTM/reference/bitable-v1/app-table-field/list) — 字段列表接口 (HIGH confidence)
+- [Three.js Forum: R3F Memory Leak](https://discourse.threejs.org/t/r3f-threejs-memory-leak-when-canvas-is-scrolled-out-of-view/48440) — Canvas 内存泄漏社区讨论 (HIGH confidence)
+- [R3F Issue #514: Leaking WebGLRenderer on unmount](https://github.com/pmndrs/react-three-fiber/issues/514) — 官方 issue 确认卸载泄漏 (HIGH confidence)
+- [R3F Bundle Size Discussion #812](https://github.com/pmndrs/react-three-fiber/discussions/812) — Three.js ~155KB gzipped 基础开销 (MEDIUM confidence)
+- [React Three Fiber vs Three.js 2026 比较](https://graffersid.com/react-three-fiber-vs-three-js/) — 性能和体积对比 (MEDIUM confidence)
+- [JWT Security Best Practices](https://curity.io/resources/learn/jwt-best-practices/) — JWT 签名验证和 claims 校验 (HIGH confidence)
+- [OAuth 2.0 Pitfalls](https://treblle.com/blog/oauth-2.0-for-apis) — redirect URI、PKCE、token 存储 (MEDIUM confidence)
+- [SSO Protocol Security Vulnerabilities 2025](https://guptadeepak.com/security-vulnerabilities-in-saml-oauth-2-0-openid-connect-and-jwt/) — CSRF state、算法混淆攻击 (MEDIUM confidence)
+- 项目源码一手分析：`feishu_client.py`、`feishu_auth.py`、`feishu_oauth_service.py`、`feishu_settings.py`、`Login.tsx`、`FeishuSync.tsx`、`user.py`、`sync_config.py`、`auth.py` (HIGH confidence)
 
 ---
-
-*Pitfalls audit: 2026-04-04 (v1.1 milestone)*
+*Pitfalls research for: v1.2 飞书深度集成与登录体验升级*
+*Researched: 2026-04-14*
