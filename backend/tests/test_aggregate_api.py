@@ -1,20 +1,23 @@
 from __future__ import annotations
 
+from decimal import Decimal
 import json
 import shutil
+from io import BytesIO
 from pathlib import Path
 
 from fastapi.testclient import TestClient
-from openpyxl import load_workbook
+from openpyxl import Workbook, load_workbook
 from sqlalchemy.orm import Session
 
 from backend.app.core.config import ROOT_DIR, Settings
 from backend.app.core.database import create_database_engine, create_session_factory
 from backend.app.dependencies import get_db
 from backend.app.main import create_app
-from backend.app.models import Base, EmployeeMasterAudit
+from backend.app.models import Base, EmployeeMasterAudit, FusionRule, SyncConfig
 from backend.app.models.enums import EmployeeAuditAction
 from backend.app.services import infer_region_from_filename, standardize_housing_fund_workbook, standardize_workbook
+import backend.app.services.aggregate_service as aggregate_service_module
 from backend.tests.support.export_fixtures import (
     create_placeholder_template_pair,
     require_sample_workbook,
@@ -95,6 +98,17 @@ def make_employee_master_csv_for_merged_files(social_sample: Path, housing_sampl
             ).encode('utf-8-sig')
             return csv, str(id_number)
     raise AssertionError('Expected a common employee between the Shenzhen social and housing fund samples.')
+
+
+def make_burden_workbook(rows: list[list[object]]) -> bytes:
+    workbook = Workbook()
+    sheet = workbook.active
+    for row in rows:
+        sheet.append(row)
+    buffer = BytesIO()
+    workbook.save(buffer)
+    workbook.close()
+    return buffer.getvalue()
 
 
 def test_aggregate_endpoint_exports_both_templates_without_employee_master() -> None:
@@ -270,6 +284,170 @@ def test_aggregate_endpoint_imports_employee_master_and_matches_records() -> Non
     tool_sheet = tool_wb[tool_wb.sheetnames[0]]
     assert tool_sheet['E7'].value == 'E9001'
     assert tool_sheet['D7'].value not in {'身份证号', '身份证号码'}
+    tool_wb.close()
+
+
+def test_aggregate_endpoint_applies_burden_excel_and_special_rule_to_tool_export() -> None:
+    templates = resolve_required_export_templates()
+    sample_path = require_sample_workbook(SAMPLE_KEYWORD)
+    employee_csv = make_employee_master_csv(sample_path)
+    client, _settings, session_factory = build_test_context(
+        'aggregate_with_burden_excel_and_special_rule',
+        salary_template=templates.salary,
+        final_tool_template=templates.final_tool,
+    )
+
+    db: Session = session_factory()
+    try:
+        rule = FusionRule(
+            scope_type='employee_id',
+            scope_value='E9001',
+            field_name='personal_social_burden',
+            override_value=Decimal('33.30'),
+            note='special rule wins',
+            is_active=True,
+            created_by='tester',
+        )
+        db.add(rule)
+        db.commit()
+        db.refresh(rule)
+    finally:
+        db.close()
+
+    burden_workbook = make_burden_workbook(
+        [
+            ['工号', '个人社保承担额', '个人公积金承担额'],
+            ['E9001', '11.10', '22.20'],
+        ]
+    )
+
+    with client:
+        response = client.post(
+            '/api/v1/aggregate',
+            data={
+                'batch_name': 'quick-aggregate-burden-excel',
+                'burden_source_mode': 'excel',
+                'fusion_rule_ids': json.dumps([rule.id]),
+            },
+            files=[
+                (
+                    'files',
+                    (
+                        sample_path.name,
+                        sample_path.read_bytes(),
+                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    ),
+                ),
+                ('employee_master_file', ('employee_master.csv', employee_csv, 'text/csv')),
+                ('burden_file', ('burden.xlsx', burden_workbook, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')),
+            ],
+        )
+
+    assert response.status_code == 201
+    payload = response.json()['data']
+    assert payload['export_status'] == 'completed'
+    assert payload['fusion_messages'] == []
+
+    salary_artifact = next(item for item in payload['artifacts'] if item['template_type'] == 'salary')
+    salary_wb = load_workbook(salary_artifact['file_path'], data_only=False)
+    salary_sheet = salary_wb[salary_wb.sheetnames[0]]
+    assert salary_sheet.max_column == 16
+    salary_wb.close()
+
+    tool_artifact = next(item for item in payload['artifacts'] if item['template_type'] == 'final_tool')
+    tool_wb = load_workbook(tool_artifact['file_path'], data_only=False)
+    tool_sheet = tool_wb[tool_wb.sheetnames[0]]
+    assert tool_sheet['E7'].value == 'E9001'
+    assert float(tool_sheet['W7'].value) == 33.30
+    assert float(tool_sheet['X7'].value) == 22.20
+    tool_wb.close()
+
+
+def test_aggregate_endpoint_can_load_burden_rows_from_feishu_config(monkeypatch) -> None:
+    templates = resolve_required_export_templates()
+    sample_path = require_sample_workbook(SAMPLE_KEYWORD)
+    employee_csv = make_employee_master_csv(sample_path)
+    client, _settings, session_factory = build_test_context(
+        'aggregate_with_feishu_burden_source',
+        salary_template=templates.salary,
+        final_tool_template=templates.final_tool,
+    )
+
+    db: Session = session_factory()
+    try:
+        config = SyncConfig(
+            name='burden-feishu',
+            app_token='app-token',
+            table_id='tbl-001',
+            granularity='detail',
+            field_mapping={
+                '员工工号列': 'employee_id',
+                '社保承担列': 'personal_social_burden',
+                '公积金承担列': 'personal_housing_burden',
+            },
+            is_active=True,
+        )
+        db.add(config)
+        db.commit()
+        db.refresh(config)
+    finally:
+        db.close()
+
+    class FakeFeishuClient:
+        async def search_records(self, app_token: str, table_id: str, filter_expr: str | None = None, page_token: str | None = None, page_size: int = 500):
+            assert app_token == 'app-token'
+            assert table_id == 'tbl-001'
+            return {
+                'data': {
+                    'items': [
+                        {
+                            'fields': {
+                                '员工工号列': 'E9001',
+                                '社保承担列': '44.40',
+                                '公积金承担列': '55.50',
+                            }
+                        }
+                    ],
+                    'has_more': False,
+                }
+            }
+
+    async def fake_get_feishu_client():
+        return FakeFeishuClient()
+
+    monkeypatch.setattr(aggregate_service_module, 'get_feishu_client', fake_get_feishu_client)
+
+    with client:
+        response = client.post(
+            '/api/v1/aggregate',
+            data={
+                'batch_name': 'quick-aggregate-burden-feishu',
+                'burden_source_mode': 'feishu',
+                'burden_feishu_config_id': config.id,
+            },
+            files=[
+                (
+                    'files',
+                    (
+                        sample_path.name,
+                        sample_path.read_bytes(),
+                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    ),
+                ),
+                ('employee_master_file', ('employee_master.csv', employee_csv, 'text/csv')),
+            ],
+        )
+
+    assert response.status_code == 201
+    payload = response.json()['data']
+    assert payload['export_status'] == 'completed'
+
+    tool_artifact = next(item for item in payload['artifacts'] if item['template_type'] == 'final_tool')
+    tool_wb = load_workbook(tool_artifact['file_path'], data_only=False)
+    tool_sheet = tool_wb[tool_wb.sheetnames[0]]
+    assert tool_sheet['E7'].value == 'E9001'
+    assert float(tool_sheet['W7'].value) == 44.40
+    assert float(tool_sheet['X7'].value) == 55.50
     tool_wb.close()
 
 
@@ -503,9 +681,7 @@ def test_aggregate_endpoint_merges_housing_fund_into_dual_exports() -> None:
     assert target_row is not None
     assert float(salary_sheet[f'H{target_row}'].value) > 0
     assert float(salary_sheet[f'P{target_row}'].value) > 0
-    assert float(salary_sheet[f'R{target_row}'].value) >= 0
-    assert float(salary_sheet[f'R{target_row}'].value) <= float(salary_sheet[f'P{target_row}'].value)
-    assert float(salary_sheet[f'R{target_row}'].value) != float(salary_sheet[f'H{target_row}'].value)
+    assert salary_sheet.max_column == 16
     salary_wb.close()
 
     tool_wb = load_workbook(tool_artifact['file_path'], data_only=False)

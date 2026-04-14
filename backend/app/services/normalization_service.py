@@ -16,6 +16,12 @@ from backend.app.services.header_normalizer import (
     normalize_header_extraction,
     normalize_header_extraction_with_fallback,
 )
+from backend.app.utils.period_utils import (
+    coalesce_billing_period,
+    infer_billing_period_from_filename,
+    normalize_billing_period,
+    normalize_period_boundary,
+)
 from backend.app.validators import RowFilterDecision, classify_row
 
 AMOUNT_FIELDS = {
@@ -539,7 +545,7 @@ def _build_preview_record(
         field_conflicts,
         region=region,
     )
-    _derive_period_fields(values)
+    _derive_period_fields(values, source_file_name=source_file_name, raw_header_signature=extraction.raw_header_signature)
     raw_payload = {
         "raw_values": {key: _json_safe(value) for key, value in raw_values.items()},
         "unmapped_values": {key: _json_safe(value) for key, value in unmapped_values.items()},
@@ -769,20 +775,33 @@ def _apply_changsha_transaction_item_mapping(
     _assign_canonical_value(values, field_conflicts, field_name, amount)
 
 
-def _derive_period_fields(values: dict[str, Any]) -> None:
-    billing_period = values.get("billing_period")
-    period_start = values.get("period_start")
-    period_end = values.get("period_end")
+def _derive_period_fields(
+    values: dict[str, Any],
+    *,
+    source_file_name: Optional[str] = None,
+    raw_header_signature: Optional[str] = None,
+) -> None:
+    period_start = normalize_period_boundary(values.get("period_start")) or values.get("period_start")
+    period_end = normalize_period_boundary(values.get("period_end")) or values.get("period_end")
+    billing_period = coalesce_billing_period(
+        values.get("billing_period"),
+        period_start,
+        period_end,
+        raw_header_signature,
+        infer_billing_period_from_filename(source_file_name),
+    )
 
-    if not billing_period and isinstance(period_start, str):
-        if isinstance(period_end, str) and len(period_start) >= 7 and period_start[:7] == period_end[:7]:
-            values["billing_period"] = period_start[:7]
-        elif len(period_start) >= 7:
-            values["billing_period"] = period_start[:7]
+    if billing_period:
+        values["billing_period"] = billing_period
 
-    if not period_start and isinstance(billing_period, str):
+    if period_start is not None:
+        values["period_start"] = period_start
+    if period_end is not None:
+        values["period_end"] = period_end
+
+    if not values.get("period_start") and billing_period:
         values["period_start"] = billing_period
-    if not period_end and isinstance(billing_period, str):
+    if not values.get("period_end") and billing_period:
         values["period_end"] = billing_period
 
 
@@ -809,7 +828,13 @@ def _coerce_canonical_value(field_name: str, value: Any) -> Any:
         return value.isoformat()
     if isinstance(value, str):
         stripped = value.strip()
-        return stripped or None
+        if not stripped:
+            return None
+        if field_name == "billing_period":
+            return normalize_billing_period(stripped)
+        if field_name in {"period_start", "period_end"}:
+            return normalize_period_boundary(stripped) or stripped
+        return stripped
     return value
 
 

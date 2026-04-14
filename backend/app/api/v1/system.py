@@ -1,9 +1,12 @@
 ﻿from __future__ import annotations
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
+from sqlalchemy.orm import Session
 
 from backend.app.api.v1.responses import success_response
 from backend.app.core.config import Settings
+from backend.app.dependencies import get_db
+from backend.app.services.system_setting_service import get_effective_feishu_settings
 
 router = APIRouter(prefix="/system", tags=["\u7cfb\u7edf\u7ba1\u7406"])
 
@@ -26,10 +29,11 @@ async def echo_value(value: int):
 
 
 @router.get("/features", summary="获取系统功能开关", description="返回系统功能开关状态，前端用于条件渲染。")
-def get_feature_flags(request: Request):
+def get_feature_flags(request: Request, db: Session = Depends(get_db)):
     settings: Settings = request.app.state.settings
+    effective_settings = get_effective_feishu_settings(db, settings)
     return success_response({
-        "feishu_sync_enabled": settings.feishu_sync_enabled,
-        "feishu_oauth_enabled": settings.feishu_oauth_enabled,
-        "feishu_credentials_configured": bool(settings.feishu_app_id and settings.feishu_app_secret),
+        "feishu_sync_enabled": effective_settings.feishu_sync_enabled,
+        "feishu_oauth_enabled": effective_settings.feishu_oauth_enabled,
+        "feishu_credentials_configured": effective_settings.credentials_configured,
     })

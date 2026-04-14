@@ -4,6 +4,7 @@ import { Button, Card, Col, Empty, Row, Skeleton, Statistic, Table, Tag, Typogra
 import type { ColumnsType } from 'antd/es/table';
 
 import { WorkflowSteps } from '../components/WorkflowSteps';
+import { useResponsiveViewport } from '../hooks/useResponsiveViewport';
 import { fetchDashboardOverview, fetchDataQuality, type DashboardOverview, type DataQualityOverview } from '../services/dashboard';
 import { fetchSystemHealth, type SystemHealth } from '../services/system';
 import { useCardStatusColors } from '../theme/useCardStatusColors';
@@ -139,6 +140,7 @@ interface BatchQualityRow {
 export function DashboardPage() {
   const cardColors = useCardStatusColors();
   const colors = useSemanticColors();
+  const { isMobile } = useResponsiveViewport();
   const [health, setHealth] = useState<SystemHealth | null>(null);
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
   const [quality, setQuality] = useState<DataQualityOverview | null>(null);
@@ -244,12 +246,22 @@ export function DashboardPage() {
 
   return (
     <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div
+        style={{
+          marginBottom: 16,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: isMobile ? 'stretch' : 'center',
+          flexWrap: 'wrap',
+          gap: 12,
+          flexDirection: isMobile ? 'column' : 'row',
+        }}
+      >
         <div>
           <Title level={4} style={{ margin: 0 }}>处理看板</Title>
           <Text type="secondary">集中查看系统健康、批次体量、运行分布和最近批次进展</Text>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Link to="/imports"><Button type="primary">继续导入与解析</Button></Link>
           <Link to="/exports"><Button>查看导出结果</Button></Link>
         </div>
@@ -267,7 +279,7 @@ export function DashboardPage() {
       {loading ? (
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
           {[1, 2, 3, 4].map((i) => (
-            <Col span={6} key={i}>
+            <Col xs={24} sm={12} lg={6} key={i}>
               <Card><Skeleton.Input active style={{ width: '100%' }} /></Card>
             </Col>
           ))}
@@ -275,7 +287,7 @@ export function DashboardPage() {
       ) : (
         <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
           {totalCards.map((item, idx) => (
-            <Col span={6} key={item.label}>
+            <Col xs={24} sm={12} lg={6} key={item.label}>
               <Card>
                 <Statistic
                   title={item.label}
@@ -290,14 +302,14 @@ export function DashboardPage() {
 
       {/* System health card */}
       <Card size="small" style={{ marginBottom: 16 }}>
-        <Row gutter={16}>
-          <Col span={8}>
+        <Row gutter={[16, 16]}>
+          <Col xs={24} md={8}>
             <Statistic title="系统健康" value={healthLabel(health, loading)} />
           </Col>
-          <Col span={8}>
+          <Col xs={24} md={8}>
             <Statistic title="概览生成时间" value={overview ? formatDateTime(overview.generated_at) : '尚未生成'} />
           </Col>
-          <Col span={8}>
+          <Col xs={24} md={8}>
             <Statistic title="匹配结果" value={overview?.totals?.total_match_results ?? 0} />
           </Col>
         </Row>
@@ -305,16 +317,16 @@ export function DashboardPage() {
 
       {/* Distribution cards */}
       <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-        <Col span={6}>
+        <Col xs={24} md={12} xl={6}>
           <DistributionCard title="批次状态" items={overview?.batch_status_counts ?? {}} />
         </Col>
-        <Col span={6}>
+        <Col xs={24} md={12} xl={6}>
           <DistributionCard title="匹配状态" items={overview?.match_status_counts ?? {}} />
         </Col>
-        <Col span={6}>
+        <Col xs={24} md={12} xl={6}>
           <DistributionCard title="问题严重级别" items={overview?.issue_severity_counts ?? {}} />
         </Col>
-        <Col span={6}>
+        <Col xs={24} md={12} xl={6}>
           <DistributionCard title="导出状态" items={overview?.export_status_counts ?? {}} />
         </Col>
       </Row>
@@ -328,13 +340,13 @@ export function DashboardPage() {
       ) : (
         <>
           <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-            <Col span={8}>
+            <Col xs={24} md={8}>
               <Card>
                 <Statistic title="缺失字段" value={quality.total_missing} suffix="条" />
                 {quality.total_missing > 0 && <Tag color="warning" style={{ marginTop: 8 }}>需关注</Tag>}
               </Card>
             </Col>
-            <Col span={8}>
+            <Col xs={24} md={8}>
               <Card>
                 <Statistic title="异常金额" value={quality.total_anomalous} suffix="条" />
                 {quality.total_anomalous > 10
@@ -344,7 +356,7 @@ export function DashboardPage() {
                     : null}
               </Card>
             </Col>
-            <Col span={8}>
+            <Col xs={24} md={8}>
               <Card>
                 <Statistic title="重复记录" value={quality.total_duplicates} suffix="条" />
                 {quality.total_duplicates > 0 && <Tag color="error" style={{ marginTop: 8 }}>需处理</Tag>}

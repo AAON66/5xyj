@@ -10,6 +10,8 @@ import {
   Space,
   Input,
   Tooltip,
+  Drawer,
+  Typography,
 } from 'antd';
 import type { MenuProps } from 'antd';
 import {
@@ -35,6 +37,8 @@ import {
   SettingOutlined,
   SunOutlined,
   MoonOutlined,
+  MenuOutlined,
+  CloseOutlined,
 } from '@ant-design/icons';
 
 import { useAuth } from '../hooks/useAuth';
@@ -42,6 +46,7 @@ import { useAggregateSession } from '../hooks/useAggregateSession';
 import { useApiFeedback } from '../hooks/useApiFeedback';
 import { useFeishuFeatureFlag } from '../hooks/useFeishuFeatureFlag';
 import { useMenuOpenKeys } from '../hooks/useMenuOpenKeys';
+import { useResponsiveViewport } from '../hooks/useResponsiveViewport';
 import { useThemeMode } from '../theme/useThemeMode';
 import { useSemanticColors } from '../theme/useSemanticColors';
 import { cancelAggregateSession, clearAggregateSession } from '../services/aggregateSessionStore';
@@ -109,7 +114,6 @@ const MENU_GROUPS: MenuGroupConfig[] = [
   },
 ];
 
-/** Map detail/sub-routes back to their parent menu key for selectedKeys highlight */
 function resolveSelectedMenuKey(pathname: string): string {
   if (pathname.startsWith('/imports/')) return '/imports';
   if (pathname.startsWith('/employees/')) return '/employees';
@@ -117,13 +121,12 @@ function resolveSelectedMenuKey(pathname: string): string {
   return pathname;
 }
 
-/** Find which group contains the given menu key, used to auto-expand parent group */
 function findParentGroupKey(menuKey: string, groups: MenuGroupConfig[], feishuItems: NavItem[]): string | null {
   for (const group of groups) {
     const allChildren = group.key === 'group-admin'
       ? [...group.children, ...feishuItems]
       : group.children;
-    if (allChildren.some(child => child.key === menuKey)) {
+    if (allChildren.some((child) => child.key === menuKey)) {
       return group.key;
     }
   }
@@ -136,19 +139,16 @@ function buildMenuItems(
   feishuItems: NavItem[],
   userRole: string,
 ): MenuProps['items'] {
-  // Employee role: no groups, single item only
   if (userRole === 'employee') {
     return [{ key: '/employee/query', icon: <SearchOutlined />, label: '员工查询' }];
   }
 
   const items: MenuProps['items'] = [];
 
-  // Top pinned item
   if (topItem.roles.includes(userRole)) {
     items.push({ key: topItem.key, icon: topItem.icon, label: topItem.label });
   }
 
-  // Grouped SubMenus
   for (const group of groups) {
     let groupChildren = [...group.children];
     if (group.key === 'group-admin' && feishuItems.length > 0) {
@@ -156,8 +156,8 @@ function buildMenuItems(
     }
 
     const visibleChildren = groupChildren
-      .filter(child => child.roles.includes(userRole))
-      .map(child => ({ key: child.key, icon: child.icon, label: child.label }));
+      .filter((child) => child.roles.includes(userRole))
+      .map((child) => ({ key: child.key, icon: child.icon, label: child.label }));
 
     if (visibleChildren.length > 0) {
       items.push({
@@ -198,22 +198,6 @@ const LABEL_MAP: Record<string, string> = {
   settings: '系统设置',
   users: '账号管理',
 };
-
-function useResponsiveCollapse(breakpoint: number = 1440): boolean {
-  const [shouldCollapse, setShouldCollapse] = useState(
-    () => typeof window !== 'undefined' && window.innerWidth <= breakpoint
-  );
-
-  useEffect(() => {
-    const mql = window.matchMedia(`(max-width: ${breakpoint}px)`);
-    const handler = (e: MediaQueryListEvent) => setShouldCollapse(e.matches);
-    mql.addEventListener('change', handler);
-    setShouldCollapse(mql.matches);
-    return () => mql.removeEventListener('change', handler);
-  }, [breakpoint]);
-
-  return shouldCollapse;
-}
 
 function buildBreadcrumbItems(pathname: string) {
   const segments = pathname.split('/').filter(Boolean);
@@ -308,110 +292,126 @@ export function MainLayout() {
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
+  const { isMobile, isTablet, isCompactDesktop, isDesktopWide } = useResponsiveViewport();
   const { feishu_sync_enabled } = useFeishuFeatureFlag();
   const { isDark, toggleMode } = useThemeMode();
   const colors = useSemanticColors();
 
-  // Feishu menu items conditionally injected into admin group
-  const feishuItems: NavItem[] = useMemo(() =>
+  const feishuItems: NavItem[] = useMemo(() => (
     feishu_sync_enabled ? [
       { key: '/feishu-sync', icon: <CloudSyncOutlined />, label: '飞书同步', roles: ['admin', 'hr'] },
       { key: '/feishu-settings', icon: <SettingOutlined />, label: '飞书设置', roles: ['admin'] },
-    ] : [],
-    [feishu_sync_enabled]
-  );
+    ] : []
+  ), [feishu_sync_enabled]);
 
-  // Compute visible group keys for validKeys cleanup in useMenuOpenKeys
   const visibleGroupKeys = useMemo(() => {
     const role = user?.role || '';
     if (role === 'employee') return [] as string[];
     return MENU_GROUPS
-      .filter(g => {
-        let children = [...g.children];
-        if (g.key === 'group-admin') children = [...children, ...feishuItems];
-        return children.some(c => c.roles.includes(role));
+      .filter((group) => {
+        let children = [...group.children];
+        if (group.key === 'group-admin') children = [...children, ...feishuItems];
+        return children.some((child) => child.roles.includes(role));
       })
-      .map(g => g.key);
+      .map((group) => group.key);
   }, [user?.role, feishuItems]);
 
   const defaultOpenKeys = useMemo(
-    () => MENU_GROUPS.filter(g => g.defaultOpen).map(g => g.key),
-    []
+    () => MENU_GROUPS.filter((group) => group.defaultOpen).map((group) => group.key),
+    [],
   );
   const { openKeys, onOpenChange } = useMenuOpenKeys(defaultOpenKeys, visibleGroupKeys);
 
-  // Resolve sub-routes to parent menu key for correct highlight
   const resolvedKey = resolveSelectedMenuKey(location.pathname);
 
-  // Auto-expand parent group when navigating to a child item
   useEffect(() => {
     const parentGroup = findParentGroupKey(resolvedKey, MENU_GROUPS, feishuItems);
     if (parentGroup && !openKeys.includes(parentGroup)) {
       onOpenChange([...openKeys, parentGroup]);
     }
-  }, [resolvedKey]); // eslint-disable-line react-hooks/exhaustive-deps -- only trigger on route change
+  }, [resolvedKey]); // eslint-disable-line react-hooks/exhaustive-deps -- route change is the only intended trigger
 
-  // Global menu search
   const [menuSearch, setMenuSearch] = useState('');
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
-  // Collect all searchable items (flat list for search filtering)
   const allNavItems = useMemo(() => {
     const role = user?.role || '';
-    if (role === 'employee') return [{ key: '/employee/query', icon: <SearchOutlined />, label: '员工查询', roles: ['employee'] }];
+    if (role === 'employee') {
+      return [{ key: '/employee/query', icon: <SearchOutlined />, label: '员工查询', roles: ['employee'] }];
+    }
+
     const items: NavItem[] = [];
     if (TOP_ITEM.roles.includes(role)) items.push(TOP_ITEM);
     for (const group of MENU_GROUPS) {
       let children = [...group.children];
       if (group.key === 'group-admin') children = [...children, ...feishuItems];
       for (const child of children) {
-        if (child.roles.includes(role)) items.push(child);
+        if (child.roles.includes(role)) {
+          items.push(child);
+        }
       }
     }
     return items;
   }, [user?.role, feishuItems]);
 
-  // Build grouped menu items (normal mode) or flat filtered list (search mode)
   const menuItems = useMemo(() => {
     if (!menuSearch) {
       return buildMenuItems(TOP_ITEM, MENU_GROUPS, feishuItems, user?.role || '');
     }
     const term = menuSearch.toLowerCase();
     return allNavItems
-      .filter(item => item.label.toLowerCase().includes(term))
-      .map(item => ({ key: item.key, icon: item.icon, label: item.label }));
-  }, [feishuItems, user?.role, menuSearch, allNavItems]);
+      .filter((item) => item.label.toLowerCase().includes(term))
+      .map((item) => ({ key: item.key, icon: item.icon, label: item.label }));
+  }, [allNavItems, feishuItems, menuSearch, user?.role]);
 
-  const autoCollapsed = useResponsiveCollapse(1440);
+  const autoCollapsed = isCompactDesktop;
   const [manualCollapse, setManualCollapse] = useState<boolean | null>(() => {
     try {
       const saved = localStorage.getItem('sider-collapsed');
       if (saved !== null) return JSON.parse(saved);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore storage access failures */
+    }
     return null;
   });
   const prevAutoCollapsed = useRef(autoCollapsed);
 
-  // When breakpoint changes, reset manual override so auto-collapse takes effect
   useEffect(() => {
     if (prevAutoCollapsed.current !== autoCollapsed) {
       prevAutoCollapsed.current = autoCollapsed;
       setManualCollapse(null);
-      try { localStorage.removeItem('sider-collapsed'); } catch { /* ignore */ }
+      try {
+        localStorage.removeItem('sider-collapsed');
+      } catch {
+        /* ignore storage access failures */
+      }
     }
   }, [autoCollapsed]);
 
+  useEffect(() => {
+    if (isMobile) {
+      setMobileNavOpen(false);
+    }
+  }, [location.pathname, isMobile]);
+
   const collapsed = manualCollapse !== null ? manualCollapse : autoCollapsed;
 
-  // Persist sider collapsed state
   const handleCollapse = (value: boolean) => {
     setManualCollapse(value);
-    try { localStorage.setItem('sider-collapsed', JSON.stringify(value)); } catch { /* ignore */ }
+    try {
+      localStorage.setItem('sider-collapsed', JSON.stringify(value));
+    } catch {
+      /* ignore storage access failures */
+    }
   };
 
-  // Change password modal state (voluntary mode, triggered from Header dropdown)
+  const handleNavigate = (key: string) => {
+    navigate(key);
+    setMenuSearch('');
+  };
+
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
-  // Build user menu items -- only admin/hr see "change password" option
   const changePasswordItem: MenuProps['items'] = user?.role !== 'employee' ? [
     {
       key: 'change-password',
@@ -432,68 +432,104 @@ export function MainLayout() {
     },
   ];
 
+  const breadcrumbItems = buildBreadcrumbItems(location.pathname);
+  const pageTitle = allNavItems.find((item) => item.key === resolvedKey)?.label
+    ?? breadcrumbItems[breadcrumbItems.length - 1]?.title
+    ?? '社保公积金管理系统';
+
+  const contentPadding = isMobile
+    ? '12px 12px 16px'
+    : (isTablet || isCompactDesktop)
+      ? '16px'
+      : isDesktopWide
+        ? '24px'
+        : '24px';
+
+  const navSearch = collapsed && !isMobile ? (
+    <Tooltip title="搜索功能" placement="right">
+      <Button
+        type="text"
+        icon={<SearchOutlined style={{ color: 'rgba(255,255,255,0.65)' }} />}
+        onClick={() => handleCollapse(false)}
+        style={{ width: '100%' }}
+      />
+    </Tooltip>
+  ) : (
+    <Input
+      className={isMobile ? styles.drawerSearch : undefined}
+      placeholder="搜索功能..."
+      prefix={(
+        <SearchOutlined style={{ color: isMobile ? colors.TEXT_TERTIARY : 'rgba(255,255,255,0.45)' }} />
+      )}
+      allowClear
+      value={menuSearch}
+      onChange={(event) => setMenuSearch(event.target.value)}
+      style={isMobile ? undefined : {
+        background: 'rgba(255,255,255,0.08)',
+        borderColor: 'rgba(255,255,255,0.15)',
+        color: '#fff',
+      }}
+    />
+  );
+
   return (
     <Layout style={{ minHeight: '100vh' }}>
-      <Sider
-        theme="dark"
-        collapsible
-        collapsed={collapsed}
-        onCollapse={handleCollapse}
-        width={220}
-        collapsedWidth={64}
-      >
-        <div className={collapsed ? styles.logoCollapsed : styles.logo}>
-          {collapsed ? '社保' : '社保公积金管理系统'}
-        </div>
-        <div style={{ padding: collapsed ? '8px 12px' : '8px 16px' }}>
-          {collapsed ? (
-            <Tooltip title="搜索功能" placement="right">
-              <Button
-                type="text"
-                icon={<SearchOutlined style={{ color: 'rgba(255,255,255,0.65)' }} />}
-                onClick={() => handleCollapse(false)}
-                style={{ width: '100%' }}
-              />
-            </Tooltip>
-          ) : (
-            <Input
-              placeholder="搜索功能..."
-              prefix={<SearchOutlined style={{ color: 'rgba(255,255,255,0.45)' }} />}
-              allowClear
-              value={menuSearch}
-              onChange={e => setMenuSearch(e.target.value)}
-              style={{
-                background: 'rgba(255,255,255,0.08)',
-                borderColor: 'rgba(255,255,255,0.15)',
-                color: '#fff',
-              }}
-            />
-          )}
-        </div>
-        <Menu
+      {isMobile ? null : (
+        <Sider
           theme="dark"
-          mode="inline"
-          selectedKeys={[resolvedKey]}
-          openKeys={menuSearch ? [] : openKeys}
-          onOpenChange={menuSearch ? undefined : onOpenChange}
-          items={menuItems}
-          onClick={({ key }) => { navigate(key); setMenuSearch(''); }}
-        />
-      </Sider>
+          collapsible
+          collapsed={collapsed}
+          onCollapse={handleCollapse}
+          width={220}
+          collapsedWidth={64}
+        >
+          <div className={collapsed ? styles.logoCollapsed : styles.logo}>
+            {collapsed ? '社保' : '社保公积金管理系统'}
+          </div>
+          <div style={{ padding: collapsed ? '8px 12px' : '8px 16px' }}>
+            {navSearch}
+          </div>
+          <Menu
+            theme="dark"
+            mode="inline"
+            selectedKeys={[resolvedKey]}
+            openKeys={menuSearch ? [] : openKeys}
+            onOpenChange={menuSearch ? undefined : onOpenChange}
+            items={menuItems}
+            onClick={({ key }) => {
+              handleNavigate(String(key));
+            }}
+          />
+        </Sider>
+      )}
       <Layout>
         <Header
           style={{
             background: colors.BG_CONTAINER,
-            padding: '0 24px',
+            padding: isMobile ? '0 12px' : '0 24px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             borderBottom: `1px solid ${colors.BORDER}`,
           }}
         >
-          <Breadcrumb items={buildBreadcrumbItems(location.pathname)} />
+          {isMobile ? (
+            <div className={styles.mobileHeaderLeft}>
+              <Button
+                type="text"
+                icon={<MenuOutlined />}
+                aria-label="打开导航菜单"
+                onClick={() => setMobileNavOpen(true)}
+              />
+              <Typography.Text className={styles.mobileHeaderTitle} strong ellipsis>
+                {String(pageTitle)}
+              </Typography.Text>
+            </div>
+          ) : (
+            <Breadcrumb items={buildBreadcrumbItems(location.pathname)} />
+          )}
           <Space>
-            <span>{user?.displayName || '未登录'}</span>
+            {isMobile ? null : <span>{user?.displayName || '未登录'}</span>}
             <Button
               type="text"
               icon={isDark ? <SunOutlined /> : <MoonOutlined />}
@@ -501,17 +537,15 @@ export function MainLayout() {
               aria-label={isDark ? '切换到亮色模式' : '切换到暗色模式'}
             />
             <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
-              <Button type="text" icon={<UserOutlined />} />
+              <Button type="text" icon={<UserOutlined />} aria-label="打开用户菜单" />
             </Dropdown>
           </Space>
         </Header>
         <Content
           style={{
-            margin: '0',
-            padding: '24px',
+            margin: 0,
+            padding: contentPadding,
             background: colors.BG_LAYOUT,
-            height: 'calc(100vh - 56px)',
-            overflowY: 'auto',
           }}
         >
           <AggregateBanner />
@@ -520,14 +554,45 @@ export function MainLayout() {
           </AnimatedContent>
         </Content>
       </Layout>
-      {/* Voluntary change password (Header dropdown trigger) */}
+      <Drawer
+        placement="left"
+        width="min(320px, 100vw)"
+        open={mobileNavOpen}
+        onClose={() => setMobileNavOpen(false)}
+        closable={false}
+        styles={{ body: { padding: 0 } }}
+      >
+        <div
+          className={styles.drawerHeader}
+          style={{ borderBottom: `1px solid ${colors.BORDER}` }}
+        >
+          <div className={styles.drawerHeaderTop}>
+            <div className={styles.drawerBrand}>社保公积金管理系统</div>
+            <Button
+              type="text"
+              icon={<CloseOutlined />}
+              aria-label="关闭导航抽屉"
+              onClick={() => setMobileNavOpen(false)}
+            />
+          </div>
+          {navSearch}
+        </div>
+        <Menu
+          selectedKeys={[resolvedKey]}
+          openKeys={menuSearch ? [] : openKeys}
+          onOpenChange={menuSearch ? undefined : onOpenChange}
+          items={menuItems}
+          onClick={({ key }) => {
+            handleNavigate(String(key));
+          }}
+        />
+      </Drawer>
       <ChangePasswordModal
         open={changePasswordOpen}
         forced={false}
         onSuccess={() => setChangePasswordOpen(false)}
         onCancel={() => setChangePasswordOpen(false)}
       />
-      {/* Forced change password (mustChangePassword=true, admin/hr only) */}
       {user?.mustChangePassword && user?.role !== 'employee' && (
         <ChangePasswordModal
           open={true}
@@ -541,3 +606,5 @@ export function MainLayout() {
     </Layout>
   );
 }
+
+export default MainLayout;

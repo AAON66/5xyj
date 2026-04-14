@@ -16,7 +16,9 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 
+import { MobileStickyActionBar } from '../components/MobileStickyActionBar';
 import { WorkflowSteps } from '../components/WorkflowSteps';
+import { useResponsiveViewport } from '../hooks/useResponsiveViewport';
 import {
   fetchBatchMatch,
   fetchBatchValidation,
@@ -71,6 +73,7 @@ function matchColor(value: string): string {
 
 export function ResultsPage() {
   const colors = useSemanticColors();
+  const { isMobile } = useResponsiveViewport();
   const [batches, setBatches] = useState<Array<{ id: string; batch_name: string; status: string; updated_at: string }>>([]);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [validation, setValidation] = useState<BatchValidation | null>(null);
@@ -172,6 +175,16 @@ export function ResultsPage() {
     }
   }
 
+  const primaryActionMode = validation ? 'match' : 'validate';
+  const mobilePrimaryLabel = primaryActionMode === 'validate' ? '执行数据校验' : '执行工号匹配';
+  const mobilePrimaryDisabled = !selectedBatchId || (primaryActionMode === 'validate' ? runningValidation : runningMatch);
+  const mobilePrimaryLoading = primaryActionMode === 'validate' ? runningValidation : runningMatch;
+  const mobilePrimaryHelper = !selectedBatchId
+    ? '请先选择一个批次。'
+    : primaryActionMode === 'match'
+      ? '校验结果已就绪，下一步执行工号匹配。'
+      : null;
+
   const issueColumns: ColumnsType<ValidationIssue> = [
     {
       title: '行号',
@@ -257,7 +270,7 @@ export function ResultsPage() {
   ];
 
   return (
-    <div>
+    <div style={isMobile ? { paddingBottom: 96 } : undefined}>
       <Title level={4}>校验匹配</Title>
       <WorkflowSteps />
 
@@ -294,22 +307,26 @@ export function ResultsPage() {
                     label: `${b.batch_name} (${b.status})`,
                   }))}
                 />
-                <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-                  <Button
-                    type="primary"
-                    onClick={() => void handleValidate()}
-                    disabled={!selectedBatchId || runningValidation}
-                    loading={runningValidation}
-                  >
-                    执行数据校验
-                  </Button>
-                  <Button
-                    onClick={() => void handleMatch()}
-                    disabled={!selectedBatchId || runningMatch}
-                    loading={runningMatch}
-                  >
-                    执行工号匹配
-                  </Button>
+                <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                  {!isMobile || primaryActionMode !== 'validate' ? (
+                    <Button
+                      type={!isMobile ? 'primary' : 'default'}
+                      onClick={() => void handleValidate()}
+                      disabled={!selectedBatchId || runningValidation}
+                      loading={runningValidation}
+                    >
+                      执行数据校验
+                    </Button>
+                  ) : null}
+                  {!isMobile || primaryActionMode !== 'match' ? (
+                    <Button
+                      onClick={() => void handleMatch()}
+                      disabled={!selectedBatchId || runningMatch}
+                      loading={runningMatch}
+                    >
+                      执行工号匹配
+                    </Button>
+                  ) : null}
                 </div>
               </>
             )}
@@ -379,6 +396,20 @@ export function ResultsPage() {
           </Card>
         </Col>
       </Row>
+      <MobileStickyActionBar
+        visible={isMobile}
+        primaryLabel={mobilePrimaryLabel}
+        onPrimaryClick={() => {
+          if (primaryActionMode === 'validate') {
+            void handleValidate();
+            return;
+          }
+          void handleMatch();
+        }}
+        primaryDisabled={mobilePrimaryDisabled}
+        primaryLoading={mobilePrimaryLoading}
+        helperText={mobilePrimaryHelper}
+      />
     </div>
   );
 }

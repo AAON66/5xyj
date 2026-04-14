@@ -1,8 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useSemanticColors } from '../theme/useSemanticColors';
-import { getChartColors } from '../theme/chartColors';
-import { useThemeMode } from '../theme/useThemeMode';
-import { useNavigate } from 'react-router-dom';
+import { CloudSyncOutlined, SettingOutlined, SyncOutlined } from '@ant-design/icons';
 import {
   Alert,
   Button,
@@ -21,30 +17,32 @@ import {
   Typography,
   message,
 } from 'antd';
-import { CloudSyncOutlined, SyncOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import dayjs from 'dayjs';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
+import { useAuth, useFeishuFeatureFlag, useResponsiveViewport } from '../hooks';
 import { normalizeApiError } from '../services/api';
 import {
+  confirmPush,
+  executePull,
   fetchSyncConfigs,
   fetchSyncHistory,
-  pushToFeishu,
-  confirmPush,
   previewPullConflicts,
-  executePull,
+  pushToFeishu,
   readNdjsonStream,
   retrySyncJob,
-  type SyncConfig,
-  type SyncJob,
   type ConflictPreview,
   type ConflictRecord,
+  type SyncConfig,
+  type SyncJob,
 } from '../services/feishu';
-import { useFeishuFeatureFlag } from '../hooks/useFeishuFeatureFlag';
+import { getChartColors } from '../theme/chartColors';
+import { useSemanticColors } from '../theme/useSemanticColors';
+import { useThemeMode } from '../theme/useThemeMode';
 
 const { Title, Text } = Typography;
-
-// STATUS_COLOR moved inside component as useMemo (see below)
 
 const STATUS_LABEL: Record<string, string> = {
   success: '成功',
@@ -61,16 +59,21 @@ const DIRECTION_CONFIG: Record<string, { color: string; label: string }> = {
 
 export function FeishuSyncPage() {
   const colors = useSemanticColors();
+  const { isMobile } = useResponsiveViewport();
   const { isDark } = useThemeMode();
-  const chartCols = useMemo(() => getChartColors(isDark), [isDark]);
-  const STATUS_COLOR: Record<string, string> = useMemo(() => ({
-    success: chartCols.success,
-    failed: chartCols.error,
-    partial: chartCols.warning,
-    running: 'processing',
-    pending: 'default',
-  }), [chartCols]);
+  const { user } = useAuth();
   const navigate = useNavigate();
+  const chartColors = useMemo(() => getChartColors(isDark), [isDark]);
+  const STATUS_COLOR: Record<string, string> = useMemo(
+    () => ({
+      success: chartColors.success,
+      failed: chartColors.error,
+      partial: chartColors.warning,
+      running: 'processing',
+      pending: 'default',
+    }),
+    [chartColors],
+  );
   const {
     feishu_sync_enabled,
     feishu_credentials_configured,
@@ -88,30 +91,33 @@ export function FeishuSyncPage() {
     total: number;
   } | null>(null);
 
-  // Push conflict state
   const [pushConflicts, setPushConflicts] = useState<ConflictPreview | null>(null);
   const [pushConflictModalOpen, setPushConflictModalOpen] = useState(false);
 
-  // Pull conflict state
   const [pullConflicts, setPullConflicts] = useState<ConflictPreview | null>(null);
   const [pullConflictModalOpen, setPullConflictModalOpen] = useState(false);
   const [pullStrategy, setPullStrategy] = useState<string>('system_wins');
   const [showDiffOnly, setShowDiffOnly] = useState(true);
   const [perRecordChoices, setPerRecordChoices] = useState<Record<string, string>>({});
 
-  // Redirect when feature is disabled
-  useEffect(() => {
-    if (!flagsLoading && !feishu_sync_enabled) {
-      navigate('/');
-    }
-  }, [flagsLoading, feishu_sync_enabled, navigate]);
+  const isAdmin = user?.role === 'admin';
+  const syncReady = feishu_sync_enabled && feishu_credentials_configured;
 
   const loadConfigs = useCallback(async () => {
     try {
       const data = await fetchSyncConfigs();
       setConfigs(data);
-    } catch {
-      // Silently handle -- configs may not be available yet
+      setSelectedConfigId((current) => {
+        if (!data.length) {
+          return null;
+        }
+        if (current && data.some((config) => config.id === current)) {
+          return current;
+        }
+        return data[0].id;
+      });
+    } catch (err) {
+      message.error(normalizeApiError(err).message);
     }
   }, []);
 
@@ -120,30 +126,43 @@ export function FeishuSyncPage() {
     try {
       const data = await fetchSyncHistory(undefined, 50, 0);
       setHistory(data);
-    } catch {
-      // Silently handle
+    } catch (err) {
+      message.error(normalizeApiError(err).message);
     } finally {
       setHistoryLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadConfigs();
-    loadHistory();
-  }, [loadConfigs, loadHistory]);
+    if (flagsLoading) {
+      return;
+    }
+    if (!feishu_sync_enabled) {
+      setConfigs([]);
+      setSelectedConfigId(null);
+      setHistory([]);
+      return;
+    }
+    void loadConfigs();
+    if (feishu_credentials_configured) {
+      void loadHistory();
+    } else {
+      setHistory([]);
+    }
+  }, [feishu_credentials_configured, feishu_sync_enabled, flagsLoading, loadConfigs, loadHistory]);
 
   const configNameMap = useMemo(() => {
     const map = new Map<string, string>();
-    for (const c of configs) {
-      map.set(c.id, c.name);
+    for (const config of configs) {
+      map.set(config.id, config.name);
     }
     return map;
   }, [configs]);
 
-  // ── Push handler ─────────────────────────────────────────────────
-
   const handlePush = useCallback(async () => {
-    if (!selectedConfigId) return;
+    if (!selectedConfigId) {
+      return;
+    }
     setSyncing(true);
     setProgress(null);
 
@@ -157,9 +176,7 @@ export function FeishuSyncPage() {
       }
 
       const contentType = response.headers.get('content-type') || '';
-
       if (contentType.includes('application/json')) {
-        // Conflict preview response
         const data = await response.json();
         if (data.message === 'conflict_preview' || data.data?.conflicts) {
           const conflicts: ConflictPreview = data.data ?? data;
@@ -169,7 +186,6 @@ export function FeishuSyncPage() {
         }
         message.success('推送完成');
       } else {
-        // NDJSON stream
         await readNdjsonStream(response, (event) => {
           if (event.type === 'progress') {
             setProgress({
@@ -187,19 +203,20 @@ export function FeishuSyncPage() {
         });
       }
 
-      loadHistory();
+      await loadHistory();
     } catch (err) {
       message.error(normalizeApiError(err).message);
     } finally {
       setSyncing(false);
       setProgress(null);
     }
-  }, [selectedConfigId, loadHistory]);
+  }, [loadHistory, selectedConfigId]);
 
-  // Push conflict actions
   const handlePushConfirm = useCallback(
     async (action: 'overwrite' | 'skip' | 'cancel') => {
-      if (!selectedConfigId) return;
+      if (!selectedConfigId) {
+        return;
+      }
       setPushConflictModalOpen(false);
 
       if (action === 'cancel') {
@@ -231,7 +248,7 @@ export function FeishuSyncPage() {
             message.error(String(event.message ?? '推送出错'));
           }
         });
-        loadHistory();
+        await loadHistory();
       } catch (err) {
         message.error(normalizeApiError(err).message);
       } finally {
@@ -240,19 +257,18 @@ export function FeishuSyncPage() {
         setPushConflicts(null);
       }
     },
-    [selectedConfigId, loadHistory],
+    [loadHistory, selectedConfigId],
   );
 
-  // ── Pull handler ─────────────────────────────────────────────────
-
   const handlePull = useCallback(async () => {
-    if (!selectedConfigId) return;
+    if (!selectedConfigId) {
+      return;
+    }
     setSyncing(true);
     setProgress(null);
 
     try {
       const preview = await previewPullConflicts(selectedConfigId);
-
       if (preview.total_conflicts > 0) {
         setPullConflicts(preview);
         setPullConflictModalOpen(true);
@@ -262,9 +278,7 @@ export function FeishuSyncPage() {
         return;
       }
 
-      // No conflicts -- directly execute
       const response = await executePull(selectedConfigId, 'system_wins');
-
       if (!response.ok) {
         const errorText = await response.text();
         message.error(`拉取失败: ${errorText}`);
@@ -287,18 +301,19 @@ export function FeishuSyncPage() {
         }
       });
 
-      loadHistory();
+      await loadHistory();
     } catch (err) {
       message.error(normalizeApiError(err).message);
     } finally {
       setSyncing(false);
       setProgress(null);
     }
-  }, [selectedConfigId, loadHistory]);
+  }, [loadHistory, selectedConfigId]);
 
-  // Pull confirm
   const handlePullConfirm = useCallback(async () => {
-    if (!selectedConfigId) return;
+    if (!selectedConfigId) {
+      return;
+    }
     setPullConflictModalOpen(false);
     setSyncing(true);
 
@@ -328,7 +343,7 @@ export function FeishuSyncPage() {
         }
       });
 
-      loadHistory();
+      await loadHistory();
     } catch (err) {
       message.error(normalizeApiError(err).message);
     } finally {
@@ -336,14 +351,14 @@ export function FeishuSyncPage() {
       setProgress(null);
       setPullConflicts(null);
     }
-  }, [selectedConfigId, pullStrategy, perRecordChoices, loadHistory]);
+  }, [loadHistory, perRecordChoices, pullStrategy, selectedConfigId]);
 
   const handleRetry = useCallback(
     async (jobId: string) => {
       try {
         await retrySyncJob(jobId);
         message.success('已重新触发同步');
-        loadHistory();
+        await loadHistory();
       } catch (err) {
         message.error(normalizeApiError(err).message);
       }
@@ -351,15 +366,14 @@ export function FeishuSyncPage() {
     [loadHistory],
   );
 
-  // ── Push conflict columns ────────────────────────────────────────
-
   const pushConflictColumns: ColumnsType<ConflictRecord> = [
     {
       title: '员工',
       dataIndex: 'person_name',
       key: 'person_name',
+      fixed: 'left',
       width: 100,
-      render: (val: string | null) => val || '-',
+      render: (value: string | null) => value || '-',
     },
     {
       title: '字段',
@@ -375,10 +389,7 @@ export function FeishuSyncPage() {
       render: (_: unknown, record: ConflictRecord) => (
         <div>
           {record.diff_fields.map((field) => (
-            <div
-              key={field}
-              style={{ background: colors.HIGHLIGHT_BG, padding: '2px 4px', marginBottom: 2 }}
-            >
+            <div key={field} style={{ background: colors.HIGHLIGHT_BG, padding: '2px 4px', marginBottom: 2 }}>
               {field}: {String(record.system_values[field] ?? '-')}
             </div>
           ))}
@@ -392,10 +403,7 @@ export function FeishuSyncPage() {
       render: (_: unknown, record: ConflictRecord) => (
         <div>
           {record.diff_fields.map((field) => (
-            <div
-              key={field}
-              style={{ background: colors.HIGHLIGHT_BG, padding: '2px 4px', marginBottom: 2 }}
-            >
+            <div key={field} style={{ background: colors.HIGHLIGHT_BG, padding: '2px 4px', marginBottom: 2 }}>
               {field}: {String(record.feishu_values[field] ?? '-')}
             </div>
           ))}
@@ -404,15 +412,14 @@ export function FeishuSyncPage() {
     },
   ];
 
-  // ── Pull conflict columns ────────────────────────────────────────
-
   const pullConflictColumns: ColumnsType<ConflictRecord> = [
     {
       title: '员工',
       dataIndex: 'person_name',
       key: 'person_name',
+      fixed: 'left',
       width: 120,
-      render: (val: string | null) => val || '-',
+      render: (value: string | null) => value || '-',
     },
     {
       title: '冲突字段数',
@@ -429,10 +436,10 @@ export function FeishuSyncPage() {
             render: (_: unknown, record: ConflictRecord) => (
               <Radio.Group
                 value={perRecordChoices[record.record_key] || 'system'}
-                onChange={(e) =>
-                  setPerRecordChoices((prev) => ({
-                    ...prev,
-                    [record.record_key]: e.target.value,
+                onChange={(event) =>
+                  setPerRecordChoices((current) => ({
+                    ...current,
+                    [record.record_key]: event.target.value,
                   }))
                 }
                 size="small"
@@ -446,7 +453,6 @@ export function FeishuSyncPage() {
       : []),
   ];
 
-  // Pull conflict expand row
   const pullExpandedRow = (record: ConflictRecord) => {
     const diffFieldData = record.diff_fields.map((field) => ({
       field,
@@ -466,9 +472,9 @@ export function FeishuSyncPage() {
             title: '系统值',
             dataIndex: 'system',
             key: 'system',
-            render: (val: string, row: { field: string; system: string; feishu: string }) => (
-              <span style={val !== row.feishu ? { background: colors.HIGHLIGHT_BG, padding: '2px 4px' } : {}}>
-                {val}
+            render: (value: string, row: { field: string; system: string; feishu: string }) => (
+              <span style={value !== row.feishu ? { background: colors.HIGHLIGHT_BG, padding: '2px 4px' } : {}}>
+                {value}
               </span>
             ),
           },
@@ -476,9 +482,9 @@ export function FeishuSyncPage() {
             title: '飞书值',
             dataIndex: 'feishu',
             key: 'feishu',
-            render: (val: string, row: { field: string; system: string; feishu: string }) => (
-              <span style={val !== row.system ? { background: colors.HIGHLIGHT_BG, padding: '2px 4px' } : {}}>
-                {val}
+            render: (value: string, row: { field: string; system: string; feishu: string }) => (
+              <span style={value !== row.system ? { background: colors.HIGHLIGHT_BG, padding: '2px 4px' } : {}}>
+                {value}
               </span>
             ),
           },
@@ -487,24 +493,23 @@ export function FeishuSyncPage() {
     );
   };
 
-  // ── History columns ──────────────────────────────────────────────
-
   const columns: ColumnsType<SyncJob> = [
     {
       title: '时间',
       dataIndex: 'created_at',
       key: 'created_at',
+      fixed: 'left',
       width: 160,
-      render: (val: string) => dayjs(val).format('YYYY-MM-DD HH:mm'),
+      render: (value: string) => dayjs(value).format('YYYY-MM-DD HH:mm'),
     },
     {
       title: '方向',
       dataIndex: 'direction',
       key: 'direction',
       width: 80,
-      render: (dir: string) => {
-        const cfg = DIRECTION_CONFIG[dir] || { color: 'default', label: dir };
-        return <Tag color={cfg.color}>{cfg.label}</Tag>;
+      render: (direction: string) => {
+        const config = DIRECTION_CONFIG[direction] || { color: 'default', label: direction };
+        return <Tag color={config.color}>{config.label}</Tag>;
       },
     },
     {
@@ -518,19 +523,14 @@ export function FeishuSyncPage() {
       title: '记录数',
       key: 'records',
       width: 120,
-      render: (_: unknown, record: SyncJob) =>
-        `${record.success_records} / ${record.total_records}`,
+      render: (_: unknown, record: SyncJob) => `${record.success_records} / ${record.total_records}`,
     },
     {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
       width: 100,
-      render: (status: string) => (
-        <Tag color={STATUS_COLOR[status] || 'default'}>
-          {STATUS_LABEL[status] || status}
-        </Tag>
-      ),
+      render: (status: string) => <Tag color={STATUS_COLOR[status] || 'default'}>{STATUS_LABEL[status] || status}</Tag>,
     },
     {
       title: '操作',
@@ -538,81 +538,112 @@ export function FeishuSyncPage() {
       width: 100,
       render: (_: unknown, record: SyncJob) =>
         record.status === 'failed' ? (
-          <Button
-            type="link"
-            size="small"
-            onClick={() => handleRetry(record.id)}
-          >
+          <Button type="link" size="small" onClick={() => void handleRetry(record.id)}>
             重新执行
           </Button>
         ) : null,
     },
   ];
 
-  if (flagsLoading) return null;
-
   const filteredPullConflicts = pullConflicts
     ? showDiffOnly
-      ? pullConflicts.conflicts.filter((c) => c.diff_fields.length > 0)
+      ? pullConflicts.conflicts.filter((conflict) => conflict.diff_fields.length > 0)
       : pullConflicts.conflicts
     : [];
 
+  const statusAction = isAdmin ? (
+    <Button icon={<SettingOutlined />} onClick={() => navigate('/feishu-settings')} data-testid="feishu-settings-cta">
+      去设置页
+    </Button>
+  ) : (
+    <Text type="secondary">请联系管理员前往设置页完成配置。</Text>
+  );
+
+  if (flagsLoading) {
+    return null;
+  }
+
+  if (!feishu_sync_enabled) {
+    return (
+      <div style={{ padding: isMobile ? '16px 12px 32px' : '24px 24px 48px' }}>
+        <div style={{ marginBottom: 24 }}>
+          <Title level={3} style={{ margin: 0 }}>
+            <CloudSyncOutlined style={{ marginRight: 8 }} />
+            飞书同步
+          </Title>
+          <Text type="secondary">当前未启用飞书同步，请先完成运行时开关配置。</Text>
+        </div>
+
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 16 }}
+          message="飞书同步已关闭"
+          description="同步功能被运行时开关关闭，当前页面不会请求同步历史。启用后即可恢复推送、拉取与历史查看。"
+          action={statusAction}
+        />
+
+        <Card>
+          <Empty description="启用飞书同步后，这里会显示同步目标、执行入口和历史记录。" />
+        </Card>
+      </div>
+    );
+  }
+
   return (
-    <div style={{ padding: '24px 24px 48px' }}>
+    <div style={{ padding: isMobile ? '16px 12px 32px' : '24px 24px 48px' }}>
       <div style={{ marginBottom: 24 }}>
         <Title level={3} style={{ margin: 0 }}>
           <CloudSyncOutlined style={{ marginRight: 8 }} />
           飞书同步
         </Title>
-        <Text type="secondary">
-          将系统数据推送到飞书多维表格，或从飞书拉取数据
-        </Text>
+        <Text type="secondary">将系统数据推送到飞书多维表格，或从飞书拉取数据。</Text>
       </div>
 
-      {!feishu_credentials_configured && (
+      {!feishu_credentials_configured ? (
         <Alert
           type="info"
           showIcon
           style={{ marginBottom: 16 }}
           message="飞书应用凭证未配置"
-          description="飞书应用凭证未配置。请在飞书设置页面配置 App ID 和 App Secret 后，即可使用同步功能。"
+          description="请先在设置页保存 App ID 和 App Secret。配置完成前，同步入口会保持禁用。"
+          action={statusAction}
         />
-      )}
+      ) : null}
 
       <Card style={{ marginBottom: 16 }}>
-        <Row gutter={16} align="middle">
-          <Col flex="auto">
+        <Row gutter={[16, 16]} align="middle">
+          <Col xs={24} lg="auto" flex="auto">
             <Select
+              data-testid="feishu-sync-config-select"
               placeholder="选择同步目标"
               value={selectedConfigId}
               onChange={setSelectedConfigId}
               style={{ width: '100%' }}
               allowClear
-              options={configs.map((c) => ({
-                value: c.id,
-                label: `${c.name} (${c.granularity === 'detail' ? '明细' : '汇总'})`,
+              options={configs.map((config) => ({
+                value: config.id,
+                label: `${config.name} (${config.granularity === 'detail' ? '明细' : '汇总'})`,
               }))}
             />
           </Col>
-          <Col>
-            <Space>
+          <Col xs={24} lg="auto">
+            <Space wrap>
               <Button
                 type="primary"
                 icon={<SyncOutlined />}
                 loading={syncing}
-                disabled={
-                  !selectedConfigId || !feishu_credentials_configured || syncing
-                }
-                onClick={handlePush}
+                disabled={!selectedConfigId || !syncReady || syncing}
+                onClick={() => void handlePush()}
+                data-testid="feishu-sync-push"
               >
                 推送到飞书
               </Button>
               <Button
                 loading={syncing}
-                disabled={
-                  !selectedConfigId || !feishu_credentials_configured || syncing
-                }
-                onClick={handlePull}
+                disabled={!selectedConfigId || !syncReady || syncing}
+                onClick={() => void handlePull()}
+                data-testid="feishu-sync-pull"
               >
                 从飞书拉取
               </Button>
@@ -621,15 +652,11 @@ export function FeishuSyncPage() {
         </Row>
       </Card>
 
-      {progress && (
+      {progress ? (
         <Card style={{ marginBottom: 16 }}>
-          <Progress
-            percent={progress.percent}
-            format={() => `${progress.processed} / ${progress.total}`}
-            status="active"
-          />
+          <Progress percent={progress.percent} format={() => `${progress.processed} / ${progress.total}`} status="active" />
         </Card>
-      )}
+      ) : null}
 
       <Card>
         <Table<SyncJob>
@@ -644,10 +671,12 @@ export function FeishuSyncPage() {
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
                 description={
                   <span>
-                    <Text strong>暂无同步记录</Text>
+                    <Text strong>{feishu_credentials_configured ? '暂无同步记录' : '配置凭证后可查看同步记录'}</Text>
                     <br />
                     <Text type="secondary">
-                      选择一个同步目标并点击推送或拉取按钮开始同步
+                      {feishu_credentials_configured
+                        ? '选择一个同步目标并点击推送或拉取按钮开始同步'
+                        : '当前未请求同步历史，请先完成凭证配置。'}
                     </Text>
                   </span>
                 }
@@ -658,7 +687,6 @@ export function FeishuSyncPage() {
         />
       </Card>
 
-      {/* Push Conflict Modal */}
       <Modal
         title={`发现 ${pushConflicts?.total_conflicts ?? 0} 条冲突记录`}
         open={pushConflictModalOpen}
@@ -666,21 +694,14 @@ export function FeishuSyncPage() {
           setPushConflictModalOpen(false);
           setPushConflicts(null);
         }}
-        width={800}
+        width={isMobile ? '100vw' : 800}
         footer={
-          <Space>
-            <Button
-              type="primary"
-              onClick={() => void handlePushConfirm('overwrite')}
-            >
+          <Space wrap>
+            <Button type="primary" onClick={() => void handlePushConfirm('overwrite')}>
               覆盖飞书已有数据
             </Button>
-            <Button onClick={() => void handlePushConfirm('skip')}>
-              跳过已有数据
-            </Button>
-            <Button onClick={() => void handlePushConfirm('cancel')}>
-              取消
-            </Button>
+            <Button onClick={() => void handlePushConfirm('skip')}>跳过已有数据</Button>
+            <Button onClick={() => void handlePushConfirm('cancel')}>取消</Button>
           </Space>
         }
       >
@@ -694,7 +715,6 @@ export function FeishuSyncPage() {
         />
       </Modal>
 
-      {/* Pull Conflict Modal */}
       <Modal
         title={`发现 ${pullConflicts?.total_conflicts ?? 0} 条冲突记录`}
         open={pullConflictModalOpen}
@@ -702,13 +722,10 @@ export function FeishuSyncPage() {
           setPullConflictModalOpen(false);
           setPullConflicts(null);
         }}
-        width={900}
+        width={isMobile ? '100vw' : 900}
         footer={
-          <Space>
-            <Button
-              type="primary"
-              onClick={() => void handlePullConfirm()}
-            >
+          <Space wrap>
+            <Button type="primary" onClick={() => void handlePullConfirm()}>
               确认拉取
             </Button>
             <Button
@@ -722,30 +739,18 @@ export function FeishuSyncPage() {
           </Space>
         }
       >
-        <Row style={{ marginBottom: 16 }} align="middle" justify="space-between">
-          <Col>
-            <Radio.Group
-              value={pullStrategy}
-              onChange={(e) => setPullStrategy(e.target.value)}
-            >
-              <Radio.Button value="system_wins">
-                以系统数据为准
-              </Radio.Button>
-              <Radio.Button value="feishu_wins">
-                以飞书数据为准
-              </Radio.Button>
-              <Radio.Button value="per_record">
-                逐条选择
-              </Radio.Button>
+        <Row gutter={[12, 12]} style={{ marginBottom: 16 }} align="middle" justify="space-between">
+          <Col xs={24} lg="auto">
+            <Radio.Group value={pullStrategy} onChange={(event) => setPullStrategy(event.target.value)}>
+              <Radio.Button value="system_wins">以系统数据为准</Radio.Button>
+              <Radio.Button value="feishu_wins">以飞书数据为准</Radio.Button>
+              <Radio.Button value="per_record">逐条选择</Radio.Button>
             </Radio.Group>
           </Col>
-          <Col>
-            <Space>
+          <Col xs={24} lg="auto">
+            <Space wrap>
               <Text type="secondary">仅显示差异</Text>
-              <Switch
-                checked={showDiffOnly}
-                onChange={setShowDiffOnly}
-              />
+              <Switch checked={showDiffOnly} onChange={setShowDiffOnly} />
             </Space>
           </Col>
         </Row>

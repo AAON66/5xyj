@@ -80,6 +80,12 @@ class PeriodCompareRead(BaseModel):
     right_period: str
     fields: list[str]
     total_row_count: int
+    page: int
+    page_size: int
+    total_pages: int
+    returned_row_count: int
+    diff_only: bool = False
+    search_text: Optional[str] = None
     same_row_count: int
     changed_row_count: int
     left_only_count: int

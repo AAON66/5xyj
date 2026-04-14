@@ -2,11 +2,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
-from sqlalchemy import func, or_
-from sqlalchemy.orm import Session
-
 from backend.app.models.enums import MatchStatus
 from backend.app.models.match_result import MatchResult
 from backend.app.models.normalized_record import NormalizedRecord
@@ -19,6 +14,9 @@ from backend.app.schemas.data_management import (
     PaginatedRecordsRead,
     PeriodSummaryRead,
 )
+from backend.app.utils.period_utils import coalesce_billing_period
+from sqlalchemy import or_
+from sqlalchemy.orm import Session
 
 
 def _to_float(val: object) -> float:
@@ -28,25 +26,19 @@ def _to_float(val: object) -> float:
     return float(val)
 
 
-def list_normalized_records(
+def _query_records(
     db: Session,
     *,
-    regions: Optional[list[str]] = None,
-    company_names: Optional[list[str]] = None,
-    billing_periods: Optional[list[str]] = None,
-    match_filter: Optional[str] = None,
-    page: int = 0,
-    page_size: int = 20,
-) -> PaginatedRecordsRead:
-    """List normalized records with optional filters and deterministic pagination."""
+    regions: list[str] | None = None,
+    company_names: list[str] | None = None,
+    match_filter: str | None = None,
+) -> list[NormalizedRecord]:
     query = db.query(NormalizedRecord)
 
     if regions:
         query = query.filter(NormalizedRecord.region.in_(regions))
     if company_names:
         query = query.filter(NormalizedRecord.company_name.in_(company_names))
-    if billing_periods:
-        query = query.filter(NormalizedRecord.billing_period.in_(billing_periods))
 
     if match_filter == 'matched':
         query = query.join(MatchResult, MatchResult.normalized_record_id == NormalizedRecord.id)
@@ -57,64 +49,140 @@ def list_normalized_records(
             or_(MatchResult.id.is_(None), MatchResult.match_status != MatchStatus.MATCHED)
         )
 
-    total = query.count()
+    ordered_records = query.order_by(NormalizedRecord.created_at.desc(), NormalizedRecord.id.asc()).all()
+    deduped: list[NormalizedRecord] = []
+    seen_ids: set[str] = set()
+    for record in ordered_records:
+        if record.id in seen_ids:
+            continue
+        seen_ids.add(record.id)
+        deduped.append(record)
+    return deduped
 
-    records = (
-        query.order_by(NormalizedRecord.created_at.desc(), NormalizedRecord.id.asc())
-        .offset(page * page_size)
-        .limit(page_size)
-        .all()
+
+def _effective_billing_period(record: NormalizedRecord) -> str | None:
+    raw_payload = record.raw_payload if isinstance(record.raw_payload, dict) else {}
+    merged_sources = raw_payload.get("merged_sources")
+    merged_candidates: list[object] = []
+    if isinstance(merged_sources, list):
+        for source in merged_sources:
+            if not isinstance(source, dict):
+                continue
+            merged_candidates.append(source.get("source_file_name"))
+            merged_candidates.append(source.get("raw_header_signature"))
+
+    return coalesce_billing_period(
+        record.billing_period,
+        record.period_start,
+        record.period_end,
+        record.source_file_name,
+        record.raw_header_signature,
+        *merged_candidates,
     )
 
-    items = [
-        NormalizedRecordRead(
-            id=r.id,
-            batch_id=r.batch_id,
-            person_name=r.person_name,
-            id_number=r.id_number,
-            employee_id=r.employee_id,
-            company_name=r.company_name,
-            region=r.region,
-            billing_period=r.billing_period,
-            payment_base=_to_float(r.payment_base) if r.payment_base is not None else None,
-            total_amount=_to_float(r.total_amount) if r.total_amount is not None else None,
-            company_total_amount=_to_float(r.company_total_amount) if r.company_total_amount is not None else None,
-            personal_total_amount=_to_float(r.personal_total_amount) if r.personal_total_amount is not None else None,
-            pension_company=_to_float(r.pension_company) if r.pension_company is not None else None,
-            pension_personal=_to_float(r.pension_personal) if r.pension_personal is not None else None,
-            medical_company=_to_float(r.medical_company) if r.medical_company is not None else None,
-            medical_personal=_to_float(r.medical_personal) if r.medical_personal is not None else None,
-            medical_maternity_company=_to_float(r.medical_maternity_company) if r.medical_maternity_company is not None else None,
-            unemployment_company=_to_float(r.unemployment_company) if r.unemployment_company is not None else None,
-            unemployment_personal=_to_float(r.unemployment_personal) if r.unemployment_personal is not None else None,
-            injury_company=_to_float(r.injury_company) if r.injury_company is not None else None,
-            supplementary_medical_company=_to_float(r.supplementary_medical_company) if r.supplementary_medical_company is not None else None,
-            supplementary_pension_company=_to_float(r.supplementary_pension_company) if r.supplementary_pension_company is not None else None,
-            large_medical_personal=_to_float(r.large_medical_personal) if r.large_medical_personal is not None else None,
-            housing_fund_personal=_to_float(r.housing_fund_personal) if r.housing_fund_personal is not None else None,
-            housing_fund_company=_to_float(r.housing_fund_company) if r.housing_fund_company is not None else None,
-            housing_fund_total=_to_float(r.housing_fund_total) if r.housing_fund_total is not None else None,
-            created_at=r.created_at,
+
+def _normalize_period_filters(billing_periods: list[str] | None) -> set[str] | None:
+    if not billing_periods:
+        return None
+
+    normalized = {
+        period
+        for value in billing_periods
+        if (period := coalesce_billing_period(value)) is not None
+    }
+    return normalized or None
+
+
+def _matches_period_filter(record: NormalizedRecord, billing_periods: set[str] | None) -> bool:
+    if billing_periods is None:
+        return True
+    return _effective_billing_period(record) in billing_periods
+
+
+def _build_record_read(record: NormalizedRecord) -> NormalizedRecordRead:
+    return NormalizedRecordRead(
+        id=record.id,
+        batch_id=record.batch_id,
+        person_name=record.person_name,
+        id_number=record.id_number,
+        employee_id=record.employee_id,
+        company_name=record.company_name,
+        region=record.region,
+        billing_period=_effective_billing_period(record),
+        payment_base=_to_float(record.payment_base) if record.payment_base is not None else None,
+        total_amount=_to_float(record.total_amount) if record.total_amount is not None else None,
+        company_total_amount=_to_float(record.company_total_amount) if record.company_total_amount is not None else None,
+        personal_total_amount=_to_float(record.personal_total_amount) if record.personal_total_amount is not None else None,
+        pension_company=_to_float(record.pension_company) if record.pension_company is not None else None,
+        pension_personal=_to_float(record.pension_personal) if record.pension_personal is not None else None,
+        medical_company=_to_float(record.medical_company) if record.medical_company is not None else None,
+        medical_personal=_to_float(record.medical_personal) if record.medical_personal is not None else None,
+        medical_maternity_company=_to_float(record.medical_maternity_company)
+        if record.medical_maternity_company is not None
+        else None,
+        unemployment_company=_to_float(record.unemployment_company)
+        if record.unemployment_company is not None
+        else None,
+        unemployment_personal=_to_float(record.unemployment_personal)
+        if record.unemployment_personal is not None
+        else None,
+        injury_company=_to_float(record.injury_company) if record.injury_company is not None else None,
+        supplementary_medical_company=_to_float(record.supplementary_medical_company)
+        if record.supplementary_medical_company is not None
+        else None,
+        supplementary_pension_company=_to_float(record.supplementary_pension_company)
+        if record.supplementary_pension_company is not None
+        else None,
+        large_medical_personal=_to_float(record.large_medical_personal)
+        if record.large_medical_personal is not None
+        else None,
+        housing_fund_personal=_to_float(record.housing_fund_personal)
+        if record.housing_fund_personal is not None
+        else None,
+        housing_fund_company=_to_float(record.housing_fund_company)
+        if record.housing_fund_company is not None
+        else None,
+        housing_fund_total=_to_float(record.housing_fund_total) if record.housing_fund_total is not None else None,
+        created_at=record.created_at,
+    )
+
+
+def list_normalized_records(
+    db: Session,
+    *,
+    regions: list[str] | None = None,
+    company_names: list[str] | None = None,
+    billing_periods: list[str] | None = None,
+    match_filter: str | None = None,
+    page: int = 0,
+    page_size: int = 20,
+) -> PaginatedRecordsRead:
+    """List normalized records with optional filters and deterministic pagination."""
+    normalized_periods = _normalize_period_filters(billing_periods)
+    records = [
+        record
+        for record in _query_records(
+            db,
+            regions=regions,
+            company_names=company_names,
+            match_filter=match_filter,
         )
-        for r in records
+        if _matches_period_filter(record, normalized_periods)
     ]
 
+    total = len(records)
+    page_records = records[page * page_size:(page + 1) * page_size]
+    items = [_build_record_read(record) for record in page_records]
     return PaginatedRecordsRead(items=items, total=total, page=page, page_size=page_size)
 
 
 def get_filter_options(
     db: Session,
     *,
-    regions: Optional[list[str]] = None,
-    company_names: Optional[list[str]] = None,
+    regions: list[str] | None = None,
+    company_names: list[str] | None = None,
 ) -> FilterOptionsRead:
-    """Get cascading filter options.
-
-    - regions: always all distinct regions (top-level, unscoped)
-    - companies: scoped by regions if provided
-    - periods: scoped by regions+company_names if provided
-    """
-    # Regions: always unscoped
+    """Get cascading filter options."""
     region_rows = (
         db.query(NormalizedRecord.region)
         .filter(NormalizedRecord.region.isnot(None))
@@ -122,27 +190,25 @@ def get_filter_options(
         .order_by(NormalizedRecord.region.asc())
         .all()
     )
-    all_regions = [r[0] for r in region_rows]
+    all_regions = [row[0] for row in region_rows]
 
-    # Companies: scoped by regions
     company_query = db.query(NormalizedRecord.company_name).filter(
         NormalizedRecord.company_name.isnot(None)
     )
     if regions:
         company_query = company_query.filter(NormalizedRecord.region.in_(regions))
     company_rows = company_query.distinct().order_by(NormalizedRecord.company_name.asc()).all()
-    companies = [r[0] for r in company_rows]
+    companies = [row[0] for row in company_rows]
 
-    # Periods: scoped by regions and company_names
-    period_query = db.query(NormalizedRecord.billing_period).filter(
-        NormalizedRecord.billing_period.isnot(None)
+    scoped_records = _query_records(db, regions=regions, company_names=company_names)
+    periods = sorted(
+        {
+            period
+            for record in scoped_records
+            if (period := _effective_billing_period(record)) is not None
+        },
+        reverse=True,
     )
-    if regions:
-        period_query = period_query.filter(NormalizedRecord.region.in_(regions))
-    if company_names:
-        period_query = period_query.filter(NormalizedRecord.company_name.in_(company_names))
-    period_rows = period_query.distinct().order_by(NormalizedRecord.billing_period.desc()).all()
-    periods = [r[0] for r in period_rows]
 
     return FilterOptionsRead(regions=all_regions, companies=companies, periods=periods)
 
@@ -150,65 +216,68 @@ def get_filter_options(
 def get_employee_summary(
     db: Session,
     *,
-    regions: Optional[list[str]] = None,
-    company_names: Optional[list[str]] = None,
-    billing_periods: Optional[list[str]] = None,
+    regions: list[str] | None = None,
+    company_names: list[str] | None = None,
+    billing_periods: list[str] | None = None,
     page: int = 0,
     page_size: int = 20,
 ) -> PaginatedEmployeeSummaryRead:
     """Employee-level summary grouped by employee_id/person_name/company_name/region."""
-    base_query = db.query(
-        NormalizedRecord.employee_id,
-        NormalizedRecord.person_name,
-        NormalizedRecord.company_name,
-        NormalizedRecord.region,
-        func.max(NormalizedRecord.billing_period).label("latest_period"),
-        func.sum(NormalizedRecord.company_total_amount).label("company_total"),
-        func.sum(NormalizedRecord.personal_total_amount).label("personal_total"),
-        func.sum(NormalizedRecord.total_amount).label("total"),
-    )
+    normalized_periods = _normalize_period_filters(billing_periods)
+    grouped: dict[tuple[str | None, str | None, str | None, str | None], dict[str, object]] = {}
 
-    if regions:
-        base_query = base_query.filter(NormalizedRecord.region.in_(regions))
-    if company_names:
-        base_query = base_query.filter(NormalizedRecord.company_name.in_(company_names))
-    if billing_periods:
-        base_query = base_query.filter(NormalizedRecord.billing_period.in_(billing_periods))
+    for record in _query_records(db, regions=regions, company_names=company_names):
+        effective_period = _effective_billing_period(record)
+        if normalized_periods is not None and effective_period not in normalized_periods:
+            continue
 
-    grouped = base_query.group_by(
-        NormalizedRecord.employee_id,
-        NormalizedRecord.person_name,
-        NormalizedRecord.company_name,
-        NormalizedRecord.region,
-    )
-
-    # Total count of groups
-    count_subquery = grouped.subquery()
-    total = db.query(func.count()).select_from(count_subquery).scalar() or 0
-
-    # Paginated results with deterministic sort
-    rows = (
-        grouped.order_by(
-            NormalizedRecord.person_name.asc().nullslast(),
-            NormalizedRecord.employee_id.asc().nullslast(),
+        key = (record.employee_id, record.person_name, record.company_name, record.region)
+        aggregate = grouped.setdefault(
+            key,
+            {
+                "employee_id": record.employee_id,
+                "person_name": record.person_name,
+                "company_name": record.company_name,
+                "region": record.region,
+                "latest_period": None,
+                "company_total": 0.0,
+                "personal_total": 0.0,
+                "total": 0.0,
+            },
         )
-        .offset(page * page_size)
-        .limit(page_size)
-        .all()
+
+        if effective_period and (
+            aggregate["latest_period"] is None or effective_period > aggregate["latest_period"]
+        ):
+            aggregate["latest_period"] = effective_period
+        aggregate["company_total"] += _to_float(record.company_total_amount)
+        aggregate["personal_total"] += _to_float(record.personal_total_amount)
+        aggregate["total"] += _to_float(record.total_amount)
+
+    rows = sorted(
+        grouped.values(),
+        key=lambda item: (
+            item["person_name"] is None,
+            item["person_name"] or "",
+            item["employee_id"] is None,
+            item["employee_id"] or "",
+        ),
     )
+    total = len(rows)
+    page_rows = rows[page * page_size:(page + 1) * page_size]
 
     items = [
         EmployeeSummaryRead(
-            employee_id=row.employee_id,
-            person_name=row.person_name,
-            company_name=row.company_name,
-            region=row.region,
-            latest_period=row.latest_period,
-            company_total=_to_float(row.company_total),
-            personal_total=_to_float(row.personal_total),
-            total=_to_float(row.total),
+            employee_id=row["employee_id"],
+            person_name=row["person_name"],
+            company_name=row["company_name"],
+            region=row["region"],
+            latest_period=row["latest_period"],
+            company_total=row["company_total"],
+            personal_total=row["personal_total"],
+            total=row["total"],
         )
-        for row in rows
+        for row in page_rows
     ]
 
     return PaginatedEmployeeSummaryRead(items=items, total=total, page=page, page_size=page_size)
@@ -217,52 +286,52 @@ def get_employee_summary(
 def get_period_summary(
     db: Session,
     *,
-    regions: Optional[list[str]] = None,
-    company_names: Optional[list[str]] = None,
+    regions: list[str] | None = None,
+    company_names: list[str] | None = None,
     page: int = 0,
     page_size: int = 20,
 ) -> PaginatedPeriodSummaryRead:
-    """Period-level summary grouped by billing_period."""
-    base_query = db.query(
-        NormalizedRecord.billing_period,
-        func.count(NormalizedRecord.id).label("total_count"),
-        func.sum(NormalizedRecord.company_total_amount).label("company_total"),
-        func.sum(NormalizedRecord.personal_total_amount).label("personal_total"),
-        func.sum(NormalizedRecord.total_amount).label("total"),
-        func.avg(NormalizedRecord.personal_total_amount).label("avg_personal"),
-        func.avg(NormalizedRecord.company_total_amount).label("avg_company"),
-    ).filter(NormalizedRecord.billing_period.isnot(None))
+    """Period-level summary grouped by effective billing_period."""
+    grouped: dict[str, dict[str, float | int | str]] = {}
 
-    if regions:
-        base_query = base_query.filter(NormalizedRecord.region.in_(regions))
-    if company_names:
-        base_query = base_query.filter(NormalizedRecord.company_name.in_(company_names))
+    for record in _query_records(db, regions=regions, company_names=company_names):
+        effective_period = _effective_billing_period(record)
+        if effective_period is None:
+            continue
 
-    grouped = base_query.group_by(NormalizedRecord.billing_period)
-
-    # Total count of groups
-    count_subquery = grouped.subquery()
-    total = db.query(func.count()).select_from(count_subquery).scalar() or 0
-
-    # Paginated results with deterministic sort (newest first)
-    rows = (
-        grouped.order_by(NormalizedRecord.billing_period.desc())
-        .offset(page * page_size)
-        .limit(page_size)
-        .all()
-    )
-
-    items = [
-        PeriodSummaryRead(
-            billing_period=row.billing_period,
-            total_count=row.total_count,
-            company_total=_to_float(row.company_total),
-            personal_total=_to_float(row.personal_total),
-            total=_to_float(row.total),
-            avg_personal=_to_float(row.avg_personal),
-            avg_company=_to_float(row.avg_company),
+        aggregate = grouped.setdefault(
+            effective_period,
+            {
+                "billing_period": effective_period,
+                "total_count": 0,
+                "company_total": 0.0,
+                "personal_total": 0.0,
+                "total": 0.0,
+            },
         )
-        for row in rows
-    ]
+        aggregate["total_count"] += 1
+        aggregate["company_total"] += _to_float(record.company_total_amount)
+        aggregate["personal_total"] += _to_float(record.personal_total_amount)
+        aggregate["total"] += _to_float(record.total_amount)
 
+    rows = []
+    for billing_period in sorted(grouped.keys(), reverse=True):
+        row = grouped[billing_period]
+        total_count = int(row["total_count"])
+        company_total = float(row["company_total"])
+        personal_total = float(row["personal_total"])
+        rows.append(
+            PeriodSummaryRead(
+                billing_period=billing_period,
+                total_count=total_count,
+                company_total=company_total,
+                personal_total=personal_total,
+                total=float(row["total"]),
+                avg_personal=personal_total / total_count if total_count else 0.0,
+                avg_company=company_total / total_count if total_count else 0.0,
+            )
+        )
+
+    total = len(rows)
+    items = rows[page * page_size:(page + 1) * page_size]
     return PaginatedPeriodSummaryRead(items=items, total=total, page=page, page_size=page_size)

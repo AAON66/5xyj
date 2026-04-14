@@ -30,6 +30,7 @@ class AggregateRunRead(BaseModel):
     status: str
     export_status: Optional[str]
     blocked_reason: Optional[str]
+    fusion_messages: list[str] = []
     employee_master: Optional[AggregateEmployeeImportRead]
     total_issue_count: int
     matched_count: int

@@ -13,6 +13,10 @@ export interface AggregateSelectionSummary {
   housingFundFiles: string[];
   employeeMasterFile: string | null;
   employeeMasterMode: 'none' | 'upload' | 'existing';
+  burdenFile: string | null;
+  burdenSourceMode: 'none' | 'excel' | 'feishu';
+  burdenFeishuConfigId: string | null;
+  fusionRuleIds: string[];
   batchName: string;
 }
 
@@ -41,6 +45,10 @@ function emptySelection(): AggregateSelectionSummary {
     housingFundFiles: [],
     employeeMasterFile: null,
     employeeMasterMode: 'none',
+    burdenFile: null,
+    burdenSourceMode: 'none',
+    burdenFeishuConfigId: null,
+    fusionRuleIds: [],
     batchName: '',
   };
 }
@@ -76,6 +84,13 @@ function restoreSnapshot(): AggregateSessionSnapshot {
         parsed.selection?.employeeMasterMode === 'upload' || parsed.selection?.employeeMasterMode === 'existing'
           ? parsed.selection.employeeMasterMode
           : 'none',
+      burdenSourceMode:
+        parsed.selection?.burdenSourceMode === 'excel' || parsed.selection?.burdenSourceMode === 'feishu'
+          ? parsed.selection.burdenSourceMode
+          : 'none',
+      fusionRuleIds: Array.isArray(parsed.selection?.fusionRuleIds)
+        ? parsed.selection.fusionRuleIds.filter((item): item is string => typeof item === 'string')
+        : [],
     };
     if (parsed.status === 'running') {
       return {
@@ -122,6 +137,10 @@ function summarizeSelection(input: AggregateInput): AggregateSelectionSummary {
     housingFundFiles: (input.housingFundFiles ?? []).map((file) => file.name),
     employeeMasterFile: input.employeeMasterFile?.name ?? null,
     employeeMasterMode: input.employeeMasterMode ?? (input.employeeMasterFile ? 'upload' : 'none'),
+    burdenFile: input.burdenFile?.name ?? null,
+    burdenSourceMode: input.burdenSourceMode ?? (input.burdenFile ? 'excel' : input.burdenFeishuConfigId ? 'feishu' : 'none'),
+    burdenFeishuConfigId: input.burdenFeishuConfigId ?? null,
+    fusionRuleIds: input.fusionRuleIds ?? [],
     batchName: input.batchName?.trim() ?? '',
   };
 }

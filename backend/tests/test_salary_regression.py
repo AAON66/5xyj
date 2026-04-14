@@ -48,17 +48,28 @@ def _build_records(keyword: str, region: str, company: str, *, count: int = 1, h
 
 
 def test_salary_header_row_matches_constants():
-    """Salary template header row matches SALARY_HEADERS constant."""
+    """Exported Salary workbook exposes the trimmed stable header set."""
     templates = resolve_required_export_templates()
-    wb = load_workbook(templates.salary, data_only=False)
+    records = _build_records("深圳创造欢乐", "shenzhen", "创造欢乐")
+    output = _prepare_artifact_dir("salary-header-trim")
+    result = export_dual_templates(
+        records,
+        output_dir=output,
+        salary_template_path=templates.salary,
+        final_tool_template_path=templates.final_tool,
+        export_prefix="salary_headers",
+    )
+    salary = next(a for a in result.artifacts if a.template_type == "salary")
+    wb = load_workbook(salary.file_path, data_only=False)
     sheet = wb[wb.sheetnames[0]]
     actual_headers = [sheet.cell(row=1, column=i).value for i in range(1, len(SALARY_HEADERS) + 1)]
-    wb.close()
     assert actual_headers == SALARY_HEADERS, f"Header mismatch: {actual_headers}"
+    assert sheet.max_column == len(SALARY_HEADERS)
+    wb.close()
 
 
 def test_salary_row_values_length():
-    """_salary_row_values returns exactly 18 elements matching SALARY_HEADERS."""
+    """_salary_row_values returns exactly len(SALARY_HEADERS) elements."""
     records = _build_records("广分", "guangzhou", "广分示例")
     values = _salary_row_values(records[0])
     assert len(values) == len(SALARY_HEADERS), f"Expected {len(SALARY_HEADERS)}, got {len(values)}"

@@ -20,6 +20,7 @@ import {
 import { InboxOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 
+import { useResponsiveViewport } from '../hooks/useResponsiveViewport';
 import { normalizeApiError } from '../services/api';
 import { useSemanticColors } from '../theme/useSemanticColors';
 import {
@@ -80,6 +81,7 @@ function statusTagColor(status: string): string {
 
 export function ImportsPage() {
   const colors = useSemanticColors();
+  const { isMobile } = useResponsiveViewport();
   const [batches, setBatches] = useState<ImportBatchSummary[]>([]);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [selectedBatch, setSelectedBatch] = useState<ImportBatchDetail | null>(null);
@@ -257,7 +259,7 @@ export function ImportsPage() {
   }
 
   // Batch list table columns
-  const batchColumns: ColumnsType<ImportBatchSummary> = useMemo(() => [
+  const batchColumns: ColumnsType<ImportBatchSummary> = [
     {
       title: '批次名称', dataIndex: 'batch_name', key: 'batch_name', fixed: 'left' as const, width: 150,
       render: (name: string, record: ImportBatchSummary) => (
@@ -294,13 +296,19 @@ export function ImportsPage() {
         </Space>
       ),
     },
-  ], [bulkDeleting, deletingBatchId, selectedBatchId]);
+  ];
 
   return (
     <div>
       <Title level={4}>批次管理</Title>
 
-      <Row gutter={16} style={{ marginBottom: 16 }}>
+      {pageError ? (
+        <Card style={{ marginBottom: 16 }}>
+          <Typography.Text type="danger">{pageError}</Typography.Text>
+        </Card>
+      ) : null}
+
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
         {/* Upload section */}
         <Col xs={24} md={10}>
           <Card title="上传入口">
@@ -310,8 +318,8 @@ export function ImportsPage() {
               onChange={(e) => setBatchName(e.target.value)}
               style={{ marginBottom: 12 }}
             />
-            <Row gutter={12} style={{ marginBottom: 12 }}>
-              <Col span={12}>
+            <Row gutter={[12, 12]} style={{ marginBottom: 12 }}>
+              <Col xs={24} sm={12}>
                 <Select
                   placeholder="地区"
                   value={region || undefined}
@@ -321,7 +329,7 @@ export function ImportsPage() {
                   options={PRESET_REGIONS.map((item) => ({ label: item.label, value: item.value || undefined }))}
                 />
               </Col>
-              <Col span={12}>
+              <Col xs={24} sm={12}>
                 <Input
                   placeholder="公司（可选）"
                   value={companyName}
@@ -346,7 +354,7 @@ export function ImportsPage() {
               <p>点击或拖拽上传 Excel 文件</p>
               <p style={{ color: colors.TEXT_TERTIARY }}>支持 .xlsx / .xls</p>
             </Dragger>
-            <Space>
+            <Space wrap>
               <Button type="primary" onClick={() => void handleCreateBatch()} disabled={submitting || files.length === 0} loading={submitting}>
                 创建导入批次
               </Button>
@@ -383,7 +391,7 @@ export function ImportsPage() {
                 dataSource={batches}
                 rowKey="id"
                 size="small"
-                scroll={{ x: 700 }}
+                scroll={{ x: isMobile ? 880 : 700 }}
                 pagination={{ pageSize: 10, showSizeChanger: false }}
                 rowSelection={{
                   selectedRowKeys: selectedBatchIds,
@@ -400,8 +408,8 @@ export function ImportsPage() {
       </Row>
 
       {/* Preview section */}
-      <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={12}>
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} md={12}>
           <Card>
             <Typography.Text type="secondary">当前批次</Typography.Text>
             <Title level={5}>{selectedBatch?.batch_name ?? '尚未选择批次'}</Title>
@@ -417,7 +425,7 @@ export function ImportsPage() {
             )}
           </Card>
         </Col>
-        <Col span={12}>
+        <Col xs={24} md={12}>
           <Card>
             <Typography.Text type="secondary">首个命中文件</Typography.Text>
             <Title level={5}>{selectedSourceFile ? selectedSourceFile.raw_sheet_name : '尚未解析'}</Title>
@@ -432,7 +440,7 @@ export function ImportsPage() {
 
       {/* Quick preview */}
       <Card title="快速预览 - 当前批次首个文件" extra={
-        <Space>
+        <Space wrap>
           {refreshingPreview && <Tag color="processing">预览刷新中</Tag>}
           {selectedBatch && <Link to={`/imports/${selectedBatch.id}`}><Button size="small">进入完整详情</Button></Link>}
         </Space>
@@ -441,21 +449,21 @@ export function ImportsPage() {
           <Empty description="当前批次还没有预览结果" />
         ) : (
           <>
-            <Row gutter={16} style={{ marginBottom: 16 }}>
-              <Col span={8}>
+            <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+              <Col xs={24} md={8}>
                 <Card size="small">
                   <Typography.Text strong>{selectedSourceFile.file_name}</Typography.Text>
                   <div>sheet: {selectedSourceFile.raw_sheet_name}</div>
                   <div>region: {selectedSourceFile.region ?? '未指定'}</div>
                 </Card>
               </Col>
-              <Col span={8}>
+              <Col xs={24} md={8}>
                 <Card size="small">
                   <Typography.Text strong>表头签名</Typography.Text>
                   <div style={{ wordBreak: 'break-all' }}>{selectedSourceFile.raw_header_signature}</div>
                 </Card>
               </Col>
-              <Col span={8}>
+              <Col xs={24} md={8}>
                 <Card size="small">
                   <Typography.Text strong>未识别字段</Typography.Text>
                   <div>{selectedSourceFile.unmapped_headers.length > 0 ? selectedSourceFile.unmapped_headers.join(' / ') : '无'}</div>
@@ -464,8 +472,8 @@ export function ImportsPage() {
             </Row>
 
             {/* Header mappings */}
-            <Row gutter={16} style={{ marginBottom: 16 }}>
-              <Col span={12}>
+            <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+              <Col xs={24} md={12}>
                 <Card size="small" title="表头映射">
                   {selectedSourceFile.header_mappings.length > 0 ? (
                     selectedSourceFile.header_mappings.slice(0, 8).map((mapping) => (
@@ -487,7 +495,7 @@ export function ImportsPage() {
                   )}
                 </Card>
               </Col>
-              <Col span={12}>
+              <Col xs={24} md={12}>
                 <Card size="small" title="非明细行">
                   {selectedSourceFile.filtered_rows.length > 0 ? (
                     selectedSourceFile.filtered_rows.slice(0, 8).map((row) => (
@@ -509,7 +517,7 @@ export function ImportsPage() {
               <Card size="small" title="前 20 行标准化预览">
                 <Table
                   size="small"
-                  scroll={{ x: true }}
+                  scroll={{ x: isMobile ? 980 : true }}
                   pagination={false}
                   dataSource={selectedSourceFile.preview_records}
                   rowKey="source_row_number"

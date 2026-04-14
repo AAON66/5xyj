@@ -108,6 +108,12 @@ export interface PeriodCompareResult {
   right_period: string;
   fields: string[];
   total_row_count: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+  returned_row_count: number;
+  diff_only: boolean;
+  search_text: string | null;
   same_row_count: number;
   changed_row_count: number;
   left_only_count: number;
@@ -119,7 +125,14 @@ export interface PeriodCompareResult {
 export async function fetchPeriodCompare(
   leftPeriod: string,
   rightPeriod: string,
-  options?: { region?: string; companyName?: string; page?: number; pageSize?: number },
+  options?: {
+    region?: string;
+    companyName?: string;
+    searchText?: string;
+    diffOnly?: boolean;
+    page?: number;
+    pageSize?: number;
+  },
 ): Promise<PeriodCompareResult> {
   const params: Record<string, string | number> = {
     left_period: leftPeriod,
@@ -127,6 +140,8 @@ export async function fetchPeriodCompare(
   };
   if (options?.region) params.region = options.region;
   if (options?.companyName) params.company_name = options.companyName;
+  if (options?.searchText?.trim()) params.search_text = options.searchText.trim();
+  if (options?.diffOnly !== undefined) params.diff_only = options.diffOnly ? "true" : "false";
   if (options?.page !== undefined) params.page = options.page;
   params.page_size = options?.pageSize ?? 20;
 

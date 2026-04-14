@@ -14,6 +14,7 @@ from backend.app.api.v1.responses import error_response, success_response
 from backend.app.core.config import Settings
 from backend.app.dependencies import get_db
 from backend.app.services.feishu_oauth_service import FeishuOAuthError, exchange_code_for_user
+from backend.app.services.system_setting_service import get_effective_feishu_settings
 
 router = APIRouter(prefix="/auth/feishu", tags=["飞书认证"])
 
@@ -51,9 +52,11 @@ def _get_settings(request: Request) -> Settings:
 @router.get("/authorize-url", summary="获取飞书授权 URL", description="生成飞书 OAuth 授权链接，并设置 CSRF 状态 Cookie。")
 async def get_authorize_url(
     request: Request,
+    db: Session = Depends(get_db),
 ):
     settings = _get_settings(request)
-    if not settings.feishu_oauth_enabled:
+    effective_settings = get_effective_feishu_settings(db, settings)
+    if not effective_settings.feishu_oauth_enabled:
         return error_response("FEATURE_DISABLED", "飞书登录功能未启用", 404)
 
     state = secrets.token_urlsafe(32)
@@ -62,7 +65,7 @@ async def get_authorize_url(
     redirect_uri = getattr(settings, "feishu_oauth_redirect_uri", "")
     url = (
         f"https://accounts.feishu.cn/open-apis/authen/v1/authorize"
-        f"?client_id={settings.feishu_app_id}"
+        f"?client_id={effective_settings.feishu_app_id}"
         f"&response_type=code"
         f"&redirect_uri={redirect_uri}"
         f"&state={state}"
@@ -86,7 +89,8 @@ async def feishu_oauth_callback(
     db: Session = Depends(get_db),
 ):
     settings = _get_settings(request)
-    if not settings.feishu_oauth_enabled:
+    effective_settings = get_effective_feishu_settings(db, settings)
+    if not effective_settings.feishu_oauth_enabled:
         return error_response("FEATURE_DISABLED", "飞书登录功能未启用", 404)
 
     # Validate CSRF state via signed cookie (H2)
@@ -99,7 +103,17 @@ async def feishu_oauth_callback(
         return error_response("INVALID_STATE", "OAuth state 验证失败，请重新登录", 400)
 
     try:
-        result = await exchange_code_for_user(db, body.code, settings)
+        result = await exchange_code_for_user(
+            db,
+            body.code,
+            settings.model_copy(
+                update={
+                    "feishu_app_id": effective_settings.feishu_app_id,
+                    "feishu_app_secret": effective_settings.feishu_app_secret,
+                    "feishu_oauth_enabled": effective_settings.feishu_oauth_enabled,
+                }
+            ),
+        )
     except FeishuOAuthError as e:
         return error_response("OAUTH_ERROR", str(e), 400)
 

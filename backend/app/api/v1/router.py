@@ -13,6 +13,7 @@ from backend.app.api.v1.employees import router as employees_router
 from backend.app.api.v1.feishu_auth import router as feishu_auth_router
 from backend.app.api.v1.feishu_settings import router as feishu_settings_router
 from backend.app.api.v1.feishu_sync import router as feishu_sync_router
+from backend.app.api.v1.fusion_rules import router as fusion_rules_router
 from backend.app.api.v1.imports import router as imports_router
 from backend.app.api.v1.mappings import router as mappings_router
 from backend.app.api.v1.system import router as system_router
@@ -43,6 +44,7 @@ api_router.include_router(mappings_router, dependencies=[Depends(require_role("a
 api_router.include_router(employees_router, dependencies=[Depends(require_role("admin", "hr"))])
 api_router.include_router(data_management_router, dependencies=[Depends(require_role("admin", "hr"))])
 api_router.include_router(anomaly_router, dependencies=[Depends(require_role("admin", "hr"))])
+api_router.include_router(fusion_rules_router, dependencies=[Depends(require_role("admin", "hr"))])
 
 # Employee portal -- endpoint-level auth (employee role token required)
 api_router.include_router(employee_portal_router)

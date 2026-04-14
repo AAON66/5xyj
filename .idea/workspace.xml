@@ -6,7 +6,183 @@
   <component name="ChangeListManager">
     <list default="true" id="a614a6ab-24b5-4f20-8229-5cf8b352ba3a" name="更改" comment="v4.2.6&#10;新增武汉格式优化完毕">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/.planning/v1.0-MILESTONE-AUDIT.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/01-export-stabilization/01-01-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/01-export-stabilization/01-01-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/01-export-stabilization/01-02-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/01-export-stabilization/01-02-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/01-export-stabilization/01-REVIEWS.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/01-export-stabilization/01-VERIFICATION.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/02-authentication-rbac/02-01-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/02-authentication-rbac/02-01-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/02-authentication-rbac/02-02-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/02-authentication-rbac/02-02-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/02-authentication-rbac/02-03-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/02-authentication-rbac/02-03-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/02-authentication-rbac/02-CONTEXT.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/02-authentication-rbac/02-DISCUSSION-LOG.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/02-authentication-rbac/02-RESEARCH.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/02-authentication-rbac/02-VERIFICATION.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/03-security-hardening/03-01-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/03-security-hardening/03-01-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/03-security-hardening/03-02-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/03-security-hardening/03-02-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/03-security-hardening/03-CONTEXT.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/03-security-hardening/03-RESEARCH.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/03-security-hardening/03-REVIEWS.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/03-security-hardening/03-VALIDATION.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/03-security-hardening/03-VERIFICATION.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/04-employee-master-data/04-01-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/04-employee-master-data/04-01-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/04-employee-master-data/04-02-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/04-employee-master-data/04-02-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/04-employee-master-data/04-CONTEXT.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/04-employee-master-data/04-DISCUSSION-LOG.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/04-employee-master-data/04-RESEARCH.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/04-employee-master-data/04-VALIDATION.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/04-employee-master-data/04-VERIFICATION.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/05-employee-portal/05-01-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/05-employee-portal/05-01-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/05-employee-portal/05-02-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/05-employee-portal/05-02-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/05-employee-portal/05-CONTEXT.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/05-employee-portal/05-DISCUSSION-LOG.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/05-employee-portal/05-RESEARCH.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/05-employee-portal/05-VALIDATION.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/05-employee-portal/05-VERIFICATION.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/06-data-management/06-01-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/06-data-management/06-01-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/06-data-management/06-02-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/06-data-management/06-02-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/06-data-management/06-CONTEXT.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/06-data-management/06-DISCUSSION-LOG.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/06-data-management/06-RESEARCH.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/06-data-management/06-REVIEWS.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/06-data-management/06-UI-SPEC.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/06-data-management/06-VALIDATION.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/07-design-system-ui-foundation/07-01-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/07-design-system-ui-foundation/07-01-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/07-design-system-ui-foundation/07-02-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/07-design-system-ui-foundation/07-02-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/07-design-system-ui-foundation/07-03-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/07-design-system-ui-foundation/07-03-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/07-design-system-ui-foundation/07-04-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/07-design-system-ui-foundation/07-04-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/07-design-system-ui-foundation/07-CONTEXT.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/07-design-system-ui-foundation/07-DISCUSSION-LOG.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/07-design-system-ui-foundation/07-RESEARCH.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/07-design-system-ui-foundation/07-UI-SPEC.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/07-design-system-ui-foundation/07-VALIDATION.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/07-design-system-ui-foundation/07-VERIFICATION.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/08-page-rebuild-ux-flow/08-01-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/08-page-rebuild-ux-flow/08-01-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/08-page-rebuild-ux-flow/08-02-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/08-page-rebuild-ux-flow/08-02-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/08-page-rebuild-ux-flow/08-CONTEXT.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/08-page-rebuild-ux-flow/08-DISCUSSION-LOG.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/08-page-rebuild-ux-flow/08-RESEARCH.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/08-page-rebuild-ux-flow/08-UI-SPEC.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/08-page-rebuild-ux-flow/08-VALIDATION.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/08-page-rebuild-ux-flow/08-VERIFICATION.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/09-api-system/09-01-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/09-api-system/09-01-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/09-api-system/09-02-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/09-api-system/09-02-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/09-api-system/09-CONTEXT.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/09-api-system/09-DISCUSSION-LOG.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/09-api-system/09-RESEARCH.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/09-api-system/09-VALIDATION.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/09-api-system/09-VERIFICATION.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/10-feishu-integration/10-01-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/10-feishu-integration/10-01-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/10-feishu-integration/10-02-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/10-feishu-integration/10-02-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/10-feishu-integration/10-03-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/10-feishu-integration/10-03-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/10-feishu-integration/10-04-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/10-feishu-integration/10-04-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/10-feishu-integration/10-CONTEXT.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/10-feishu-integration/10-DISCUSSION-LOG.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/10-feishu-integration/10-RESEARCH.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/10-feishu-integration/10-REVIEWS.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/10-feishu-integration/10-UI-SPEC.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/10-feishu-integration/10-VALIDATION.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/11-intelligence-polish/11-01-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/11-intelligence-polish/11-01-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/11-intelligence-polish/11-02-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/11-intelligence-polish/11-02-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/11-intelligence-polish/11-03-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/11-intelligence-polish/11-03-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/11-intelligence-polish/11-04-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/11-intelligence-polish/11-04-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/11-intelligence-polish/11-05-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/11-intelligence-polish/11-05-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/11-intelligence-polish/11-CONTEXT.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/11-intelligence-polish/11-DISCUSSION-LOG.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/11-intelligence-polish/11-RESEARCH.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/11-intelligence-polish/11-REVIEWS.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/11-intelligence-polish/11-UI-SPEC.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/11-intelligence-polish/11-VALIDATION.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/11-intelligence-polish/11-VERIFICATION.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/12-integration-wiring-fix/12-01-PLAN.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/12-integration-wiring-fix/12-01-SUMMARY.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.planning/phases/12-integration-wiring-fix/12-VERIFICATION.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/api/v1/aggregate.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/api/v1/aggregate.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/api/v1/compare.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/api/v1/compare.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/api/v1/feishu_auth.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/api/v1/feishu_auth.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/api/v1/feishu_settings.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/api/v1/feishu_settings.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/api/v1/feishu_sync.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/api/v1/feishu_sync.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/api/v1/router.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/api/v1/router.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/api/v1/system.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/api/v1/system.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/exporters/export_utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/exporters/export_utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/exporters/salary_exporter.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/exporters/salary_exporter.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/models/__init__.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/models/__init__.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/schemas/aggregate.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/schemas/aggregate.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/schemas/compare.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/schemas/compare.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/schemas/feishu.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/schemas/feishu.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/aggregate_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/aggregate_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/compare_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/compare_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/data_management_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/data_management_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/feishu_client.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/feishu_client.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/housing_fund_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/housing_fund_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/app/services/normalization_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/app/services/normalization_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_aggregate_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_aggregate_api.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_aggregate_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_aggregate_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_api_compatibility.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_api_compatibility.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_compare_api.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_compare_api.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_data_management_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_data_management_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_housing_fund_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_housing_fund_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_normalization_service.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_normalization_service.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_salary_regression.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_salary_regression.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_template_exporter.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_template_exporter.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/backend/tests/test_template_exporter_regression.py" beforeDir="false" afterPath="$PROJECT_DIR$/backend/tests/test_template_exporter_regression.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/package-lock.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/package-lock.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/package.json" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/components/WorkflowSteps.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/components/WorkflowSteps.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/hooks/index.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/hooks/index.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/hooks/useFeishuFeatureFlag.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/hooks/useFeishuFeatureFlag.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/layouts/MainLayout.module.css" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/layouts/MainLayout.module.css" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/layouts/MainLayout.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/layouts/MainLayout.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/AuditLogs.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/AuditLogs.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Compare.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Compare.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Dashboard.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Dashboard.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/DataManagement.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/DataManagement.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/EmployeeSelfService.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/EmployeeSelfService.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Employees.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Employees.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Exports.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Exports.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/FeishuSettings.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/FeishuSettings.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/FeishuSync.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/FeishuSync.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/ImportBatchDetail.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/ImportBatchDetail.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Imports.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Imports.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Mappings.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Mappings.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/PeriodCompare.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/PeriodCompare.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/Results.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/Results.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/pages/SimpleAggregate.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/pages/SimpleAggregate.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/services/aggregate.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/services/aggregate.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/services/aggregateSessionStore.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/services/aggregateSessionStore.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/services/api.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/services/api.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/services/compare.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/services/compare.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/frontend/src/services/feishu.ts" beforeDir="false" afterPath="$PROJECT_DIR$/frontend/src/services/feishu.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/progress.txt" beforeDir="false" afterPath="$PROJECT_DIR$/progress.txt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -170,12 +346,6 @@
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="3" />
-    <option name="exactExcludedFiles">
-      <list>
-        <option value="$PROJECT_DIR$/frontend/vite.config.d.ts" />
-        <option value="$PROJECT_DIR$/frontend/vite.config.js" />
-      </list>
-    </option>
   </component>
   <component name="Vcs.Log.Tabs.Properties">
     <option name="TAB_STATES">

@@ -104,6 +104,25 @@ class FeishuCredentials(BaseModel):
     app_secret: str = Field(..., min_length=1)
 
 
+class FeishuCredentialsStatus(BaseModel):
+    configured: bool
+    masked_app_id: Optional[str] = None
+    secret_configured: bool
+
+
+class FeishuRuntimeSettingsRead(BaseModel):
+    feishu_sync_enabled: bool
+    feishu_oauth_enabled: bool
+    feishu_credentials_configured: bool
+    masked_app_id: Optional[str] = None
+    secret_configured: bool
+
+
+class FeishuRuntimeSettingsUpdate(BaseModel):
+    feishu_sync_enabled: Optional[bool] = None
+    feishu_oauth_enabled: Optional[bool] = None
+
+
 class FeatureFlags(BaseModel):
     feishu_sync_enabled: bool
     feishu_oauth_enabled: bool

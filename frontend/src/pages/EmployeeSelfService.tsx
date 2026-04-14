@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Button,
   Card,
   Col,
+  Collapse,
   Descriptions,
   Empty,
   Result,
@@ -16,6 +17,7 @@ import {
 import { DownOutlined, UpOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 
+import { useResponsiveViewport } from '../hooks/useResponsiveViewport';
 import { normalizeApiError } from '../services/api';
 import { fetchPortalRecords, type EmployeeSelfServiceRecord, type EmployeeSelfServiceResult } from '../services/employees';
 
@@ -43,7 +45,13 @@ function formatBillingPeriod(period: string | null): string {
   return period;
 }
 
-function InsuranceDetailTable({ record }: { record: EmployeeSelfServiceRecord }) {
+function InsuranceDetailTable({
+  record,
+  stacked,
+}: {
+  record: EmployeeSelfServiceRecord;
+  stacked: boolean;
+}) {
   const insuranceRows = [
     { key: '1', label: '养老保险', company: formatMoney(record.pension_company), personal: formatMoney(record.pension_personal) },
     { key: '2', label: '医疗保险', company: formatMoney(record.medical_company), personal: formatMoney(record.medical_personal) },
@@ -85,7 +93,7 @@ function InsuranceDetailTable({ record }: { record: EmployeeSelfServiceRecord })
 
   return (
     <Row gutter={[16, 16]}>
-      <Col xs={24} md={12}>
+      <Col xs={24} md={stacked ? 24 : 12}>
         <Card size="small" title="社保明细">
           <Table
             size="small"
@@ -95,7 +103,7 @@ function InsuranceDetailTable({ record }: { record: EmployeeSelfServiceRecord })
           />
         </Card>
       </Col>
-      <Col xs={24} md={12}>
+      <Col xs={24} md={stacked ? 24 : 12}>
         <Card size="small" title="公积金明细">
           {hasHousingFund ? (
             <Table
@@ -113,23 +121,47 @@ function InsuranceDetailTable({ record }: { record: EmployeeSelfServiceRecord })
   );
 }
 
+function buildHistoryLabel(record: EmployeeSelfServiceRecord) {
+  return (
+    <div style={{ display: 'grid', gap: 4 }}>
+      <Text strong>{formatBillingPeriod(record.billing_period)}</Text>
+      <Text type="secondary">
+        {(record.region || '未知地区')}
+        {' · '}
+        {(record.company_name || '未知公司')}
+      </Text>
+      <Text type="secondary">社保总额 {formatMoney(record.total_amount)}</Text>
+    </div>
+  );
+}
+
 export function EmployeeSelfServicePage() {
   const navigate = useNavigate();
+  const { isMobile } = useResponsiveViewport();
   const [loading, setLoading] = useState(true);
   const [expired, setExpired] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [data, setData] = useState<EmployeeSelfServiceResult | null>(null);
   const [expandedKeys, setExpandedKeys] = useState<string[]>([]);
 
-  const latestRecord = useMemo(() => data?.records[0] ?? null, [data]);
+  const latestRecord = data?.records[0] ?? null;
+  const containerStyle = {
+    maxWidth: 960,
+    margin: '0 auto',
+    padding: isMobile ? '16px 12px 24px' : '32px 24px',
+  };
 
   useEffect(() => {
     let cancelled = false;
+
     async function load() {
       try {
         const result = await fetchPortalRecords();
         if (!cancelled) {
           setData(result);
+          if (result.records[0]) {
+            setExpandedKeys([result.records[0].normalized_record_id]);
+          }
           setLoading(false);
         }
       } catch (error) {
@@ -144,8 +176,11 @@ export function EmployeeSelfServicePage() {
         }
       }
     }
-    load();
-    return () => { cancelled = true; };
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -168,7 +203,7 @@ export function EmployeeSelfServicePage() {
 
   if (loading) {
     return (
-      <div style={{ maxWidth: 960, margin: '0 auto', padding: '32px 24px' }}>
+      <div style={containerStyle}>
         <Skeleton active paragraph={{ rows: 6 }} />
       </div>
     );
@@ -187,8 +222,8 @@ export function EmployeeSelfServicePage() {
 
   if (!data || data.record_count === 0) {
     return (
-      <div style={{ maxWidth: 960, margin: '0 auto', padding: '32px 24px' }}>
-        {data?.profile && (
+      <div style={containerStyle}>
+        {data?.profile ? (
           <Card style={{ marginBottom: 24 }}>
             <Descriptions title={data.profile.person_name} column={{ xs: 1, sm: 2, md: 4 }}>
               <Descriptions.Item label="工号">{data.profile.employee_id || '未匹配'}</Descriptions.Item>
@@ -196,7 +231,7 @@ export function EmployeeSelfServicePage() {
               <Descriptions.Item label="身份证号">{data.profile.masked_id_number}</Descriptions.Item>
             </Descriptions>
           </Card>
-        )}
+        ) : null}
         <Empty description="未找到匹配的社保记录" />
       </div>
     );
@@ -238,7 +273,7 @@ export function EmployeeSelfServicePage() {
   ];
 
   return (
-    <div style={{ maxWidth: 960, margin: '0 auto', padding: '32px 24px' }}>
+    <div style={containerStyle}>
       <Title level={4}>员工社保查询</Title>
 
       <Card style={{ marginBottom: 24 }}>
@@ -250,7 +285,7 @@ export function EmployeeSelfServicePage() {
         </Descriptions>
       </Card>
 
-      {latestRecord && (
+      {latestRecord ? (
         <>
           <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>
             {formatBillingPeriod(latestRecord.billing_period)} 缴费汇总
@@ -271,43 +306,63 @@ export function EmployeeSelfServicePage() {
                 <Statistic title="个人合计" value={Number(latestRecord.personal_total_amount) || 0} precision={2} />
               </Card>
             </Col>
-            {latestRecord.housing_fund_total !== null && (
+            {latestRecord.housing_fund_total !== null ? (
               <Col xs={12} md={6}>
                 <Card>
                   <Statistic title="公积金合计" value={Number(latestRecord.housing_fund_total) || 0} precision={2} />
                 </Card>
               </Col>
-            )}
+            ) : null}
           </Row>
         </>
-      )}
+      ) : null}
 
       <Title level={5}>缴费历史</Title>
-      <Card>
-        <Table
-          size="small"
-          columns={historyColumns}
-          dataSource={data.records}
-          rowKey="normalized_record_id"
-          expandable={{
-            expandedRowKeys: expandedKeys,
-            onExpandedRowsChange: (keys) => setExpandedKeys(keys as string[]),
-            expandedRowRender: (record) => <InsuranceDetailTable record={record} />,
-            expandIcon: ({ expanded, onExpand, record }) =>
-              expanded ? (
-                <UpOutlined onClick={(e) => onExpand(record, e)} style={{ cursor: 'pointer' }} />
-              ) : (
-                <DownOutlined onClick={(e) => onExpand(record, e)} style={{ cursor: 'pointer' }} />
-              ),
+      {isMobile ? (
+        <Collapse
+          activeKey={expandedKeys}
+          onChange={(keys) => {
+            const nextKeys = Array.isArray(keys)
+              ? keys.map(String)
+              : keys
+                ? [String(keys)]
+                : [];
+            setExpandedKeys(nextKeys);
           }}
-          pagination={{ pageSize: 10, showSizeChanger: false }}
-          footer={() => (
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              共 {data.records.length} 条缴费记录
-            </Text>
-          )}
+          items={data.records.map((record) => ({
+            key: record.normalized_record_id,
+            label: buildHistoryLabel(record),
+            children: <InsuranceDetailTable record={record} stacked />,
+          }))}
         />
-      </Card>
+      ) : (
+        <Card>
+          <Table
+            size="small"
+            columns={historyColumns}
+            dataSource={data.records}
+            rowKey="normalized_record_id"
+            expandable={{
+              expandedRowKeys: expandedKeys,
+              onExpandedRowsChange: (keys) => setExpandedKeys(keys as string[]),
+              expandedRowRender: (record) => <InsuranceDetailTable record={record} stacked={false} />,
+              expandIcon: ({ expanded, onExpand, record }) => (
+                expanded ? (
+                  <UpOutlined onClick={(e) => onExpand(record, e)} style={{ cursor: 'pointer' }} />
+                ) : (
+                  <DownOutlined onClick={(e) => onExpand(record, e)} style={{ cursor: 'pointer' }} />
+                )
+              ),
+            }}
+            pagination={{ pageSize: 10, showSizeChanger: false }}
+            footer={() => (
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                共 {data.records.length} 条缴费记录
+              </Text>
+            )}
+          />
+        </Card>
+      )}
     </div>
   );
 }

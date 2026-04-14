@@ -134,6 +134,30 @@ def seed_compare_batches(session_factory) -> tuple[str, str]:
                     total_amount=Decimal('70.00'),
                     source_file_name='right.xlsx',
                 ),
+                NormalizedRecord(
+                    batch_id=left_batch.id,
+                    source_file_id=left_source.id,
+                    source_row_number=5,
+                    person_name='赵六',
+                    employee_id='E004',
+                    id_number='4404',
+                    company_name='示例公司',
+                    billing_period='2026-03',
+                    total_amount=Decimal('66.00'),
+                    source_file_name='left.xlsx',
+                ),
+                NormalizedRecord(
+                    batch_id=right_batch.id,
+                    source_file_id=right_source.id,
+                    source_row_number=5,
+                    person_name='赵六',
+                    employee_id='E004',
+                    id_number='4404',
+                    company_name='示例公司',
+                    billing_period='2026-02',
+                    total_amount=Decimal('66.00'),
+                    source_file_name='right.xlsx',
+                ),
             ]
         )
         db.commit()
@@ -153,8 +177,9 @@ def test_compare_endpoint_returns_changed_and_missing_rows() -> None:
     payload = response.json()['data']
     assert payload['left_batch']['batch_name'] == '2026-03 新融合'
     assert payload['right_batch']['batch_name'] == '2026-02 上月归档'
-    assert payload['total_row_count'] == 3
-    assert payload['changed_row_count'] == 1
+    assert payload['total_row_count'] == 4
+    assert payload['same_row_count'] == 0
+    assert payload['changed_row_count'] == 2
     assert payload['left_only_count'] == 1
     assert payload['right_only_count'] == 1
 
@@ -166,6 +191,57 @@ def test_compare_endpoint_returns_changed_and_missing_rows() -> None:
 
     assert any(row['diff_status'] == 'left_only' for row in rows.values())
     assert any(row['diff_status'] == 'right_only' for row in rows.values())
+
+
+def test_period_compare_endpoint_supports_diff_only_search_and_pagination() -> None:
+    client, session_factory = build_test_context('period_compare')
+    seed_compare_batches(session_factory)
+
+    with client:
+        response = client.get(
+            '/api/v1/compare/periods',
+            params={
+                'left_period': '2026-03',
+                'right_period': '2026-02',
+                'diff_only': 'true',
+                'page': 0,
+                'page_size': 2,
+            },
+        )
+
+    assert response.status_code == 200
+    payload = response.json()['data']
+    assert payload['diff_only'] is True
+    assert payload['total_row_count'] == 3
+    assert payload['returned_row_count'] == 2
+    assert payload['total_pages'] == 2
+    assert payload['same_row_count'] == 0
+    assert payload['changed_row_count'] == 1
+    assert payload['left_only_count'] == 1
+    assert payload['right_only_count'] == 1
+    assert all(row['diff_status'] != 'same' for row in payload['rows'])
+    assert payload['summary_groups'][0]['total_count'] == 3
+    assert payload['summary_groups'][0]['changed_count'] == 1
+
+    with client:
+        search_response = client.get(
+            '/api/v1/compare/periods',
+            params={
+                'left_period': '2026-03',
+                'right_period': '2026-02',
+                'search_text': 'E004',
+                'page': 0,
+                'page_size': 10,
+            },
+        )
+
+    assert search_response.status_code == 200
+    search_payload = search_response.json()['data']
+    assert search_payload['search_text'] == 'E004'
+    assert search_payload['total_row_count'] == 1
+    assert search_payload['returned_row_count'] == 1
+    assert search_payload['rows'][0]['left']['values']['employee_id'] == 'E004'
+    assert search_payload['rows'][0]['diff_status'] == 'same'
 
 
 def test_compare_export_endpoint_returns_workbook_with_difference_highlights() -> None:

@@ -20,6 +20,7 @@ from backend.app.schemas.feishu import (
     SyncJobRead,
 )
 from backend.app.services.feishu_client import FeishuClient, get_feishu_client
+from backend.app.services.system_setting_service import EffectiveFeishuSettings, get_effective_feishu_settings
 from backend.app.services.feishu_sync_service import (
     check_push_conflicts,
     detect_pull_conflicts,
@@ -32,20 +33,24 @@ from backend.app.services.feishu_sync_service import (
 router = APIRouter(prefix="/feishu/sync", tags=["飞书同步"])
 
 
-def _get_settings(request: Request) -> Settings:
-    return request.app.state.settings
+def _get_effective_settings(request: Request, db: Session) -> EffectiveFeishuSettings:
+    return get_effective_feishu_settings(db, request.app.state.settings)
 
 
-def _check_sync_enabled(settings: Settings):
+def _check_sync_enabled(settings: EffectiveFeishuSettings):
     if not settings.feishu_sync_enabled:
         return error_response("FEATURE_DISABLED", "飞书同步功能未启用", 404)
     return None
 
 
-async def _get_client_safe() -> Optional[FeishuClient]:
+async def _get_client_safe(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> Optional[FeishuClient]:
     """Get FeishuClient or None if not configured (avoids DI failure when feature disabled)."""
     try:
-        return await get_feishu_client()
+        effective_settings = _get_effective_settings(request, db)
+        return await get_feishu_client(effective_settings.feishu_app_id, effective_settings.feishu_app_secret)
     except ValueError:
         return None
 
@@ -57,8 +62,8 @@ async def push_to_feishu(
     db: Session = Depends(get_db),
     client: Optional[FeishuClient] = Depends(_get_client_safe),
 ):
-    settings = _get_settings(request)
-    disabled = _check_sync_enabled(settings)
+    effective_settings = _get_effective_settings(request, db)
+    disabled = _check_sync_enabled(effective_settings)
     if disabled:
         return disabled
 
@@ -100,8 +105,8 @@ async def push_confirm(
     db: Session = Depends(get_db),
     client: Optional[FeishuClient] = Depends(_get_client_safe),
 ):
-    settings = _get_settings(request)
-    disabled = _check_sync_enabled(settings)
+    effective_settings = _get_effective_settings(request, db)
+    disabled = _check_sync_enabled(effective_settings)
     if disabled:
         return disabled
 
@@ -131,8 +136,8 @@ async def pull_preview(
     db: Session = Depends(get_db),
     client: Optional[FeishuClient] = Depends(_get_client_safe),
 ):
-    settings = _get_settings(request)
-    disabled = _check_sync_enabled(settings)
+    effective_settings = _get_effective_settings(request, db)
+    disabled = _check_sync_enabled(effective_settings)
     if disabled:
         return disabled
 
@@ -158,8 +163,8 @@ async def pull_execute(
     db: Session = Depends(get_db),
     client: Optional[FeishuClient] = Depends(_get_client_safe),
 ):
-    settings = _get_settings(request)
-    disabled = _check_sync_enabled(settings)
+    effective_settings = _get_effective_settings(request, db)
+    disabled = _check_sync_enabled(effective_settings)
     if disabled:
         return disabled
 
@@ -197,8 +202,8 @@ async def sync_history(
     offset: int = 0,
     db: Session = Depends(get_db),
 ):
-    settings = _get_settings(request)
-    disabled = _check_sync_enabled(settings)
+    effective_settings = _get_effective_settings(request, db)
+    disabled = _check_sync_enabled(effective_settings)
     if disabled:
         return disabled
 
@@ -213,8 +218,8 @@ async def retry_job(
     db: Session = Depends(get_db),
     client: Optional[FeishuClient] = Depends(_get_client_safe),
 ):
-    settings = _get_settings(request)
-    disabled = _check_sync_enabled(settings)
+    effective_settings = _get_effective_settings(request, db)
+    disabled = _check_sync_enabled(effective_settings)
     if disabled:
         return disabled
 

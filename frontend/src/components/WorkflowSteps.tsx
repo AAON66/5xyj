@@ -7,6 +7,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAggregateSession } from '../hooks/useAggregateSession';
+import { useResponsiveViewport } from '../hooks/useResponsiveViewport';
 import type { AggregateSessionSnapshot } from '../services/aggregateSessionStore';
 
 const WORKFLOW_STEPS = [
@@ -65,23 +66,31 @@ export function WorkflowSteps() {
   const navigate = useNavigate();
   const location = useLocation();
   const session = useAggregateSession();
+  const { isMobile } = useResponsiveViewport();
 
   const currentStepIndex = WORKFLOW_STEPS.findIndex(
     (step) => location.pathname === step.path,
   );
 
   return (
-    <Card style={{ marginBottom: 16 }} styles={{ body: { padding: '12px 24px' } }}>
-      <Steps
-        size="small"
-        current={currentStepIndex >= 0 ? currentStepIndex : 0}
-        onChange={(stepIndex) => navigate(WORKFLOW_STEPS[stepIndex].path)}
-        items={WORKFLOW_STEPS.map((step, index) => ({
-          title: step.title,
-          icon: step.icon,
-          status: getStepStatus(index, currentStepIndex >= 0 ? currentStepIndex : 0, session),
-        }))}
-      />
+    <Card
+      style={{ marginBottom: 16 }}
+      styles={{ body: { padding: isMobile ? '12px 16px' : '12px 24px' } }}
+    >
+      <div style={isMobile ? { overflowX: 'auto', paddingBottom: 4 } : undefined}>
+        <Steps
+          size="small"
+          responsive={false}
+          style={isMobile ? { minWidth: 540 } : undefined}
+          current={currentStepIndex >= 0 ? currentStepIndex : 0}
+          onChange={(stepIndex) => navigate(WORKFLOW_STEPS[stepIndex].path)}
+          items={WORKFLOW_STEPS.map((step, index) => ({
+            title: step.title,
+            icon: step.icon,
+            status: getStepStatus(index, currentStepIndex >= 0 ? currentStepIndex : 0, session),
+          }))}
+        />
+      </div>
     </Card>
   );
 }

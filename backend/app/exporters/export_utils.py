@@ -136,6 +136,9 @@ XIAMEN_MATERNITY_HEADER = (
     '\u804c\u5de5\u57fa\u672c\u533b\u7597\u4fdd\u9669\u8d39(\u751f\u80b2)',
     '\u5355\u4f4d\u5e94\u7f34',
 )
+FUSION_OVERRIDE_PAYLOAD_KEY = 'fusion_overrides'
+FUSION_OVERRIDE_SOURCES_PAYLOAD_KEY = 'fusion_override_sources'
+FUSION_OVERRIDE_MATCH_KEY_PAYLOAD_KEY = 'fusion_override_match_key'
 SOURCE_KIND_BY_AMOUNT_FIELD = {
     'housing_fund_personal': HOUSING_SOURCE_KIND,
     'housing_fund_company': HOUSING_SOURCE_KIND,
@@ -412,6 +415,14 @@ def _merge_raw_payloads(
             continue
         merged_sources.append(deepcopy(item))
         existing_keys.add(item_key)
+
+    for payload_key in (
+        FUSION_OVERRIDE_PAYLOAD_KEY,
+        FUSION_OVERRIDE_SOURCES_PAYLOAD_KEY,
+        FUSION_OVERRIDE_MATCH_KEY_PAYLOAD_KEY,
+    ):
+        if payload_key not in merged and payload_key in incoming:
+            merged[payload_key] = deepcopy(incoming[payload_key])
     return merged
 
 
@@ -741,7 +752,7 @@ def _resolved_personal_social_burden(
     company_medical: Decimal,
     social_burden_context: dict[str, tuple[Decimal, ...]],
 ) -> Decimal:
-    return Decimal('0')
+    return _resolved_explicit_burden_override(record, 'personal_social_burden')
 
 
 def _resolved_personal_housing_burden(
@@ -750,7 +761,15 @@ def _resolved_personal_housing_burden(
     company_housing: Decimal,
     housing_burden_context: dict[str, tuple[Decimal, ...]],
 ) -> Decimal:
-    return Decimal('0')
+    return _resolved_explicit_burden_override(record, 'personal_housing_burden')
+
+
+def _resolved_explicit_burden_override(record: NormalizedRecord, field_name: str) -> Decimal:
+    raw_payload = record.raw_payload or {}
+    fusion_overrides = raw_payload.get(FUSION_OVERRIDE_PAYLOAD_KEY)
+    if not isinstance(fusion_overrides, dict):
+        return Decimal('0')
+    return _decimal_from_raw_value(fusion_overrides.get(field_name)) or Decimal('0')
 
 
 def _select_burden_allowance(

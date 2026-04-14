@@ -144,30 +144,40 @@ class FeishuClient:
 # Use Depends(get_feishu_client) in endpoints instead of module-level singleton.
 
 _client_cache: Optional[FeishuClient] = None
+_client_cache_key: Optional[tuple[str, str]] = None
 
 
-async def get_feishu_client() -> FeishuClient:
+async def get_feishu_client(app_id: Optional[str] = None, app_secret: Optional[str] = None) -> FeishuClient:
     """FastAPI dependency that provides a shared FeishuClient instance.
 
     Usage in endpoints: client: FeishuClient = Depends(get_feishu_client)
 
     Raises ValueError if Feishu credentials not configured.
     """
-    global _client_cache
-    if _client_cache is not None:
-        return _client_cache
-    from backend.app.core.config import get_settings
+    global _client_cache, _client_cache_key
+    if app_id is None or app_secret is None:
+        from backend.app.core.config import get_settings
 
-    settings = get_settings()
-    if not settings.feishu_app_id or not settings.feishu_app_secret:
+        settings = get_settings()
+        app_id = settings.feishu_app_id
+        app_secret = settings.feishu_app_secret
+
+    if not app_id or not app_secret:
         raise ValueError("Feishu credentials not configured (FEISHU_APP_ID / FEISHU_APP_SECRET)")
-    _client_cache = FeishuClient(settings.feishu_app_id, settings.feishu_app_secret)
+    next_key = (app_id, app_secret)
+    if _client_cache is not None and _client_cache_key == next_key:
+        return _client_cache
+    if _client_cache is not None:
+        await _client_cache.close()
+    _client_cache = FeishuClient(app_id, app_secret)
+    _client_cache_key = next_key
     return _client_cache
 
 
 async def reset_feishu_client() -> None:
     """Reset the cached client (for testing or credential update)."""
-    global _client_cache
+    global _client_cache, _client_cache_key
     if _client_cache is not None:
         await _client_cache.close()
     _client_cache = None
+    _client_cache_key = None

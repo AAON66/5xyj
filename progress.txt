@@ -2099,3 +2099,191 @@ ormalization_service.py backendpp\services\import_service.py backendpp\service
 
 ### Notes:
 - 当前 Phase 17 已可视为 threat-secure by accepted risk，不再被安全门阻断。
+
+## 2026-04-09 - Task: Phase 18 responsive adaptation
+
+### What was done:
+- Added shared responsive primitives: `useResponsiveViewport`, `MobileStickyActionBar`, and `ResponsiveFilterDrawer`.
+- Reworked `MainLayout` and `WorkflowSteps` for mobile Drawer navigation, compact header behavior, and horizontally scrollable steps.
+- Updated the major workflow and data pages for mobile-first layouts, drawer-based filters, sticky primary actions, and stacked import detail cards.
+- Completed the remaining responsive sweep for Dashboard, Compare, PeriodCompare, Mappings, FeishuSync, and FeishuSettings.
+- Wrote phase execution artifacts: `18-01` through `18-05` summaries, `18-VERIFICATION.md`, `18-HUMAN-UAT.md`, and updated `18-VALIDATION.md` plus `.planning/STATE.md`.
+
+### Testing:
+- `cd frontend && ./node_modules/.bin/eslint src/hooks/useResponsiveViewport.ts src/components/MobileStickyActionBar.tsx src/components/WorkflowSteps.tsx src/layouts/MainLayout.tsx`
+- `cd frontend && ./node_modules/.bin/eslint src/pages/EmployeeSelfService.tsx`
+- `cd frontend && ./node_modules/.bin/eslint src/components/ResponsiveFilterDrawer.tsx src/pages/DataManagement.tsx src/pages/Employees.tsx src/pages/AuditLogs.tsx`
+- `cd frontend && ./node_modules/.bin/eslint src/pages/SimpleAggregate.tsx src/pages/Results.tsx src/pages/Exports.tsx src/pages/Imports.tsx src/pages/ImportBatchDetail.tsx`
+- `cd frontend && ./node_modules/.bin/eslint src/pages/Dashboard.tsx src/pages/Compare.tsx src/pages/PeriodCompare.tsx src/pages/Mappings.tsx src/pages/FeishuSync.tsx src/pages/FeishuSettings.tsx`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+
+### Risks / Open Questions:
+- Phase 18 still needs manual viewport UAT at phone, tablet, and desktop widths before it can be marked complete.
+- `npm run lint` still reports 2 pre-existing fast-refresh warnings in `frontend/src/main.tsx` and `frontend/src/theme/ThemeModeProvider.tsx`.
+- No completion commit was created in this run because the phase is still in `human_needed` state.
+
+### Notes:
+- `18-HUMAN-UAT.md` lists 6 manual checks covering Drawer behavior, employee self-service mobile flow, filter drawer semantics, sticky workflow actions, compare-table scroll contracts, and Dashboard/Feishu operability.
+- `.planning/ROADMAP.md` and `.planning/REQUIREMENTS.md` were intentionally left unchanged because the phase has not passed human verification yet.
+
+## 2026-04-09 - Task: Phase 18 responsive automated verification
+
+### What was done:
+- Installed `@playwright/test` in `frontend` and added `npm run test:e2e`.
+- Added `frontend/playwright.config.ts` and `frontend/tests/e2e/responsive.spec.ts`.
+- Automated 7 responsive browser checks covering mobile drawer navigation, employee self-service card flow, data-management filter drawer semantics, workflow sticky primary actions, Compare/PeriodCompare compact viewport behavior, and Feishu settings operability.
+- Updated Phase 18 verification artifacts from `human_needed` to `passed` and marked Phase 18 complete in roadmap/state tracking.
+
+### Testing:
+- `cd frontend && ./node_modules/.bin/eslint tests/e2e/responsive.spec.ts`
+- `cd frontend && npm run test:e2e`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+
+### Risks / Open Questions:
+- `npm run lint` still reports 2 pre-existing fast-refresh warnings in `frontend/src/main.tsx` and `frontend/src/theme/ThemeModeProvider.tsx`.
+- Vite build still reports a large bundle-size warning; this does not block Phase 18 verification.
+- `REQUIREMENTS.md` still has older pre-existing Pending rows for some already-completed phases; only `UX-03` was updated as part of this task.
+
+### Notes:
+- Responsive verification now lives in `frontend/tests/e2e/responsive.spec.ts` and runs against mocked API responses in a real browser.
+- Phase 18 is no longer waiting on manual viewport UAT.
+## 2026-04-09 - Task: plan phase 19 fusion capability enhancement
+
+### What was done:
+- created phase directory .planning/phases/19-fusion-capability-enhancement
+- wrote 19-RESEARCH.md and 19-VALIDATION.md
+- created 4 execution plans for fusion rules, burden source adapters, aggregate/export integration, and SimpleAggregate UI
+- updated .planning/ROADMAP.md and .planning/STATE.md to reflect Phase 19 planned status
+
+### Testing:
+- performed local planning sanity checks on plan count, wave ordering, requirement coverage, and acceptance_criteria presence
+- corrected backend pytest command paths in planning artifacts so execution commands are runnable from repo root
+
+### Risks / Open Questions:
+- live Feishu burden-source verification still needs a real tenant/config for one manual acceptance pass
+- planner/checker subagents did not complete in this environment, so the final plan verification was done locally by artifact review
+
+### Notes:
+- next command is $gsd-execute-phase 19
+
+## 2026-04-09 - Task: Phase 19 fusion capability enhancement
+
+### What was done:
+- Added FusionRule persistence, migration, CRUD API, and admin/hr role boundary.
+- Added burden input adapters for Excel and Feishu SyncConfig sources with duplicate/missing-key diagnostics.
+- Extended quick aggregate request contract with `burden_file`, `burden_source_mode`, `burden_feishu_config_id`, and `fusion_rule_ids`.
+- Implemented fusion runtime overlay so burden source values apply first and persisted special rules override them before export.
+- Changed exporters so Tool template reads explicit burden overrides while Salary template trims the two burden columns and keeps stable fields only.
+- Added SimpleAggregate burden source UI, FusionRule editor drawer, session persistence for the new fields, and a Playwright fusion aggregate flow test.
+- Wrote `19-01` through `19-04` summaries, `19-VERIFICATION.md`, updated `19-VALIDATION.md`, and synced roadmap/state/requirements/project docs for Phase 19 completion.
+
+### Testing:
+- `python3 -m pytest backend/tests/test_fusion_rules_api.py -q`
+- `python3 -m pytest backend/tests/test_fusion_input_service.py -q`
+- `python3 -m pytest backend/tests/test_aggregate_service.py -q -k special_rule`
+- `python3 -m pytest backend/tests/test_aggregate_api.py -q -k "burden or feishu"`
+- `python3 -m pytest backend/tests/test_template_exporter.py backend/tests/test_api_compatibility.py backend/tests/test_salary_regression.py -q -k "fusion or salary or burden"`
+- `cd frontend && ./node_modules/.bin/eslint src/services/fusionRules.ts src/components/FusionRuleEditorDrawer.tsx src/services/aggregate.ts src/services/aggregateSessionStore.ts src/pages/SimpleAggregate.tsx tests/e2e/fusion-aggregate.spec.ts`
+- `cd frontend && npm run test:e2e`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+
+### Risks / Open Questions:
+- Live Feishu tenant connectivity still needs one staging smoke test with real credentials; local verification used mocked client + SyncConfig mapping.
+- `npm run lint` still reports 2 pre-existing fast-refresh warnings in `frontend/src/main.tsx` and `frontend/src/theme/ThemeModeProvider.tsx`.
+- Frontend production build still emits a Vite chunk-size warning; this does not block the phase.
+
+### Notes:
+- `frontend/tests/e2e/fusion-aggregate.spec.ts` now verifies the multipart aggregate payload really includes `burden_source_mode`, `burden_feishu_config_id`, and `fusion_rule_ids`.
+- Phase 19 keeps burden values Tool-only; Salary export no longer carries the two burden columns.
+
+## 2026-04-09 - Task: 规划 Phase 20 对比重做与飞书完善
+
+### What was done:
+- 审阅 Compare/PeriodCompare/FeishuSettings/FeishuSync/FeishuFieldMapping 以及 compare/feishu backend APIs，确认当前 compare 数据契约和飞书配置链路的缺口。
+- 新增 Phase 20 的 research、validation 与 4 份 execute plans，分别覆盖 compare contract、共享 diff viewer、feishu runtime settings 持久化、前端配置闭环与 e2e。
+- 同步更新 ROADMAP.md、STATE.md，并修正 roadmap 中 Phase 19 汇总表仍停留在 planned 的旧状态。
+
+### Testing:
+- 本次仅执行 planning sanity check，未运行功能测试或实现级验证。
+
+### Risks / Open Questions:
+- FEISHU-01 要成立，执行阶段必须引入可持久化的 runtime settings；继续只依赖环境变量将无法满足“前端直接修改凭证/开关”的成功标准。
+- COMP-01 的 500+ 员工流畅度依赖服务端分页与共享 diff viewer 协同，执行阶段需要用 seeded dataset 和 Playwright 做验证。
+
+### Notes:
+- 下一步命令为 `$gsd-execute-phase 20`。
+
+## 2026-04-09 - Task: Phase 20 对比重做与飞书完善
+
+### What was done:
+- 扩展 compare backend contract：`/compare/periods` 现在支持 `search_text`、`diff_only`、分页窗口元数据，并在过滤后重算 summary/counters。
+- 新增共享 `CompareWorkbookDiff` 组件，重做 `Compare.tsx` 与 `PeriodCompare.tsx`，统一为左右 workbook diff 视图、同步滚动、差异高亮与当前页渲染。
+- 新增飞书 runtime settings 持久化：`system_settings` 模型、effective settings service、runtime/credentials API，以及 auth/sync/system features 全链路接入。
+- 重构 `FeishuSettings.tsx` 和 `FeishuSync.tsx`，实现前端开关/凭证/SyncConfig 配置闭环、flags 刷新，以及 disabled/missing credentials 的恢复 CTA。
+- 新增 `frontend/tests/e2e/compare-diff.spec.ts` 与 `frontend/tests/e2e/feishu-settings.spec.ts`，并更新 `frontend/tests/e2e/responsive.spec.ts` 以匹配新的 compare/feishu DOM 合同。
+- 写入 `20-01` 至 `20-04` summaries、`20-VERIFICATION.md`，更新 `20-VALIDATION.md`、`ROADMAP.md`、`REQUIREMENTS.md`、`PROJECT.md`、`STATE.md`。
+
+### Testing:
+- `python3 -m pytest backend/tests/test_compare_api.py backend/tests/test_feishu_settings_api.py -q`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+- `cd frontend && npm run test:e2e -- compare-diff.spec.ts`
+- `cd frontend && npm run test:e2e -- feishu-settings.spec.ts`
+- `cd frontend && npm run test:e2e`
+
+### Risks / Open Questions:
+- 真实飞书租户凭证的 staging smoke test 还没跑；本轮验证主要依赖 mocked browser/API flows 与 effective settings 后端回归。
+- `npm run lint` 仍保留 2 条历史 fast-refresh warning，在 `frontend/src/main.tsx` 和 `frontend/src/theme/ThemeModeProvider.tsx`。
+- `npm run build` 仍有 Vite bundle-size warning，但不阻断 Phase 20 验证结论。
+
+### Notes:
+- `PeriodCompare` 现在会在加载到账期选项后自动预填最近两个账期，减少固定的首次点击成本。
+- Phase 18 的紧凑视口合同已通过 `responsive.spec.ts` 重新验证，没有因为 compare diff 重做而回归。
+
+## 2026-04-10 - Task: v1.1 里程碑审计与状态补齐
+
+### What was done:
+- 交叉核对 v1.1 的 roadmap、requirements、phase summaries、phase verifications，确认 23 个 requirements 都已有 phase-level 实现证据与验证证据。
+- 回写 `REQUIREMENTS.md`：补齐 INFRA/UX/ACCT/DATA/FUSE 的勾选状态，并把 traceability 表从 Pending 同步为 Complete。
+- 修正 `ROADMAP.md` 的旧状态漂移：Phase 13 计划清单改为已完成，进度表中的 `0/4` 改为 `4/4`，补齐 Phase 14 的 plan 清单。
+- 新增 `.planning/v1.1-MILESTONE-AUDIT.md`，把剩余风险收口为非阻塞 tech debt，而不是继续留在“未完成需求”状态。
+- 更新 `STATE.md`，把当前焦点切换为 milestone archive approval / staging smoke follow-up。
+
+### Testing:
+- 文档级审计交叉校验：`REQUIREMENTS.md`、`ROADMAP.md`、`STATE.md`、`13-20` 的 `SUMMARY.md` / `VERIFICATION.md` / `VALIDATION.md`
+- 后续执行 `gsd-tools` 状态检查，确认归档前元数据一致
+
+### Risks / Open Questions:
+- v1.1 审计结果应记为 `tech_debt` 而不是 `passed`，因为 Phase 13-17 的 `VALIDATION.md` 仍是 draft，Phase 14-17 的历史 `VERIFICATION.md` 仍保留浏览器级人工项。
+- Phase 19 与 Phase 20 都还缺真实飞书租户/凭证的 staging smoke test。
+
+### Notes:
+- 这次补齐的是“状态与追踪元数据”，不是补做未实现功能。
+- 归档 `v1.1` 前，现在只剩用户是否接受以 `tech_debt` 状态继续 archive 的决策。
+
+## 2026-04-10 - Task: 数据管理账期规范化与历史脏值兼容
+
+### What was done:
+- 新增 `backend/app/utils/period_utils.py`，统一账期规范化规则，支持 `YYYYMM`、`YYYY-MM`、`YYYY年MM月`、`YYYY年-MM月`、日期时间字符串以及从文件名兜底提取账期。
+- 更新 `backend/app/services/normalization_service.py` 和 `backend/app/services/housing_fund_service.py`，让新导入记录在标准化阶段就把 `billing_period` 规范成 `YYYY-MM`，并在账期缺失或字段误取时回退到文件名/表头签名。
+- 重写 `backend/app/services/data_management_service.py` 的账期读取逻辑：详情、筛选项、员工汇总、月份汇总全部基于“有效账期”工作，从而把 `202603` / `2026-03` / `2026年-03月` 归并成同一个月份，并屏蔽 `175.00`、`备注` 这类历史脏值对筛选与展示的污染。
+- 更新 `frontend/src/pages/DataManagement.tsx` 的月份格式化逻辑，避免把无效原始值硬切片成 `175.年00月` 这类错误展示。
+- 补充后端回归测试，覆盖账期规范化、数据管理账期归并以及 Hangzhou 社保/公积金样例的账期落库。
+
+### Testing:
+- `python3 -m pytest backend/tests/test_period_utils.py backend/tests/test_data_management_service.py backend/tests/test_normalization_service.py -q -k "period or hangzhou or data_management"`
+- `python3 -m pytest backend/tests/test_housing_fund_service.py -q -k hangzhou`
+- `cd frontend && npm run lint`
+- `cd frontend && npm run build`
+
+### Risks / Open Questions:
+- 这次修复优先保证 Data Management 读取链路和后续新导入数据正确；历史库里的脏 `billing_period` 原始值没有做批量回填，其他直接读原字段的旧页面如果存在，仍可能看到旧值。
+- `npm run lint` 仍保留 2 条历史 fast-refresh warning，在 `frontend/src/main.tsx` 和 `frontend/src/theme/ThemeModeProvider.tsx`。
+- `npm run build` 仍保留现有 Vite bundle-size warning。
+
+### Notes:
+- 本地抽样确认过历史脏值来源包含 `175.00`、`299.00`、`备注`、`离职原因`；修复后 Data Management 会优先从 `source_file_name` / 合并源信息恢复有效账期。
+- Hangzhou 公积金记录此前会在账期缺失时把月缴金额补进 `billing_period`，这次已经在标准化阶段堵住。

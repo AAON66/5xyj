@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { fetchFeatureFlags, type FeatureFlags } from '../services/feishu';
 
@@ -12,12 +12,20 @@ export function useFeishuFeatureFlag() {
   const [flags, setFlags] = useState<FeatureFlags>(DEFAULT_FLAGS);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchFeatureFlags()
-      .then(setFlags)
-      .catch(() => setFlags(DEFAULT_FLAGS))
-      .finally(() => setLoading(false));
+  const refreshFlags = useCallback(async () => {
+    setLoading(true);
+    try {
+      setFlags(await fetchFeatureFlags());
+    } catch {
+      setFlags(DEFAULT_FLAGS);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  return { ...flags, loading };
+  useEffect(() => {
+    void refreshFlags();
+  }, [refreshFlags]);
+
+  return { ...flags, loading, refreshFlags };
 }

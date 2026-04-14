@@ -9,13 +9,17 @@ import {
   Row,
   Select,
   Skeleton,
+  Space,
   Table,
   Tabs,
   Tag,
   Typography,
 } from 'antd';
+import { FilterOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 
+import { ResponsiveFilterDrawer } from '../components/ResponsiveFilterDrawer';
+import { useResponsiveViewport } from '../hooks/useResponsiveViewport';
 import { normalizeApiError } from '../services/api';
 import {
   fetchEmployeeSummary,
@@ -33,18 +37,41 @@ const { Title } = Typography;
 type ActiveTab = 'detail' | 'summary';
 type SummaryMode = 'employee' | 'period';
 
-const PAGE_SIZE_OPTIONS = [10, 20, 50];
+interface FilterState {
+  regions: string[];
+  companies: string[];
+  periods: string[];
+  matchStatus: string;
+  searchText: string;
+}
 
+const PAGE_SIZE_OPTIONS = [10, 20, 50];
 const ALL_VALUE = '__ALL__';
+const EMPTY_FILTERS: FilterState = {
+  regions: [],
+  companies: [],
+  periods: [],
+  matchStatus: 'matched',
+  searchText: '',
+};
 
 function formatAmount(value: number | null): string {
   if (value === null || value === undefined) return '-';
   return value.toFixed(2);
 }
 
+function normalizePeriod(period: string | null): string | null {
+  if (!period) return null;
+  const match = period.trim().match(/(20\d{2})\D*([1-9]|0[1-9]|1[0-2])/);
+  if (!match) return null;
+  return `${match[1]}-${match[2].padStart(2, '0')}`;
+}
+
 function formatPeriod(period: string | null): string {
-  if (!period || period.length < 6) return period ?? '-';
-  return `${period.slice(0, 4)}年${period.slice(4)}月`;
+  const normalized = normalizePeriod(period);
+  if (!normalized) return period ?? '-';
+  const [year, month] = normalized.split('-');
+  return `${year}年${month}月`;
 }
 
 function maskIdNumber(id: string | null): string {
@@ -52,23 +79,46 @@ function maskIdNumber(id: string | null): string {
   return `${id.slice(0, 4)}****${id.slice(-4)}`;
 }
 
+function countActiveFilters(filters: FilterState): number {
+  let count = filters.regions.length + filters.companies.length + filters.periods.length;
+  if (filters.matchStatus !== 'matched') count += 1;
+  if (filters.searchText.trim()) count += 1;
+  return count;
+}
+
+function includesSearch(parts: Array<string | null | undefined>, searchText: string): boolean {
+  const normalized = searchText.trim().toLowerCase();
+  if (!normalized) return true;
+  return parts.some((part) => String(part ?? '').toLowerCase().includes(normalized));
+}
+
+function getNextMultiValue(currentValues: string[], nextValues: string[], options: string[]): string[] {
+  if (!nextValues.includes(ALL_VALUE)) {
+    return nextValues;
+  }
+  const allSelected = currentValues.length === options.length;
+  return allSelected ? [] : options;
+}
+
 export function DataManagementPage() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const { isMobile, isTablet } = useResponsiveViewport();
+  const isCompactFilter = isMobile || isTablet;
 
-  // Read multi-select state from URL (comma-separated)
-  const regions = searchParams.get('region')?.split(',').filter(Boolean) ?? [];
-  const companies = searchParams.get('company')?.split(',').filter(Boolean) ?? [];
-  const periods = searchParams.get('period')?.split(',').filter(Boolean) ?? [];
-  const matchStatus = searchParams.get('matchStatus') || 'matched';
+  const appliedFilters = useMemo<FilterState>(() => ({
+    regions: searchParams.get('region')?.split(',').filter(Boolean) ?? [],
+    companies: searchParams.get('company')?.split(',').filter(Boolean) ?? [],
+    periods: searchParams.get('period')?.split(',').filter(Boolean) ?? [],
+    matchStatus: searchParams.get('matchStatus') || 'matched',
+    searchText: searchParams.get('search') || '',
+  }), [searchParams]);
+
   const activeTab = (searchParams.get('tab') as ActiveTab) || 'detail';
   const summaryMode = (searchParams.get('summaryMode') as SummaryMode) || 'employee';
   const page = Number(searchParams.get('page') || '0');
   const pageSize = Number(searchParams.get('pageSize') || '20');
 
-  // Filter options
   const [filterOptions, setFilterOptions] = useState<FilterOptions>({ regions: [], companies: [], periods: [] });
-
-  // Data states
   const [records, setRecords] = useState<NormalizedRecordItem[]>([]);
   const [employeeSummaries, setEmployeeSummaries] = useState<EmployeeSummaryItem[]>([]);
   const [periodSummaries, setPeriodSummaries] = useState<PeriodSummaryItem[]>([]);
@@ -76,9 +126,9 @@ export function DataManagementPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [expandedRowKeys, setExpandedRowKeys] = useState<string[]>([]);
-  const [searchText, setSearchText] = useState('');
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [draftFilters, setDraftFilters] = useState<FilterState>(appliedFilters);
 
-  // Helper to update URL params
   const updateParams = useCallback(
     (updates: Record<string, string>) => {
       setSearchParams((prev) => {
@@ -96,7 +146,10 @@ export function DataManagementPage() {
     [setSearchParams],
   );
 
-  // Load filter options on mount and when cascading params change
+  useEffect(() => {
+    setDraftFilters(appliedFilters);
+  }, [appliedFilters]);
+
   useEffect(() => {
     let active = true;
 
@@ -108,16 +161,19 @@ export function DataManagementPage() {
         let scopedCompanies: string[] = unscopedOptions.companies;
         let scopedPeriods: string[] = unscopedOptions.periods;
 
-        if (regions.length > 0) {
-          const regionScoped = await fetchFilterOptions({ regions });
+        if (appliedFilters.regions.length > 0) {
+          const regionScoped = await fetchFilterOptions({ regions: appliedFilters.regions });
           if (!active) return;
           scopedCompanies = regionScoped.companies;
           scopedPeriods = regionScoped.periods;
 
-          if (companies.length > 0) {
-            const fullScoped = await fetchFilterOptions({ regions, companyNames: companies });
+          if (appliedFilters.companies.length > 0) {
+            const fullyScoped = await fetchFilterOptions({
+              regions: appliedFilters.regions,
+              companyNames: appliedFilters.companies,
+            });
             if (!active) return;
-            scopedPeriods = fullScoped.periods;
+            scopedPeriods = fullyScoped.periods;
           }
         }
 
@@ -127,11 +183,13 @@ export function DataManagementPage() {
           periods: scopedPeriods,
         });
 
-        // Cascade cleanup: remove selected values no longer in options
-        const validCompanies = companies.filter((c) => scopedCompanies.includes(c));
-        const validPeriods = periods.filter((p) => scopedPeriods.includes(p));
+        const validCompanies = appliedFilters.companies.filter((company) => scopedCompanies.includes(company));
+        const validPeriods = appliedFilters.periods.filter((periodValue) => scopedPeriods.includes(periodValue));
 
-        if (validCompanies.length !== companies.length || validPeriods.length !== periods.length) {
+        if (
+          validCompanies.length !== appliedFilters.companies.length ||
+          validPeriods.length !== appliedFilters.periods.length
+        ) {
           updateParams({
             company: validCompanies.join(','),
             period: validPeriods.join(','),
@@ -139,16 +197,16 @@ export function DataManagementPage() {
           });
         }
       } catch {
-        // Filter loading failure is non-critical
+        // Filter loading failure is non-critical.
       }
     }
 
     void loadFilters();
-    return () => { active = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [regions.join(','), companies.join(','), updateParams]);
+    return () => {
+      active = false;
+    };
+  }, [appliedFilters.companies, appliedFilters.periods, appliedFilters.regions, updateParams]);
 
-  // Load data when filters/tab/page change
   useEffect(() => {
     let active = true;
     setLoading(true);
@@ -158,10 +216,10 @@ export function DataManagementPage() {
     async function loadData() {
       try {
         const filterParams = {
-          regions: regions.length > 0 ? regions : undefined,
-          companyNames: companies.length > 0 ? companies : undefined,
-          billingPeriods: periods.length > 0 ? periods : undefined,
-          matchStatus: matchStatus !== 'all' ? matchStatus : undefined,
+          regions: appliedFilters.regions.length > 0 ? appliedFilters.regions : undefined,
+          companyNames: appliedFilters.companies.length > 0 ? appliedFilters.companies : undefined,
+          billingPeriods: appliedFilters.periods.length > 0 ? appliedFilters.periods : undefined,
+          matchStatus: appliedFilters.matchStatus !== 'all' ? appliedFilters.matchStatus : undefined,
           page,
           pageSize,
         };
@@ -178,8 +236,8 @@ export function DataManagementPage() {
           setTotalRecords(result.total);
         } else {
           const result = await fetchPeriodSummary({
-            regions: regions.length > 0 ? regions : undefined,
-            companyNames: companies.length > 0 ? companies : undefined,
+            regions: appliedFilters.regions.length > 0 ? appliedFilters.regions : undefined,
+            companyNames: appliedFilters.companies.length > 0 ? appliedFilters.companies : undefined,
             page,
             pageSize,
           });
@@ -199,43 +257,75 @@ export function DataManagementPage() {
     }
 
     void loadData();
-    return () => { active = false; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [regions.join(','), companies.join(','), periods.join(','), matchStatus, activeTab, summaryMode, page, pageSize]);
+    return () => {
+      active = false;
+    };
+  }, [activeTab, appliedFilters.companies, appliedFilters.matchStatus, appliedFilters.periods, appliedFilters.regions, page, pageSize, summaryMode]);
 
-  function handleRegionChange(newRegions: string[]) {
-    if (newRegions.includes(ALL_VALUE)) {
-      // Toggle all selection
-      const allSelected = regions.length === filterOptions.regions.length;
-      const value = allSelected ? '' : filterOptions.regions.join(',');
-      updateParams({ region: value, company: '', period: '', page: '0' });
-    } else {
-      updateParams({ region: newRegions.join(','), company: '', period: '', page: '0' });
-    }
+  const filteredRecords = useMemo(
+    () => records.filter((record) => includesSearch([
+      record.person_name,
+      record.employee_id,
+      record.company_name,
+      record.id_number,
+      record.region,
+      record.billing_period,
+    ], appliedFilters.searchText)),
+    [appliedFilters.searchText, records],
+  );
+
+  const filteredEmployeeSummaries = useMemo(
+    () => employeeSummaries.filter((item) => includesSearch([
+      item.employee_id,
+      item.person_name,
+      item.company_name,
+      item.region,
+      item.latest_period,
+    ], appliedFilters.searchText)),
+    [appliedFilters.searchText, employeeSummaries],
+  );
+
+  const filteredPeriodSummaries = useMemo(
+    () => periodSummaries.filter((item) => includesSearch([item.billing_period], appliedFilters.searchText)),
+    [appliedFilters.searchText, periodSummaries],
+  );
+
+  const hasData = activeTab === 'detail'
+    ? filteredRecords.length > 0
+    : summaryMode === 'employee'
+      ? filteredEmployeeSummaries.length > 0
+      : filteredPeriodSummaries.length > 0;
+
+  function applyFilters(nextFilters: FilterState) {
+    updateParams({
+      region: nextFilters.regions.join(','),
+      company: nextFilters.companies.join(','),
+      period: nextFilters.periods.join(','),
+      matchStatus: nextFilters.matchStatus,
+      search: nextFilters.searchText.trim(),
+      page: '0',
+    });
   }
 
-  function handleCompanyChange(newCompanies: string[]) {
-    if (newCompanies.includes(ALL_VALUE)) {
-      const allSelected = companies.length === filterOptions.companies.length;
-      const value = allSelected ? '' : filterOptions.companies.join(',');
-      updateParams({ company: value, period: '', page: '0' });
-    } else {
-      updateParams({ company: newCompanies.join(','), period: '', page: '0' });
-    }
+  function openFilterDrawer() {
+    setDraftFilters(appliedFilters);
+    setFilterDrawerOpen(true);
   }
 
-  function handlePeriodChange(newPeriods: string[]) {
-    if (newPeriods.includes(ALL_VALUE)) {
-      const allSelected = periods.length === filterOptions.periods.length;
-      const value = allSelected ? '' : filterOptions.periods.join(',');
-      updateParams({ period: value, page: '0' });
-    } else {
-      updateParams({ period: newPeriods.join(','), page: '0' });
-    }
+  function closeFilterDrawer() {
+    setDraftFilters(appliedFilters);
+    setFilterDrawerOpen(false);
   }
 
-  function handleMatchStatusChange(value: string) {
-    updateParams({ matchStatus: value, page: '0' });
+  function applyDraftFilters() {
+    applyFilters(draftFilters);
+    setFilterDrawerOpen(false);
+  }
+
+  function resetFilters() {
+    setDraftFilters(EMPTY_FILTERS);
+    applyFilters(EMPTY_FILTERS);
+    setFilterDrawerOpen(false);
   }
 
   function handleTabChange(tab: string) {
@@ -246,34 +336,29 @@ export function DataManagementPage() {
     updateParams({ summaryMode: mode, page: '0' });
   }
 
-  function handleResetFilters() {
-    updateParams({ region: '', company: '', period: '', matchStatus: 'matched', page: '0' });
-    setSearchText('');
-  }
-
-  // Detail table columns
   const detailColumns: ColumnsType<NormalizedRecordItem> = useMemo(() => [
-    { title: '姓名', dataIndex: 'person_name', key: 'person_name', fixed: 'left' as const, width: 80, render: (v: string | null) => v ?? '-' },
-    { title: '工号', dataIndex: 'employee_id', key: 'employee_id', width: 80, render: (v: string | null) => v ?? '-' },
-    { title: '地区', dataIndex: 'region', key: 'region', width: 70, render: (v: string | null) => v ?? '-' },
-    { title: '公司', dataIndex: 'company_name', key: 'company_name', width: 120, ellipsis: true, render: (v: string | null) => v ?? '-' },
-    { title: '身份证号', dataIndex: 'id_number', key: 'id_number', width: 140, render: (v: string | null) => maskIdNumber(v) },
-    { title: '月份', dataIndex: 'billing_period', key: 'billing_period', width: 80, render: (v: string | null) => formatPeriod(v) },
-    { title: '单位合计', dataIndex: 'company_total_amount', key: 'company_total_amount', width: 100, align: 'right' as const, render: (v: number | null) => formatAmount(v) },
-    { title: '个人合计', dataIndex: 'personal_total_amount', key: 'personal_total_amount', width: 100, align: 'right' as const, render: (v: number | null) => formatAmount(v) },
-    { title: '总额', dataIndex: 'total_amount', key: 'total_amount', width: 100, align: 'right' as const, render: (v: number | null) => formatAmount(v) },
+    { title: '姓名', dataIndex: 'person_name', key: 'person_name', fixed: 'left' as const, width: 80, render: (value: string | null) => value ?? '-' },
+    { title: '工号', dataIndex: 'employee_id', key: 'employee_id', width: 80, render: (value: string | null) => value ?? '-' },
+    { title: '地区', dataIndex: 'region', key: 'region', width: 70, render: (value: string | null) => value ?? '-' },
+    { title: '公司', dataIndex: 'company_name', key: 'company_name', width: 120, ellipsis: true, render: (value: string | null) => value ?? '-' },
+    { title: '身份证号', dataIndex: 'id_number', key: 'id_number', width: 140, render: (value: string | null) => maskIdNumber(value) },
+    { title: '月份', dataIndex: 'billing_period', key: 'billing_period', width: 80, render: (value: string | null) => formatPeriod(value) },
+    { title: '单位合计', dataIndex: 'company_total_amount', key: 'company_total_amount', width: 100, align: 'right' as const, render: (value: number | null) => formatAmount(value) },
+    { title: '个人合计', dataIndex: 'personal_total_amount', key: 'personal_total_amount', width: 100, align: 'right' as const, render: (value: number | null) => formatAmount(value) },
+    { title: '总额', dataIndex: 'total_amount', key: 'total_amount', width: 100, align: 'right' as const, render: (value: number | null) => formatAmount(value) },
     {
-      title: '匹配', key: 'match_status', width: 70,
-      render: (_: unknown, record: NormalizedRecordItem) => {
-        if (record.employee_id) return <Tag color="success">已匹配</Tag>;
-        return <Tag color="warning">未匹配</Tag>;
-      },
+      title: '匹配',
+      key: 'match_status',
+      width: 70,
+      render: (_: unknown, record: NormalizedRecordItem) => (
+        record.employee_id ? <Tag color="success">已匹配</Tag> : <Tag color="warning">未匹配</Tag>
+      ),
     },
   ], []);
 
   const expandedRowRender = useCallback((record: NormalizedRecordItem) => (
     <Row gutter={[24, 16]}>
-      <Col span={12}>
+      <Col xs={24} md={12}>
         <Card size="small" title="单位各险种">
           <Row gutter={[8, 4]}>
             <Col span={12}>养老保险: {formatAmount(record.pension_company)}</Col>
@@ -287,7 +372,7 @@ export function DataManagementPage() {
           </Row>
         </Card>
       </Col>
-      <Col span={12}>
+      <Col xs={24} md={12}>
         <Card size="small" title="个人各险种">
           <Row gutter={[8, 4]}>
             <Col span={12}>养老保险: {formatAmount(record.pension_personal)}</Col>
@@ -302,27 +387,25 @@ export function DataManagementPage() {
     </Row>
   ), []);
 
-  // Employee summary columns
   const employeeSummaryColumns: ColumnsType<EmployeeSummaryItem> = useMemo(() => [
-    { title: '工号', dataIndex: 'employee_id', key: 'employee_id', fixed: 'left' as const, width: 100, render: (v: string | null) => v ?? '-' },
-    { title: '姓名', dataIndex: 'person_name', key: 'person_name', render: (v: string | null) => v ?? '-' },
-    { title: '公司', dataIndex: 'company_name', key: 'company_name', render: (v: string | null) => v ?? '-' },
-    { title: '地区', dataIndex: 'region', key: 'region', render: (v: string | null) => v ?? '-' },
-    { title: '最新月份', dataIndex: 'latest_period', key: 'latest_period', render: (v: string | null) => formatPeriod(v) },
-    { title: '单位合计', dataIndex: 'company_total', key: 'company_total', align: 'right' as const, render: (v: number | null) => formatAmount(v) },
-    { title: '个人合计', dataIndex: 'personal_total', key: 'personal_total', align: 'right' as const, render: (v: number | null) => formatAmount(v) },
-    { title: '总额', dataIndex: 'total', key: 'total', align: 'right' as const, render: (v: number | null) => formatAmount(v) },
+    { title: '工号', dataIndex: 'employee_id', key: 'employee_id', fixed: 'left' as const, width: 100, render: (value: string | null) => value ?? '-' },
+    { title: '姓名', dataIndex: 'person_name', key: 'person_name', render: (value: string | null) => value ?? '-' },
+    { title: '公司', dataIndex: 'company_name', key: 'company_name', render: (value: string | null) => value ?? '-' },
+    { title: '地区', dataIndex: 'region', key: 'region', render: (value: string | null) => value ?? '-' },
+    { title: '最新月份', dataIndex: 'latest_period', key: 'latest_period', render: (value: string | null) => formatPeriod(value) },
+    { title: '单位合计', dataIndex: 'company_total', key: 'company_total', align: 'right' as const, render: (value: number | null) => formatAmount(value) },
+    { title: '个人合计', dataIndex: 'personal_total', key: 'personal_total', align: 'right' as const, render: (value: number | null) => formatAmount(value) },
+    { title: '总额', dataIndex: 'total', key: 'total', align: 'right' as const, render: (value: number | null) => formatAmount(value) },
   ], []);
 
-  // Period summary columns
   const periodSummaryColumns: ColumnsType<PeriodSummaryItem> = useMemo(() => [
-    { title: '月份', dataIndex: 'billing_period', key: 'billing_period', fixed: 'left' as const, width: 100, render: (v: string) => formatPeriod(v) },
+    { title: '月份', dataIndex: 'billing_period', key: 'billing_period', fixed: 'left' as const, width: 100, render: (value: string) => formatPeriod(value) },
     { title: '总人数', dataIndex: 'total_count', key: 'total_count' },
-    { title: '单位合计', dataIndex: 'company_total', key: 'company_total', align: 'right' as const, render: (v: number | null) => formatAmount(v) },
-    { title: '个人合计', dataIndex: 'personal_total', key: 'personal_total', align: 'right' as const, render: (v: number | null) => formatAmount(v) },
-    { title: '总额', dataIndex: 'total', key: 'total', align: 'right' as const, render: (v: number | null) => formatAmount(v) },
-    { title: '平均个人', dataIndex: 'avg_personal', key: 'avg_personal', align: 'right' as const, render: (v: number | null) => formatAmount(v) },
-    { title: '平均单位', dataIndex: 'avg_company', key: 'avg_company', align: 'right' as const, render: (v: number | null) => formatAmount(v) },
+    { title: '单位合计', dataIndex: 'company_total', key: 'company_total', align: 'right' as const, render: (value: number | null) => formatAmount(value) },
+    { title: '个人合计', dataIndex: 'personal_total', key: 'personal_total', align: 'right' as const, render: (value: number | null) => formatAmount(value) },
+    { title: '总额', dataIndex: 'total', key: 'total', align: 'right' as const, render: (value: number | null) => formatAmount(value) },
+    { title: '平均个人', dataIndex: 'avg_personal', key: 'avg_personal', align: 'right' as const, render: (value: number | null) => formatAmount(value) },
+    { title: '平均单位', dataIndex: 'avg_company', key: 'avg_company', align: 'right' as const, render: (value: number | null) => formatAmount(value) },
   ], []);
 
   const paginationConfig = useMemo(() => ({
@@ -331,7 +414,13 @@ export function DataManagementPage() {
     total: totalRecords,
     showSizeChanger: true,
     pageSizeOptions: PAGE_SIZE_OPTIONS.map(String),
-    showTotal: (total: number) => `共 ${total} 条记录`,
+    showTotal: (total: number) => appliedFilters.searchText.trim()
+      ? `本页匹配 ${activeTab === 'detail'
+        ? filteredRecords.length
+        : summaryMode === 'employee'
+          ? filteredEmployeeSummaries.length
+          : filteredPeriodSummaries.length} 条 / 共 ${total} 条记录`
+      : `共 ${total} 条记录`,
     onChange: (newPage: number, newPageSize: number) => {
       if (newPageSize !== pageSize) {
         updateParams({ pageSize: String(newPageSize), page: '0' });
@@ -339,103 +428,154 @@ export function DataManagementPage() {
         updateParams({ page: String(newPage - 1) });
       }
     },
-  }), [page, pageSize, totalRecords, updateParams]);
+  }), [
+    activeTab,
+    appliedFilters.searchText,
+    filteredEmployeeSummaries.length,
+    filteredPeriodSummaries.length,
+    filteredRecords.length,
+    page,
+    pageSize,
+    summaryMode,
+    totalRecords,
+    updateParams,
+  ]);
 
-  const hasData = activeTab === 'detail'
-    ? records.length > 0
-    : summaryMode === 'employee'
-      ? employeeSummaries.length > 0
-      : periodSummaries.length > 0;
+  const activeFilterCount = countActiveFilters(appliedFilters);
+
+  const filterFields = (
+    <Row gutter={[16, 16]} align="middle">
+      <Col xs={24} sm={12} md={12}>
+        <Input.Search
+          placeholder="搜索姓名、工号、公司或身份证号"
+          value={draftFilters.searchText}
+          onChange={(event) => setDraftFilters((current) => ({ ...current, searchText: event.target.value }))}
+          onSearch={() => {
+            if (!isCompactFilter) {
+              applyDraftFilters();
+            }
+          }}
+          allowClear
+        />
+      </Col>
+      <Col xs={24} sm={12} md={6}>
+        <Select
+          mode="multiple"
+          showSearch
+          allowClear
+          maxTagCount={2}
+          maxTagPlaceholder={(omitted) => `+${omitted.length}...`}
+          placeholder="请选择地区"
+          value={draftFilters.regions.length > 0 ? draftFilters.regions : undefined}
+          onChange={(values) => setDraftFilters((current) => ({
+            ...current,
+            regions: getNextMultiValue(current.regions, values, filterOptions.regions),
+            companies: [],
+            periods: [],
+          }))}
+          style={{ width: '100%' }}
+          options={[
+            { label: '全选', value: ALL_VALUE, style: { fontWeight: 600 } },
+            ...filterOptions.regions.map((region) => ({ label: region, value: region })),
+          ]}
+        />
+      </Col>
+      <Col xs={24} sm={12} md={6}>
+        <Select
+          mode="multiple"
+          showSearch
+          allowClear
+          maxTagCount={2}
+          maxTagPlaceholder={(omitted) => `+${omitted.length}...`}
+          placeholder="请选择公司"
+          value={draftFilters.companies.length > 0 ? draftFilters.companies : undefined}
+          onChange={(values) => setDraftFilters((current) => ({
+            ...current,
+            companies: getNextMultiValue(current.companies, values, filterOptions.companies),
+            periods: [],
+          }))}
+          style={{ width: '100%' }}
+          options={[
+            { label: '全选', value: ALL_VALUE, style: { fontWeight: 600 } },
+            ...filterOptions.companies.map((company) => ({ label: company, value: company })),
+          ]}
+        />
+      </Col>
+      <Col xs={24} sm={12} md={6}>
+        <Select
+          mode="multiple"
+          showSearch
+          allowClear
+          maxTagCount={2}
+          maxTagPlaceholder={(omitted) => `+${omitted.length}...`}
+          placeholder="请选择账期"
+          value={draftFilters.periods.length > 0 ? draftFilters.periods : undefined}
+          onChange={(values) => setDraftFilters((current) => ({
+            ...current,
+            periods: getNextMultiValue(current.periods, values, filterOptions.periods),
+          }))}
+          style={{ width: '100%' }}
+          options={[
+            { label: '全选', value: ALL_VALUE, style: { fontWeight: 600 } },
+            ...filterOptions.periods.map((periodValue) => ({ label: formatPeriod(periodValue), value: periodValue })),
+          ]}
+        />
+      </Col>
+      <Col xs={24} sm={12} md={4}>
+        <Select
+          value={draftFilters.matchStatus}
+          onChange={(value) => setDraftFilters((current) => ({ ...current, matchStatus: value }))}
+          style={{ width: '100%' }}
+          options={[
+            { label: '全部', value: 'all' },
+            { label: '已匹配', value: 'matched' },
+            { label: '未匹配', value: 'unmatched' },
+          ]}
+        />
+      </Col>
+      {isCompactFilter ? null : (
+        <Col xs={24}>
+          <Space wrap>
+            <Button type="primary" onClick={applyDraftFilters}>查询</Button>
+            <Button onClick={resetFilters}>重置</Button>
+          </Space>
+        </Col>
+      )}
+    </Row>
+  );
 
   return (
     <div>
-      <Title level={4}>数据管理</Title>
-
-      {/* Filter card */}
-      <Card style={{ marginBottom: 16 }}>
-        <Row gutter={[16, 16]} align="middle">
-          <Col xs={24} sm={12} md={5}>
-            <Select
-              mode="multiple"
-              showSearch
-              allowClear
-              maxTagCount={2}
-              maxTagPlaceholder={(omitted) => `+${omitted.length}...`}
-              placeholder="请选择地区"
-              value={regions.length > 0 ? regions : undefined}
-              onChange={handleRegionChange}
-              style={{ width: '100%', minWidth: 180 }}
-              options={[
-                { label: '全选', value: ALL_VALUE, style: { fontWeight: 600 } },
-                ...filterOptions.regions.map((r) => ({ label: r, value: r })),
-              ]}
-            />
-          </Col>
-          <Col xs={24} sm={12} md={5}>
-            <Select
-              mode="multiple"
-              showSearch
-              allowClear
-              maxTagCount={2}
-              maxTagPlaceholder={(omitted) => `+${omitted.length}...`}
-              placeholder="请选择公司"
-              value={companies.length > 0 ? companies : undefined}
-              onChange={handleCompanyChange}
-              style={{ width: '100%', minWidth: 180 }}
-              options={[
-                { label: '全选', value: ALL_VALUE, style: { fontWeight: 600 } },
-                ...filterOptions.companies.map((c) => ({ label: c, value: c })),
-              ]}
-            />
-          </Col>
-          <Col xs={24} sm={12} md={4}>
-            <Select
-              mode="multiple"
-              showSearch
-              allowClear
-              maxTagCount={2}
-              maxTagPlaceholder={(omitted) => `+${omitted.length}...`}
-              placeholder="请选择账期"
-              value={periods.length > 0 ? periods : undefined}
-              onChange={handlePeriodChange}
-              style={{ width: '100%', minWidth: 180 }}
-              options={[
-                { label: '全选', value: ALL_VALUE, style: { fontWeight: 600 } },
-                ...filterOptions.periods.map((p) => ({ label: formatPeriod(p), value: p })),
-              ]}
-            />
-          </Col>
-          <Col xs={24} sm={12} md={3}>
-            <Select
-              value={matchStatus}
-              onChange={handleMatchStatusChange}
-              style={{ width: '100%' }}
-              options={[
-                { label: '全部', value: 'all' },
-                { label: '已匹配', value: 'matched' },
-                { label: '未匹配', value: 'unmatched' },
-              ]}
-            />
-          </Col>
-          <Col xs={24} sm={12} md={4}>
-            <Input.Search
-              placeholder="搜索姓名或工号"
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              onSearch={() => updateParams({ page: '0' })}
-              allowClear
-            />
-          </Col>
+      <Row justify="space-between" align="middle" style={{ marginBottom: 16, gap: 12 }}>
+        <Col>
+          <Title level={4} style={{ margin: 0 }}>数据管理</Title>
+        </Col>
+        {isCompactFilter ? (
           <Col>
-            <Button type="primary" onClick={() => updateParams({ page: '0' })}>查询</Button>
+            <Button icon={<FilterOutlined />} onClick={openFilterDrawer}>
+              {activeFilterCount > 0 ? `筛选 (${activeFilterCount})` : '筛选'}
+            </Button>
           </Col>
-          <Col>
-            <Button onClick={handleResetFilters}>重置</Button>
-          </Col>
-        </Row>
-      </Card>
+        ) : null}
+      </Row>
 
-      {/* Tabs */}
+      {isCompactFilter ? (
+        <ResponsiveFilterDrawer
+          title="筛选条件"
+          open={filterDrawerOpen}
+          onClose={closeFilterDrawer}
+          onApply={applyDraftFilters}
+          onReset={resetFilters}
+          activeCount={activeFilterCount}
+        >
+          {filterFields}
+        </ResponsiveFilterDrawer>
+      ) : (
+        <Card style={{ marginBottom: 16 }}>
+          {filterFields}
+        </Card>
+      )}
+
       <Card>
         <Tabs
           activeKey={activeTab}
@@ -453,11 +593,11 @@ export function DataManagementPage() {
               ) : (
                 <Table<NormalizedRecordItem>
                   columns={detailColumns}
-                  dataSource={records}
+                  dataSource={filteredRecords}
                   rowKey="id"
                   size="small"
                   pagination={paginationConfig}
-                  scroll={{ x: 1000 }}
+                  scroll={{ x: 1100 }}
                   expandable={{
                     expandedRowKeys,
                     onExpandedRowsChange: (keys) => setExpandedRowKeys(keys as string[]),
@@ -470,52 +610,50 @@ export function DataManagementPage() {
               key: 'summary',
               label: '全员汇总',
               children: (
-                <>
-                  <Tabs
-                    activeKey={summaryMode}
-                    onChange={handleSummaryModeChange}
-                    size="small"
-                    style={{ marginBottom: 16 }}
-                    items={[
-                      {
-                        key: 'employee',
-                        label: '按员工汇总',
-                        children: loading ? (
-                          <Skeleton active paragraph={{ rows: 8 }} />
-                        ) : !employeeSummaries.length ? (
-                          <Empty description="当前没有可显示的记录。请先上传社保文件或调整筛选条件。" />
-                        ) : (
-                          <Table<EmployeeSummaryItem>
-                            columns={employeeSummaryColumns}
-                            dataSource={employeeSummaries}
-                            rowKey={(item, idx) => `${item.employee_id ?? ''}-${item.person_name ?? ''}-${idx}`}
-                            size="small"
-                            pagination={paginationConfig}
-                            scroll={{ x: 800 }}
-                          />
-                        ),
-                      },
-                      {
-                        key: 'period',
-                        label: '按月份汇总',
-                        children: loading ? (
-                          <Skeleton active paragraph={{ rows: 8 }} />
-                        ) : !periodSummaries.length ? (
-                          <Empty description="当前没有可显示的记录。请先上传社保文件或调整筛选条件。" />
-                        ) : (
-                          <Table<PeriodSummaryItem>
-                            columns={periodSummaryColumns}
-                            dataSource={periodSummaries}
-                            rowKey="billing_period"
-                            size="small"
-                            pagination={paginationConfig}
-                            scroll={{ x: 800 }}
-                          />
-                        ),
-                      },
-                    ]}
-                  />
-                </>
+                <Tabs
+                  activeKey={summaryMode}
+                  onChange={handleSummaryModeChange}
+                  size="small"
+                  style={{ marginBottom: 16 }}
+                  items={[
+                    {
+                      key: 'employee',
+                      label: '按员工汇总',
+                      children: loading ? (
+                        <Skeleton active paragraph={{ rows: 8 }} />
+                      ) : !filteredEmployeeSummaries.length ? (
+                        <Empty description="当前没有可显示的记录。请先上传社保文件或调整筛选条件。" />
+                      ) : (
+                        <Table<EmployeeSummaryItem>
+                          columns={employeeSummaryColumns}
+                          dataSource={filteredEmployeeSummaries}
+                          rowKey={(item, index) => `${item.employee_id ?? ''}-${item.person_name ?? ''}-${index}`}
+                          size="small"
+                          pagination={paginationConfig}
+                          scroll={{ x: 900 }}
+                        />
+                      ),
+                    },
+                    {
+                      key: 'period',
+                      label: '按月份汇总',
+                      children: loading ? (
+                        <Skeleton active paragraph={{ rows: 8 }} />
+                      ) : !filteredPeriodSummaries.length ? (
+                        <Empty description="当前没有可显示的记录。请先上传社保文件或调整筛选条件。" />
+                      ) : (
+                        <Table<PeriodSummaryItem>
+                          columns={periodSummaryColumns}
+                          dataSource={filteredPeriodSummaries}
+                          rowKey="billing_period"
+                          size="small"
+                          pagination={paginationConfig}
+                          scroll={{ x: 900 }}
+                        />
+                      ),
+                    },
+                  ]}
+                />
               ),
             },
           ]}

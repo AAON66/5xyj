@@ -117,7 +117,10 @@ export function attachApiInterceptors(callbacks: ApiInterceptorCallbacks): () =>
         clearAuthSession();
       }
       const normalized = normalizeApiError(error);
-      callbacks.onError?.(normalized);
+      const skipGlobal = axios.isAxiosError(error) && error.config && (error.config as unknown as Record<string, unknown>).skipGlobalError;
+      if (!skipGlobal) {
+        callbacks.onError?.(normalized);
+      }
       return Promise.reject(normalized);
     },
   );

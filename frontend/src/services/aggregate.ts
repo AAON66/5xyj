@@ -33,6 +33,7 @@ export interface AggregateRunResult {
   status: string;
   export_status: string | null;
   blocked_reason: string | null;
+  fusion_messages: string[];
   employee_master: AggregateEmployeeImport | null;
   total_issue_count: number;
   matched_count: number;
@@ -98,6 +99,10 @@ export interface AggregateInput {
   housingFundFiles?: File[];
   employeeMasterFile?: File | null;
   employeeMasterMode?: 'none' | 'upload' | 'existing';
+  burdenFile?: File | null;
+  burdenSourceMode?: 'none' | 'excel' | 'feishu';
+  burdenFeishuConfigId?: string | null;
+  fusionRuleIds?: string[];
   batchName?: string;
 }
 
@@ -110,6 +115,18 @@ function buildAggregateFormData(input: AggregateInput): FormData {
   }
   if (input.employeeMasterMode) {
     formData.append('employee_master_mode', input.employeeMasterMode);
+  }
+  if (input.burdenFile) {
+    formData.append('burden_file', input.burdenFile);
+  }
+  if (input.burdenSourceMode) {
+    formData.append('burden_source_mode', input.burdenSourceMode);
+  }
+  if (input.burdenFeishuConfigId) {
+    formData.append('burden_feishu_config_id', input.burdenFeishuConfigId);
+  }
+  if (input.fusionRuleIds) {
+    formData.append('fusion_rule_ids', JSON.stringify(input.fusionRuleIds));
   }
   if (input.batchName?.trim()) {
     formData.append('batch_name', input.batchName.trim());

@@ -19,6 +19,7 @@ import {
 } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 
+import { useResponsiveViewport } from '../hooks/useResponsiveViewport';
 import { fetchImportBatch, fetchImportBatches, type ImportBatchDetail, type ImportBatchSummary } from '../services/imports';
 import { fetchHeaderMappings, updateHeaderMapping, type HeaderMappingItem, type MappingListParams } from '../services/mappings';
 
@@ -71,6 +72,7 @@ function confidenceRangeToParams(range: ConfidenceRange | undefined): { confiden
 
 export function MappingsPage() {
   const colors = useSemanticColors();
+  const { isMobile } = useResponsiveViewport();
   const [searchParams, setSearchParams] = useSearchParams();
   const [batches, setBatches] = useState<ImportBatchSummary[]>([]);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(searchParams.get('batchId'));
@@ -224,6 +226,8 @@ export function MappingsPage() {
       title: '原始字段名',
       dataIndex: 'raw_header',
       key: 'raw_header',
+      fixed: 'left',
+      width: 220,
       render: (val: string, record: HeaderMappingItem) => (
         <div>
           <Text strong>{val}</Text>
@@ -280,6 +284,7 @@ export function MappingsPage() {
       dataIndex: 'source_file_name',
       key: 'source_file_name',
       ellipsis: true,
+      responsive: ['lg'],
     },
     {
       title: '操作',
@@ -301,7 +306,17 @@ export function MappingsPage() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: isMobile ? 'stretch' : 'center',
+          marginBottom: 16,
+          flexWrap: 'wrap',
+          gap: 12,
+          flexDirection: isMobile ? 'column' : 'row',
+        }}
+      >
         <Title level={4} style={{ margin: 0 }}>映射修正</Title>
         {selectedBatchId && (
           <Link to={`/imports/${selectedBatchId}`}>
@@ -389,13 +404,13 @@ export function MappingsPage() {
         <Col xs={24} md={16}>
           <Card>
             <Row gutter={[16, 16]}>
-              <Col span={8}>
+              <Col xs={24} sm={8}>
                 <Statistic title="当前映射条目" value={summary.total} />
               </Col>
-              <Col span={8}>
+              <Col xs={24} sm={8}>
                 <Statistic title="人工修正条目" value={summary.manual} valueStyle={{ color: colors.BRAND }} />
               </Col>
-              <Col span={8}>
+              <Col xs={24} sm={8}>
                 <Statistic title="仍未识别条目" value={summary.unmapped} valueStyle={{ color: colors.ERROR }} />
               </Col>
             </Row>
@@ -425,6 +440,7 @@ export function MappingsPage() {
             columns={mappingColumns}
             dataSource={visibleMappings}
             rowKey="id"
+            scroll={{ x: 'max-content' }}
             pagination={{ pageSize: 20, showSizeChanger: true }}
           />
         ) : (

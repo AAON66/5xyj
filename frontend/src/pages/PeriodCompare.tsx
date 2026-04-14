@@ -1,7 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSemanticColors } from "../theme/useSemanticColors";
-import { getChartColors } from "../theme/chartColors";
-import { useThemeMode } from "../theme/useThemeMode";
+import { SwapOutlined } from "@ant-design/icons";
 import {
   Alert,
   Button,
@@ -13,22 +10,27 @@ import {
   Select,
   Skeleton,
   Statistic,
+  Switch,
   Table,
-  Tag,
   Typography,
 } from "antd";
-import { SwapOutlined } from "@ant-design/icons";
 import type { ColumnsType } from "antd/es/table";
+import { useCallback, useEffect, useMemo, useState } from "react";
+
+import CompareWorkbookDiff from "../components/CompareWorkbookDiff";
+import { useResponsiveViewport } from "../hooks/useResponsiveViewport";
 import { normalizeApiError } from "../services/api";
 import {
-  type CompareRow,
+  fetchPeriodCompare,
   type PeriodCompareResult,
   type PeriodCompareSummaryGroup,
-  fetchPeriodCompare,
 } from "../services/compare";
 import { fetchFilterOptions, type FilterOptions } from "../services/dataManagement";
+import { useSemanticColors } from "../theme/useSemanticColors";
 
 const { Title, Text } = Typography;
+
+const PAGE_SIZE = 40;
 
 const FIELD_LABELS: Record<string, string> = {
   person_name: "姓名",
@@ -59,54 +61,53 @@ const FIELD_LABELS: Record<string, string> = {
   housing_fund_total: "公积金合计",
 };
 
-function fieldLabel(field: string): string {
-  return FIELD_LABELS[field] ?? field;
-}
-
-function diffCellStyle(
-  leftVal: number | null | undefined,
-  rightVal: number | null | undefined,
-  successColor: string,
-  errorColor: string,
-): React.CSSProperties {
-  const l = typeof leftVal === "number" ? leftVal : null;
-  const r = typeof rightVal === "number" ? rightVal : null;
-  if (l === null || r === null || l === r) return {};
-  if (r > l) return { color: successColor };
-  return { color: errorColor };
-}
-
-function rowBackground(status: string, brandBg: string, errorBg: string): string | undefined {
-  if (status === "right_only") return brandBg;
-  if (status === "left_only") return errorBg;
-  return undefined;
-}
-
 interface SummaryRow extends PeriodCompareSummaryGroup {
   key: string;
 }
 
+interface PeriodCompareQuery {
+  leftPeriod: string;
+  rightPeriod: string;
+  region?: string;
+  companyName?: string;
+  searchText?: string;
+  diffOnly: boolean;
+}
+
+function fieldLabel(field: string): string {
+  return FIELD_LABELS[field] ?? field;
+}
+
 export default function PeriodComparePage() {
   const colors = useSemanticColors();
-  const { isDark } = useThemeMode();
-  const chartCols = useMemo(() => getChartColors(isDark), [isDark]);
+  const { isMobile, isTablet } = useResponsiveViewport();
+  const isCompact = isMobile || isTablet;
+
   const [filterOptions, setFilterOptions] = useState<FilterOptions | null>(null);
   const [leftPeriod, setLeftPeriod] = useState<string | undefined>();
   const [rightPeriod, setRightPeriod] = useState<string | undefined>();
   const [region, setRegion] = useState<string | undefined>();
   const [companyName, setCompanyName] = useState<string | undefined>();
   const [searchText, setSearchText] = useState("");
+  const [diffOnly, setDiffOnly] = useState(true);
+  const [query, setQuery] = useState<PeriodCompareQuery | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<PeriodCompareResult | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 20;
 
   useEffect(() => {
     let active = true;
     fetchFilterOptions()
-      .then((opts) => {
-        if (active) setFilterOptions(opts);
+      .then((options) => {
+        if (active) {
+          setFilterOptions(options);
+          const sortedPeriods = [...(options.periods ?? [])].sort();
+          if (sortedPeriods.length >= 2) {
+            setLeftPeriod((current) => current ?? sortedPeriods[sortedPeriods.length - 2]);
+            setRightPeriod((current) => current ?? sortedPeriods[sortedPeriods.length - 1]);
+          }
+        }
       })
       .catch(() => {});
     return () => {
@@ -114,18 +115,17 @@ export default function PeriodComparePage() {
     };
   }, []);
 
-  const handleCompare = useCallback(async () => {
-    if (!leftPeriod || !rightPeriod) return;
+  const loadCompare = useCallback(async (nextQuery: PeriodCompareQuery, nextPage: number) => {
     setLoading(true);
     setError(null);
-    setData(null);
-    setCurrentPage(1);
     try {
-      const result = await fetchPeriodCompare(leftPeriod, rightPeriod, {
-        region,
-        companyName,
-        page: 0,
-        pageSize: 500,
+      const result = await fetchPeriodCompare(nextQuery.leftPeriod, nextQuery.rightPeriod, {
+        region: nextQuery.region,
+        companyName: nextQuery.companyName,
+        searchText: nextQuery.searchText,
+        diffOnly: nextQuery.diffOnly,
+        page: nextPage - 1,
+        pageSize: PAGE_SIZE,
       });
       setData(result);
     } catch (err) {
@@ -133,192 +133,87 @@ export default function PeriodComparePage() {
     } finally {
       setLoading(false);
     }
-  }, [leftPeriod, rightPeriod, region, companyName]);
+  }, []);
 
-  const summaryRows: SummaryRow[] = useMemo(() => {
-    if (!data) return [];
-    return data.summary_groups.map((g, i) => ({
-      ...g,
-      key: `${g.company_name ?? "unknown"}-${g.region ?? "unknown"}-${i}`,
-    }));
-  }, [data]);
+  const buildQuery = useCallback(
+    (): PeriodCompareQuery | null => {
+      if (!leftPeriod || !rightPeriod) {
+        return null;
+      }
+      return {
+        leftPeriod,
+        rightPeriod,
+        region,
+        companyName,
+        searchText: searchText.trim() || undefined,
+        diffOnly,
+      };
+    },
+    [companyName, diffOnly, leftPeriod, region, rightPeriod, searchText],
+  );
 
-  const filteredDetailRows = useMemo(() => {
-    if (!data) return [];
-    const keyword = searchText.trim().toLowerCase();
-    if (!keyword) return data.rows;
-    return data.rows.filter((row) => {
-      const vals = [
-        row.compare_key,
-        row.left.values.person_name,
-        row.right.values.person_name,
-        row.left.values.employee_id,
-        row.right.values.employee_id,
-        row.left.values.id_number,
-        row.right.values.id_number,
-      ];
-      return vals.some(
-        (v) => v !== null && v !== undefined && String(v).toLowerCase().includes(keyword),
-      );
-    });
-  }, [data, searchText]);
+  const handleRunCompare = useCallback(async () => {
+    const nextQuery = buildQuery();
+    if (!nextQuery) {
+      return;
+    }
+    setQuery(nextQuery);
+    setCurrentPage(1);
+    await loadCompare(nextQuery, 1);
+  }, [buildQuery, loadCompare]);
+
+  useEffect(() => {
+    if (!query || currentPage === 1) {
+      return;
+    }
+    void loadCompare(query, currentPage);
+  }, [currentPage, loadCompare, query]);
+
+  const summaryRows: SummaryRow[] = useMemo(
+    () =>
+      (data?.summary_groups ?? []).map((group, index) => ({
+        ...group,
+        key: `${group.company_name ?? "unknown"}-${group.region ?? "unknown"}-${index}`,
+      })),
+    [data],
+  );
 
   const summaryColumns: ColumnsType<SummaryRow> = [
-    { title: "公司", dataIndex: "company_name", key: "company_name", render: (v: string | null) => v ?? "-" },
-    { title: "地区", dataIndex: "region", key: "region", render: (v: string | null) => v ?? "-" },
-    { title: "总数", dataIndex: "total_count", key: "total_count" },
     {
-      title: "有差异",
-      dataIndex: "changed_count",
-      key: "changed_count",
-      render: (v: number) => <span style={{ color: v > 0 ? chartCols.warning : undefined }}>{v}</span>,
+      title: "公司",
+      dataIndex: "company_name",
+      key: "company_name",
+      width: 180,
+      render: (value: string | null) => value ?? "-",
     },
     {
-      title: "仅左侧",
-      dataIndex: "left_only_count",
-      key: "left_only_count",
-      render: (v: number) => <span style={{ color: v > 0 ? chartCols.error : undefined }}>{v}</span>,
+      title: "地区",
+      dataIndex: "region",
+      key: "region",
+      width: 120,
+      render: (value: string | null) => value ?? "-",
     },
-    {
-      title: "仅右侧",
-      dataIndex: "right_only_count",
-      key: "right_only_count",
-      render: (v: number) => <span style={{ color: v > 0 ? chartCols.brand : undefined }}>{v}</span>,
-    },
-    { title: "一致", dataIndex: "same_count", key: "same_count" },
+    { title: "总数", dataIndex: "total_count", key: "total_count", width: 90 },
+    { title: "有差异", dataIndex: "changed_count", key: "changed_count", width: 90 },
+    { title: "仅左侧", dataIndex: "left_only_count", key: "left_only_count", width: 90 },
+    { title: "仅右侧", dataIndex: "right_only_count", key: "right_only_count", width: 90 },
+    { title: "一致", dataIndex: "same_count", key: "same_count", width: 90 },
   ];
 
-  function buildDetailColumns(fields: string[]): ColumnsType<CompareRow> {
-    const cols: ColumnsType<CompareRow> = [
-      {
-        title: "姓名",
-        key: "person_name",
-        width: 100,
-        render: (_: unknown, row: CompareRow) =>
-          String(row.left.values.person_name ?? row.right.values.person_name ?? "-"),
-      },
-      {
-        title: "工号",
-        key: "employee_id",
-        width: 100,
-        render: (_: unknown, row: CompareRow) =>
-          String(row.left.values.employee_id ?? row.right.values.employee_id ?? "-"),
-      },
-      {
-        title: "状态",
-        key: "diff_status",
-        width: 80,
-        render: (_: unknown, row: CompareRow) => {
-          const m: Record<string, { color: string; label: string }> = {
-            same: { color: "default", label: "一致" },
-            changed: { color: "warning", label: "有差异" },
-            left_only: { color: "error", label: "仅左侧" },
-            right_only: { color: "blue", label: "仅右侧" },
-          };
-          const info = m[row.diff_status] ?? { color: "default", label: row.diff_status };
-          return <Tag color={info.color}>{info.label}</Tag>;
-        },
-      },
-    ];
-
-    const diffFields = fields.filter(
-      (f) =>
-        !["person_name", "employee_id", "id_number", "company_name", "region", "billing_period", "period_start", "period_end"].includes(f),
-    );
-
-    for (const field of diffFields) {
-      cols.push({
-        title: fieldLabel(field),
-        key: field,
-        width: 140,
-        render: (_: unknown, row: CompareRow) => {
-          const leftVal = row.left.values[field];
-          const rightVal = row.right.values[field];
-          const isChanged = row.different_fields.includes(field);
-          const cellBg = isChanged ? colors.HIGHLIGHT_BG : undefined;
-          const style = diffCellStyle(
-            leftVal as number | null | undefined,
-            rightVal as number | null | undefined,
-            chartCols.success,
-            chartCols.error,
-          );
-          const leftStr = leftVal !== null && leftVal !== undefined ? String(leftVal) : "-";
-          const rightStr = rightVal !== null && rightVal !== undefined ? String(rightVal) : "-";
-          return (
-            <div style={{ background: cellBg, padding: "4px 8px", borderRadius: 4 }}>
-              <div>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  左:
-                </Text>{" "}
-                {leftStr}
-              </div>
-              <div style={style}>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  右:
-                </Text>{" "}
-                {rightStr}
-              </div>
-            </div>
-          );
-        },
-      });
-    }
-    return cols;
-  }
-
-  const expandedRowRender = (record: SummaryRow) => {
-    if (!data) return null;
-    const rows = filteredDetailRows.filter((row) => {
-      const rowCompany = String(row.left.values.company_name ?? row.right.values.company_name ?? "");
-      const rowRegion = String(row.left.values.region ?? row.right.values.region ?? "");
-      return (
-        (record.company_name === null || rowCompany === record.company_name) &&
-        (record.region === null || rowRegion === record.region)
-      );
-    });
-    const detailCols = buildDetailColumns(data.fields);
-    return (
-      <Table
-        columns={detailCols}
-        dataSource={rows}
-        rowKey="compare_key"
-        size="small"
-        pagination={{ pageSize, current: currentPage, onChange: setCurrentPage }}
-        scroll={{ x: "max-content" }}
-        rowClassName={(row) => ""}
-        onRow={(row) => ({
-          style: { background: rowBackground(row.diff_status, colors.HIGHLIGHT_BG_PRIMARY, colors.HIGHLIGHT_BG_ERROR) },
-        })}
-      />
-    );
-  };
-
   const periodOptions = useMemo(
-    () =>
-      (filterOptions?.periods ?? []).map((p) => ({
-        value: p,
-        label: p,
-      })),
+    () => (filterOptions?.periods ?? []).map((period) => ({ value: period, label: period })),
     [filterOptions],
   );
-
   const regionOptions = useMemo(
-    () =>
-      (filterOptions?.regions ?? []).map((r) => ({
-        value: r,
-        label: r,
-      })),
+    () => (filterOptions?.regions ?? []).map((item) => ({ value: item, label: item })),
+    [filterOptions],
+  );
+  const companyOptions = useMemo(
+    () => (filterOptions?.companies ?? []).map((item) => ({ value: item, label: item })),
     [filterOptions],
   );
 
-  const companyOptions = useMemo(
-    () =>
-      (filterOptions?.companies ?? []).map((c) => ({
-        value: c,
-        label: c,
-      })),
-    [filterOptions],
-  );
+  const canRunCompare = Boolean(leftPeriod && rightPeriod);
 
   return (
     <div>
@@ -326,7 +221,7 @@ export default function PeriodComparePage() {
         跨期对比
       </Title>
 
-      {error && (
+      {error ? (
         <Alert
           type="error"
           message="对比失败"
@@ -335,16 +230,16 @@ export default function PeriodComparePage() {
           onClose={() => setError(null)}
           style={{ marginBottom: 16 }}
         />
-      )}
+      ) : null}
 
-      {/* Filter row */}
       <Card style={{ marginBottom: 16 }}>
         <Row gutter={[12, 12]} align="middle" wrap>
-          <Col>
+          <Col xs={24} sm={12} md="auto">
             <Text type="secondary" style={{ display: "block", marginBottom: 4 }}>
               左侧账期（基线）
             </Text>
             <Select
+              data-testid="period-compare-left-period"
               style={{ width: 180 }}
               placeholder="选择左侧账期"
               value={leftPeriod}
@@ -353,14 +248,15 @@ export default function PeriodComparePage() {
               allowClear
             />
           </Col>
-          <Col style={{ display: "flex", alignItems: "flex-end", paddingBottom: 4 }}>
+          <Col xs={24} sm="auto" style={{ display: "flex", alignItems: "flex-end", paddingBottom: 4 }}>
             <SwapOutlined style={{ fontSize: 18, color: colors.TEXT_TERTIARY }} />
           </Col>
-          <Col>
+          <Col xs={24} sm={12} md="auto">
             <Text type="secondary" style={{ display: "block", marginBottom: 4 }}>
               右侧账期（对比）
             </Text>
             <Select
+              data-testid="period-compare-right-period"
               style={{ width: 180 }}
               placeholder="选择右侧账期"
               value={rightPeriod}
@@ -369,7 +265,7 @@ export default function PeriodComparePage() {
               allowClear
             />
           </Col>
-          <Col>
+          <Col xs={24} sm={12} md="auto">
             <Text type="secondary" style={{ display: "block", marginBottom: 4 }}>
               地区
             </Text>
@@ -382,7 +278,7 @@ export default function PeriodComparePage() {
               allowClear
             />
           </Col>
-          <Col>
+          <Col xs={24} sm={12} md="auto">
             <Text type="secondary" style={{ display: "block", marginBottom: 4 }}>
               公司
             </Text>
@@ -395,98 +291,138 @@ export default function PeriodComparePage() {
               allowClear
             />
           </Col>
-          <Col style={{ display: "flex", alignItems: "flex-end" }}>
-            <Button
-              type="primary"
-              onClick={() => void handleCompare()}
-              loading={loading}
-              disabled={!leftPeriod || !rightPeriod}
-            >
+          <Col xs={24} md="auto" flex="auto">
+            <Text type="secondary" style={{ display: "block", marginBottom: 4 }}>
+              搜索
+            </Text>
+            <Input.Search
+              value={searchText}
+              onChange={(event) => setSearchText(event.target.value)}
+              onSearch={() => void handleRunCompare()}
+              placeholder="姓名、工号、证件号或 compare key"
+              allowClear
+            />
+          </Col>
+          <Col xs={24} md="auto">
+            <div style={{ display: "flex", alignItems: "center", gap: 8, minHeight: 32 }}>
+              <Text type="secondary">仅看差异</Text>
+              <Switch
+                checked={diffOnly}
+                onChange={(checked) => {
+                  setDiffOnly(checked);
+                  if (query) {
+                    const nextQuery = {
+                      ...query,
+                      diffOnly: checked,
+                      searchText: searchText.trim() || undefined,
+                    };
+                    setQuery(nextQuery);
+                    setCurrentPage(1);
+                    void loadCompare(nextQuery, 1);
+                  }
+                }}
+              />
+            </div>
+          </Col>
+          <Col xs={24} md="auto">
+            <Button type="primary" onClick={() => void handleRunCompare()} disabled={!canRunCompare} loading={loading}>
               运行对比
             </Button>
           </Col>
         </Row>
       </Card>
 
-      {/* Summary statistics */}
-      {data && (
-        <Card style={{ marginBottom: 16 }}>
-          <Row gutter={[24, 16]}>
-            <Col>
-              <Statistic title="总记录" value={data.total_row_count} />
-            </Col>
-            <Col>
-              <Statistic
-                title="有差异"
-                value={data.changed_row_count}
-                valueStyle={{ color: colors.WARNING }}
-              />
-            </Col>
-            <Col>
-              <Statistic
-                title="仅左侧"
-                value={data.left_only_count}
-                valueStyle={{ color: colors.ERROR }}
-              />
-            </Col>
-            <Col>
-              <Statistic
-                title="仅右侧"
-                value={data.right_only_count}
-                valueStyle={{ color: colors.BRAND }}
-              />
-            </Col>
-            <Col>
-              <Statistic title="一致" value={data.same_row_count} />
-            </Col>
-          </Row>
-        </Card>
-      )}
-
-      {/* Search */}
-      {data && (
-        <Card style={{ marginBottom: 16 }}>
-          <Input.Search
-            placeholder="按姓名、工号、证件号搜索"
-            value={searchText}
-            onChange={(e) => setSearchText(e.target.value)}
-            style={{ maxWidth: 400 }}
-            allowClear
-          />
-        </Card>
-      )}
-
-      {/* Results */}
-      {loading && (
+      {loading && !data ? (
         <Card>
-          <Skeleton active paragraph={{ rows: 6 }} />
+          <Skeleton active paragraph={{ rows: 8 }} />
         </Card>
-      )}
+      ) : null}
 
-      {!loading && !data && (
+      {!loading && !data ? (
         <Card>
-          <Empty description="选择两个账期，点击「运行对比」查看数据差异。" />
+          <Empty description="选择两个账期并点击“运行对比”，查看左右账期的 Excel diff 结果。" />
         </Card>
-      )}
+      ) : null}
 
-      {!loading && data && data.total_row_count === 0 && (
-        <Card>
-          <Empty description="所选账期之间没有差异数据。" />
-        </Card>
-      )}
+      {data ? (
+        <>
+          <Card style={{ marginBottom: 16 }}>
+            <Row gutter={[24, 16]}>
+              <Col xs={24} sm={12} md="auto">
+                <Statistic title="总记录" value={data.total_row_count} />
+              </Col>
+              <Col xs={24} sm={12} md="auto">
+                <Statistic title="有差异" value={data.changed_row_count} valueStyle={{ color: colors.WARNING }} />
+              </Col>
+              <Col xs={24} sm={12} md="auto">
+                <Statistic title="仅左侧" value={data.left_only_count} valueStyle={{ color: colors.ERROR }} />
+              </Col>
+              <Col xs={24} sm={12} md="auto">
+                <Statistic title="仅右侧" value={data.right_only_count} valueStyle={{ color: colors.BRAND }} />
+              </Col>
+              <Col xs={24} sm={12} md="auto">
+                <Statistic title="一致" value={data.same_row_count} />
+              </Col>
+            </Row>
+          </Card>
 
-      {!loading && data && data.total_row_count > 0 && (
-        <Card>
-          <Table
-            columns={summaryColumns}
-            dataSource={summaryRows}
-            rowKey="key"
-            expandable={{ expandedRowRender }}
-            pagination={false}
-            size="middle"
-          />
-        </Card>
-      )}
+          <Card style={{ marginBottom: 16 }}>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: isCompact ? "stretch" : "center",
+                flexDirection: isCompact ? "column" : "row",
+                gap: 12,
+                marginBottom: 12,
+              }}
+            >
+              <div>
+                <Text strong>差异概览</Text>
+                <Text type="secondary" style={{ marginLeft: 8 }}>
+                  当前第 {data.page + 1} / {data.total_pages} 页，返回 {data.returned_row_count} 行
+                </Text>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                <Button
+                  size="small"
+                  disabled={loading || currentPage <= 1}
+                  onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                >
+                  上一页
+                </Button>
+                <Button
+                  size="small"
+                  disabled={loading || currentPage >= data.total_pages}
+                  onClick={() => setCurrentPage((page) => Math.min(data.total_pages, page + 1))}
+                >
+                  下一页
+                </Button>
+              </div>
+            </div>
+
+            <Table<SummaryRow>
+              size="small"
+              columns={summaryColumns}
+              dataSource={summaryRows}
+              rowKey="key"
+              pagination={false}
+              scroll={{ x: 760 }}
+            />
+          </Card>
+
+          <Card>
+            <CompareWorkbookDiff
+              fields={data.fields}
+              rows={data.rows}
+              leftLabel={`${data.left_period} · 基线`}
+              rightLabel={`${data.right_period} · 对比`}
+              emptyDescription="当前页没有可展示的差异记录。"
+              fieldLabel={fieldLabel}
+            />
+          </Card>
+        </>
+      ) : null}
     </div>
   );
 }

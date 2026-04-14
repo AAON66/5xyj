@@ -91,13 +91,14 @@ def test_standardize_workbook_on_real_hangzhou_sample() -> None:
     assert any(row.reason == 'summary_total' for row in result.filtered_rows)
     assert first.values['person_name']
     assert first.values['id_number']
+    assert first.values['billing_period'] == '2026-02'
     assert first.values['pension_company'] is not None
     assert first.values['pension_personal'] is not None
     assert first.values['medical_company'] is not None
     assert first.values['medical_personal'] is not None
     assert first.values['unemployment_company'] is not None
     assert first.values['injury_company'] is not None
-    assert '\u5408\u8ba1' in first.unmapped_values
+    assert '\u5408\u8ba1' in first.raw_values
 
 
 def test_standardize_workbook_on_real_xiamen_sample() -> None:

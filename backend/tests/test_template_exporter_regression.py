@@ -9,6 +9,7 @@ from openpyxl import load_workbook
 
 from backend.app.core.config import ROOT_DIR
 from backend.app.exporters import export_dual_templates
+from backend.app.exporters.salary_exporter import SALARY_HEADERS
 from backend.app.services import build_normalized_models, standardize_workbook
 from backend.tests.support.export_fixtures import require_sample_workbook, resolve_required_export_templates
 
@@ -89,7 +90,7 @@ def test_export_dual_templates_on_cross_region_real_samples(case: ExportRegressi
     salary_sheet = salary_wb[salary_wb.sheetnames[0]]
     assert salary_sheet["A2"].value == first.person_name
     assert salary_sheet["B2"].value == first.employee_id
-    assert float(salary_sheet["Q2"].value) >= 0.0
+    assert salary_sheet.max_column == len(SALARY_HEADERS)
     salary_wb.close()
 
     tool_wb = load_workbook(tool_artifact.file_path, data_only=False)

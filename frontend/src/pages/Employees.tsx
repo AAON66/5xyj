@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Button,
@@ -20,9 +20,11 @@ import {
   Typography,
   Upload,
 } from 'antd';
-import { UploadOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
+import { UploadOutlined, PlusOutlined, DeleteOutlined, FilterOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 
+import { ResponsiveFilterDrawer } from '../components/ResponsiveFilterDrawer';
+import { useResponsiveViewport } from '../hooks/useResponsiveViewport';
 import { normalizeApiError } from '../services/api';
 import { useCardStatusColors } from '../theme/useCardStatusColors';
 import {
@@ -63,6 +65,13 @@ const EMPTY_FORM: EmployeeFormState = {
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
+interface EmployeeFilterState {
+  query: string;
+  activeOnly: boolean;
+  region: string;
+  company: string;
+}
+
 function formatDateTime(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
@@ -95,10 +104,11 @@ function toFormState(employee: EmployeeMasterItem | null): EmployeeFormState {
 
 export function EmployeesPage() {
   const cardColors = useCardStatusColors();
+  const { isMobile, isTablet } = useResponsiveViewport();
+  const isCompactFilter = isMobile || isTablet;
   const [employees, setEmployees] = useState<EmployeeMasterItem[]>([]);
   const [totalEmployees, setTotalEmployees] = useState(0);
   const [query, setQuery] = useState('');
-  const [draftQuery, setDraftQuery] = useState('');
   const [activeOnly, setActiveOnly] = useState(false);
   const [pageSize, setPageSize] = useState<number>(10);
   const [pageIndex, setPageIndex] = useState(0);
@@ -122,13 +132,31 @@ export function EmployeesPage() {
   const [selectedRegion, setSelectedRegion] = useState<string>('');
   const [selectedCompany, setSelectedCompany] = useState<string>('');
   const [drawerVisible, setDrawerVisible] = useState(false);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
+  const [draftFilters, setDraftFilters] = useState<EmployeeFilterState>({
+    query: '',
+    activeOnly: false,
+    region: '',
+    company: '',
+  });
 
   useEffect(() => {
     fetchRegions().then(setRegions).catch(() => {});
     fetchCompanies().then(setCompanies).catch(() => {});
   }, []);
 
-  useEffect(() => { setPageIndex(0); }, [selectedRegion, selectedCompany]);
+  useEffect(() => {
+    setDraftFilters({
+      query,
+      activeOnly,
+      region: selectedRegion,
+      company: selectedCompany,
+    });
+  }, [query, activeOnly, selectedRegion, selectedCompany]);
+
+  useEffect(() => {
+    setPageIndex(0);
+  }, [selectedRegion, selectedCompany]);
 
   async function loadEmployees(
     nextQuery = query,
@@ -136,14 +164,16 @@ export function EmployeesPage() {
     nextPageSize = pageSize,
     nextPageIndex = pageIndex,
     preferredEmployeeId?: string | null,
+    nextRegion = selectedRegion,
+    nextCompany = selectedCompany,
   ) {
     const result = await fetchEmployeeMasters({
       query: nextQuery,
       activeOnly: nextActiveOnly,
       limit: nextPageSize,
       offset: nextPageIndex * nextPageSize,
-      region: selectedRegion || undefined,
-      companyName: selectedCompany || undefined,
+      region: nextRegion || undefined,
+      companyName: nextCompany || undefined,
     });
     setEmployees(result.items);
     setTotalEmployees(result.total);
@@ -260,7 +290,15 @@ export function EmployeesPage() {
       setSelectedFile(null);
       setPageIndex(0);
       fetchCompanies().then(setCompanies).catch(() => {});
-      await loadEmployees(query, activeOnly, pageSize, 0, result.items[0]?.id ?? selectedEmployeeId);
+      await loadEmployees(
+        query,
+        activeOnly,
+        pageSize,
+        0,
+        result.items[0]?.id ?? selectedEmployeeId,
+        selectedRegion,
+        selectedCompany,
+      );
     } catch (error) {
       message.error(normalizeApiError(error).message || '员工主档导入失败');
     } finally {
@@ -343,11 +381,81 @@ export function EmployeesPage() {
     });
   }
 
-  function handleSearchSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function countActiveFilters(filters: EmployeeFilterState) {
+    let count = 0;
+    if (filters.query.trim()) count += 1;
+    if (filters.activeOnly) count += 1;
+    if (filters.region) count += 1;
+    if (filters.company) count += 1;
+    return count;
+  }
+
+  function closeFilterDrawer() {
+    setDraftFilters({
+      query,
+      activeOnly,
+      region: selectedRegion,
+      company: selectedCompany,
+    });
+    setFilterDrawerOpen(false);
+  }
+
+  function applyDraftFilters() {
+    const normalizedQuery = draftFilters.query.trim();
+    const filtersChanged = (
+      normalizedQuery !== query ||
+      draftFilters.activeOnly !== activeOnly ||
+      draftFilters.region !== selectedRegion ||
+      draftFilters.company !== selectedCompany ||
+      pageIndex !== 0
+    );
+
     setLoading(true);
+    setFilterDrawerOpen(false);
+
+    if (!filtersChanged) {
+      void loadEmployees(
+        normalizedQuery,
+        draftFilters.activeOnly,
+        pageSize,
+        0,
+        selectedEmployeeId,
+        draftFilters.region,
+        draftFilters.company,
+      ).finally(() => setLoading(false));
+      return;
+    }
+
     setPageIndex(0);
-    setQuery(draftQuery.trim());
+    setQuery(normalizedQuery);
+    setActiveOnly(draftFilters.activeOnly);
+    setSelectedRegion(draftFilters.region);
+    setSelectedCompany(draftFilters.company);
+  }
+
+  function resetFilters() {
+    const nextFilters: EmployeeFilterState = {
+      query: '',
+      activeOnly: false,
+      region: '',
+      company: '',
+    };
+    setDraftFilters(nextFilters);
+
+    const filtersChanged = query || activeOnly || selectedRegion || selectedCompany || pageIndex !== 0;
+    setLoading(true);
+    setFilterDrawerOpen(false);
+
+    if (!filtersChanged) {
+      void loadEmployees('', false, pageSize, 0, selectedEmployeeId, '', '').finally(() => setLoading(false));
+      return;
+    }
+
+    setPageIndex(0);
+    setQuery('');
+    setActiveOnly(false);
+    setSelectedRegion('');
+    setSelectedCompany('');
   }
 
   function openDrawer(employeeId: string) {
@@ -355,7 +463,7 @@ export function EmployeesPage() {
     setDrawerVisible(true);
   }
 
-  const columns: ColumnsType<EmployeeMasterItem> = useMemo(() => [
+  const columns: ColumnsType<EmployeeMasterItem> = [
     { title: '工号', dataIndex: 'employee_id', key: 'employee_id', fixed: 'left' as const, width: 100 },
     { title: '姓名', dataIndex: 'person_name', key: 'person_name', width: 80 },
     { title: '公司', dataIndex: 'company_name', key: 'company_name', width: 140, ellipsis: true, render: (v: string | null) => v ?? '-' },
@@ -381,16 +489,77 @@ export function EmployeesPage() {
         </Space>
       ),
     },
-  ], [employees, pageIndex, query, activeOnly, pageSize, selectedEmployeeId]);
+  ];
+
+  const activeFilterCount = countActiveFilters({
+    query,
+    activeOnly,
+    region: selectedRegion,
+    company: selectedCompany,
+  });
+
+  const filterFields = (
+    <Row gutter={[16, 16]} align="middle">
+      <Col xs={24} sm={12} md={8}>
+        <Input.Search
+          placeholder="工号 / 姓名 / 身份证号 / 公司"
+          value={draftFilters.query}
+          onChange={(event) => setDraftFilters((current) => ({ ...current, query: event.target.value }))}
+          onSearch={applyDraftFilters}
+          allowClear
+        />
+      </Col>
+      <Col xs={24} sm={12} md={5}>
+        <Select
+          placeholder="筛选范围"
+          value={draftFilters.activeOnly ? 'active' : 'all'}
+          onChange={(value) => setDraftFilters((current) => ({ ...current, activeOnly: value === 'active' }))}
+          style={{ width: '100%' }}
+          options={[
+            { label: '全部主档', value: 'all' },
+            { label: '仅在职主档', value: 'active' },
+          ]}
+        />
+      </Col>
+      <Col xs={24} sm={12} md={5}>
+        <Select
+          placeholder="全部地区"
+          allowClear
+          value={draftFilters.region || undefined}
+          onChange={(value) => setDraftFilters((current) => ({ ...current, region: value ?? '' }))}
+          style={{ width: '100%' }}
+          options={regions.map((region) => ({ label: region, value: region }))}
+        />
+      </Col>
+      <Col xs={24} sm={12} md={6}>
+        <Select
+          placeholder="全部公司"
+          allowClear
+          value={draftFilters.company || undefined}
+          onChange={(value) => setDraftFilters((current) => ({ ...current, company: value ?? '' }))}
+          style={{ width: '100%' }}
+          options={companies.map((company) => ({ label: company, value: company }))}
+        />
+      </Col>
+      {isCompactFilter ? null : (
+        <Col xs={24}>
+          <Space wrap>
+            <Button type="primary" onClick={applyDraftFilters}>搜索主档</Button>
+            <Button onClick={resetFilters}>重置</Button>
+          </Space>
+        </Col>
+      )}
+    </Row>
+  );
 
   return (
     <div>
-      <Row justify="space-between" align="middle" style={{ marginBottom: 16 }}>
-        <Col>
+      <Row justify="space-between" align="top" gutter={[12, 12]} style={{ marginBottom: 16 }}>
+        <Col flex="1 1 240px">
           <Title level={4} style={{ margin: 0 }}>员工主档</Title>
         </Col>
-        <Col>
-          <Space>
+        <Col flex="0 1 auto">
+          <Space wrap size={[8, 8]}>
             <Upload
               accept=".csv,.xlsx"
               beforeUpload={(file) => { setSelectedFile(file); return false; }}
@@ -409,6 +578,11 @@ export function EmployeesPage() {
             <Link to="/employees/new">
               <Button icon={<PlusOutlined />}>新增员工主档</Button>
             </Link>
+            {isCompactFilter ? (
+              <Button icon={<FilterOutlined />} onClick={() => setFilterDrawerOpen(true)}>
+                {activeFilterCount > 0 ? `筛选 (${activeFilterCount})` : '筛选'}
+              </Button>
+            ) : null}
           </Space>
         </Col>
       </Row>
@@ -416,11 +590,11 @@ export function EmployeesPage() {
       {/* Import result */}
       {importResult && (
         <Card style={{ marginBottom: 16 }}>
-          <Row gutter={16}>
-            <Col span={6}><Statistic title="总行数" value={importResult.total_rows} /></Col>
-            <Col span={6}><Statistic title="新增" value={importResult.created_count} /></Col>
-            <Col span={6}><Statistic title="更新" value={importResult.updated_count} /></Col>
-            <Col span={6}><Statistic title="失败" value={importResult.skipped_count} /></Col>
+          <Row gutter={[16, 16]}>
+            <Col xs={24} sm={12} lg={6}><Statistic title="总行数" value={importResult.total_rows} /></Col>
+            <Col xs={24} sm={12} lg={6}><Statistic title="新增" value={importResult.created_count} /></Col>
+            <Col xs={24} sm={12} lg={6}><Statistic title="更新" value={importResult.updated_count} /></Col>
+            <Col xs={24} sm={12} lg={6}><Statistic title="失败" value={importResult.skipped_count} /></Col>
           </Row>
           {importResult.errors.length > 0 && (
             <div style={{ marginTop: 12 }}>
@@ -434,63 +608,29 @@ export function EmployeesPage() {
 
       {pageError && <Card style={{ marginBottom: 16, borderColor: cardColors.errorBorder }}><Typography.Text type="danger">{pageError}</Typography.Text></Card>}
 
-      {/* Filter bar */}
-      <Card style={{ marginBottom: 16 }}>
-        <form onSubmit={handleSearchSubmit}>
-          <Row gutter={[16, 16]} align="middle">
-            <Col xs={24} sm={12} md={6}>
-              <Input
-                placeholder="工号 / 姓名 / 身份证号 / 公司"
-                value={draftQuery}
-                onChange={(e) => setDraftQuery(e.target.value)}
-                allowClear
-              />
-            </Col>
-            <Col xs={12} sm={6} md={4}>
-              <Select
-                placeholder="筛选范围"
-                value={activeOnly ? 'active' : 'all'}
-                onChange={(v) => { setLoading(true); setPageIndex(0); setActiveOnly(v === 'active'); }}
-                style={{ width: '100%' }}
-                options={[
-                  { label: '全部主档', value: 'all' },
-                  { label: '仅在职主档', value: 'active' },
-                ]}
-              />
-            </Col>
-            <Col xs={12} sm={6} md={4}>
-              <Select
-                placeholder="全部地区"
-                allowClear
-                value={selectedRegion || undefined}
-                onChange={(v) => { setLoading(true); setSelectedRegion(v ?? ''); }}
-                style={{ width: '100%' }}
-                options={regions.map((r) => ({ label: r, value: r }))}
-              />
-            </Col>
-            <Col xs={12} sm={6} md={4}>
-              <Select
-                placeholder="全部公司"
-                allowClear
-                value={selectedCompany || undefined}
-                onChange={(v) => { setLoading(true); setSelectedCompany(v ?? ''); }}
-                style={{ width: '100%' }}
-                options={companies.map((c) => ({ label: c, value: c }))}
-              />
-            </Col>
-            <Col>
-              <Button type="primary" htmlType="submit">搜索主档</Button>
-            </Col>
-          </Row>
-        </form>
-      </Card>
+      {isCompactFilter ? (
+        <ResponsiveFilterDrawer
+          title="筛选员工主档"
+          open={filterDrawerOpen}
+          onClose={closeFilterDrawer}
+          onApply={applyDraftFilters}
+          onReset={resetFilters}
+          activeCount={activeFilterCount}
+        >
+          {filterFields}
+        </ResponsiveFilterDrawer>
+      ) : (
+        <Card style={{ marginBottom: 16 }}>
+          {filterFields}
+        </Card>
+      )}
 
       {/* Summary stats */}
-      <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={6}><Card><Statistic title="筛选结果总数" value={summary.total} /></Card></Col>
-        <Col span={6}><Card><Statistic title="当前页展示" value={summary.visible} /></Card></Col>
-        <Col span={6}><Card><Statistic title="当前页在职" value={summary.active} /></Card></Col>
-        <Col span={6}><Card><Statistic title="当前页覆盖公司" value={summary.companies} /></Card></Col>
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} sm={12} xl={6}><Card><Statistic title="筛选结果总数" value={summary.total} /></Card></Col>
+        <Col xs={24} sm={12} xl={6}><Card><Statistic title="当前页展示" value={summary.visible} /></Card></Col>
+        <Col xs={24} sm={12} xl={6}><Card><Statistic title="当前页在职" value={summary.active} /></Card></Col>
+        <Col xs={24} sm={12} xl={6}><Card><Statistic title="当前页覆盖公司" value={summary.companies} /></Card></Col>
       </Row>
 
       {/* Employee table */}
@@ -505,7 +645,7 @@ export function EmployeesPage() {
             dataSource={employees}
             rowKey="id"
             size="small"
-            scroll={{ x: 900 }}
+            scroll={{ x: 980 }}
             pagination={{
               current: pageIndex + 1,
               pageSize,

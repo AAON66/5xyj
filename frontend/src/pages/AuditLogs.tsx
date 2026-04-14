@@ -7,19 +7,21 @@ import {
   DatePicker,
   Row,
   Select,
+  Space,
   Table,
   Tag,
   Typography,
 } from 'antd';
-import { SearchOutlined } from '@ant-design/icons';
+import { FilterOutlined, SearchOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import type { Dayjs } from 'dayjs';
 
+import { ResponsiveFilterDrawer } from '../components/ResponsiveFilterDrawer';
+import { useResponsiveViewport } from '../hooks/useResponsiveViewport';
 import { getApiBaseUrl } from '../config/env';
 import { readAuthSession } from '../services/authSession';
 
 const { Title, Text } = Typography;
-const { RangePicker } = DatePicker;
 
 interface AuditLogItem {
   id: string;
@@ -69,11 +71,16 @@ const ROLE_LABELS: Record<string, string> = {
 const PAGE_SIZE = 20;
 
 export function AuditLogsPage() {
+  const { isMobile, isTablet } = useResponsiveViewport();
+  const isCompactFilter = isMobile || isTablet;
   const [items, setItems] = useState<AuditLogItem[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [action, setAction] = useState('');
   const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
+  const [draftAction, setDraftAction] = useState('');
+  const [draftDateRange, setDraftDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
+  const [filterDrawerOpen, setFilterDrawerOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -121,11 +128,57 @@ export function AuditLogsPage() {
 
   useEffect(() => {
     fetchLogs(page, action, dateRange);
-  }, [page, fetchLogs]);
+  }, [action, dateRange, page, fetchLogs]);
 
-  function handleSearch() {
+  useEffect(() => {
+    setDraftAction(action);
+    setDraftDateRange(dateRange);
+  }, [action, dateRange]);
+
+  function countActiveFilters() {
+    let count = 0;
+    if (action) count += 1;
+    if (dateRange?.[0] || dateRange?.[1]) count += 1;
+    return count;
+  }
+
+  function closeFilterDrawer() {
+    setDraftAction(action);
+    setDraftDateRange(dateRange);
+    setFilterDrawerOpen(false);
+  }
+
+  function applyDraftFilters() {
+    const sameFilters =
+      draftAction === action &&
+      draftDateRange?.[0]?.valueOf() === dateRange?.[0]?.valueOf() &&
+      draftDateRange?.[1]?.valueOf() === dateRange?.[1]?.valueOf();
+
+    setFilterDrawerOpen(false);
+
+    if (sameFilters && page === 1) {
+      void fetchLogs(1, draftAction, draftDateRange);
+      return;
+    }
+
+    setAction(draftAction);
+    setDateRange(draftDateRange);
     setPage(1);
-    fetchLogs(1, action, dateRange);
+  }
+
+  function resetFilters() {
+    setDraftAction('');
+    setDraftDateRange(null);
+    setFilterDrawerOpen(false);
+
+    if (!action && !dateRange && page === 1) {
+      void fetchLogs(1, '', null);
+      return;
+    }
+
+    setAction('');
+    setDateRange(null);
+    setPage(1);
   }
 
   function formatTime(isoString: string): string {
@@ -137,6 +190,7 @@ export function AuditLogsPage() {
       title: '时间',
       dataIndex: 'created_at',
       key: 'created_at',
+      fixed: 'left',
       width: 180,
       render: (val: string) => formatTime(val),
     },
@@ -185,9 +239,52 @@ export function AuditLogsPage() {
     },
   ];
 
+  const activeFilterCount = countActiveFilters();
+  const filterFields = (
+    <Row gutter={[12, 12]} align="middle">
+      <Col xs={24} sm={12}>
+        <Select
+          style={{ width: '100%' }}
+          value={draftAction}
+          onChange={(value) => setDraftAction(value)}
+          options={ACTION_OPTIONS}
+        />
+      </Col>
+      <Col xs={24} sm={12}>
+        <DatePicker.RangePicker
+          style={{ width: '100%' }}
+          value={draftDateRange as [Dayjs, Dayjs] | undefined}
+          onChange={(values) => setDraftDateRange(values as [Dayjs | null, Dayjs | null] | null)}
+        />
+      </Col>
+      {isCompactFilter ? null : (
+        <Col xs={24}>
+          <Space wrap>
+            <Button type="primary" icon={<SearchOutlined />} onClick={applyDraftFilters}>
+              查询
+            </Button>
+            <Button onClick={resetFilters}>清空</Button>
+            <Text type="secondary">共 {total} 条记录</Text>
+          </Space>
+        </Col>
+      )}
+    </Row>
+  );
+
   return (
     <div>
-      <Title level={4}>审计日志</Title>
+      <Row justify="space-between" align="middle" style={{ marginBottom: 16, gap: 12 }}>
+        <Col>
+          <Title level={4} style={{ margin: 0 }}>审计日志</Title>
+        </Col>
+        {isCompactFilter ? (
+          <Col>
+            <Button icon={<FilterOutlined />} onClick={() => setFilterDrawerOpen(true)}>
+              {activeFilterCount > 0 ? `筛选 (${activeFilterCount})` : '筛选'}
+            </Button>
+          </Col>
+        ) : null}
+      </Row>
 
       {error && (
         <Alert type="error" message={error} style={{ marginBottom: 16 }} />
@@ -203,32 +300,22 @@ export function AuditLogsPage() {
         />
       )}
 
-      <Card style={{ marginBottom: 16 }}>
-        <Row gutter={[12, 12]} align="middle">
-          <Col>
-            <Select
-              style={{ width: 160 }}
-              value={action}
-              onChange={(val) => setAction(val)}
-              options={ACTION_OPTIONS}
-            />
-          </Col>
-          <Col>
-            <RangePicker
-              value={dateRange as [Dayjs, Dayjs] | undefined}
-              onChange={(vals) => setDateRange(vals as [Dayjs | null, Dayjs | null] | null)}
-            />
-          </Col>
-          <Col>
-            <Button type="primary" icon={<SearchOutlined />} onClick={handleSearch}>
-              查询
-            </Button>
-          </Col>
-          <Col flex="auto" style={{ textAlign: 'right' }}>
-            <Text type="secondary">共 {total} 条记录</Text>
-          </Col>
-        </Row>
-      </Card>
+      {isCompactFilter ? (
+        <ResponsiveFilterDrawer
+          title="筛选审计日志"
+          open={filterDrawerOpen}
+          onClose={closeFilterDrawer}
+          onApply={applyDraftFilters}
+          onReset={resetFilters}
+          activeCount={activeFilterCount}
+        >
+          {filterFields}
+        </ResponsiveFilterDrawer>
+      ) : (
+        <Card style={{ marginBottom: 16 }}>
+          {filterFields}
+        </Card>
+      )}
 
       <Card>
         <Table
@@ -237,6 +324,7 @@ export function AuditLogsPage() {
           dataSource={items}
           rowKey="id"
           loading={loading}
+          scroll={{ x: 880 }}
           pagination={{
             current: page,
             pageSize: PAGE_SIZE,

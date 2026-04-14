@@ -8,6 +8,7 @@ from openpyxl import load_workbook
 
 from backend.app.core.config import ROOT_DIR
 from backend.app.exporters import export_dual_templates
+from backend.app.exporters.salary_exporter import SALARY_HEADERS
 from backend.app.services import build_normalized_models, standardize_workbook
 from backend.tests.support.export_fixtures import require_sample_workbook, resolve_required_export_templates
 
@@ -96,7 +97,7 @@ def test_export_dual_templates_writes_both_template_outputs() -> None:
     assert float(salary_sheet['I2'].value) == float(records[0].pension_company + records[0].supplementary_pension_company)
     assert float(salary_sheet['H2'].value) == float(records[0].housing_fund_personal)
     assert float(salary_sheet['P2'].value) == float(records[0].housing_fund_company)
-    assert float(salary_sheet['Q2'].value) == 0.0
+    assert salary_sheet.max_column == len(SALARY_HEADERS)
     salary_wb.close()
 
     tool_wb = load_workbook(tool_artifact.file_path, data_only=False)
@@ -109,10 +110,59 @@ def test_export_dual_templates_writes_both_template_outputs() -> None:
     assert float(tool_sheet['N7'].value) == float(records[0].housing_fund_personal)
     assert float(tool_sheet['V7'].value) == float(records[0].housing_fund_company)
     assert float(tool_sheet['W7'].value) == 0.0
+    assert float(tool_sheet['X7'].value) == 0.0
     assert tool_sheet['AA7'].data_type == 'f'
     assert str(tool_sheet['AA7'].value).startswith('=')
     assert tool_sheet['AO7'].data_type == 'f'
     assert str(tool_sheet['AO7'].value).startswith('=')
+    tool_wb.close()
+
+
+def test_export_dual_templates_uses_explicit_fusion_overrides_for_tool_only() -> None:
+    salary_template, tool_template, sample_path = _load_default_export_inputs()
+
+    standardized = standardize_workbook(sample_path, region='shenzhen', company_name='创造欢乐')
+    trimmed = type(standardized)(
+        source_file=standardized.source_file,
+        sheet_name=standardized.sheet_name,
+        raw_header_signature=standardized.raw_header_signature,
+        records=standardized.records[:1],
+        filtered_rows=standardized.filtered_rows,
+        unmapped_headers=standardized.unmapped_headers,
+    )
+    records = build_normalized_models(trimmed, batch_id='batch-1', source_file_id='source-1')
+    records[0].employee_id = '01620'
+    records[0].raw_payload = {
+        **(records[0].raw_payload or {}),
+        'fusion_overrides': {
+            'personal_social_burden': '123.45',
+            'personal_housing_burden': '67.89',
+        },
+    }
+
+    output_dir = _prepare_artifact_dir('explicit_fusion_overrides')
+
+    result = export_dual_templates(
+        records,
+        output_dir=output_dir,
+        salary_template_path=salary_template,
+        final_tool_template_path=tool_template,
+        export_prefix='fusion_override',
+    )
+
+    assert result.status == 'completed'
+    salary_artifact = next(item for item in result.artifacts if item.template_type == 'salary')
+    tool_artifact = next(item for item in result.artifacts if item.template_type == 'final_tool')
+
+    salary_wb = load_workbook(salary_artifact.file_path, data_only=False)
+    salary_sheet = salary_wb[salary_wb.sheetnames[0]]
+    assert salary_sheet.max_column == len(SALARY_HEADERS)
+    salary_wb.close()
+
+    tool_wb = load_workbook(tool_artifact.file_path, data_only=False)
+    tool_sheet = tool_wb[tool_wb.sheetnames[0]]
+    assert float(tool_sheet['W7'].value) == 123.45
+    assert float(tool_sheet['X7'].value) == 67.89
     tool_wb.close()
 
 
@@ -500,7 +550,7 @@ def test_export_dual_templates_keeps_housing_burden_zero_even_with_repeated_sour
     salary_sheet = salary_wb[salary_wb.sheetnames[0]]
     assert float(salary_sheet['H4'].value) == 2340.0
     assert float(salary_sheet['P4'].value) == 975.0
-    assert float(salary_sheet['R4'].value) == 0.0
+    assert salary_sheet.max_column == len(SALARY_HEADERS)
     salary_wb.close()
 
     tool_wb = load_workbook(tool_artifact.file_path, data_only=False)
@@ -571,7 +621,7 @@ def test_export_dual_templates_defaults_social_burden_to_zero_without_explicit_r
     salary_wb = load_workbook(salary_artifact.file_path, data_only=False)
     salary_sheet = salary_wb[salary_wb.sheetnames[0]]
     assert float(salary_sheet['J2'].value) == 403.62
-    assert float(salary_sheet['Q2'].value) == 0.0
+    assert salary_sheet.max_column == len(SALARY_HEADERS)
     salary_wb.close()
 
     tool_wb = load_workbook(tool_artifact.file_path, data_only=False)
@@ -806,7 +856,7 @@ def test_export_dual_templates_keeps_large_housing_burden_zero_without_inference
     salary_artifact = next(item for item in result.artifacts if item.template_type == 'salary')
     salary_wb = load_workbook(salary_artifact.file_path, data_only=False)
     salary_sheet = salary_wb[salary_wb.sheetnames[0]]
-    assert float(salary_sheet['R6'].value) == 0.0
+    assert salary_sheet.max_column == len(SALARY_HEADERS)
     salary_wb.close()
 
 
@@ -904,7 +954,7 @@ def test_export_dual_templates_zeroes_housing_burden_when_no_reliable_baseline_e
     salary_wb = load_workbook(salary_artifact.file_path, data_only=False)
     salary_sheet = salary_wb[salary_wb.sheetnames[0]]
     assert float(salary_sheet['H2'].value) == 500.0
-    assert float(salary_sheet['R2'].value) == 0.0
+    assert salary_sheet.max_column == len(SALARY_HEADERS)
     salary_wb.close()
 
     tool_wb = load_workbook(tool_artifact.file_path, data_only=False)

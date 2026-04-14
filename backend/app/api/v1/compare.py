@@ -49,6 +49,8 @@ def compare_periods_endpoint(
     right_period: str = Query(..., description="右侧账期"),
     region: Optional[str] = Query(None, description="地区筛选"),
     company_name: Optional[str] = Query(None, description="公司筛选"),
+    search_text: Optional[str] = Query(None, description="关键词搜索"),
+    diff_only: bool = Query(False, description="仅返回存在差异的记录"),
     page: int = Query(0, ge=0, description="页码"),
     page_size: int = Query(50, ge=1, le=200, description="每页条数"),
     db: Session = Depends(get_db),
@@ -59,6 +61,8 @@ def compare_periods_endpoint(
         right_period,
         region=region,
         company_name=company_name,
+        search_text=search_text,
+        diff_only=diff_only,
         page=page,
         page_size=page_size,
     )

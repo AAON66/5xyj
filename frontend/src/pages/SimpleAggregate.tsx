@@ -22,15 +22,20 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import {
   CloudUploadOutlined,
+  EditOutlined,
   DeleteOutlined,
   DownloadOutlined,
   ExportOutlined,
   InboxOutlined,
+  PlusOutlined,
   StopOutlined,
   UndoOutlined,
 } from '@ant-design/icons';
 
+import { FusionRuleEditorDrawer } from '../components/FusionRuleEditorDrawer';
+import { MobileStickyActionBar } from '../components/MobileStickyActionBar';
 import { useAggregateSession } from '../hooks';
+import { useResponsiveViewport } from '../hooks/useResponsiveViewport';
 import { WorkflowSteps } from '../components/WorkflowSteps';
 import { useSemanticColors } from '../theme/useSemanticColors';
 import { useCardStatusColors } from '../theme/useCardStatusColors';
@@ -39,6 +44,8 @@ import { useThemeMode } from '../theme/useThemeMode';
 import { downloadAggregateArtifact, type AggregateArtifact, type AggregateProgressEvent } from '../services/aggregate';
 import { cancelAggregateSession, clearAggregateSession, startAggregateSession } from '../services/aggregateSessionStore';
 import { fetchEmployeeMasters } from '../services/employees';
+import { fetchSyncConfigs, type SyncConfig } from '../services/feishu';
+import { fetchFusionRules, type FusionRule } from '../services/fusionRules';
 import { fetchSystemHealth, type SystemHealth } from '../services/system';
 
 const { Title, Text } = Typography;
@@ -67,6 +74,23 @@ const TEXT = {
   employeeExistingEmpty: '当前服务器还没有可用的员工主档。',
   employeeExistingReady: '本次将直接使用服务器现有的在职员工主档进行工号匹配。',
   employeeNoneMessage: '本次将不使用员工主档，仍可以继续聚合并导出结果。',
+  burdenTitle: '承担额来源（可选）',
+  burdenHint: '可额外叠加个人社保/公积金承担额来源，只会进入工具表最终版。',
+  burdenModeNone: '不使用',
+  burdenModeExcel: '上传 Excel',
+  burdenModeFeishu: '选择飞书配置',
+  burdenExcelRequired: '你已选择"上传 Excel"，请先添加承担额文件。',
+  burdenFeishuRequired: '你已选择"选择飞书配置"，请先选择一个飞书配置。',
+  burdenExcelEmpty: '未附带承担额 Excel，本次只使用主链路结果。',
+  burdenFeishuEmpty: '当前没有可用的飞书同步配置。',
+  burdenFeishuLoading: '正在读取飞书配置...',
+  fusionRuleTitle: '特殊规则',
+  fusionRuleHint: '可按工号或身份证号覆盖个人承担额，规则优先级高于承担额来源。',
+  fusionRuleEmpty: '当前还没有已保存的特殊规则。',
+  fusionRuleSelectPlaceholder: '选择本次要套用的特殊规则',
+  fusionRuleCreate: '新建规则',
+  fusionRuleEdit: '编辑已选规则',
+  fusionAppliedTitle: '融合提示',
   batchPlaceholder: '例如：2026-02 社保公积金聚合',
   batchTip: '聚合开始后可以切换到其他页面，这里会保留本次记录，直到你主动取消或清除。',
   selectionRequired: '请至少选择一个社保或公积金 Excel 文件。',
@@ -158,6 +182,18 @@ function formatFileSize(size: number): string {
   return `${size} B`;
 }
 
+function burdenFieldLabel(value: FusionRule['field_name']): string {
+  return value === 'personal_social_burden' ? '个人社保承担额' : '个人公积金承担额';
+}
+
+function burdenScopeLabel(value: FusionRule['scope_type']): string {
+  return value === 'employee_id' ? '工号' : '身份证号';
+}
+
+function fusionRuleOptionLabel(rule: FusionRule): string {
+  return `${burdenScopeLabel(rule.scope_type)} ${rule.scope_value} | ${burdenFieldLabel(rule.field_name)} = ${rule.override_value}`;
+}
+
 function triggerBlobDownload(blob: Blob, fileName: string): void {
   const url = window.URL.createObjectURL(blob);
   const anchor = document.createElement('a');
@@ -171,6 +207,7 @@ function triggerBlobDownload(blob: Blob, fileName: string): void {
 
 export function SimpleAggregatePage() {
   const aggregateSession = useAggregateSession();
+  const { isMobile } = useResponsiveViewport();
   const { message: messageApi } = App.useApp();
   const colors = useSemanticColors();
   const cardColors = useCardStatusColors();
@@ -183,11 +220,22 @@ export function SimpleAggregatePage() {
   const [housingFundFiles, setHousingFundFiles] = useState<File[]>([]);
   const [employeeMasterFile, setEmployeeMasterFile] = useState<File | null>(null);
   const [employeeMasterMode, setEmployeeMasterMode] = useState<'none' | 'upload' | 'existing'>('none');
+  const [burdenFile, setBurdenFile] = useState<File | null>(null);
+  const [burdenSourceMode, setBurdenSourceMode] = useState<'none' | 'excel' | 'feishu'>('none');
+  const [burdenFeishuConfigId, setBurdenFeishuConfigId] = useState<string | null>(null);
+  const [feishuConfigs, setFeishuConfigs] = useState<SyncConfig[]>([]);
+  const [loadingFeishuConfigs, setLoadingFeishuConfigs] = useState(false);
+  const [fusionRules, setFusionRules] = useState<FusionRule[]>([]);
+  const [loadingFusionRules, setLoadingFusionRules] = useState(false);
+  const [selectedFusionRuleIds, setSelectedFusionRuleIds] = useState<string[]>([]);
+  const [fusionRuleDrawerOpen, setFusionRuleDrawerOpen] = useState(false);
+  const [editingFusionRule, setEditingFusionRule] = useState<FusionRule | null>(null);
   const [batchName, setBatchName] = useState('');
   const [selectionError, setSelectionError] = useState<string | null>(null);
   const [downloadingTemplate, setDownloadingTemplate] = useState<string | null>(null);
 
   const employeeInputRef = useRef<HTMLInputElement | null>(null);
+  const burdenInputRef = useRef<HTMLInputElement | null>(null);
   const employeeMasterManualRef = useRef(false);
 
   useEffect(() => {
@@ -219,6 +267,53 @@ export function SimpleAggregatePage() {
     return () => { active = false; };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    setLoadingFusionRules(true);
+    fetchFusionRules({ isActive: true })
+      .then((payload) => {
+        if (active) {
+          setFusionRules(payload);
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          messageApi.error(error instanceof Error ? error.message : '读取特殊规则失败。');
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoadingFusionRules(false);
+        }
+      });
+    return () => { active = false; };
+  }, [messageApi]);
+
+  useEffect(() => {
+    if (burdenSourceMode !== 'feishu') {
+      return;
+    }
+    let active = true;
+    setLoadingFeishuConfigs(true);
+    fetchSyncConfigs()
+      .then((payload) => {
+        if (active) {
+          setFeishuConfigs(payload.filter((item) => item.is_active));
+        }
+      })
+      .catch((error) => {
+        if (active) {
+          messageApi.error(error instanceof Error ? error.message : '读取飞书配置失败。');
+        }
+      })
+      .finally(() => {
+        if (active) {
+          setLoadingFeishuConfigs(false);
+        }
+      });
+    return () => { active = false; };
+  }, [burdenSourceMode, messageApi]);
+
   const running = aggregateSession.status === 'running';
   const hasSessionRecord = aggregateSession.status !== 'idle';
   const progress = aggregateSession.progress;
@@ -226,6 +321,13 @@ export function SimpleAggregatePage() {
   const pageError = selectionError ?? aggregateSession.error;
   const lockSelection = hasSessionRecord;
   const effectiveEmployeeMasterMode = hasSessionRecord ? aggregateSession.selection.employeeMasterMode : employeeMasterMode;
+  const effectiveBurdenSourceMode = hasSessionRecord ? aggregateSession.selection.burdenSourceMode : burdenSourceMode;
+  const effectiveSelectedFusionRuleIds = hasSessionRecord && !selectedFusionRuleIds.length
+    ? aggregateSession.selection.fusionRuleIds
+    : selectedFusionRuleIds;
+  const effectiveBurdenFeishuConfigId = hasSessionRecord && !burdenFeishuConfigId
+    ? aggregateSession.selection.burdenFeishuConfigId
+    : burdenFeishuConfigId;
 
   const outputArtifacts = useMemo(() => result?.artifacts ?? [], [result]);
   const normalizedCount = useMemo(() => result?.source_files.reduce((sum, item) => sum + item.normalized_record_count, 0) ?? 0, [result]);
@@ -241,6 +343,49 @@ export function SimpleAggregatePage() {
     if (selectedFile) setEmployeeMasterMode('upload');
   }
 
+  function handleBurdenFileSelected(event: ChangeEvent<HTMLInputElement>) {
+    const selectedFile = event.target.files?.[0] ?? null;
+    event.target.value = '';
+    setSelectionError(null);
+    setBurdenFile(selectedFile);
+    if (selectedFile) setBurdenSourceMode('excel');
+  }
+
+  async function refreshFusionRules() {
+    setLoadingFusionRules(true);
+    try {
+      const payload = await fetchFusionRules({ isActive: true });
+      setFusionRules(payload);
+      return payload;
+    } catch (error) {
+      messageApi.error(error instanceof Error ? error.message : '读取特殊规则失败。');
+      return [];
+    } finally {
+      setLoadingFusionRules(false);
+    }
+  }
+
+  function openCreateFusionRuleDrawer() {
+    setEditingFusionRule(null);
+    setFusionRuleDrawerOpen(true);
+  }
+
+  function openEditFusionRuleDrawer(rule: FusionRule) {
+    setEditingFusionRule(rule);
+    setFusionRuleDrawerOpen(true);
+  }
+
+  async function handleFusionRuleSaved(savedRule: FusionRule) {
+    const payload = await refreshFusionRules();
+    const resolvedRule = payload.find((item) => item.id === savedRule.id) ?? savedRule;
+    setSelectedFusionRuleIds((current) => (current.includes(resolvedRule.id) ? current : [...current, resolvedRule.id]));
+  }
+
+  function handleFusionRuleDeleted(ruleId: string) {
+    setFusionRules((current) => current.filter((item) => item.id !== ruleId));
+    setSelectedFusionRuleIds((current) => current.filter((item) => item !== ruleId));
+  }
+
   async function handleRun() {
     if (!socialFiles.length && !housingFundFiles.length) {
       setSelectionError(TEXT.selectionRequired);
@@ -254,6 +399,14 @@ export function SimpleAggregatePage() {
       setSelectionError(TEXT.employeeUploadRequired);
       return;
     }
+    if (burdenSourceMode === 'excel' && !burdenFile) {
+      setSelectionError(TEXT.burdenExcelRequired);
+      return;
+    }
+    if (burdenSourceMode === 'feishu' && !burdenFeishuConfigId) {
+      setSelectionError(TEXT.burdenFeishuRequired);
+      return;
+    }
 
     setSelectionError(null);
     try {
@@ -262,6 +415,10 @@ export function SimpleAggregatePage() {
         housingFundFiles,
         employeeMasterFile: employeeMasterMode === 'upload' ? employeeMasterFile : null,
         employeeMasterMode,
+        burdenFile: burdenSourceMode === 'excel' ? burdenFile : null,
+        burdenSourceMode,
+        burdenFeishuConfigId: burdenSourceMode === 'feishu' ? burdenFeishuConfigId : null,
+        fusionRuleIds: selectedFusionRuleIds,
         batchName,
       });
     } catch {
@@ -302,6 +459,11 @@ export function SimpleAggregatePage() {
   }
 
   const canStart = !running && !hasSessionRecord && (socialFiles.length > 0 || housingFundFiles.length > 0);
+  const mobilePrimaryHelper = running
+    ? progress?.message ?? TEXT.running
+    : canStart
+      ? null
+      : pageError ?? '至少选择一个社保或公积金文件后才能开始。';
 
   // Steps current index for the Steps component
   const currentStepIndex = getStepIndex(progress);
@@ -355,18 +517,34 @@ export function SimpleAggregatePage() {
 
   const employeeDisplayName =
     effectiveEmployeeMasterMode === 'upload' ? (employeeMasterFile?.name ?? aggregateSession.selection.employeeMasterFile) : null;
+  const burdenDisplayName =
+    effectiveBurdenSourceMode === 'excel' ? (burdenFile?.name ?? aggregateSession.selection.burdenFile) : null;
+  const editableFusionRule = effectiveSelectedFusionRuleIds.length === 1
+    ? fusionRules.find((item) => item.id === effectiveSelectedFusionRuleIds[0]) ?? null
+    : null;
 
   return (
-    <div>
-      <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div style={isMobile ? { paddingBottom: 96 } : undefined}>
+      <div
+        style={{
+          marginBottom: 16,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: isMobile ? 'stretch' : 'center',
+          flexDirection: isMobile ? 'column' : 'row',
+          gap: 12,
+        }}
+      >
         <div>
           <Title level={4} style={{ margin: 0 }}>{TEXT.title}</Title>
           <Text type="secondary">{TEXT.description}</Text>
         </div>
-        <Space>
-          <Button type="primary" disabled={!canStart} loading={running} onClick={() => void handleRun()} icon={<CloudUploadOutlined />}>
-            {running ? TEXT.running : TEXT.start}
-          </Button>
+        <Space wrap>
+          {isMobile ? null : (
+            <Button type="primary" disabled={!canStart} loading={running} onClick={() => void handleRun()} icon={<CloudUploadOutlined />}>
+              {running ? TEXT.running : TEXT.start}
+            </Button>
+          )}
           {running && (
             <Button danger onClick={handleCancelConfirm} icon={<StopOutlined />}>{TEXT.cancel}</Button>
           )}
@@ -407,6 +585,17 @@ export function SimpleAggregatePage() {
         </Card>
       )}
 
+      {result && (result.fusion_messages ?? []).length > 0 && (
+        <Card size="small" style={{ marginBottom: 16, borderColor: cardColors.warningBorder }}>
+          <Text strong>{TEXT.fusionAppliedTitle}</Text>
+          <div style={{ marginTop: 8 }}>
+            {(result.fusion_messages ?? []).map((message) => (
+              <Text key={message} type="warning" style={{ display: 'block' }}>{message}</Text>
+            ))}
+          </div>
+        </Card>
+      )}
+
       {/* Steps indicator */}
       {hasSessionRecord && (
         <Card size="small" style={{ marginBottom: 16 }}>
@@ -416,31 +605,34 @@ export function SimpleAggregatePage() {
 
       <Row gutter={16}>
         {/* Left column: File selection */}
-        <Col span={12}>
+        <Col xs={24} lg={12}>
           <Card title="步骤 1: 选择文件" style={{ marginBottom: 16 }}>
-            <input ref={employeeInputRef} type="file" accept=".csv,.xlsx,.xlsm" hidden onChange={handleEmployeeMasterSelected} />
+            <input data-testid="employee-master-file-input" ref={employeeInputRef} type="file" accept=".csv,.xlsx,.xlsm" hidden onChange={handleEmployeeMasterSelected} />
+            <input data-testid="burden-file-input" ref={burdenInputRef} type="file" accept=".xlsx,.xls" hidden onChange={handleBurdenFileSelected} />
 
             {/* Social files dragger */}
             <Title level={5} style={{ marginBottom: 8 }}>社保文件</Title>
-            <Dragger
-              multiple
-              accept=".xlsx,.xls"
-              fileList={socialDisplayList}
-              beforeUpload={(file) => {
-                setSocialFiles((current) => mergeFiles(current, [file]));
-                setSelectionError(null);
-                return false;
-              }}
-              onRemove={(file) => {
-                setSocialFiles((current) => current.filter((f) => fileKey(f) !== file.uid));
-              }}
-              disabled={lockSelection}
-              style={{ marginBottom: 16 }}
-            >
-              <p><InboxOutlined style={{ fontSize: 48, color: colors.BRAND }} /></p>
-              <p>点击或拖拽社保 Excel 文件到此区域</p>
-              <p style={{ color: colors.TEXT_TERTIARY, fontSize: 12 }}>支持 .xlsx, .xls 格式，可多选</p>
-            </Dragger>
+            <div data-testid="aggregate-social-upload">
+              <Dragger
+                multiple
+                accept=".xlsx,.xls"
+                fileList={socialDisplayList}
+                beforeUpload={(file) => {
+                  setSocialFiles((current) => mergeFiles(current, [file]));
+                  setSelectionError(null);
+                  return false;
+                }}
+                onRemove={(file) => {
+                  setSocialFiles((current) => current.filter((f) => fileKey(f) !== file.uid));
+                }}
+                disabled={lockSelection}
+                style={{ marginBottom: 16 }}
+              >
+                <p><InboxOutlined style={{ fontSize: 48, color: colors.BRAND }} /></p>
+                <p>点击或拖拽社保 Excel 文件到此区域</p>
+                <p style={{ color: colors.TEXT_TERTIARY, fontSize: 12 }}>支持 .xlsx, .xls 格式，可多选</p>
+              </Dragger>
+            </div>
             {socialDisplayList.length > 0 && (
               <Text type="secondary" style={{ marginTop: 4 }}>
                 {socialDisplayList.length} 个文件
@@ -449,25 +641,27 @@ export function SimpleAggregatePage() {
 
             {/* Housing fund files dragger */}
             <Title level={5} style={{ marginTop: 16, marginBottom: 8 }}>公积金文件</Title>
-            <Dragger
-              multiple
-              accept=".xlsx,.xls"
-              fileList={housingDisplayList}
-              beforeUpload={(file) => {
-                setHousingFundFiles((current) => mergeFiles(current, [file]));
-                setSelectionError(null);
-                return false;
-              }}
-              onRemove={(file) => {
-                setHousingFundFiles((current) => current.filter((f) => fileKey(f) !== file.uid));
-              }}
-              disabled={lockSelection}
-              style={{ marginBottom: 16 }}
-            >
-              <p><InboxOutlined style={{ fontSize: 48, color: colors.BRAND }} /></p>
-              <p>点击或拖拽公积金 Excel 文件到此区域</p>
-              <p style={{ color: colors.TEXT_TERTIARY, fontSize: 12 }}>支持 .xlsx, .xls 格式，可多选</p>
-            </Dragger>
+            <div data-testid="aggregate-housing-upload">
+              <Dragger
+                multiple
+                accept=".xlsx,.xls"
+                fileList={housingDisplayList}
+                beforeUpload={(file) => {
+                  setHousingFundFiles((current) => mergeFiles(current, [file]));
+                  setSelectionError(null);
+                  return false;
+                }}
+                onRemove={(file) => {
+                  setHousingFundFiles((current) => current.filter((f) => fileKey(f) !== file.uid));
+                }}
+                disabled={lockSelection}
+                style={{ marginBottom: 16 }}
+              >
+                <p><InboxOutlined style={{ fontSize: 48, color: colors.BRAND }} /></p>
+                <p>点击或拖拽公积金 Excel 文件到此区域</p>
+                <p style={{ color: colors.TEXT_TERTIARY, fontSize: 12 }}>支持 .xlsx, .xls 格式，可多选</p>
+              </Dragger>
+            </div>
             {housingDisplayList.length > 0 && (
               <Text type="secondary" style={{ marginTop: 4 }}>
                 {housingDisplayList.length} 个文件
@@ -490,6 +684,7 @@ export function SimpleAggregatePage() {
               <div style={{ marginBottom: 12 }}>
                 <Text strong style={{ marginRight: 8 }}>主档来源:</Text>
                 <Select
+                  data-testid="aggregate-employee-mode-select"
                   value={effectiveEmployeeMasterMode}
                   onChange={(val) => {
                     employeeMasterManualRef.current = true;
@@ -507,11 +702,11 @@ export function SimpleAggregatePage() {
                 />
               </div>
               {effectiveEmployeeMasterMode === 'upload' && (
-                <Space direction="vertical" style={{ width: '100%' }}>
-                  <Space>
-                    <Button onClick={() => employeeInputRef.current?.click()} disabled={lockSelection}>
-                      {employeeMasterFile ? '重新选择' : '添加主档'}
-                    </Button>
+                  <Space direction="vertical" style={{ width: '100%' }}>
+                    <Space wrap>
+                      <Button onClick={() => employeeInputRef.current?.click()} disabled={lockSelection}>
+                        {employeeMasterFile ? '重新选择' : '添加主档'}
+                      </Button>
                     {employeeDisplayName && (
                       <Button danger icon={<DeleteOutlined />} onClick={() => setEmployeeMasterFile(null)} disabled={lockSelection}>
                         删除文件
@@ -547,6 +742,147 @@ export function SimpleAggregatePage() {
               )}
             </Card>
 
+            <Card size="small" title={TEXT.burdenTitle} style={{ marginTop: 16 }}>
+              <div style={{ marginBottom: 12 }}>
+                <Text type="secondary">{TEXT.burdenHint}</Text>
+              </div>
+              <div style={{ marginBottom: 12 }}>
+                <Text strong style={{ marginRight: 8 }}>来源:</Text>
+                <Select
+                  data-testid="aggregate-burden-source-select"
+                  value={effectiveBurdenSourceMode}
+                  onChange={(value) => {
+                    setBurdenSourceMode(value);
+                    if (value !== 'excel') {
+                      setBurdenFile(null);
+                    }
+                    if (value !== 'feishu') {
+                      setBurdenFeishuConfigId(null);
+                    }
+                    setSelectionError(null);
+                  }}
+                  disabled={lockSelection}
+                  style={{ width: 220 }}
+                  options={[
+                    { value: 'none', label: TEXT.burdenModeNone },
+                    { value: 'excel', label: TEXT.burdenModeExcel },
+                    { value: 'feishu', label: TEXT.burdenModeFeishu },
+                  ]}
+                />
+              </div>
+
+              {effectiveBurdenSourceMode === 'excel' && (
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <Space wrap>
+                    <Button onClick={() => burdenInputRef.current?.click()} disabled={lockSelection}>
+                      {burdenFile ? '重新选择承担额文件' : '添加承担额文件'}
+                    </Button>
+                    {burdenDisplayName && (
+                      <Button danger icon={<DeleteOutlined />} onClick={() => setBurdenFile(null)} disabled={lockSelection}>
+                        删除文件
+                      </Button>
+                    )}
+                  </Space>
+                  {burdenDisplayName ? (
+                    <Card size="small">
+                      <Text strong>{burdenDisplayName}</Text>
+                      <br />
+                      <Text type="secondary">{burdenFile ? formatFileSize(burdenFile.size) : '记录已保留'}</Text>
+                    </Card>
+                  ) : (
+                    <Text type="secondary">{TEXT.burdenExcelEmpty}</Text>
+                  )}
+                </Space>
+              )}
+
+              {effectiveBurdenSourceMode === 'feishu' && (
+                <Space direction="vertical" style={{ width: '100%' }}>
+                  <Select
+                    data-testid="aggregate-burden-feishu-select"
+                    value={effectiveBurdenFeishuConfigId ?? undefined}
+                    onChange={(value) => {
+                      setBurdenFeishuConfigId(value);
+                      setSelectionError(null);
+                    }}
+                    disabled={lockSelection}
+                    loading={loadingFeishuConfigs}
+                    placeholder={TEXT.burdenModeFeishu}
+                    options={feishuConfigs.map((item) => ({
+                      value: item.id,
+                      label: `${item.name} | ${item.granularity === 'detail' ? '明细' : '汇总'}`,
+                    }))}
+                  />
+                  <Text type="secondary">
+                    {loadingFeishuConfigs
+                      ? TEXT.burdenFeishuLoading
+                      : feishuConfigs.length > 0
+                        ? '将直接复用飞书设置里的同步配置和字段映射。'
+                        : TEXT.burdenFeishuEmpty}
+                  </Text>
+                </Space>
+              )}
+
+              {effectiveBurdenSourceMode === 'none' && (
+                <Text type="secondary">本次不会额外注入承担额来源。</Text>
+              )}
+            </Card>
+
+            <Card size="small" title={TEXT.fusionRuleTitle} style={{ marginTop: 16 }}>
+              <div style={{ marginBottom: 12 }}>
+                <Text type="secondary">{TEXT.fusionRuleHint}</Text>
+              </div>
+              <Select
+                data-testid="aggregate-fusion-rule-select"
+                mode="multiple"
+                value={effectiveSelectedFusionRuleIds}
+                onChange={(value) => {
+                  setSelectedFusionRuleIds(value);
+                  setSelectionError(null);
+                }}
+                disabled={lockSelection}
+                loading={loadingFusionRules}
+                placeholder={TEXT.fusionRuleSelectPlaceholder}
+                style={{ width: '100%' }}
+                options={fusionRules.map((rule) => ({
+                  value: rule.id,
+                  label: fusionRuleOptionLabel(rule),
+                }))}
+                optionFilterProp="label"
+              />
+              <Space wrap style={{ marginTop: 12 }}>
+                <Button icon={<PlusOutlined />} onClick={openCreateFusionRuleDrawer} disabled={lockSelection}>
+                  {TEXT.fusionRuleCreate}
+                </Button>
+                <Button
+                  icon={<EditOutlined />}
+                  onClick={() => editableFusionRule && openEditFusionRuleDrawer(editableFusionRule)}
+                  disabled={lockSelection || !editableFusionRule}
+                >
+                  {TEXT.fusionRuleEdit}
+                </Button>
+              </Space>
+              <div style={{ marginTop: 12 }}>
+                {fusionRules.length > 0 ? (
+                  <Space wrap>
+                    {fusionRules.map((rule) => (
+                      <Button
+                        key={rule.id}
+                        size="small"
+                        type={effectiveSelectedFusionRuleIds.includes(rule.id) ? 'primary' : 'default'}
+                        ghost={!effectiveSelectedFusionRuleIds.includes(rule.id)}
+                        onClick={() => openEditFusionRuleDrawer(rule)}
+                        disabled={lockSelection}
+                      >
+                        {fusionRuleOptionLabel(rule)}
+                      </Button>
+                    ))}
+                  </Space>
+                ) : (
+                  <Text type="secondary">{TEXT.fusionRuleEmpty}</Text>
+                )}
+              </div>
+            </Card>
+
             {/* Batch name */}
             <Card size="small" title="批次设置" style={{ marginTop: 16 }}>
               <div style={{ marginBottom: 8 }}>
@@ -574,7 +910,7 @@ export function SimpleAggregatePage() {
         </Col>
 
         {/* Right column: Results */}
-        <Col span={12}>
+        <Col xs={24} lg={12}>
           <Card title="步骤 2: 查看结果">
             {running && progress ? (
               <Spin spinning>
@@ -601,12 +937,12 @@ export function SimpleAggregatePage() {
                 {progress.stage === 'parse' && parseSummary && (
                   <Card size="small" title="解析总览" style={{ marginTop: 16 }}>
                     <Row gutter={[8, 8]}>
-                      <Col span={8}><Text type="secondary">总文件数:</Text> <Text strong>{parseSummary.total_files}</Text></Col>
-                      <Col span={8}><Text type="secondary">并行路数:</Text> <Text strong>{parseSummary.worker_count}</Text></Col>
-                      <Col span={8}><Text type="secondary">排队中:</Text> <Text strong>{parseSummary.queued_count}</Text></Col>
-                      <Col span={8}><Text type="secondary">解析中:</Text> <Text strong>{parseSummary.active_count}</Text></Col>
-                      <Col span={8}><Text type="secondary">待保存:</Text> <Text strong>{Math.max(0, parseSummary.analyzed_count - parseSummary.saved_count)}</Text></Col>
-                      <Col span={8}><Text type="secondary">已保存:</Text> <Text strong>{parseSummary.saved_count}</Text></Col>
+                      <Col xs={12} md={8}><Text type="secondary">总文件数:</Text> <Text strong>{parseSummary.total_files}</Text></Col>
+                      <Col xs={12} md={8}><Text type="secondary">并行路数:</Text> <Text strong>{parseSummary.worker_count}</Text></Col>
+                      <Col xs={12} md={8}><Text type="secondary">排队中:</Text> <Text strong>{parseSummary.queued_count}</Text></Col>
+                      <Col xs={12} md={8}><Text type="secondary">解析中:</Text> <Text strong>{parseSummary.active_count}</Text></Col>
+                      <Col xs={12} md={8}><Text type="secondary">待保存:</Text> <Text strong>{Math.max(0, parseSummary.analyzed_count - parseSummary.saved_count)}</Text></Col>
+                      <Col xs={12} md={8}><Text type="secondary">已保存:</Text> <Text strong>{parseSummary.saved_count}</Text></Col>
                     </Row>
                     {parseFiles.length > 0 && (
                       <div style={{ marginTop: 12, maxHeight: 200, overflowY: 'auto' }}>
@@ -633,25 +969,25 @@ export function SimpleAggregatePage() {
               <div>
                 {/* Summary statistics */}
                 <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
-                  <Col span={6}>
+                  <Col xs={12} md={6}>
                     <Card size="small">
                       <Text type="secondary">导出状态</Text>
                       <div><Tag color={result.export_status === 'completed' ? 'success' : 'warning'}>{statusLabel(result.export_status)}</Tag></div>
                     </Card>
                   </Col>
-                  <Col span={6}>
+                  <Col xs={12} md={6}>
                     <Card size="small">
                       <Text type="secondary">聚合记录</Text>
                       <div><Text strong style={{ fontSize: 18 }}>{normalizedCount}</Text></div>
                     </Card>
                   </Col>
-                  <Col span={6}>
+                  <Col xs={12} md={6}>
                     <Card size="small">
                       <Text type="secondary">已过滤行</Text>
                       <div><Text strong style={{ fontSize: 18 }}>{filteredCount}</Text></div>
                     </Card>
                   </Col>
-                  <Col span={6}>
+                  <Col xs={12} md={6}>
                     <Card size="small">
                       <Text type="secondary">匹配成功</Text>
                       <div><Text strong style={{ fontSize: 18 }}>{result.matched_count}</Text></div>
@@ -719,6 +1055,25 @@ export function SimpleAggregatePage() {
           </Card>
         </Col>
       </Row>
+      <FusionRuleEditorDrawer
+        open={fusionRuleDrawerOpen}
+        rule={editingFusionRule}
+        onClose={() => {
+          setFusionRuleDrawerOpen(false);
+          setEditingFusionRule(null);
+        }}
+        onSaved={(rule) => { void handleFusionRuleSaved(rule); }}
+        onDeleted={handleFusionRuleDeleted}
+      />
+      <MobileStickyActionBar
+        visible={isMobile}
+        primaryLabel={TEXT.start}
+        onPrimaryClick={() => void handleRun()}
+        primaryDisabled={!canStart || running}
+        primaryLoading={running}
+        helperText={mobilePrimaryHelper}
+        icon={<CloudUploadOutlined />}
+      />
     </div>
   );
 }

@@ -15,20 +15,37 @@ from backend.app.models.sync_job import SyncJob
 from backend.app.schemas.feishu import (
     FeatureFlags,
     FeishuCredentials,
+    FeishuCredentialsStatus,
     FeishuFieldInfo,
+    FeishuRuntimeSettingsRead,
+    FeishuRuntimeSettingsUpdate,
     SyncConfigCreate,
     SyncConfigRead,
     SyncConfigUpdate,
 )
 from backend.app.services.feishu_client import FeishuClient, get_feishu_client
+from backend.app.services.system_setting_service import (
+    FEISHU_APP_ID_KEY,
+    FEISHU_APP_SECRET_KEY,
+    FEISHU_OAUTH_ENABLED_KEY,
+    FEISHU_SYNC_ENABLED_KEY,
+    EffectiveFeishuSettings,
+    get_effective_feishu_settings,
+    mask_app_id,
+    set_setting,
+)
 
 from typing import Optional
 
 
-async def _get_client_safe() -> Optional[FeishuClient]:
+async def _get_client_safe(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> Optional[FeishuClient]:
     """Get FeishuClient or None if not configured."""
     try:
-        return await get_feishu_client()
+        effective_settings = _get_effective_settings(request, db)
+        return await get_feishu_client(effective_settings.feishu_app_id, effective_settings.feishu_app_secret)
     except ValueError:
         return None
 
@@ -39,9 +56,41 @@ def _get_settings(request: Request) -> Settings:
     return request.app.state.settings
 
 
-def _check_sync_enabled(settings: Settings):
-    if not settings.feishu_sync_enabled:
-        return error_response("FEATURE_DISABLED", "飞书同步功能未启用", 404)
+def _get_effective_settings(request: Request, db: Session) -> EffectiveFeishuSettings:
+    return get_effective_feishu_settings(db, _get_settings(request))
+
+
+def _build_runtime_settings_read(effective_settings: EffectiveFeishuSettings) -> FeishuRuntimeSettingsRead:
+    return FeishuRuntimeSettingsRead(
+        feishu_sync_enabled=effective_settings.feishu_sync_enabled,
+        feishu_oauth_enabled=effective_settings.feishu_oauth_enabled,
+        feishu_credentials_configured=effective_settings.credentials_configured,
+        masked_app_id=mask_app_id(effective_settings.feishu_app_id),
+        secret_configured=bool(effective_settings.feishu_app_secret),
+    )
+
+
+async def _validate_feishu_credentials(app_id: str, app_secret: str) -> Optional[dict]:
+    try:
+        async with httpx.AsyncClient(timeout=10) as http:
+            resp = await http.post(
+                "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
+                json={"app_id": app_id, "app_secret": app_secret},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            if data.get("code") != 0:
+                return {
+                    "code": "INVALID_CREDENTIALS",
+                    "message": f"飞书凭证验证失败: {data.get('msg', '未知错误')}",
+                    "status_code": 400,
+                }
+    except Exception as exc:
+        return {
+            "code": "VALIDATION_ERROR",
+            "message": f"凭证验证请求失败: {exc}",
+            "status_code": 502,
+        }
     return None
 
 
@@ -50,11 +99,6 @@ async def list_configs(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    settings = _get_settings(request)
-    disabled = _check_sync_enabled(settings)
-    if disabled:
-        return disabled
-
     configs = db.query(SyncConfig).filter(SyncConfig.is_active.is_(True)).all()
     return success_response([SyncConfigRead.model_validate(c).model_dump() for c in configs])
 
@@ -65,11 +109,6 @@ async def create_config(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    settings = _get_settings(request)
-    disabled = _check_sync_enabled(settings)
-    if disabled:
-        return disabled
-
     config = SyncConfig(
         name=body.name,
         app_token=body.app_token,
@@ -90,11 +129,6 @@ async def update_config(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    settings = _get_settings(request)
-    disabled = _check_sync_enabled(settings)
-    if disabled:
-        return disabled
-
     config = db.get(SyncConfig, config_id)
     if not config:
         return error_response("NOT_FOUND", "同步配置不存在", 404)
@@ -113,11 +147,6 @@ async def delete_config(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    settings = _get_settings(request)
-    disabled = _check_sync_enabled(settings)
-    if disabled:
-        return disabled
-
     config = db.get(SyncConfig, config_id)
     if not config:
         return error_response("NOT_FOUND", "同步配置不存在", 404)
@@ -136,11 +165,6 @@ async def save_field_mapping(
     request: Request,
     db: Session = Depends(get_db),
 ):
-    settings = _get_settings(request)
-    disabled = _check_sync_enabled(settings)
-    if disabled:
-        return disabled
-
     config = db.get(SyncConfig, config_id)
     if not config:
         return error_response("NOT_FOUND", "同步配置不存在", 404)
@@ -159,11 +183,6 @@ async def get_feishu_fields(
     db: Session = Depends(get_db),
     client: Optional[FeishuClient] = Depends(_get_client_safe),
 ):
-    settings = _get_settings(request)
-    disabled = _check_sync_enabled(settings)
-    if disabled:
-        return disabled
-
     if client is None:
         return error_response("CREDENTIALS_MISSING", "飞书凭证未配置", 400)
 
@@ -188,58 +207,65 @@ async def get_feishu_fields(
     return success_response(field_infos)
 
 
+@router.get("/runtime", summary="获取飞书运行时设置", description="返回当前飞书功能开关与脱敏后的凭证状态。")
+async def get_runtime_settings(request: Request, db: Session = Depends(get_db)):
+    effective_settings = _get_effective_settings(request, db)
+    return success_response(_build_runtime_settings_read(effective_settings).model_dump())
+
+
+@router.put("/runtime", summary="更新飞书运行时开关", description="更新飞书同步与 OAuth 的运行时开关。")
+async def update_runtime_settings(
+    body: FeishuRuntimeSettingsUpdate,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    if body.feishu_sync_enabled is not None:
+        set_setting(db, FEISHU_SYNC_ENABLED_KEY, body.feishu_sync_enabled)
+    if body.feishu_oauth_enabled is not None:
+        set_setting(db, FEISHU_OAUTH_ENABLED_KEY, body.feishu_oauth_enabled)
+    db.commit()
+    effective_settings = _get_effective_settings(request, db)
+    return success_response(_build_runtime_settings_read(effective_settings).model_dump())
+
+
 @router.get("/credentials/status", summary="获取飞书凭证配置状态", description="检查飞书应用凭证是否已配置。")
-async def credentials_status(request: Request):
-    settings = _get_settings(request)
-    disabled = _check_sync_enabled(settings)
-    if disabled:
-        return disabled
+async def credentials_status(request: Request, db: Session = Depends(get_db)):
+    effective_settings = _get_effective_settings(request, db)
+    payload = FeishuCredentialsStatus(
+        configured=effective_settings.credentials_configured,
+        masked_app_id=mask_app_id(effective_settings.feishu_app_id),
+        secret_configured=bool(effective_settings.feishu_app_secret),
+    )
+    return success_response(payload.model_dump())
 
-    configured = bool(settings.feishu_app_id and settings.feishu_app_secret)
-    return success_response({"configured": configured})
 
-
-@router.put("/credentials", summary="验证飞书凭证", description="验证飞书应用凭证是否有效（不会存储到数据库）。")
+@router.put("/credentials", summary="验证并保存飞书凭证", description="验证飞书应用凭证是否有效，并持久化到运行时设置。")
 async def validate_credentials(
     body: FeishuCredentials,
     request: Request,
+    db: Session = Depends(get_db),
 ):
-    settings = _get_settings(request)
-    disabled = _check_sync_enabled(settings)
-    if disabled:
-        return disabled
+    validation_error = await _validate_feishu_credentials(body.app_id, body.app_secret)
+    if validation_error is not None:
+        return error_response(
+            validation_error["code"],
+            validation_error["message"],
+            validation_error["status_code"],
+        )
 
-    # Validate credentials by attempting a token fetch -- DO NOT store to DB
-    try:
-        async with httpx.AsyncClient(timeout=10) as http:
-            resp = await http.post(
-                "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
-                json={"app_id": body.app_id, "app_secret": body.app_secret},
-            )
-            resp.raise_for_status()
-            data = resp.json()
-            if data.get("code") != 0:
-                return error_response(
-                    "INVALID_CREDENTIALS",
-                    f"飞书凭证验证失败: {data.get('msg', '未知错误')}",
-                    400,
-                )
-    except Exception as e:
-        return error_response("VALIDATION_ERROR", f"凭证验证请求失败: {e}", 502)
-
-    return success_response({"valid": True})
+    set_setting(db, FEISHU_APP_ID_KEY, body.app_id)
+    set_setting(db, FEISHU_APP_SECRET_KEY, body.app_secret)
+    db.commit()
+    effective_settings = _get_effective_settings(request, db)
+    return success_response(_build_runtime_settings_read(effective_settings).model_dump())
 
 
 @router.get("/features", summary="获取飞书功能开关状态", description="返回飞书相关功能的开关状态，前端用于条件渲染。")
-async def get_feature_flags(request: Request):
-    settings = _get_settings(request)
-    disabled = _check_sync_enabled(settings)
-    if disabled:
-        return disabled
-
+async def get_feature_flags(request: Request, db: Session = Depends(get_db)):
+    effective_settings = _get_effective_settings(request, db)
     flags = FeatureFlags(
-        feishu_sync_enabled=settings.feishu_sync_enabled,
-        feishu_oauth_enabled=settings.feishu_oauth_enabled,
-        feishu_credentials_configured=bool(settings.feishu_app_id and settings.feishu_app_secret),
+        feishu_sync_enabled=effective_settings.feishu_sync_enabled,
+        feishu_oauth_enabled=effective_settings.feishu_oauth_enabled,
+        feishu_credentials_configured=effective_settings.credentials_configured,
     )
     return success_response(flags.model_dump())

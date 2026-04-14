@@ -1,15 +1,16 @@
-import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { PlusOutlined, SettingOutlined } from '@ant-design/icons';
 import {
   Alert,
   Button,
   Card,
+  Col,
   Descriptions,
   Drawer,
   Form,
   Input,
   Popconfirm,
   Radio,
+  Row,
   Space,
   Switch,
   Table,
@@ -17,16 +18,23 @@ import {
   Typography,
   message,
 } from 'antd';
-import { PlusOutlined, SettingOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
+import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
+import { useResponsiveViewport } from '../hooks/useResponsiveViewport';
 import { normalizeApiError } from '../services/api';
 import {
-  fetchSyncConfigs,
   createSyncConfig,
-  updateSyncConfig,
   deleteSyncConfig,
+  fetchFeishuRuntimeSettings,
+  fetchSyncConfigs,
+  type FeishuRuntimeSettings,
+  type FeishuRuntimeSettingsUpdate,
   type SyncConfig,
+  updateFeishuCredentials,
+  updateFeishuRuntimeSettings,
+  updateSyncConfig,
 } from '../services/feishu';
 import { useFeishuFeatureFlag } from '../hooks/useFeishuFeatureFlag';
 
@@ -34,26 +42,49 @@ const { Title, Text } = Typography;
 
 export function FeishuSettingsPage() {
   const navigate = useNavigate();
+  const { isMobile, isTablet } = useResponsiveViewport();
+  const isCompact = isMobile || isTablet;
   const {
     feishu_sync_enabled,
     feishu_oauth_enabled,
     feishu_credentials_configured,
     loading: flagsLoading,
+    refreshFlags,
   } = useFeishuFeatureFlag();
 
+  const [runtimeSettings, setRuntimeSettings] = useState<FeishuRuntimeSettings | null>(null);
+  const [runtimeLoading, setRuntimeLoading] = useState(true);
+  const [runtimeSubmitting, setRuntimeSubmitting] = useState(false);
+  const [credentialsSubmitting, setCredentialsSubmitting] = useState(false);
   const [configs, setConfigs] = useState<SyncConfig[]>([]);
   const [configsLoading, setConfigsLoading] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingConfig, setEditingConfig] = useState<SyncConfig | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const [form] = Form.useForm();
+  const [submittingConfig, setSubmittingConfig] = useState(false);
 
-  // Redirect when feature is disabled
-  useEffect(() => {
-    if (!flagsLoading && !feishu_sync_enabled) {
-      navigate('/');
+  const [runtimeForm] = Form.useForm<FeishuRuntimeSettingsUpdate>();
+  const [credentialForm] = Form.useForm<{ app_id: string; app_secret: string }>();
+  const [configForm] = Form.useForm();
+
+  const syncConfigured = runtimeSettings?.feishu_sync_enabled ?? feishu_sync_enabled;
+  const oauthConfigured = runtimeSettings?.feishu_oauth_enabled ?? feishu_oauth_enabled;
+  const credentialsConfigured = runtimeSettings?.feishu_credentials_configured ?? feishu_credentials_configured;
+
+  const loadRuntimeSettings = useCallback(async () => {
+    setRuntimeLoading(true);
+    try {
+      const data = await fetchFeishuRuntimeSettings();
+      setRuntimeSettings(data);
+      runtimeForm.setFieldsValue({
+        feishu_sync_enabled: data.feishu_sync_enabled,
+        feishu_oauth_enabled: data.feishu_oauth_enabled,
+      });
+    } catch (err) {
+      message.error(normalizeApiError(err).message);
+    } finally {
+      setRuntimeLoading(false);
     }
-  }, [flagsLoading, feishu_sync_enabled, navigate]);
+  }, [runtimeForm]);
 
   const loadConfigs = useCallback(async () => {
     setConfigsLoading(true);
@@ -68,19 +99,20 @@ export function FeishuSettingsPage() {
   }, []);
 
   useEffect(() => {
-    loadConfigs();
-  }, [loadConfigs]);
+    void loadRuntimeSettings();
+    void loadConfigs();
+  }, [loadConfigs, loadRuntimeSettings]);
 
   const openCreateDrawer = () => {
     setEditingConfig(null);
-    form.resetFields();
-    form.setFieldsValue({ granularity: 'detail', field_mapping: {} });
+    configForm.resetFields();
+    configForm.setFieldsValue({ granularity: 'detail', field_mapping: {} });
     setDrawerOpen(true);
   };
 
   const openEditDrawer = (config: SyncConfig) => {
     setEditingConfig(config);
-    form.setFieldsValue({
+    configForm.setFieldsValue({
       name: config.name,
       app_token: config.app_token,
       table_id: config.table_id,
@@ -89,13 +121,48 @@ export function FeishuSettingsPage() {
     setDrawerOpen(true);
   };
 
-  const handleSubmit = async (values: {
+  const handleRuntimeSubmit = async () => {
+    setRuntimeSubmitting(true);
+    try {
+      const values = await runtimeForm.validateFields();
+      const saved = await updateFeishuRuntimeSettings(values);
+      setRuntimeSettings(saved);
+      runtimeForm.setFieldsValue({
+        feishu_sync_enabled: saved.feishu_sync_enabled,
+        feishu_oauth_enabled: saved.feishu_oauth_enabled,
+      });
+      await refreshFlags();
+      message.success('飞书运行时开关已保存');
+    } catch (err) {
+      message.error(normalizeApiError(err).message);
+    } finally {
+      setRuntimeSubmitting(false);
+    }
+  };
+
+  const handleCredentialsSubmit = async () => {
+    setCredentialsSubmitting(true);
+    try {
+      const values = await credentialForm.validateFields();
+      const saved = await updateFeishuCredentials(values);
+      setRuntimeSettings(saved);
+      credentialForm.resetFields();
+      await refreshFlags();
+      message.success('飞书凭证已验证并保存');
+    } catch (err) {
+      message.error(normalizeApiError(err).message);
+    } finally {
+      setCredentialsSubmitting(false);
+    }
+  };
+
+  const handleConfigSubmit = async (values: {
     name: string;
     app_token: string;
     table_id: string;
     granularity: 'detail' | 'summary';
   }) => {
-    setSubmitting(true);
+    setSubmittingConfig(true);
     try {
       if (editingConfig) {
         await updateSyncConfig(editingConfig.id, values);
@@ -105,12 +172,12 @@ export function FeishuSettingsPage() {
         message.success('同步目标已创建');
       }
       setDrawerOpen(false);
-      form.resetFields();
-      loadConfigs();
+      configForm.resetFields();
+      await loadConfigs();
     } catch (err) {
       message.error(normalizeApiError(err).message);
     } finally {
-      setSubmitting(false);
+      setSubmittingConfig(false);
     }
   };
 
@@ -118,7 +185,7 @@ export function FeishuSettingsPage() {
     try {
       await deleteSyncConfig(id);
       message.success('同步目标已删除');
-      loadConfigs();
+      await loadConfigs();
     } catch (err) {
       message.error(normalizeApiError(err).message);
     }
@@ -129,6 +196,7 @@ export function FeishuSettingsPage() {
       title: '名称',
       dataIndex: 'name',
       key: 'name',
+      fixed: 'left',
       width: 180,
     },
     {
@@ -136,56 +204,47 @@ export function FeishuSettingsPage() {
       dataIndex: 'app_token',
       key: 'app_token',
       width: 160,
-      render: (val: string) => (
-        <Text code>{val.slice(0, 8)}{'...'}</Text>
-      ),
+      render: (value: string) => <Text code>{value.slice(0, 8)}...</Text>,
+    },
+    {
+      title: 'Table ID',
+      dataIndex: 'table_id',
+      key: 'table_id',
+      width: 140,
+      render: (value: string) => <Text code>{value}</Text>,
     },
     {
       title: '粒度',
       dataIndex: 'granularity',
       key: 'granularity',
-      width: 80,
-      render: (val: string) => (
-        <Tag color={val === 'detail' ? 'blue' : 'orange'}>
-          {val === 'detail' ? '明细' : '汇总'}
-        </Tag>
+      width: 90,
+      render: (value: string) => (
+        <Tag color={value === 'detail' ? 'blue' : 'orange'}>{value === 'detail' ? '明细' : '汇总'}</Tag>
       ),
     },
     {
       title: '状态',
       dataIndex: 'is_active',
       key: 'is_active',
-      width: 80,
-      render: (active: boolean) => (
-        <Tag color={active ? 'green' : 'default'}>
-          {active ? '启用' : '停用'}
-        </Tag>
-      ),
+      width: 90,
+      render: (active: boolean) => <Tag color={active ? 'green' : 'default'}>{active ? '启用' : '停用'}</Tag>,
     },
     {
       title: '操作',
       key: 'action',
-      width: 200,
+      width: 220,
       render: (_: unknown, record: SyncConfig) => (
-        <Space>
-          <Button
-            type="link"
-            size="small"
-            onClick={() => openEditDrawer(record)}
-          >
+        <Space wrap>
+          <Button type="link" size="small" onClick={() => openEditDrawer(record)}>
             编辑
           </Button>
-          <Button
-            type="link"
-            size="small"
-            onClick={() => navigate(`/feishu-mapping/${record.id}`)}
-          >
+          <Button type="link" size="small" onClick={() => navigate(`/feishu-mapping/${record.id}`)}>
             配置映射
           </Button>
           <Popconfirm
             title="确认删除此同步目标？"
             description="删除后相关同步记录仍会保留。"
-            onConfirm={() => handleDelete(record.id)}
+            onConfirm={() => void handleDelete(record.id)}
             okText="确认"
             cancelText="取消"
           >
@@ -198,111 +257,211 @@ export function FeishuSettingsPage() {
     },
   ];
 
-  if (flagsLoading) return null;
-
   return (
-    <div style={{ padding: '24px 24px 48px' }}>
+    <div style={{ padding: isMobile ? '16px 12px 32px' : '24px 24px 48px' }}>
       <div style={{ marginBottom: 24 }}>
         <Title level={3} style={{ margin: 0 }}>
           <SettingOutlined style={{ marginRight: 8 }} />
           飞书设置
         </Title>
-        <Text type="secondary">管理飞书集成的功能开关、应用凭证和同步目标</Text>
+        <Text type="secondary">在一个页面内完成飞书开关、凭证与同步目标配置。</Text>
       </div>
 
-      {/* Feature Toggles */}
-      <Card title="功能开关" style={{ marginBottom: 16 }}>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: 12,
-          }}
-        >
-          <div>
-            <Text strong>飞书同步</Text>
-            <br />
-            <Text type="secondary">
-              启用后可将系统数据同步到飞书多维表格
-            </Text>
-          </div>
-          <Switch checked={feishu_sync_enabled} disabled />
-        </div>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-          }}
-        >
-          <div>
-            <Text strong>飞书登录</Text>
-            <br />
-            <Text type="secondary">允许用户使用飞书账号登录系统</Text>
-          </div>
-          <Switch checked={feishu_oauth_enabled} disabled />
-        </div>
+      <Card style={{ marginBottom: 16 }}>
+        <Descriptions
+          size="small"
+          column={isCompact ? 1 : 3}
+          items={[
+            {
+              key: 'sync',
+              label: '同步开关',
+              children: <Tag color={syncConfigured ? 'green' : 'default'}>{syncConfigured ? '已启用' : '已关闭'}</Tag>,
+            },
+            {
+              key: 'oauth',
+              label: '飞书登录',
+              children: <Tag color={oauthConfigured ? 'blue' : 'default'}>{oauthConfigured ? '已启用' : '已关闭'}</Tag>,
+            },
+            {
+              key: 'credentials',
+              label: '凭证状态',
+              children: (
+                <Tag color={credentialsConfigured ? 'green' : 'warning'}>
+                  {credentialsConfigured ? '已配置' : '未配置'}
+                </Tag>
+              ),
+            },
+          ]}
+        />
       </Card>
 
-      {/* Credentials */}
-      <Card title="应用凭证" style={{ marginBottom: 16 }}>
-        {!feishu_credentials_configured ? (
-          <Alert
-            type="info"
-            showIcon
-            message="飞书应用凭证未配置"
-            description="请在服务器环境变量中配置 FEISHU_APP_ID 和 FEISHU_APP_SECRET，然后重启服务。"
-          />
-        ) : (
-          <Descriptions column={1} size="small">
-            <Descriptions.Item label="凭证状态">
-              <Tag color="green">已配置</Tag>
-            </Descriptions.Item>
-            <Descriptions.Item label="App ID">
-              <Text code>{'****'}</Text>
-              <Text type="secondary" style={{ marginLeft: 8 }}>
-                (已脱敏)
-              </Text>
-            </Descriptions.Item>
-          </Descriptions>
-        )}
-      </Card>
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} xl={12}>
+          <Card
+            title="运行时开关"
+            loading={runtimeLoading && !runtimeSettings}
+            extra={
+              <Button
+                type="primary"
+                loading={runtimeSubmitting}
+                onClick={() => void handleRuntimeSubmit()}
+                data-testid="feishu-runtime-save"
+              >
+                保存开关
+              </Button>
+            }
+          >
+            <Form form={runtimeForm} layout="vertical">
+              <Form.Item
+                name="feishu_sync_enabled"
+                label="飞书同步"
+                valuePropName="checked"
+                extra="关闭后同步页会进入禁用态，但设置页仍可继续维护配置。"
+              >
+                <Switch data-testid="feishu-sync-toggle" />
+              </Form.Item>
+              <Form.Item
+                name="feishu_oauth_enabled"
+                label="飞书登录"
+                valuePropName="checked"
+                extra="控制是否允许用户通过飞书 OAuth 登录。"
+                style={{ marginBottom: 0 }}
+              >
+                <Switch data-testid="feishu-oauth-toggle" />
+              </Form.Item>
+            </Form>
+          </Card>
+        </Col>
 
-      {/* Sync Targets */}
+        <Col xs={24} xl={12}>
+          <Card
+            title="应用凭证"
+            loading={runtimeLoading && !runtimeSettings}
+            extra={
+              <Button
+                type="primary"
+                loading={credentialsSubmitting}
+                onClick={() => void handleCredentialsSubmit()}
+                data-testid="feishu-credentials-save"
+              >
+                保存凭证
+              </Button>
+            }
+          >
+            {!credentialsConfigured ? (
+              <Alert
+                type="info"
+                showIcon
+                style={{ marginBottom: 16 }}
+                message="飞书应用凭证未配置"
+                description="保存 App ID 和 App Secret 后，系统会验证凭证并仅展示脱敏状态。"
+              />
+            ) : null}
+
+            <Descriptions
+              size="small"
+              column={1}
+              style={{ marginBottom: 16 }}
+              items={[
+                {
+                  key: 'configured',
+                  label: '配置状态',
+                  children: (
+                    <Tag color={runtimeSettings?.feishu_credentials_configured ? 'green' : 'warning'}>
+                      {runtimeSettings?.feishu_credentials_configured ? '已配置' : '未配置'}
+                    </Tag>
+                  ),
+                },
+                {
+                  key: 'masked_app_id',
+                  label: 'App ID',
+                  children: runtimeSettings?.masked_app_id ? <Text code>{runtimeSettings.masked_app_id}</Text> : <Text type="secondary">尚未保存</Text>,
+                },
+                {
+                  key: 'secret_configured',
+                  label: 'Secret',
+                  children: (
+                    <Tag color={runtimeSettings?.secret_configured ? 'green' : 'default'}>
+                      {runtimeSettings?.secret_configured ? '已保存' : '未保存'}
+                    </Tag>
+                  ),
+                },
+              ]}
+            />
+
+            <Form form={credentialForm} layout="vertical">
+              <Form.Item
+                name="app_id"
+                label="App ID"
+                rules={[{ required: true, message: '请输入飞书 App ID' }]}
+              >
+                <Input data-testid="feishu-app-id-input" placeholder="cli_a1b2c3..." autoComplete="off" />
+              </Form.Item>
+              <Form.Item
+                name="app_secret"
+                label="App Secret"
+                rules={[{ required: true, message: '请输入飞书 App Secret' }]}
+                extra="保存成功后页面只展示脱敏状态，不会回显明文 secret。"
+                style={{ marginBottom: 0 }}
+              >
+                <Input.Password
+                  data-testid="feishu-app-secret-input"
+                  placeholder="输入新的 App Secret"
+                  autoComplete="new-password"
+                />
+              </Form.Item>
+            </Form>
+          </Card>
+        </Col>
+      </Row>
+
       <Card
         title="同步目标"
         extra={
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={openCreateDrawer}
-          >
-            添加同步目标
-          </Button>
+          isMobile ? null : (
+            <Space wrap>
+              <Button onClick={() => navigate('/feishu-sync')}>前往同步页</Button>
+              <Button type="primary" icon={<PlusOutlined />} onClick={openCreateDrawer} data-testid="feishu-sync-config-add">
+                添加同步目标
+              </Button>
+            </Space>
+          )
         }
       >
+        {isMobile ? (
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+            <Button onClick={() => navigate('/feishu-sync')}>前往同步页</Button>
+            <Button type="primary" icon={<PlusOutlined />} onClick={openCreateDrawer} data-testid="feishu-sync-config-add">
+              添加同步目标
+            </Button>
+          </div>
+        ) : null}
+
         <Table<SyncConfig>
           dataSource={configs}
           columns={columns}
           rowKey="id"
-          loading={configsLoading}
+          loading={configsLoading || flagsLoading}
           pagination={false}
           locale={{ emptyText: '暂无同步目标，请点击上方按钮添加' }}
-          scroll={{ x: 700 }}
+          scroll={{ x: 820 }}
         />
       </Card>
 
-      {/* Add/Edit Drawer */}
       <Drawer
         title={editingConfig ? '编辑同步目标' : '添加同步目标'}
         open={drawerOpen}
         onClose={() => setDrawerOpen(false)}
-        width={480}
+        width={isMobile ? '100vw' : 480}
         extra={
-          <Space>
+          <Space wrap>
             <Button onClick={() => setDrawerOpen(false)}>取消</Button>
-            <Button type="primary" loading={submitting} onClick={() => form.submit()}>
+            <Button
+              type="primary"
+              loading={submittingConfig}
+              onClick={() => configForm.submit()}
+              data-testid="feishu-config-submit"
+            >
               {editingConfig ? '保存' : '创建'}
             </Button>
           </Space>
@@ -310,9 +469,9 @@ export function FeishuSettingsPage() {
         destroyOnClose
       >
         <Form
-          form={form}
+          form={configForm}
           layout="vertical"
-          onFinish={handleSubmit}
+          onFinish={handleConfigSubmit}
           initialValues={{ granularity: 'detail' }}
         >
           <Form.Item
@@ -340,6 +499,7 @@ export function FeishuSettingsPage() {
             name="granularity"
             label="数据粒度"
             rules={[{ required: true, message: '请选择数据粒度' }]}
+            style={{ marginBottom: 0 }}
           >
             <Radio.Group>
               <Radio value="detail">明细</Radio>

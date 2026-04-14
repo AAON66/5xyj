@@ -8,6 +8,11 @@ from typing import Any, Optional
 from backend.app.parsers.workbook_loader import load_workbook_compatible
 from backend.app.services.header_normalizer import HeaderMappingDecision, HeaderNormalizationResult
 from backend.app.services.normalization_service import NormalizedPreviewRecord, StandardizationResult
+from backend.app.utils.period_utils import (
+    coalesce_billing_period,
+    infer_billing_period_from_filename,
+    normalize_billing_period,
+)
 
 HEADER_PATTERNS: dict[str, tuple[str, ...]] = {
     "person_name": ("\u59d3\u540d", "\u804c\u5de5\u59d3\u540d"),
@@ -235,8 +240,13 @@ def _build_preview_record(
     if _looks_like_non_detail_record(person_name, id_number):
         return None
 
-    billing_period = _normalize_period(_find_first_value(raw_values, HEADER_PATTERNS["billing_period"]))
-    period_start, period_end = _derive_period_bounds(_find_first_value(raw_values, HEADER_PATTERNS["billing_period"]))
+    raw_period_value = _find_first_value(raw_values, HEADER_PATTERNS["billing_period"])
+    billing_period = coalesce_billing_period(
+        raw_period_value,
+        raw_header_signature,
+        infer_billing_period_from_filename(source_file_name),
+    )
+    period_start, period_end = _derive_period_bounds(raw_period_value, fallback=billing_period)
     housing_account = _find_first_value(raw_values, HEADER_PATTERNS["housing_fund_account"])
     housing_base = _to_decimal(_find_first_value(raw_values, HEADER_PATTERNS["housing_fund_base"]))
     personal_amount = _to_decimal(_find_first_value(raw_values, HEADER_PATTERNS["housing_fund_personal"]))
@@ -359,34 +369,24 @@ def _header_matches(header: Optional[str], patterns: tuple[str, ...]) -> bool:
 
 
 def _normalize_period(value: Any) -> Optional[str]:
-    if value is None:
-        return None
-    text = str(value).strip()
-    if not text:
-        return None
-    if "-" in text and len(text.replace("-", "")) == 12:
-        start = text.split("-", 1)[0]
-        return f"{start[:4]}-{start[4:6]}"
-    if len(text) == 6 and text.isdigit():
-        return f"{text[:4]}-{text[4:6]}"
-    if len(text) == 7 and text[4] == "-":
-        return text
-    return text
+    return normalize_billing_period(value)
 
 
-def _derive_period_bounds(value: Any) -> Optional[tuple[str], str | None]:
+def _derive_period_bounds(value: Any, *, fallback: Optional[str] = None) -> tuple[Optional[str], Optional[str]]:
     if value is None:
-        return None, None
+        return fallback, fallback
     text = str(value).strip()
     if not text:
-        return None, None
+        return fallback, fallback
     if "-" in text and len(text.replace("-", "")) == 12:
         start_raw, end_raw = text.split("-", 1)
         start = _normalize_period(start_raw)
         end = _normalize_period(end_raw)
         return start, end
     normalized = _normalize_period(text)
-    return normalized, normalized
+    if normalized is not None:
+        return normalized, normalized
+    return fallback, fallback
 
 
 def _clean_text(value: object) -> Optional[str]:

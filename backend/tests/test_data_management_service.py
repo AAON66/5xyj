@@ -17,6 +17,7 @@ from backend.app.models.normalized_record import NormalizedRecord
 from backend.app.models.source_file import SourceFile
 from backend.app.services.data_management_service import (
     get_filter_options,
+    get_period_summary,
     list_normalized_records,
 )
 
@@ -73,6 +74,9 @@ def _make_record(
     region: str = "guangzhou",
     company_name: str = "CompanyA",
     billing_period: str = "202602",
+    source_file_name: str = "test.xlsx",
+    period_start: str | None = None,
+    period_end: str | None = None,
     record_id: str | None = None,
 ) -> NormalizedRecord:
     rid = record_id or str(uuid4())
@@ -85,6 +89,9 @@ def _make_record(
         region=region,
         company_name=company_name,
         billing_period=billing_period,
+        period_start=period_start,
+        period_end=period_end,
+        source_file_name=source_file_name,
     )
     session.add(rec)
     session.flush()
@@ -188,3 +195,128 @@ def test_list_records_match_filter_all(db_session: Session, seed_data):
     """match_filter=None should return all records without JOIN."""
     result = list_normalized_records(db_session)
     assert result.total == 3
+
+
+def test_filter_options_normalizes_and_deduplicates_periods(db_session: Session):
+    batch = _make_batch(db_session)
+    sf = _make_source_file(db_session, batch.id)
+
+    _make_record(
+        db_session,
+        batch.id,
+        sf.id,
+        person_name="Alice",
+        billing_period="202603",
+        source_file_name="杭州聚变202603社保账单.xlsx",
+    )
+    _make_record(
+        db_session,
+        batch.id,
+        sf.id,
+        person_name="Bob",
+        billing_period="2026-03",
+        source_file_name="深圳202603社保明细.xlsx",
+    )
+    _make_record(
+        db_session,
+        batch.id,
+        sf.id,
+        person_name="Charlie",
+        billing_period="175.00",
+        source_file_name="杭州聚变202603公积金账单.xlsx",
+    )
+    _make_record(
+        db_session,
+        batch.id,
+        sf.id,
+        person_name="Dora",
+        billing_period="备注",
+        source_file_name="202603月零一创造欢乐（深圳）科技有限公司社保账单.xlsx",
+    )
+    _make_record(
+        db_session,
+        batch.id,
+        sf.id,
+        person_name="Eve",
+        billing_period="202602",
+        source_file_name="厦门202602社保账单.xlsx",
+    )
+    db_session.commit()
+
+    result = get_filter_options(db_session)
+
+    assert result.periods == ["2026-03", "2026-02"]
+
+
+def test_list_records_filters_by_effective_billing_period(db_session: Session):
+    batch = _make_batch(db_session)
+    sf = _make_source_file(db_session, batch.id)
+
+    _make_record(
+        db_session,
+        batch.id,
+        sf.id,
+        person_name="Alice",
+        billing_period="202603",
+        source_file_name="杭州聚变202603社保账单.xlsx",
+    )
+    _make_record(
+        db_session,
+        batch.id,
+        sf.id,
+        person_name="Bob",
+        billing_period="175.00",
+        source_file_name="杭州聚变202603公积金账单.xlsx",
+    )
+    _make_record(
+        db_session,
+        batch.id,
+        sf.id,
+        person_name="Charlie",
+        billing_period="2026-02",
+        source_file_name="厦门202602社保账单.xlsx",
+    )
+    db_session.commit()
+
+    result = list_normalized_records(db_session, billing_periods=["2026-03"])
+
+    assert result.total == 2
+    assert {item.person_name for item in result.items} == {"Alice", "Bob"}
+    assert {item.billing_period for item in result.items} == {"2026-03"}
+
+
+def test_period_summary_groups_by_effective_billing_period(db_session: Session):
+    batch = _make_batch(db_session)
+    sf = _make_source_file(db_session, batch.id)
+
+    _make_record(
+        db_session,
+        batch.id,
+        sf.id,
+        person_name="Alice",
+        billing_period="202603",
+        source_file_name="杭州聚变202603社保账单.xlsx",
+    )
+    _make_record(
+        db_session,
+        batch.id,
+        sf.id,
+        person_name="Bob",
+        billing_period="2026年-03月",
+        source_file_name="深圳202603社保明细.xlsx",
+    )
+    _make_record(
+        db_session,
+        batch.id,
+        sf.id,
+        person_name="Charlie",
+        billing_period="175.00",
+        source_file_name="杭州聚变202603公积金账单.xlsx",
+    )
+    db_session.commit()
+
+    result = get_period_summary(db_session)
+
+    assert result.total == 1
+    assert result.items[0].billing_period == "2026-03"
+    assert result.items[0].total_count == 3

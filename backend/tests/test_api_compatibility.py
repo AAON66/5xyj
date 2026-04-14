@@ -49,11 +49,12 @@ def test_salary_headers_structure():
     """Salary headers list has expected length and key entries."""
     from backend.app.exporters.salary_exporter import SALARY_HEADERS
 
-    assert len(SALARY_HEADERS) == 18
+    assert len(SALARY_HEADERS) == 16
     assert SALARY_HEADERS[0] == '员工姓名'
     assert SALARY_HEADERS[1] == '工号'
-    assert SALARY_HEADERS[-2] == '个人社保承担额'
-    assert SALARY_HEADERS[-1] == '个人公积金承担额'
+    assert SALARY_HEADERS[-1] == '公司公积金'
+    assert '个人社保承担额' not in SALARY_HEADERS
+    assert '个人公积金承担额' not in SALARY_HEADERS
 
 
 def test_tool_headers_structure():

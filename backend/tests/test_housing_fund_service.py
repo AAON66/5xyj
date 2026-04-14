@@ -64,6 +64,7 @@ def test_standardize_housing_fund_workbook_hangzhou_reads_explicit_amounts() -> 
 
     first = result.records[0]
     assert first.values['person_name'] == '\u738b\u5353'
+    assert first.values['billing_period'] == '2026-02'
     assert first.values['housing_fund_account'] == '100202102900'
     assert first.values['housing_fund_personal'] == Decimal('175.00')
     assert first.values['housing_fund_company'] == Decimal('175.00')
@@ -76,6 +77,7 @@ def test_standardize_housing_fund_workbook_uploaded_hangzhou_read_only_sheet_acc
 
     assert result.records
     match = next(record for record in result.records if record.values.get('person_name') == '王卓')
+    assert match.values['billing_period'] == '2025-12'
     assert str(match.values['housing_fund_account']) == '100202102900'
     assert match.values['housing_fund_personal'] == Decimal('175.00')
     assert match.values['housing_fund_company'] == Decimal('175.00')

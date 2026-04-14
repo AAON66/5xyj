@@ -17,7 +17,9 @@ import {
 import { ExportOutlined } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 
+import { MobileStickyActionBar } from '../components/MobileStickyActionBar';
 import { WorkflowSteps } from '../components/WorkflowSteps';
+import { useResponsiveViewport } from '../hooks/useResponsiveViewport';
 import {
   exportBatch,
   fetchBatchExport,
@@ -90,6 +92,7 @@ function sortArtifacts(artifacts: ExportArtifact[]): ExportArtifact[] {
 
 export function ExportsPage() {
   const colors = useSemanticColors();
+  const { isMobile } = useResponsiveViewport();
   const [batches, setBatches] = useState<Array<{ id: string; batch_name: string; status: string; updated_at: string }>>([]);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [exportResult, setExportResult] = useState<BatchExport | null>(null);
@@ -200,7 +203,7 @@ export function ExportsPage() {
   ];
 
   return (
-    <div>
+    <div style={isMobile ? { paddingBottom: 96 } : undefined}>
       <Title level={4}>导出结果</Title>
       <WorkflowSteps />
 
@@ -237,17 +240,19 @@ export function ExportsPage() {
                     label: `${b.batch_name} (${b.status})`,
                   }))}
                 />
-                <div style={{ marginTop: 12 }}>
-                  <Button
-                    type="primary"
-                    icon={<ExportOutlined />}
-                    onClick={() => void handleExport()}
-                    disabled={!selectedBatchId || runningExport}
-                    loading={runningExport}
-                  >
-                    执行双模板导出
-                  </Button>
-                </div>
+                {isMobile ? null : (
+                  <div style={{ marginTop: 12 }}>
+                    <Button
+                      type="primary"
+                      icon={<ExportOutlined />}
+                      onClick={() => void handleExport()}
+                      disabled={!selectedBatchId || runningExport}
+                      loading={runningExport}
+                    >
+                      执行双模板导出
+                    </Button>
+                  </div>
+                )}
               </>
             )}
           </Card>
@@ -306,6 +311,15 @@ export function ExportsPage() {
           <Empty description="当前批次还没有导出记录。完成匹配后即可在这里触发双模板导出。" />
         )}
       </Card>
+      <MobileStickyActionBar
+        visible={isMobile}
+        primaryLabel="执行双模板导出"
+        onPrimaryClick={() => void handleExport()}
+        primaryDisabled={!selectedBatchId || runningExport}
+        primaryLoading={runningExport}
+        helperText={!selectedBatchId ? '请先选择一个批次。' : null}
+        icon={<ExportOutlined />}
+      />
     </div>
   );
 }

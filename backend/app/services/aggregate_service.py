@@ -16,10 +16,18 @@ from backend.app.core.config import Settings
 from backend.app.models import MatchResult
 from backend.app.models.enums import BatchStatus, SourceFileKind
 from backend.app.schemas.aggregate import AggregateEmployeeImportRead, AggregateRunRead, AggregateSourceFileRead
+from backend.app.schemas.fusion_inputs import FusionBurdenDiagnostics
 from backend.app.schemas.imports import ExportArtifactRead
 from backend.app.services.batch_export_service import export_batch
 from backend.app.services.batch_runtime_service import match_batch, validate_batch
 from backend.app.services.employee_service import import_employee_master_file, list_employee_match_candidates
+from backend.app.services.feishu_client import get_feishu_client
+from backend.app.services.fusion_input_service import load_burden_rows_from_feishu, parse_burden_workbook
+from backend.app.services.fusion_runtime_service import (
+    apply_fusion_overrides,
+    build_fusion_runtime_overlay,
+    has_active_or_selected_fusion_rules,
+)
 from backend.app.services.import_service import InvalidUploadError, create_import_batch, get_import_batch, parse_import_batch
 from backend.app.services.matching_service import apply_match_results_to_normalized_records, build_match_result_models, match_preview_records
 from backend.app.services.normalization_service import NormalizedPreviewRecord
@@ -35,6 +43,7 @@ ProgressCallback = Callable[[dict[str, object]], Awaitable[None] | None]
 PARSE_PROGRESS_HEARTBEAT_SECONDS = 4.0
 PARSE_PROGRESS_POLL_INTERVAL_SECONDS = 0.1
 EMPLOYEE_MASTER_MODES = {'none', 'upload', 'existing'}
+BURDEN_SOURCE_MODES = {'none', 'excel', 'feishu'}
 
 
 async def run_simple_aggregate(
@@ -45,6 +54,10 @@ async def run_simple_aggregate(
     housing_fund_files: Optional[list[UploadFile]] = None,
     employee_master_file: Optional[UploadFile] = None,
     employee_master_mode: Optional[str] = None,
+    burden_file: Optional[UploadFile] = None,
+    burden_source_mode: Optional[str] = None,
+    burden_feishu_config_id: Optional[str] = None,
+    fusion_rule_ids: Optional[list[str]] = None,
     batch_name: Optional[str] = None,
     regions: Optional[list[str]] = None,
     company_names: Optional[list[str]] = None,
@@ -63,6 +76,11 @@ async def run_simple_aggregate(
     )
 
     resolved_employee_master_mode = _resolve_employee_master_mode(employee_master_mode, employee_master_file)
+    resolved_burden_source_mode = _resolve_burden_source_mode(
+        burden_source_mode,
+        burden_file,
+        burden_feishu_config_id,
+    )
     employee_summary: Optional[AggregateEmployeeImportRead] = None
     if resolved_employee_master_mode == 'upload':
         await _emit_progress(
@@ -258,6 +276,62 @@ async def run_simple_aggregate(
         batch_name=batch.batch_name,
     )
 
+    fusion_messages: list[str] = []
+    should_apply_fusion_runtime = (
+        resolved_burden_source_mode != 'none'
+        or has_active_or_selected_fusion_rules(db, fusion_rule_ids)
+    )
+    if should_apply_fusion_runtime:
+        burden_rows = []
+        burden_diagnostics = FusionBurdenDiagnostics()
+        if resolved_burden_source_mode == 'excel':
+            burden_payload = await _read_upload_payload(burden_file, fallback_name='burden.xlsx')
+            burden_rows, burden_diagnostics = parse_burden_workbook(
+                burden_payload['content'],
+                burden_payload['filename'],
+            )
+        elif resolved_burden_source_mode == 'feishu':
+            burden_rows, burden_diagnostics = await load_burden_rows_from_feishu(
+                db,
+                await get_feishu_client(),
+                (burden_feishu_config_id or '').strip(),
+            )
+
+        overlay_batch = batch if hasattr(batch, 'normalized_records') else get_import_batch(db, batch.id)
+        runtime_overlay = build_fusion_runtime_overlay(
+            db,
+            overlay_batch.normalized_records,
+            burden_rows=burden_rows,
+            burden_diagnostics=burden_diagnostics,
+            fusion_rule_ids=fusion_rule_ids,
+        )
+        applied_record_count = 0
+        for record in overlay_batch.normalized_records:
+            if apply_fusion_overrides(record, runtime_overlay.overrides, sources=runtime_overlay.sources):
+                applied_record_count += 1
+
+        if runtime_overlay.overrides or runtime_overlay.messages:
+            db.commit()
+            if hasattr(overlay_batch, '_sa_instance_state'):
+                db.refresh(overlay_batch)
+
+        fusion_messages = runtime_overlay.messages
+        if applied_record_count or fusion_messages:
+            summary_bits: list[str] = []
+            if applied_record_count:
+                summary_bits.append(f'\u5df2\u5bf9 {applied_record_count} \u6761\u660e\u7ec6\u5e94\u7528\u627f\u62c5\u989d\u8986\u76d6')
+            if fusion_messages:
+                summary_bits.append(f'\u9644\u5e26 {len(fusion_messages)} \u6761\u878d\u5408\u63d0\u793a')
+            await _emit_progress(
+                progress_callback,
+                stage='export',
+                label='\u878d\u5408\u627f\u62c5\u989d',
+                message='，'.join(summary_bits) + '\u3002',
+                percent=94,
+                batch_id=batch.id,
+                batch_name=batch.batch_name,
+            )
+
     await _emit_progress(
         progress_callback,
         stage='export',
@@ -275,6 +349,7 @@ async def run_simple_aggregate(
         status=export.status,
         export_status=export.export_status,
         blocked_reason=match.blocked_reason,
+        fusion_messages=fusion_messages,
         employee_master=employee_summary,
         total_issue_count=validation.total_issue_count,
         matched_count=match.matched_count,
@@ -603,6 +678,49 @@ def _resolve_employee_master_mode(employee_master_mode: Optional[str], employee_
     if has_uploaded_file:
         return 'upload'
     return normalized_mode or 'none'
+
+
+def _resolve_burden_source_mode(
+    burden_source_mode: Optional[str],
+    burden_file: Optional[UploadFile],
+    burden_feishu_config_id: Optional[str],
+) -> str:
+    normalized_mode = (burden_source_mode or '').strip().lower() or None
+    has_uploaded_file = burden_file is not None and bool((burden_file.filename or '').strip())
+    has_feishu_config = bool((burden_feishu_config_id or '').strip())
+
+    if normalized_mode is not None and normalized_mode not in BURDEN_SOURCE_MODES:
+        raise ValueError('burden_source_mode must be one of: none, excel, feishu.')
+
+    if normalized_mode == 'none' and (has_uploaded_file or has_feishu_config):
+        raise ValueError('burden_source_mode=none cannot be used together with burden_file or burden_feishu_config_id.')
+    if normalized_mode == 'excel' and not has_uploaded_file:
+        raise ValueError('burden_source_mode=excel requires burden_file.')
+    if normalized_mode == 'feishu' and not has_feishu_config:
+        raise ValueError('burden_source_mode=feishu requires burden_feishu_config_id.')
+    if normalized_mode == 'excel' and has_feishu_config:
+        raise ValueError('burden_source_mode=excel cannot be used together with burden_feishu_config_id.')
+    if normalized_mode == 'feishu' and has_uploaded_file:
+        raise ValueError('burden_source_mode=feishu cannot be used together with burden_file.')
+
+    if normalized_mode is not None:
+        return normalized_mode
+    if has_uploaded_file and has_feishu_config:
+        raise ValueError('Provide either burden_file or burden_feishu_config_id, not both.')
+    if has_uploaded_file:
+        return 'excel'
+    if has_feishu_config:
+        return 'feishu'
+    return 'none'
+
+
+async def _read_upload_payload(upload: Optional[UploadFile], *, fallback_name: str) -> dict[str, object]:
+    if upload is None:
+        raise ValueError(f'{fallback_name} upload is required.')
+    return {
+        'filename': upload.filename or fallback_name,
+        'content': await upload.read(),
+    }
 
 
 def _preview_from_model(record) -> NormalizedPreviewRecord:

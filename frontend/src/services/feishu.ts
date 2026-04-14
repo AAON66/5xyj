@@ -50,6 +50,30 @@ export interface FeatureFlags {
   feishu_credentials_configured: boolean;
 }
 
+export interface FeishuCredentialsStatus {
+  configured: boolean;
+  masked_app_id: string | null;
+  secret_configured: boolean;
+}
+
+export interface FeishuRuntimeSettings {
+  feishu_sync_enabled: boolean;
+  feishu_oauth_enabled: boolean;
+  feishu_credentials_configured: boolean;
+  masked_app_id: string | null;
+  secret_configured: boolean;
+}
+
+export interface FeishuRuntimeSettingsUpdate {
+  feishu_sync_enabled?: boolean;
+  feishu_oauth_enabled?: boolean;
+}
+
+export interface FeishuCredentialsInput {
+  app_id: string;
+  app_secret: string;
+}
+
 export interface FeishuFieldInfo {
   field_id: string;
   field_name: string;
@@ -62,6 +86,40 @@ export interface FeishuFieldInfo {
 export async function fetchFeatureFlags(): Promise<FeatureFlags> {
   const response = await apiClient.get<ApiSuccessResponse<FeatureFlags>>(
     '/system/features',
+  );
+  return response.data.data;
+}
+
+export async function fetchFeishuRuntimeSettings(): Promise<FeishuRuntimeSettings> {
+  const response = await apiClient.get<ApiSuccessResponse<FeishuRuntimeSettings>>(
+    '/feishu/settings/runtime',
+  );
+  return response.data.data;
+}
+
+export async function updateFeishuRuntimeSettings(
+  payload: FeishuRuntimeSettingsUpdate,
+): Promise<FeishuRuntimeSettings> {
+  const response = await apiClient.put<ApiSuccessResponse<FeishuRuntimeSettings>>(
+    '/feishu/settings/runtime',
+    payload,
+  );
+  return response.data.data;
+}
+
+export async function fetchFeishuCredentialsStatus(): Promise<FeishuCredentialsStatus> {
+  const response = await apiClient.get<ApiSuccessResponse<FeishuCredentialsStatus>>(
+    '/feishu/settings/credentials/status',
+  );
+  return response.data.data;
+}
+
+export async function updateFeishuCredentials(
+  payload: FeishuCredentialsInput,
+): Promise<FeishuRuntimeSettings> {
+  const response = await apiClient.put<ApiSuccessResponse<FeishuRuntimeSettings>>(
+    '/feishu/settings/credentials',
+    payload,
   );
   return response.data.data;
 }
@@ -116,6 +174,7 @@ export async function fetchFeishuFields(
 ): Promise<FeishuFieldInfo[]> {
   const response = await apiClient.get<ApiSuccessResponse<FeishuFieldInfo[]>>(
     `/feishu/settings/configs/${configId}/feishu-fields`,
+    { skipGlobalError: true } as Record<string, unknown>,
   );
   return response.data.data;
 }

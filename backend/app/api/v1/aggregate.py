@@ -34,6 +34,10 @@ async def run_simple_aggregate_endpoint(
     housing_fund_files: list[UploadFile] = File(default=[]),
     employee_master_file: Optional[UploadFile] = File(default=None),
     employee_master_mode: Optional[str] = Form(default=None),
+    burden_file: Optional[UploadFile] = File(default=None),
+    burden_source_mode: Optional[str] = Form(default=None),
+    burden_feishu_config_id: Optional[str] = Form(default=None),
+    fusion_rule_ids: Optional[str] = Form(default=None),
     batch_name: Optional[str] = Form(default=None),
     regions: Optional[str] = Form(default=None),
     company_names: Optional[str] = Form(default=None),
@@ -48,6 +52,10 @@ async def run_simple_aggregate_endpoint(
             housing_fund_files=housing_fund_files,
             employee_master_file=employee_master_file,
             employee_master_mode=employee_master_mode,
+            burden_file=burden_file,
+            burden_source_mode=burden_source_mode,
+            burden_feishu_config_id=burden_feishu_config_id,
+            fusion_rule_ids=_parse_string_array(fusion_rule_ids, field_name='fusion_rule_ids'),
             batch_name=batch_name,
             regions=_parse_metadata_values(regions),
             company_names=_parse_metadata_values(company_names),
@@ -73,6 +81,10 @@ async def run_simple_aggregate_stream_endpoint(
     housing_fund_files: list[UploadFile] = File(default=[]),
     employee_master_file: Optional[UploadFile] = File(default=None),
     employee_master_mode: Optional[str] = Form(default=None),
+    burden_file: Optional[UploadFile] = File(default=None),
+    burden_source_mode: Optional[str] = Form(default=None),
+    burden_feishu_config_id: Optional[str] = Form(default=None),
+    fusion_rule_ids: Optional[str] = Form(default=None),
     batch_name: Optional[str] = Form(default=None),
     regions: Optional[str] = Form(default=None),
     company_names: Optional[str] = Form(default=None),
@@ -80,6 +92,7 @@ async def run_simple_aggregate_stream_endpoint(
 ):
     parsed_regions = _parse_metadata_values(regions)
     parsed_companies = _parse_metadata_values(company_names)
+    parsed_fusion_rule_ids = _parse_string_array(fusion_rule_ids, field_name='fusion_rule_ids')
     file_payloads = [
         {
             'filename': upload.filename or 'upload.xlsx',
@@ -103,6 +116,13 @@ async def run_simple_aggregate_stream_endpoint(
             'content_type': employee_master_file.content_type,
             'content': await employee_master_file.read(),
         }
+    burden_payload = None
+    if burden_file is not None:
+        burden_payload = {
+            'filename': burden_file.filename or 'burden.xlsx',
+            'content_type': burden_file.content_type,
+            'content': await burden_file.read(),
+        }
 
     async def event_stream():
         queue: asyncio.Queue[dict[str, object] | None] = asyncio.Queue()
@@ -125,6 +145,12 @@ async def run_simple_aggregate_stream_endpoint(
                     filename=employee_payload['filename'],
                     file=BytesIO(employee_payload['content']),
                 )
+            runtime_burden = None
+            if burden_payload is not None:
+                runtime_burden = UploadFile(
+                    filename=burden_payload['filename'],
+                    file=BytesIO(burden_payload['content']),
+                )
 
             try:
                 payload = await run_simple_aggregate(
@@ -134,6 +160,10 @@ async def run_simple_aggregate_stream_endpoint(
                     housing_fund_files=runtime_housing,
                     employee_master_file=runtime_employee,
                     employee_master_mode=employee_master_mode,
+                    burden_file=runtime_burden,
+                    burden_source_mode=burden_source_mode,
+                    burden_feishu_config_id=burden_feishu_config_id,
+                    fusion_rule_ids=parsed_fusion_rule_ids,
                     batch_name=batch_name,
                     regions=parsed_regions,
                     company_names=parsed_companies,
@@ -188,3 +218,18 @@ def _parse_metadata_values(raw_value: Optional[str]) -> Optional[list[str]]:
     if not isinstance(parsed, list) or not all(item is None or isinstance(item, str) for item in parsed):
         raise InvalidUploadError('Metadata fields must be a JSON array of strings.')
     return [item or '' for item in parsed]
+
+
+def _parse_string_array(raw_value: Optional[str], *, field_name: str) -> Optional[list[str]]:
+    if raw_value is None:
+        return None
+    stripped = raw_value.strip()
+    if not stripped:
+        return None
+    try:
+        parsed = json.loads(stripped)
+    except JSONDecodeError as exc:
+        raise InvalidUploadError(f'{field_name} must be a JSON array of strings.') from exc
+    if not isinstance(parsed, list) or not all(isinstance(item, str) for item in parsed):
+        raise InvalidUploadError(f'{field_name} must be a JSON array of strings.')
+    return parsed

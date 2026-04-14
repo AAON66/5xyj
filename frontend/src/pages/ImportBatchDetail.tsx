@@ -19,6 +19,7 @@ import {
 import type { ColumnsType } from 'antd/es/table';
 import { ArrowLeftOutlined, ReloadOutlined } from '@ant-design/icons';
 
+import { useResponsiveViewport } from '../hooks/useResponsiveViewport';
 import {
   fetchImportBatch,
   fetchImportBatchPreview,
@@ -79,6 +80,7 @@ function mappingSourceColor(value: string): string {
 export function ImportBatchDetailPage() {
   const { batchId } = useParams<{ batchId: string }>();
   const navigate = useNavigate();
+  const { isMobile } = useResponsiveViewport();
   const colors = useSemanticColors();
   const cardColors = useCardStatusColors();
   const { isDark } = useThemeMode();
@@ -312,18 +314,26 @@ export function ImportBatchDetailPage() {
 
   return (
     <div>
-      <Space style={{ marginBottom: 16 }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: isMobile ? 'column' : 'row',
+          alignItems: isMobile ? 'flex-start' : 'center',
+          gap: 12,
+          marginBottom: 16,
+        }}
+      >
         <Link to="/imports">
           <Button icon={<ArrowLeftOutlined />}>返回批次列表</Button>
         </Link>
         <Title level={4} style={{ margin: 0 }}>{batchDetail?.batch_name ?? '导入批次详情'}</Title>
-      </Space>
+      </div>
 
       {pageError && <Card style={{ marginBottom: 16, borderColor: cardColors.errorBorder }}><Typography.Text type="danger">{pageError}</Typography.Text></Card>}
 
       {/* Batch info */}
       <Card style={{ marginBottom: 16 }}>
-        <Descriptions bordered column={2} size="small">
+        <Descriptions bordered column={isMobile ? 1 : 2} size="small">
           <Descriptions.Item label="批次名称">{batchDetail?.batch_name ?? '-'}</Descriptions.Item>
           <Descriptions.Item label="文件数">{batchDetail?.file_count ?? '-'}</Descriptions.Item>
           <Descriptions.Item label="创建时间">{batchDetail ? formatDateTime(batchDetail.created_at) : '-'}</Descriptions.Item>
@@ -333,7 +343,8 @@ export function ImportBatchDetailPage() {
           </Descriptions.Item>
           <Descriptions.Item label="预览文件数">{Object.keys(previewByFileId).length}</Descriptions.Item>
         </Descriptions>
-        <Space style={{ marginTop: 12 }}>
+        <Space wrap style={{ marginTop: 12 }}>
+          {refreshing ? <Tag color="processing">详情刷新中</Tag> : null}
           {batchId && (
             <Link to={`/mappings?batchId=${batchId}${selectedSourceFileId ? `&sourceFileId=${selectedSourceFileId}` : ''}`}>
               <Button>进入字段修正</Button>
@@ -380,8 +391,8 @@ export function ImportBatchDetailPage() {
       </Card>
 
       {/* Selected file summary */}
-      <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={12}>
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} md={12}>
           <Card>
             <Typography.Text type="secondary">命中工作表</Typography.Text>
             <Title level={5}>{selectedSourceFile ? selectedSourceFile.raw_sheet_name : '尚未解析'}</Title>
@@ -392,7 +403,7 @@ export function ImportBatchDetailPage() {
             </Typography.Text>
           </Card>
         </Col>
-        <Col span={12}>
+        <Col xs={24} md={12}>
           <Card>
             <Typography.Text type="secondary">表头签名</Typography.Text>
             <Title level={5} style={{ wordBreak: 'break-all' }}>{selectedSourceFile?.raw_header_signature ?? '尚未生成'}</Title>
@@ -404,8 +415,8 @@ export function ImportBatchDetailPage() {
       {previewLoading && <Card style={{ marginBottom: 16 }}><Skeleton active paragraph={{ rows: 4 }} /></Card>}
 
       {/* Header mappings and filtered rows */}
-      <Row gutter={16} style={{ marginBottom: 16 }}>
-        <Col span={12}>
+      <Row gutter={[16, 16]} style={{ marginBottom: 16 }}>
+        <Col xs={24} md={12}>
           <Card title="映射结果 - 表头识别与规则归一化">
             {selectedSourceFile?.header_mappings.length ? (
               selectedSourceFile.header_mappings.map((mapping) => (
@@ -427,7 +438,7 @@ export function ImportBatchDetailPage() {
             )}
           </Card>
         </Col>
-        <Col span={12}>
+        <Col xs={24} md={12}>
           <Card title="过滤结果 - 非明细行">
             {selectedSourceFile?.filtered_rows.length ? (
               selectedSourceFile.filtered_rows.map((row) => (
@@ -449,7 +460,7 @@ export function ImportBatchDetailPage() {
         {selectedSourceFile?.preview_records.length ? (
           <Table
             size="small"
-            scroll={{ x: true }}
+            scroll={{ x: isMobile ? 1200 : true }}
             pagination={false}
             dataSource={selectedSourceFile.preview_records}
             rowKey="source_row_number"
@@ -515,6 +526,7 @@ export function ImportBatchDetailPage() {
             columns={inlineMappingColumns}
             dataSource={inlineMappings}
             rowKey="id"
+            scroll={{ x: isMobile ? 1000 : true }}
             pagination={{ pageSize: 10, showSizeChanger: true }}
           />
         ) : (

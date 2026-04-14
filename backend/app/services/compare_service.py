@@ -174,6 +174,8 @@ def compare_periods(
     *,
     region: Optional[str] = None,
     company_name: Optional[str] = None,
+    search_text: Optional[str] = None,
+    diff_only: bool = False,
     page: int = 0,
     page_size: int = 50,
 ) -> PeriodCompareRead:
@@ -197,17 +199,6 @@ def compare_periods(
 
     all_rows: list[CompareRowRead] = []
     used_fields: set[str] = set()
-    counters = {
-        SAME_STATUS: 0,
-        CHANGED_STATUS: 0,
-        LEFT_ONLY_STATUS: 0,
-        RIGHT_ONLY_STATUS: 0,
-    }
-
-    # Summary groups by company_name+region
-    group_counters: dict[tuple[Optional[str], Optional[str]], dict[str, int]] = defaultdict(
-        lambda: {SAME_STATUS: 0, CHANGED_STATUS: 0, LEFT_ONLY_STATUS: 0, RIGHT_ONLY_STATUS: 0, 'total': 0}
-    )
 
     for identity in all_keys:
         left_recs = sorted(left_groups.get(identity, []), key=_record_sort_key)
@@ -228,13 +219,6 @@ def compare_periods(
                 diff_status = CHANGED_STATUS
             else:
                 diff_status = SAME_STATUS
-            counters[diff_status] += 1
-
-            # Track summary groups
-            ref = right_record or left_record
-            group_key = (getattr(ref, 'company_name', None), getattr(ref, 'region', None))
-            group_counters[group_key][diff_status] += 1
-            group_counters[group_key]['total'] += 1
 
             all_rows.append(
                 CompareRowRead(
@@ -249,32 +233,61 @@ def compare_periods(
 
     fields = _order_fields(used_fields)
     all_rows = [_align_row_fields(row, fields) for row in all_rows]
+    filtered_rows = _filter_period_compare_rows(all_rows, search_text=search_text, diff_only=diff_only)
+
+    counters = {
+        SAME_STATUS: 0,
+        CHANGED_STATUS: 0,
+        LEFT_ONLY_STATUS: 0,
+        RIGHT_ONLY_STATUS: 0,
+    }
+    group_counters: dict[tuple[Optional[str], Optional[str]], dict[str, int]] = defaultdict(
+        lambda: {SAME_STATUS: 0, CHANGED_STATUS: 0, LEFT_ONLY_STATUS: 0, RIGHT_ONLY_STATUS: 0, 'total': 0}
+    )
+    for row in filtered_rows:
+        counters[row.diff_status] += 1
+        group_key = (
+            _pick_compare_row_value(row, 'company_name'),
+            _pick_compare_row_value(row, 'region'),
+        )
+        group_counters[group_key][row.diff_status] += 1
+        group_counters[group_key]['total'] += 1
 
     # Pagination
-    total_count = len(all_rows)
+    total_count = len(filtered_rows)
     start = page * page_size
     end = start + page_size
-    paginated_rows = all_rows[start:end]
+    paginated_rows = filtered_rows[start:end]
+    total_pages = max(1, (total_count + page_size - 1) // page_size)
 
     # Build summary groups
-    summary_groups = [
-        PeriodCompareSummaryGroup(
-            company_name=key[0],
-            region=key[1],
-            total_count=counts['total'],
-            changed_count=counts[CHANGED_STATUS],
-            left_only_count=counts[LEFT_ONLY_STATUS],
-            right_only_count=counts[RIGHT_ONLY_STATUS],
-            same_count=counts[SAME_STATUS],
-        )
-        for key, counts in group_counters.items()
-    ]
+    summary_groups = sorted(
+        [
+            PeriodCompareSummaryGroup(
+                company_name=key[0],
+                region=key[1],
+                total_count=counts['total'],
+                changed_count=counts[CHANGED_STATUS],
+                left_only_count=counts[LEFT_ONLY_STATUS],
+                right_only_count=counts[RIGHT_ONLY_STATUS],
+                same_count=counts[SAME_STATUS],
+            )
+            for key, counts in group_counters.items()
+        ],
+        key=lambda group: ((group.company_name or ''), (group.region or '')),
+    )
 
     return PeriodCompareRead(
         left_period=left_period,
         right_period=right_period,
         fields=fields,
         total_row_count=total_count,
+        page=page,
+        page_size=page_size,
+        total_pages=total_pages,
+        returned_row_count=len(paginated_rows),
+        diff_only=diff_only,
+        search_text=search_text.strip() if search_text and search_text.strip() else None,
         same_row_count=counters[SAME_STATUS],
         changed_row_count=counters[CHANGED_STATUS],
         left_only_count=counters[LEFT_ONLY_STATUS],
@@ -420,6 +433,41 @@ def _align_row_fields(row: CompareRowRead, fields: list[str]) -> CompareRowRead:
             'right': row.right.model_copy(update={'values': right_values}),
         }
     )
+
+
+def _filter_period_compare_rows(
+    rows: list[CompareRowRead],
+    *,
+    search_text: Optional[str],
+    diff_only: bool,
+) -> list[CompareRowRead]:
+    normalized_search = search_text.strip().lower() if search_text and search_text.strip() else None
+    filtered: list[CompareRowRead] = []
+    for row in rows:
+        if diff_only and row.diff_status == SAME_STATUS:
+            continue
+        if normalized_search and not _row_matches_period_compare_search(row, normalized_search):
+            continue
+        filtered.append(row)
+    return filtered
+
+
+def _row_matches_period_compare_search(row: CompareRowRead, keyword: str) -> bool:
+    candidates = [
+        row.compare_key,
+        _pick_compare_row_value(row, 'person_name'),
+        _pick_compare_row_value(row, 'employee_id'),
+        _pick_compare_row_value(row, 'id_number'),
+    ]
+    return any(value and keyword in value.lower() for value in candidates)
+
+
+def _pick_compare_row_value(row: CompareRowRead, field: str) -> Optional[str]:
+    value = row.left.values.get(field)
+    if _normalize_compare_value(value) is None:
+        value = row.right.values.get(field)
+    normalized = _normalize_compare_value(value)
+    return None if normalized is None else str(value)
 
 
 def _order_fields(fields: set[str]) -> list[str]:
