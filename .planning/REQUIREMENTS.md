@@ -50,24 +50,24 @@ Requirements for milestone v1.2: 飞书深度集成与登录体验升级。
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FMAP-01 | — | Pending |
-| FMAP-02 | — | Pending |
-| FMAP-03 | — | Pending |
-| FMAP-04 | — | Pending |
-| OAUTH-01 | — | Pending |
-| OAUTH-02 | — | Pending |
-| OAUTH-03 | — | Pending |
-| OAUTH-04 | — | Pending |
-| LOGIN-01 | — | Pending |
-| LOGIN-02 | — | Pending |
-| LOGIN-03 | — | Pending |
-| LOGIN-04 | — | Pending |
+| FMAP-01 | Phase 21 | Pending |
+| FMAP-02 | Phase 21 | Pending |
+| FMAP-03 | Phase 21 | Pending |
+| FMAP-04 | Phase 21 | Pending |
+| OAUTH-01 | Phase 22 | Pending |
+| OAUTH-02 | Phase 22 | Pending |
+| OAUTH-03 | Phase 22 | Pending |
+| OAUTH-04 | Phase 22 | Pending |
+| LOGIN-01 | Phase 23 | Pending |
+| LOGIN-02 | Phase 23 | Pending |
+| LOGIN-03 | Phase 23 | Pending |
+| LOGIN-04 | Phase 23 | Pending |
 
 **Coverage:**
 - v1.2 requirements: 12 total
-- Mapped to phases: 0
-- Unmapped: 12
+- Mapped to phases: 12
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-04-14*
-*Last updated: 2026-04-14 after initial definition*
+*Last updated: 2026-04-14 after roadmap creation*
