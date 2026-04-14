@@ -2,77 +2,52 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: 体验优化与功能完善
-status: executing
-stopped_at: Phase 18 context gathered
-last_updated: "2026-04-09T03:01:08.133Z"
-last_activity: 2026-04-09 -- Phase 18 planning complete
+status: completed
+stopped_at: v1.1 milestone archived
+last_updated: "2026-04-14"
+last_activity: 2026-04-14
 progress:
   total_phases: 8
-  completed_phases: 5
-  total_plans: 20
-  completed_plans: 15
-  percent: 75
+  completed_phases: 8
+  total_plans: 28
+  completed_plans: 28
+  percent: 100
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-04-04)
+See: .planning/PROJECT.md (updated 2026-04-14)
 
 **Core value:** 社保公积金数据从多地区 Excel 汇入系统后，任何角色都能在正确的权限范围内快速查询和管理数据。
-**Current focus:** Phase 17 — 数据管理增强
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-Phase: 18
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-04-09 -- Phase 18 planning complete
+Phase: All v1.1 phases complete (13-20)
+Status: Milestone v1.1 archived
+Last activity: 2026-04-14
 
-Progress: [░░░░░░░░░░] 0% (v1.1: 0/? plans)
-
-## Performance Metrics
-
-**Velocity (from v1.0):**
-
-- Total plans completed: 42
-- Average duration: ~9 min/plan
-- Total execution time: ~4.7 hours
-
-**By Phase (v1.1):**
-
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| 14 | 4 | - | - |
-| 15 | 2 | - | - |
-| 16 | 2 | - | - |
-| 17 | 3 | - | - |
-
-*Updated after each plan completion*
+Progress: [██████████] 100% (plans: 28/28 complete; v1.1 phases: 8/8 complete)
 
 ## Accumulated Context
 
 ### Decisions
 
-- [v1.1 Roadmap]: Python 3.9 适配必须最先做（阻断部署）
-- [v1.1 Roadmap]: 样式 token 化必须在暗黑模式和响应式之前（329 处硬编码样式）
-- [v1.1 Roadmap]: 零新依赖策略 -- AntD 5 内置暗黑模式/响应式/多级菜单
-- [v1.1 Roadmap]: 融合特殊规则是唯一新数据模型+API+管线功能，放在后半段
-- [v1.1 Roadmap]: Phases 16/17/19 仅依赖 Phase 13，可与 14-15 并行
+(Cleared at milestone boundary — full log in PROJECT.md Key Decisions)
 
 ### Pending Todos
 
-None yet.
+None.
 
 ### Blockers/Concerns
 
-- SQLite CASCADE DELETE 默认不生效，Phase 17 批次删除需验证 PRAGMA foreign_keys=ON
-- 融合特殊规则 UI/UX 交互细节待 Phase 19 规划时确定
-- 暗黑模式下现有暗色侧边栏可能与内容区背景无法区分，需视觉测试
+- 武汉公积金样例文件缺失（测试标记为 skipif）
+- 飞书 burden source / tenant 凭证需 staging smoke test
 
 ## Session Continuity
 
-Last session: 2026-04-09T02:01:58.928Z
-Stopped at: Phase 18 context gathered
-Resume file: .planning/phases/18-responsive-adaptation/18-CONTEXT.md
+Last session: 2026-04-14
+Stopped at: v1.1 milestone archived
+Resume file: .planning/ROADMAP.md

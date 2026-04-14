@@ -40,58 +40,54 @@
 - ✓ 公积金表格全地区标准化覆盖 — v1.0 Phase 11
 - ✓ 字段映射管理 UI（独立页面+内嵌编辑器）— v1.0 Phase 11
 - ✓ 集成路径修复（飞书 OAuth/字段路径、API 密钥导航）— v1.0 Phase 12
+- ✓ 全页面响应式自适应（手机端+平板+不同窗口尺寸）— v1.1 Phase 18
+- ✓ 融合增加个人社保承担额 / 个人公积金承担额（支持 Excel burden source / Feishu config 输入）— v1.1 Phase 19
+- ✓ 快速融合特殊规则配置（规则保存复用 + Tool-only burden export）— v1.1 Phase 19
+- ✓ 月度对比 diff 风格重做（左右 workbook 视图 + 同步滚动 + 差异高亮）— v1.1 Phase 20
+- ✓ 飞书前端配置闭环（运行时开关/凭证/同步页状态感知）— v1.1 Phase 20
+- ✓ Python 3.9 云服务器适配（slots=True 移除、类型注解兼容、依赖锁定）— v1.1 Phase 13
+- ✓ v1.0 技术债清理（废弃组件删除、缺失测试补充）— v1.1 Phase 13
+- ✓ 审计日志真实 IP 解析（X-Forwarded-For / X-Real-IP）— v1.1 Phase 13
+- ✓ 内联样式 Token 化 + 暗黑模式切换（localStorage 持久化 + FOUC 预防）— v1.1 Phase 14
+- ✓ 左侧菜单多级分组折叠 — v1.1 Phase 15
+- ✓ 设置页搜索 + 高亮 + 自动滚动导航 — v1.1 Phase 15
+- ✓ 管理员用户 CRUD + 角色权限管理 + 密码重置 — v1.1 Phase 16
+- ✓ 用户自主改密 + 强制改密拦截 — v1.1 Phase 16
+- ✓ 数据管理多选筛选 + 匹配状态过滤 — v1.1 Phase 17
+- ✓ 批次删除联动清理（NormalizedRecords + MatchResults + ValidationIssues）— v1.1 Phase 17
+- ✓ 缴费基数数据修复（payment_base/payment_salary 映射规则修复）— v1.1 Phase 17
 
 ### Active
 
-## Current Milestone: v1.1 体验优化与功能完善
-
-**Goal:** 清理技术债、全面提升前端体验（响应式+暗黑模式+菜单重组）、补齐账号管理和融合能力短板、适配云服务器部署环境。
-
-**Target features:**
-- 融合增加个人社保承担额 + 个人公积金承担额（支持 Excel 上传或飞书同步）
-- 快速融合上传文件计数、特殊规则配置（选人+选字段+覆盖值，可保存复用）
-- 员工主档默认使用服务器已有主档
-- 个人险种缴费基数数据修复
-- 数据管理批次删除联动月份数据清理
-- 全页面响应式自适应（手机端+不同窗口尺寸）
-- 黑夜模式切换
-- 左侧菜单多级折叠（低频功能收进高级设置）
-- 设置页搜索 + 快速导航
-- 数据管理筛选多选 + 已匹配/未匹配过滤
-- 账号管理系统（创建账号/修改权限/改密码）
-- 月度对比 diff 风格重做（左右 Excel 表格 + 差异高亮）
-- 飞书功能前端完善
-- 审计日志完善（真实 IP 地址等）
-- 适配 Python 3.9（云服务器部署）
-- v1.0 遗留技术债清理
+(None yet — define in next milestone)
 
 ### Out of Scope
 
 - 移动端原生 App — 当前只做 Web
 - 薪资计算 — 本系统只管社保公积金数据，不涉及薪资核算
 - 多租户/SaaS — 单公司内部使用
-- Salary 模板融合逻辑改动 — 已完美运行，禁止修改
+- Salary 模板基础险种汇总逻辑扩散改动 — Phase 19 后个人承担额只保留在 Tool 模板
 - 后台定时同步飞书 — 需迁移到 PostgreSQL，v2 考虑
 
 ## Context
 
-**v1.0 已发布状态：**
-- 完整管理平台已上线：上传 → 解析 → 归一化 → 校验 → 匹配 → 导出 → 查询 → 同步
-- 12 个阶段、31 个计划、56 个任务全部完成
-- 378 个文件修改，53,276 行新增代码
-- 开发周期：2026-03-26 → 2026-04-04（10 天）
+**v1.1 已发布状态（2026-04-14）：**
+- v1.0 + v1.1 共 20 个阶段、59 个计划、113 个任务全部完成
+- v1.1 新增 177 个文件修改，+20,069 / -5,653 行代码
+- v1.1 开发周期：2026-03-20 → 2026-04-14（25 天）
+- 前端 16,008 行 TS/TSX，后端 28,488 行 Python
 
 **技术环境：**
-- Backend: FastAPI 0.115 + SQLAlchemy 2.0 + pandas + openpyxl
+- Backend: FastAPI 0.115 + SQLAlchemy 2.0 + pandas + openpyxl (Python 3.9+)
 - Frontend: React 18 + TypeScript 5.8 + Vite 6.2 + Ant Design 5
 - Database: SQLite (WAL mode)
-- UI: 飞书风格主题 + 响应式布局 + 页面动画
-- 部署: Uvicorn
+- UI: 飞书风格主题 + 暗黑模式 + 响应式布局 + 页面动画
+- 部署: Uvicorn + nginx (X-Forwarded-For)
 
 **已知技术债务：**
-- Phase 7 遗留 5 个废弃组件文件（AppShell, GlobalFeedback, PageContainer, SectionState, SurfaceNotice）
-- 飞书凭证管理端点无前端消费者（仅 API 可用）
 - 武汉公积金样例文件缺失（测试标记为 skipif）
+- Nyquist VALIDATION.md 模板未补齐（Phase 13-17）
+- 飞书 burden source / 飞书 tenant 凭证需 staging smoke test
 
 ## Constraints
 
@@ -113,6 +109,12 @@
 | 飞书多维表格双向同步 | 公司已使用飞书，数据需在两端保持一致 | ✓ v1.0 Phase 10 |
 | 保持 SQLite | 单公司使用，无需 PostgreSQL 的复杂度 | ✓ v1.0 |
 | 可配置异常检测阈值 | 不同险种阈值不同，支持请求级覆盖 | ✓ v1.0 Phase 11 |
+| Python 3.9 优先适配 | 阻断云服务器部署 | ✓ v1.1 Phase 13 |
+| 零新依赖策略 | AntD 5 内置暗黑模式/响应式/多级菜单 | ✓ v1.1 |
+| 样式 Token 化先于暗黑模式 | 329 处硬编码样式需先迁移 | ✓ v1.1 Phase 14 |
+| 个人承担额仅影响 Tool 模板 | Salary 模板基础险种逻辑不扩散 | ✓ v1.1 Phase 19 |
+| 飞书设置 runtime DB 持久化 | system_settings 表 + effective settings 合并 | ✓ v1.1 Phase 20 |
+| Sider 两模式保持深色 #1F2329 | 暗黑模式下与内容区有视觉区分 | ✓ v1.1 Phase 14 |
 
 ## Evolution
 
@@ -131,4 +133,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-04 after v1.1 milestone started*
+*Last updated: 2026-04-14 after v1.1 milestone*

@@ -47,14 +47,65 @@
 - Sessions: ~10 (discuss/plan/execute per phase batch)
 - Notable: 10 天完成 12 阶段 31 计划，平均每个计划含执行+验证约 15 分钟
 
+## Milestone: v1.1 — 体验优化与功能完善
+
+**Shipped:** 2026-04-14
+**Phases:** 8 | **Plans:** 28 | **Tasks:** 57
+
+### What Was Built
+
+- Python 3.9 全面兼容 + v1.0 技术债清理 + 审计日��� IP 解析增强
+- 暗黑模式基础设施 + 全部 18+ 页面颜色 token 化（FOUC 预防 + localStorage 持久化）
+- 菜单三级分组重构 + 设置页搜索导航（高亮 + 自动滚动）
+- 管理员用户 CRUD + 密码重置 + 强制改密拦截 + 自我保护
+- 数据管理多选筛选 + 匹配状态过滤 + 批次级联删除 + 缴费基数映射修复
+- 全页面响应式（手机/平板），员工自助移动卡片流，Drawer 筛选模式
+- 融合个人承担额（Excel/飞书输入）+ 特殊规则（选人+选字段+覆盖值，可保存复用）
+- 月度对比 diff 重做（左右 workbook + 同步滚动）+ 飞书前端配置闭环
+
+### What Worked
+
+- **零新依赖策略**: AntD 5 内置暗黑模式/响应式/多级菜单，不引入额外包，减少维护负担
+- **Token 化先行**: 先迁移硬编码颜色再做暗黑模式，避免了反复修改
+- **并行阶段依赖设计**: Phases 16/17/19 仅依赖 Phase 13，与 14-15 链可并行
+- **UAT 人工验收闭环**: Phase 14 的 9 项暗黑模式测试全部人工通过
+
+### What Was Inefficient
+
+- **summary-extract 质量低**: CLI 自动提取的 one-liner 经常为空或不可读，里程碑 accomplishments 需手动重写
+- **VALIDATION.md 模板未补齐**: Phase 13-17 的 Nyquist 验证占位文件一直是 draft，未在阶段内完成
+- **VERIFICATION.md human_needed 堆积**: Phase 14/15 的浏览器级验证项在最后才统一处理
+
+### Patterns Established
+
+- `useSemanticColors` / `useCardStatusColors` / `getChartColors` 三层颜色消费接口
+- FOUC 预防: index.html 同步脚本 + ThemeModeProvider ��取 data-theme 属性
+- Drawer 筛选模式: 移动端用抽屉替代内联筛选器
+- FusionRule 持久化模型: 特殊规则 CRUD + aggregate runtime overlay
+- system_settings 表: 飞书运行时配置 DB 持久化 + effective settings 合并
+
+### Key Lessons
+
+1. **样式迁移应分批验证**: 18+ 页面颜色迁移分 4 个 plan 执行，每批验证 hex 残留，比一次性迁移安全
+2. **响应式适配按价值排序**: 员工自助查询是最高价值移动场景，优先适配效果最好
+3. **Salary 模板边界要明确**: 个人承担额只进 Tool 模板，Salary 逻辑不碰，避免回归风险
+
+### Cost Observations
+
+- Sessions: ~8 (discuss/plan/execute per phase)
+- Notable: 25 天完成 8 阶段 28 计划，平均约 3 天/阶段
+
 ## Cross-Milestone Trends
 
-| Metric | v1.0 |
-|--------|------|
-| Phases | 12 |
-| Plans | 31 |
-| Tasks | 56 |
-| Duration | 10 days |
-| Files changed | 378 |
-| Lines added | 53,276 |
-| Gap closure phases | 2 (Phase 11.05 + Phase 12) |
+| Metric | v1.0 | v1.1 |
+|--------|------|------|
+| Phases | 12 | 8 |
+| Plans | 31 | 28 |
+| Tasks | 56 | 57 |
+| Duration | 10 days | 25 days |
+| Files changed | 378 | 177 |
+| Lines added | 53,276 | 20,069 |
+| Lines removed | - | 5,653 |
+| Gap closure phases | 2 | 0 |
+| Requirements | 23 | 23 |
+| UAT passed | - | 9/9 (Phase 14) |
