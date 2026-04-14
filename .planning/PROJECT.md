@@ -59,7 +59,14 @@
 
 ### Active
 
-(None yet — define in next milestone)
+#### Current Milestone: v1.2 飞书深度集成与登录体验升级
+
+**Goal:** 打通飞书字段映射闭环、实现飞书 OAuth 自动登录、重做登录页面视觉体验
+
+**Target features:**
+- 飞书字段映射完善（拉取飞书多维表格实际字段，支持与系统标准字段一一对应）
+- 飞书 OAuth 自动登录（扫码/自动登录 + 按姓名/工号自动匹配绑定系统用户）
+- 登录页面改版（左右分栏 + Three.js 3D 粒子波浪动态背景）
 
 ### Out of Scope
 
@@ -133,4 +140,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-14 after v1.1 milestone*
+*Last updated: 2026-04-14 after v1.2 milestone started*
