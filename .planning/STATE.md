@@ -4,14 +4,14 @@ milestone: v1.2
 milestone_name: 飞书深度集成与登录体验升级
 status: executing
 stopped_at: Phase 22 context gathered
-last_updated: "2026-04-16T04:16:47.354Z"
-last_activity: 2026-04-16
+last_updated: "2026-04-16T05:36:11.503Z"
+last_activity: 2026-04-16 -- Phase 22 execution started
 progress:
   total_phases: 3
   completed_phases: 1
-  total_plans: 2
+  total_plans: 5
   completed_plans: 2
-  percent: 100
+  percent: 40
 ---
 
 # Project State
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-04-14)
 
 **Core value:** 社保公积金数据从多地区 Excel 汇入系统后，任何角色都能在正确的权限范围内快速查询和管理数据。
-**Current focus:** Phase 21 — 飞书字段映射完善
+**Current focus:** Phase 22 — 飞书 OAuth 自动匹配登录
 
 ## Current Position
 
-Phase: 22
-Plan: Not started
-Status: Executing Phase 21
-Last activity: 2026-04-16
+Phase: 22 (飞书 OAuth 自动匹配登录) — EXECUTING
+Plan: 1 of 3
+Status: Executing Phase 22
+Last activity: 2026-04-16 -- Phase 22 execution started
 
 Progress: [░░░░░░░░░░] 0%
 
