@@ -341,6 +341,29 @@ export async function confirmFeishuBind(
   return response.data.data;
 }
 
+// ── Bind / Unbind (authenticated user links their Feishu account) ─
+
+export async function fetchBindAuthorizeUrl(): Promise<string> {
+  const response = await apiClient.get<ApiSuccessResponse<{ url: string }>>(
+    '/auth/feishu/bind-authorize-url',
+  );
+  return response.data.data.url;
+}
+
+export async function feishuBindCallback(
+  code: string,
+  state: string,
+): Promise<{ feishu_name: string }> {
+  const response = await apiClient.post<
+    ApiSuccessResponse<{ feishu_name: string }>
+  >('/auth/feishu/bind-callback', { code, state });
+  return response.data.data;
+}
+
+export async function unbindFeishu(): Promise<void> {
+  await apiClient.post('/auth/feishu/unbind');
+}
+
 // ── NDJSON stream helper ──────────────────────────────────────────
 
 export async function readNdjsonStream(
