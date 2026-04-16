@@ -655,6 +655,144 @@ class TestConfirmBind:
 
 
 # ---------------------------------------------------------------------------
+# Bind / Unbind Endpoint Tests (Phase 22 Task 2)
+# ---------------------------------------------------------------------------
+
+class TestFeishuBind:
+    """Test: bind-authorize-url, bind-callback, unbind endpoints."""
+
+    def test_bind_authorize_url_requires_auth(self, test_client_feishu):
+        """No token -> 401."""
+        resp = test_client_feishu.get("/api/v1/auth/feishu/bind-authorize-url")
+        assert resp.status_code == 401
+
+    def test_bind_authorize_url_returns_url(self, test_client_feishu, seed_test_admin):
+        """Authenticated user -> returns feishu authorize URL."""
+        token = _login_admin(test_client_feishu)
+        resp = test_client_feishu.get(
+            "/api/v1/auth/feishu/bind-authorize-url",
+            headers=_auth_headers(token),
+        )
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert "url" in data
+        assert "feishu.cn" in data["url"]
+        assert "feishu_oauth_state" in test_client_feishu.cookies
+
+    def test_bind_callback_writes_open_id(self, test_client_feishu, seed_test_admin, db_session):
+        """Mock httpx + valid state -> feishu_open_id written to current user."""
+        token = _login_admin(test_client_feishu)
+
+        # Get bind authorize URL (sets state cookie)
+        resp = test_client_feishu.get(
+            "/api/v1/auth/feishu/bind-authorize-url",
+            headers=_auth_headers(token),
+        )
+        assert resp.status_code == 200
+        url = resp.json()["data"]["url"]
+        state = parse_qs(urlparse(url).query)["state"][0]
+
+        mock_http = _make_mock_httpx_client(open_id="ou_bind_test", name="Admin Feishu")
+
+        with patch("backend.app.services.feishu_oauth_service.httpx.AsyncClient") as MockClient:
+            MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_http)
+            MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            resp2 = test_client_feishu.post(
+                "/api/v1/auth/feishu/bind-callback",
+                json={"code": "mock_code", "state": state},
+                headers=_auth_headers(token),
+            )
+            assert resp2.status_code == 200
+            data = resp2.json()["data"]
+            assert data.get("feishu_name") == "Admin Feishu"
+
+        # Verify in DB
+        admin_user = db_session.query(User).filter(User.username == "testadmin").first()
+        assert admin_user.feishu_open_id == "ou_bind_test"
+        assert admin_user.feishu_union_id == "un_test"
+
+    def test_bind_callback_rejects_already_bound(self, test_client_feishu, seed_test_admin, db_session):
+        """open_id already bound to another user -> 409."""
+        # Pre-bind another user with this open_id
+        other_user = User(
+            username="other_bound",
+            hashed_password=hash_password("pass"),
+            role="employee",
+            display_name="Other",
+            is_active=True,
+            must_change_password=False,
+            feishu_open_id="ou_already_taken",
+        )
+        db_session.add(other_user)
+        db_session.commit()
+
+        token = _login_admin(test_client_feishu)
+        resp = test_client_feishu.get(
+            "/api/v1/auth/feishu/bind-authorize-url",
+            headers=_auth_headers(token),
+        )
+        state = parse_qs(urlparse(resp.json()["data"]["url"]).query)["state"][0]
+
+        mock_http = _make_mock_httpx_client(open_id="ou_already_taken", name="Taken")
+
+        with patch("backend.app.services.feishu_oauth_service.httpx.AsyncClient") as MockClient:
+            MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_http)
+            MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            resp2 = test_client_feishu.post(
+                "/api/v1/auth/feishu/bind-callback",
+                json={"code": "mock_code", "state": state},
+                headers=_auth_headers(token),
+            )
+            assert resp2.status_code == 409
+
+    def test_unbind_clears_feishu_ids(self, test_client_feishu, seed_test_admin, db_session):
+        """Unbind -> feishu_open_id and feishu_union_id set to null."""
+        # First bind the admin
+        admin = db_session.query(User).filter(User.username == "testadmin").first()
+        admin.feishu_open_id = "ou_to_unbind"
+        admin.feishu_union_id = "un_to_unbind"
+        db_session.commit()
+
+        token = _login_admin(test_client_feishu)
+        resp = test_client_feishu.post(
+            "/api/v1/auth/feishu/unbind",
+            headers=_auth_headers(token),
+        )
+        assert resp.status_code == 200
+
+        db_session.refresh(admin)
+        assert admin.feishu_open_id is None
+        assert admin.feishu_union_id is None
+
+    def test_unbind_requires_auth(self, test_client_feishu):
+        """No token -> 401."""
+        resp = test_client_feishu.post("/api/v1/auth/feishu/unbind")
+        assert resp.status_code == 401
+
+    def test_me_returns_feishu_bound(self, test_client_feishu, seed_test_admin, db_session):
+        """/me returns feishu_bound status."""
+        token = _login_admin(test_client_feishu)
+
+        # Before binding
+        resp = test_client_feishu.get("/api/v1/auth/me", headers=_auth_headers(token))
+        assert resp.status_code == 200
+        data = resp.json()["data"]
+        assert data["feishu_bound"] is False
+
+        # Bind
+        admin = db_session.query(User).filter(User.username == "testadmin").first()
+        admin.feishu_open_id = "ou_me_test"
+        db_session.commit()
+
+        # After binding
+        resp2 = test_client_feishu.get("/api/v1/auth/me", headers=_auth_headers(token))
+        data2 = resp2.json()["data"]
+        assert data2["feishu_bound"] is True
+
+
+# ---------------------------------------------------------------------------
 # RBAC Tests
 # ---------------------------------------------------------------------------
 
