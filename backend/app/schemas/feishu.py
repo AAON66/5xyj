@@ -136,4 +136,5 @@ class FeishuFieldInfo(BaseModel):
     field_id: str
     field_name: str
     field_type: int
+    ui_type: Optional[str] = None  # 飞书 API 返回的 ui_type，如 "Text", "Number", "SingleSelect"
     description: Optional[str] = None
