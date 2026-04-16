@@ -138,6 +138,30 @@ def get_user_by_id(db: Session, user_id: str) -> Optional[User]:
     return db.query(User).filter(User.id == user_id).first()
 
 
+def bind_feishu(db: Session, user_id: str, open_id: str, union_id: str) -> Optional[User]:
+    """Bind feishu_open_id and feishu_union_id to user. Returns updated User or None."""
+    user = get_user_by_id(db, user_id)
+    if user is None:
+        return None
+    user.feishu_open_id = open_id
+    user.feishu_union_id = union_id
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def unbind_feishu(db: Session, user_id: str) -> Optional[User]:
+    """Clear feishu_open_id and feishu_union_id from user. Returns updated User or None."""
+    user = get_user_by_id(db, user_id)
+    if user is None:
+        return None
+    user.feishu_open_id = None
+    user.feishu_union_id = None
+    db.commit()
+    db.refresh(user)
+    return user
+
+
 def seed_default_admin(db: Session) -> None:
     """Create a default admin user if none exists.  Idempotent."""
     existing_admin = db.query(User).filter(User.role == "admin").first()

@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from backend.app.api.v1.responses import error_response, success_response
 from backend.app.core.config import Settings
 from backend.app.dependencies import get_db
-from backend.app.services.feishu_oauth_service import FeishuOAuthError, exchange_code_for_user
+from backend.app.services.feishu_oauth_service import FeishuOAuthError, exchange_code_for_user, confirm_bind
 from backend.app.services.system_setting_service import get_effective_feishu_settings
 
 router = APIRouter(prefix="/auth/feishu", tags=["飞书认证"])
@@ -25,6 +25,11 @@ OAUTH_STATE_MAX_AGE = 600  # 10 minutes
 class OAuthCallbackBody(BaseModel):
     code: str
     state: str
+
+
+class ConfirmBindBody(BaseModel):
+    pending_token: str
+    employee_master_id: str
 
 
 def _sign_state(state: str, secret: str) -> str:
@@ -82,7 +87,7 @@ async def get_authorize_url(
     return resp
 
 
-@router.post("/callback", summary="飞书 OAuth 回调", description="处理飞书 OAuth 回调，验证 state 后交换令牌。")
+@router.post("/callback", summary="飞书 OAuth 回调", description="处理飞书 OAuth 回调，验证 state 后交换令牌。返回四种匹配状态。")
 async def feishu_oauth_callback(
     body: OAuthCallbackBody,
     request: Request,
@@ -121,3 +126,27 @@ async def feishu_oauth_callback(
     # Delete state cookie after successful validation
     resp.delete_cookie(OAUTH_STATE_COOKIE)
     return resp
+
+
+@router.post("/confirm-bind", summary="确认绑定选定员工", description="用临时 token 验证后，将飞书账号绑定到选定的员工。")
+async def confirm_bind_endpoint(
+    body: ConfirmBindBody,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    settings = _get_settings(request)
+
+    try:
+        result = confirm_bind(
+            db,
+            body.pending_token,
+            body.employee_master_id,
+            settings,
+        )
+    except FeishuOAuthError as e:
+        error_msg = str(e)
+        if error_msg.startswith("CONFLICT:"):
+            return error_response("ALREADY_BOUND", error_msg[9:], 409)
+        return error_response("BIND_ERROR", error_msg, 400)
+
+    return success_response(result)
