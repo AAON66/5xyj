@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Button, Modal, Space, Spin, Typography, message, theme } from 'antd';
+import { Button, Modal, Space, Spin, Table, Tag, Tooltip, Typography, message, theme } from 'antd';
 import { useSemanticColors } from '../theme/useSemanticColors';
 import { ClearOutlined, LinkOutlined, SaveOutlined } from '@ant-design/icons';
 import {
@@ -25,6 +25,7 @@ import {
   fetchFeishuFields,
   fetchSyncConfigs,
   saveSyncConfigMapping,
+  suggestMapping,
   type FeishuFieldInfo,
   type SyncConfig,
 } from '../services/feishu';
@@ -59,6 +60,50 @@ const SYSTEM_FIELDS = [
   { key: 'interest', label: '利息' },
 ];
 
+// ── Required fields for save validation ──────────────────────────
+
+const REQUIRED_FIELDS = [
+  { key: 'person_name', label: '姓名', level: 'required' as const },
+  { key: 'employee_id', label: '工号', level: 'required' as const },
+  { key: 'id_number', label: '证件号码', level: 'recommended' as const },
+];
+
+// ── Feishu field type labels ─────────────────────────────────────
+
+const FEISHU_TYPE_LABELS: Record<string, { label: string; color: string }> = {
+  Text: { label: '文本', color: 'blue' },
+  Email: { label: '邮箱', color: 'blue' },
+  Barcode: { label: '条码', color: 'blue' },
+  Phone: { label: '电话', color: 'blue' },
+  Url: { label: '链接', color: 'blue' },
+  Number: { label: '数字', color: 'green' },
+  Progress: { label: '进度', color: 'green' },
+  Currency: { label: '货币', color: 'green' },
+  Rating: { label: '评分', color: 'green' },
+  DateTime: { label: '日期', color: 'orange' },
+  CreatedTime: { label: '创建时间', color: 'orange' },
+  ModifiedTime: { label: '更新时间', color: 'orange' },
+  SingleSelect: { label: '单选', color: 'purple' },
+  MultiSelect: { label: '多选', color: 'purple' },
+  Checkbox: { label: '复选框', color: 'default' },
+  User: { label: '人员', color: 'default' },
+  Attachment: { label: '附件', color: 'default' },
+  Formula: { label: '公式', color: 'default' },
+  Lookup: { label: '查找引用', color: 'default' },
+  SingleLink: { label: '单向关联', color: 'default' },
+  DuplexLink: { label: '双向关联', color: 'default' },
+  Location: { label: '地理位置', color: 'default' },
+  GroupChat: { label: '群组', color: 'default' },
+  CreatedUser: { label: '创建人', color: 'default' },
+  ModifiedUser: { label: '修改人', color: 'default' },
+  AutoNumber: { label: '自动编号', color: 'default' },
+};
+
+function getTypeInfo(uiType: string | null | undefined): { label: string; color: string } {
+  if (!uiType) return { label: '未知', color: 'default' };
+  return FEISHU_TYPE_LABELS[uiType] ?? { label: uiType, color: 'default' };
+}
+
 // ── Custom node components ───────────────────────────────────────
 
 function SystemFieldNode({ data }: { data: { label: string } }) {
@@ -88,12 +133,13 @@ function SystemFieldNode({ data }: { data: { label: string } }) {
   );
 }
 
-function FeishuColumnNode({ data }: { data: { label: string } }) {
+function FeishuColumnNode({ data }: { data: { label: string; uiType?: string | null; fieldType?: number } }) {
   const colors = useSemanticColors();
+  const typeInfo = getTypeInfo(data.uiType);
   return (
     <div
       style={{
-        width: 200,
+        width: 280,
         height: 40,
         background: colors.BG_CONTAINER,
         border: `1px solid ${colors.BORDER}`,
@@ -103,6 +149,7 @@ function FeishuColumnNode({ data }: { data: { label: string } }) {
         padding: '0 12px',
         fontSize: 14,
         color: colors.TEXT,
+        gap: 8,
       }}
     >
       <Handle
@@ -110,7 +157,14 @@ function FeishuColumnNode({ data }: { data: { label: string } }) {
         position={Position.Left}
         style={{ background: colors.BRAND }}
       />
-      {data.label}
+      <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {data.label}
+      </span>
+      <Tooltip title={`${typeInfo.label} (type=${data.fieldType ?? '?'}, ui_type=${data.uiType ?? 'N/A'})`}>
+        <Tag color={typeInfo.color} style={{ margin: 0, flexShrink: 0 }}>
+          {typeInfo.label}
+        </Tag>
+      </Tooltip>
     </div>
   );
 }
@@ -177,8 +231,8 @@ export function FeishuFieldMappingPage() {
         const feishuNodes: Node[] = fields.map((field, index) => ({
           id: `fs-${field.field_id}`,
           type: 'feishuColumn',
-          position: { x: 450, y: index * 52 },
-          data: { label: field.field_name },
+          position: { x: 500, y: index * 52 },
+          data: { label: field.field_name, uiType: field.ui_type, fieldType: field.field_type },
           draggable: false,
         }));
 
@@ -225,55 +279,95 @@ export function FeishuFieldMappingPage() {
     [setEdges, defaultEdgeOptions],
   );
 
-  // Auto-match: exact label match first, then containment
-  const handleAutoMatch = useCallback(() => {
-    const newEdges: Edge[] = [];
-
-    for (const sysField of SYSTEM_FIELDS) {
-      // Try exact match first
-      let matched = feishuFields.find(
-        (f) => f.field_name === sysField.label,
+  // Auto-match: use backend suggest-mapping API
+  const handleAutoMatch = useCallback(async () => {
+    if (!configId || feishuFields.length === 0) return;
+    try {
+      const systemFieldKeys = SYSTEM_FIELDS.map((f) => f.key);
+      const result = await suggestMapping(
+        configId,
+        feishuFields.map((f) => ({ field_name: f.field_name, field_id: f.field_id })),
+        systemFieldKeys,
       );
 
-      // Then try containment
-      if (!matched) {
-        matched = feishuFields.find(
-          (f) =>
-            f.field_name.includes(sysField.label) ||
-            sysField.label.includes(f.field_name),
-        );
-      }
+      const newEdges: Edge[] = result.suggestions.map((s) => ({
+        id: `edge-${s.canonical_field}-${s.feishu_field_id}`,
+        source: `sys-${s.canonical_field}`,
+        target: `fs-${s.feishu_field_id}`,
+        type: 'smoothstep',
+        style: {
+          stroke: colors.BRAND,
+          strokeWidth: 2,
+          ...(s.confidence < 0.9 ? { strokeDasharray: '5 5' } : {}),
+        },
+        data: { confidence: s.confidence, isAutoSuggestion: true },
+      }));
 
-      if (matched) {
-        newEdges.push({
-          id: `edge-${sysField.key}-${matched.field_id}`,
-          source: `sys-${sysField.key}`,
-          target: `fs-${matched.field_id}`,
-          ...defaultEdgeOptions,
-        });
+      setEdges(newEdges);
+      message.success(`自动匹配完成，已匹配 ${newEdges.length} 个字段（${result.unmatched.length} 个未匹配）`);
+    } catch (err) {
+      message.error(normalizeApiError(err).message);
+    }
+  }, [configId, feishuFields, setEdges, colors.BRAND]);
+
+  // ── Two-step save modal state ──────────────────────────────────
+  const [warningModalOpen, setWarningModalOpen] = useState(false);
+  const [previewModalOpen, setPreviewModalOpen] = useState(false);
+  const [missingFields, setMissingFields] = useState<Array<{ key: string; label: string; level: string }>>([]);
+  const [mappingPreview, setMappingPreview] = useState<Array<{ sysKey: string; sysLabel: string; fsName: string; fsType: string }>>([]);
+
+  // Build current mapping snapshot
+  const buildCurrentMapping = useCallback(() => {
+    const mapping: Record<string, string> = {};
+    for (const edge of edges) {
+      const sysKey = edge.source.replace('sys-', '');
+      const fsFieldId = edge.target.replace('fs-', '');
+      const fsField = feishuFields.find((f) => f.field_id === fsFieldId);
+      if (fsField) {
+        mapping[sysKey] = fsField.field_name;
       }
     }
+    return mapping;
+  }, [edges, feishuFields]);
 
-    setEdges(newEdges);
-    message.success(`自动匹配完成，已匹配 ${newEdges.length} 个字段`);
-  }, [feishuFields, setEdges, defaultEdgeOptions]);
+  // Click save -> check required fields -> show modal
+  const handleSaveClick = useCallback(() => {
+    const mapping = buildCurrentMapping();
 
-  // Save mapping
-  const handleSave = useCallback(async () => {
+    // Check required fields
+    const missing = REQUIRED_FIELDS.filter((rf) => !mapping[rf.key]);
+    setMissingFields(missing);
+
+    // Build preview data
+    const preview = SYSTEM_FIELDS.map((sf) => {
+      const fsName = mapping[sf.key] ?? '';
+      const fsField = feishuFields.find((f) => f.field_name === fsName);
+      const typeInfo = fsField?.ui_type ? getTypeInfo(fsField.ui_type) : null;
+      return {
+        sysKey: sf.key,
+        sysLabel: sf.label,
+        fsName,
+        fsType: typeInfo?.label ?? '-',
+      };
+    }).filter((row) => row.fsName);
+
+    setMappingPreview(preview);
+
+    if (missing.length > 0) {
+      setWarningModalOpen(true);
+    } else {
+      setPreviewModalOpen(true);
+    }
+  }, [buildCurrentMapping, feishuFields]);
+
+  // Confirm save
+  const doSave = useCallback(async () => {
     if (!configId) return;
     setSaving(true);
-
+    setPreviewModalOpen(false);
+    setWarningModalOpen(false);
     try {
-      const mapping: Record<string, string> = {};
-      for (const edge of edges) {
-        const sysKey = edge.source.replace('sys-', '');
-        const fsFieldId = edge.target.replace('fs-', '');
-        const fsField = feishuFields.find((f) => f.field_id === fsFieldId);
-        if (fsField) {
-          mapping[sysKey] = fsField.field_name;
-        }
-      }
-
+      const mapping = buildCurrentMapping();
       await saveSyncConfigMapping(configId, mapping);
       message.success('映射已保存');
     } catch (err) {
@@ -281,7 +375,7 @@ export function FeishuFieldMappingPage() {
     } finally {
       setSaving(false);
     }
-  }, [configId, edges, feishuFields]);
+  }, [configId, buildCurrentMapping]);
 
   // Clear all edges
   const handleClear = useCallback(() => {
@@ -323,14 +417,14 @@ export function FeishuFieldMappingPage() {
       </div>
 
       <Space style={{ marginBottom: 16 }}>
-        <Button onClick={handleAutoMatch}>
+        <Button onClick={() => void handleAutoMatch()}>
           自动匹配
         </Button>
         <Button
           type="primary"
           icon={<SaveOutlined />}
           loading={saving}
-          onClick={() => void handleSave()}
+          onClick={handleSaveClick}
         >
           保存映射
         </Button>
@@ -360,6 +454,81 @@ export function FeishuFieldMappingPage() {
           <Controls position="bottom-left" />
         </ReactFlow>
       </div>
+
+      {/* Warning Modal: missing required fields */}
+      <Modal
+        title="关键字段未映射"
+        open={warningModalOpen}
+        onCancel={() => setWarningModalOpen(false)}
+        footer={[
+          <Button key="back" onClick={() => setWarningModalOpen(false)}>
+            返回补全
+          </Button>,
+          <Button
+            key="force"
+            type="primary"
+            danger
+            onClick={() => {
+              setWarningModalOpen(false);
+              setPreviewModalOpen(true);
+            }}
+          >
+            仍然保存
+          </Button>,
+        ]}
+      >
+        <div style={{ marginBottom: 8 }}>以下关键字段尚未建立映射：</div>
+        <ul style={{ paddingLeft: 20 }}>
+          {missingFields.map((f) => (
+            <li
+              key={f.key}
+              style={{ color: f.level === 'required' ? '#ff4d4f' : '#faad14', marginBottom: 4 }}
+            >
+              {f.label}（{f.key}）
+              {f.level === 'required' ? ' — 必填' : ' — 建议填写'}
+            </li>
+          ))}
+        </ul>
+      </Modal>
+
+      {/* Preview Modal: mapping summary before save */}
+      <Modal
+        title="映射预览"
+        open={previewModalOpen}
+        width={640}
+        onCancel={() => setPreviewModalOpen(false)}
+        footer={[
+          <Button key="cancel" onClick={() => setPreviewModalOpen(false)}>
+            取消
+          </Button>,
+          <Button
+            key="confirm"
+            type="primary"
+            loading={saving}
+            onClick={() => void doSave()}
+          >
+            确认保存
+          </Button>,
+        ]}
+      >
+        <Table
+          dataSource={mappingPreview}
+          rowKey="sysKey"
+          pagination={false}
+          size="small"
+          columns={[
+            { title: '系统字段', dataIndex: 'sysKey', width: 160 },
+            { title: '中文名', dataIndex: 'sysLabel', width: 120 },
+            { title: '飞书字段', dataIndex: 'fsName', width: 180 },
+            { title: '字段类型', dataIndex: 'fsType', width: 100 },
+          ]}
+        />
+        {missingFields.length > 0 && (
+          <div style={{ marginTop: 12, color: '#faad14', fontSize: 13 }}>
+            注意：有 {missingFields.length} 个关键字段未映射，保存后可能影响数据同步效果。
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

@@ -25,4 +25,4 @@ data/outputs/*
 data/app.db
 data/app.db-shm
 data/app.db-wal
-data/uploads/
+data/uploads/frontend/node_modules
