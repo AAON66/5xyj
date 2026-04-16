@@ -68,8 +68,9 @@ export function normalizeApiError(error: unknown): ApiClientError {
       });
     }
 
+    const backendMessage = payload?.error?.message;
     const chineseMessage = getChineseErrorMessage(axiosError.response?.status, payload?.error?.code);
-    const message = isTimeout ? fallbackMessage : (chineseMessage || payload?.error?.message || fallbackMessage);
+    const message = isTimeout ? fallbackMessage : (backendMessage || chineseMessage || fallbackMessage);
 
     return new ApiClientError(message, {
       statusCode: axiosError.response?.status,

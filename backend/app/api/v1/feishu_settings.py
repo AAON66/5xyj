@@ -28,7 +28,7 @@ from backend.app.mappings.manual_field_aliases import (
     MANUAL_ALIAS_RULES,
     normalize_signature,
 )
-from backend.app.services.feishu_client import FeishuClient, get_feishu_client
+from backend.app.services.feishu_client import FeishuApiError, FeishuClient, get_feishu_client
 from backend.app.services.system_setting_service import (
     FEISHU_APP_ID_KEY,
     FEISHU_APP_SECRET_KEY,
@@ -269,6 +269,8 @@ async def get_feishu_fields(
 
     try:
         fields = await client.list_fields(config.app_token, config.table_id)
+    except FeishuApiError as e:
+        return error_response("FEISHU_API_ERROR", f"获取飞书字段失败: {e}", 422)
     except Exception as e:
         return error_response("FEISHU_API_ERROR", f"获取飞书字段失败: {e}", 502)
 

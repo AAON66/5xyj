@@ -87,6 +87,11 @@ class AliasRule:
 
 MANUAL_ALIAS_RULES: tuple[AliasRule, ...] = (
     AliasRule("person_name", ("姓名",), confidence=0.99),
+    AliasRule("employee_id", ("工号",), confidence=0.99),
+    AliasRule("employee_id", ("员工工号",), confidence=0.98),
+    AliasRule("employee_id", ("员工编号",), confidence=0.97),
+    AliasRule("employee_id", ("人员编码",), confidence=0.97),
+    AliasRule("employee_id", ("职工编号",), confidence=0.97),
     AliasRule("id_number", ("证件号码",), confidence=0.99),
     AliasRule("id_number", ("身份证号",), confidence=0.99),
     AliasRule("id_type", ("证件类型",), confidence=0.99),

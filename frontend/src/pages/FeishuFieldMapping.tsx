@@ -213,9 +213,9 @@ export function FeishuFieldMappingPage() {
         let fields: FeishuFieldInfo[] = [];
         try {
           fields = await fetchFeishuFields(currentConfigId);
-        } catch {
-          // Feishu fields may not be available (no credentials)
-          // Continue with empty right column
+        } catch (err) {
+          const errMsg = normalizeApiError(err).message;
+          message.warning(`无法获取飞书字段: ${errMsg}。请检查飞书凭证和同步配置中的 app_token / table_id 是否正确。`);
         }
         setFeishuFields(fields);
 

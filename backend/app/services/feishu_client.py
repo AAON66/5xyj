@@ -73,10 +73,10 @@ class FeishuClient:
                     f"/bitable/v1/apps/{app_token}/tables/{table_id}/fields",
                     headers=await self._headers(), params=params,
                 )
-            resp.raise_for_status()
             data = resp.json()
             if data.get("code") != 0:
                 raise FeishuApiError(data.get("msg", "list_fields failed"), data.get("code"))
+            resp.raise_for_status()
             items.extend(data["data"]["items"])
             if not data["data"].get("has_more"):
                 break
