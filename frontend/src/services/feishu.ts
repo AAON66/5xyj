@@ -78,7 +78,21 @@ export interface FeishuFieldInfo {
   field_id: string;
   field_name: string;
   field_type: number;
+  ui_type: string | null;
   description: string | null;
+}
+
+export interface MappingSuggestion {
+  feishu_field_id: string;
+  feishu_field_name: string;
+  canonical_field: string;
+  confidence: number;
+  matched_rule: string;
+}
+
+export interface SuggestMappingResponse {
+  suggestions: MappingSuggestion[];
+  unmatched: string[];
 }
 
 // ── Feature flags ─────────────────────────────────────────────────
@@ -175,6 +189,18 @@ export async function fetchFeishuFields(
   const response = await apiClient.get<ApiSuccessResponse<FeishuFieldInfo[]>>(
     `/feishu/settings/configs/${configId}/feishu-fields`,
     { skipGlobalError: true } as Record<string, unknown>,
+  );
+  return response.data.data;
+}
+
+export async function suggestMapping(
+  configId: string,
+  feishuFields: Array<{ field_name: string; field_id: string }>,
+  systemFields?: string[],
+): Promise<SuggestMappingResponse> {
+  const response = await apiClient.post<ApiSuccessResponse<SuggestMappingResponse>>(
+    `/feishu/settings/configs/${configId}/suggest-mapping`,
+    { feishu_fields: feishuFields, system_fields: systemFields },
   );
   return response.data.data;
 }
