@@ -48,7 +48,7 @@ See: `.planning/milestones/v1.1-ROADMAP.md` for full details
 
 </details>
 
-### 🚧 v1.2 飞书深度集成与登录体验升级 (In Progress)
+### v1.2 飞书深度集成与登录体验升级 (In Progress)
 
 **Milestone Goal:** 打通飞书字段映射闭环、实现飞书 OAuth 自动登录、重做登录页面视觉体验
 
@@ -84,7 +84,13 @@ Plans:
   2. 飞书登录后若姓名/工号在 EmployeeMaster 中唯一匹配，系统自动绑定该员工身份，用户无需手动操作
   3. 飞书登录后若存在同名多人，系统展示候选列表让用户选择绑定目标；无匹配时创建无绑定的 employee 用户
   4. 已登录用户可在个人设置页通过"绑定飞书"入口主动关联自己的飞书账号
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 22-01-PLAN.md — 后端三级匹配逻辑 + confirm-bind + bind/unbind 端点 + 测试
+- [ ] 22-02-PLAN.md — 前端 Login.tsx OAuth 回调处理 + CandidateSelectModal 候选人选择
+- [ ] 22-03-PLAN.md — 前端 Settings.tsx 飞书账号绑定卡片
+
 **UI hint**: yes
 
 ### Phase 23: 登录页面改版
@@ -127,5 +133,5 @@ Phases execute in numeric order: 21 -> 22 -> 23
 | 19. 融合能力增强 | v1.1 | 4/4 | Complete | 2026-04-09 |
 | 20. 对比重做与飞书完善 | v1.1 | 4/4 | Complete | 2026-04-09 |
 | 21. 飞书字段映射完善 | v1.2 | 2/2 | Complete    | 2026-04-16 |
-| 22. 飞书 OAuth 自动匹配登录 | v1.2 | 0/0 | Not started | - |
+| 22. 飞书 OAuth 自动匹配登录 | v1.2 | 0/3 | Not started | - |
 | 23. 登录页面改版 | v1.2 | 0/0 | Not started | - |
