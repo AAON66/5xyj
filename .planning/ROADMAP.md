@@ -67,7 +67,12 @@ See: `.planning/milestones/v1.1-ROADMAP.md` for full details
   2. 每个飞书字段旁边显示类型标签（文本/数字/单选等），用户可据此判断字段性质
   3. 用户保存映射配置时，如果 person_name 或 employee_id 等核心字段未映射，系统弹出明确警告
   4. 系统根据中英文同义词库自动推荐映射候选项，用户可一键接受或手动调整
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 21-01-PLAN.md — 后端 FeishuFieldInfo 扩展 ui_type + suggest-mapping API + 前端服务层
+- [ ] 21-02-PLAN.md — 前端 UI 增强（类型 Tag + 智能连线 + 两步 Modal 保存流程）
+
 **UI hint**: yes
 
 ### Phase 22: 飞书 OAuth 自动匹配登录
@@ -121,6 +126,6 @@ Phases execute in numeric order: 21 -> 22 -> 23
 | 18. 全页面响应式适配 | v1.1 | 5/5 | Complete | 2026-04-09 |
 | 19. 融合能力增强 | v1.1 | 4/4 | Complete | 2026-04-09 |
 | 20. 对比重做与飞书完善 | v1.1 | 4/4 | Complete | 2026-04-09 |
-| 21. 飞书字段映射完善 | v1.2 | 0/0 | Not started | - |
+| 21. 飞书字段映射完善 | v1.2 | 0/2 | In progress | - |
 | 22. 飞书 OAuth 自动匹配登录 | v1.2 | 0/0 | Not started | - |
 | 23. 登录页面改版 | v1.2 | 0/0 | Not started | - |
