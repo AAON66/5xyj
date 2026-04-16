@@ -9,7 +9,9 @@ import { useSemanticColors } from '../theme/useSemanticColors';
 import { normalizeApiError } from '../services/api';
 import type { AuthRole } from '../services/authSession';
 import { writeAuthSession } from '../services/authSession';
-import { fetchFeishuAuthorizeUrl, feishuOAuthCallback } from '../services/feishu';
+import { fetchFeishuAuthorizeUrl, feishuOAuthCallback, confirmFeishuBind } from '../services/feishu';
+import type { Candidate } from '../services/feishu';
+import { CandidateSelectModal } from '../components/CandidateSelectModal';
 
 const { Title, Text } = Typography;
 
@@ -36,27 +38,65 @@ export function LoginPage() {
   const [passwordWarning, setPasswordWarning] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('credential');
 
+  // Candidate selection state for pending_candidates flow
+  const [candidates, setCandidates] = useState<Candidate[]>([]);
+  const [pendingToken, setPendingToken] = useState('');
+  const [pendingFeishuName, setPendingFeishuName] = useState('');
+  const [showCandidateModal, setShowCandidateModal] = useState(false);
+  const [bindLoading, setBindLoading] = useState(false);
+
   // Handle Feishu OAuth callback
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
     const state = params.get('state');
     if (code && state && feishu_oauth_enabled) {
+      // Clear URL params to prevent re-triggering on refresh
+      window.history.replaceState({}, '', window.location.pathname);
+
       feishuOAuthCallback(code, state)
         .then((result) => {
-          writeAuthSession({
-            accessToken: result.access_token,
-            role: result.role as AuthRole,
-            username: result.username,
-            displayName: result.display_name,
-            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-            signedInAt: new Date().toISOString(),
-          });
-          window.location.href = '/';
+          if (result.status === 'pending_candidates') {
+            setCandidates(result.candidates);
+            setPendingToken(result.pending_token);
+            setPendingFeishuName(result.feishu_name);
+            setShowCandidateModal(true);
+          } else {
+            writeAuthSession({
+              accessToken: result.access_token,
+              role: result.role as AuthRole,
+              username: result.username,
+              displayName: result.display_name,
+              expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+              signedInAt: new Date().toISOString(),
+            });
+            window.location.href = '/';
+          }
         })
         .catch(() => message.error('飞书登录失败'));
     }
   }, [feishu_oauth_enabled, message]);
+
+  async function handleCandidateSelect(employeeMasterId: string) {
+    setBindLoading(true);
+    try {
+      const result = await confirmFeishuBind(pendingToken, employeeMasterId);
+      writeAuthSession({
+        accessToken: result.access_token,
+        role: result.role as AuthRole,
+        username: result.username,
+        displayName: result.display_name,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        signedInAt: new Date().toISOString(),
+      });
+      setShowCandidateModal(false);
+      window.location.href = '/';
+    } catch (error) {
+      message.error(normalizeApiError(error).message || '绑定失败，请重试。');
+    } finally {
+      setBindLoading(false);
+    }
+  }
 
   async function handleFeishuLogin() {
     try {
@@ -251,6 +291,14 @@ export function LoginPage() {
           <Link to="/employee/query">进入员工查询</Link>
         </div>
       </Card>
+      <CandidateSelectModal
+        open={showCandidateModal}
+        candidates={candidates}
+        feishuName={pendingFeishuName}
+        loading={bindLoading}
+        onSelect={(id) => void handleCandidateSelect(id)}
+        onCancel={() => setShowCandidateModal(false)}
+      />
     </div>
   );
 }
