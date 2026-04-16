@@ -176,3 +176,46 @@ def seed_test_employee(db_session: Session) -> EmployeeMaster:
     db_session.commit()
     db_session.refresh(emp)
     return emp
+
+
+@pytest.fixture()
+def seed_employee_master(db_session: Session) -> EmployeeMaster:
+    """Seed a single EmployeeMaster for OAuth auto-bind tests."""
+    emp = EmployeeMaster(
+        employee_id="EMP1001",
+        person_name="Test User",
+        id_number="110101199001011111",
+        company_name="Test Company",
+        department="Engineering",
+        active=True,
+    )
+    db_session.add(emp)
+    db_session.commit()
+    db_session.refresh(emp)
+    return emp
+
+
+@pytest.fixture()
+def seed_multiple_employees_same_name(db_session: Session) -> list:
+    """Seed two EmployeeMasters with the same name for pending_candidates tests."""
+    emp1 = EmployeeMaster(
+        employee_id="EMP2001",
+        person_name="Duplicate Name",
+        id_number="110101199002021111",
+        company_name="Company A",
+        department="Sales",
+        active=True,
+    )
+    emp2 = EmployeeMaster(
+        employee_id="EMP2002",
+        person_name="Duplicate Name",
+        id_number="110101199003031111",
+        company_name="Company B",
+        department="Marketing",
+        active=True,
+    )
+    db_session.add_all([emp1, emp2])
+    db_session.commit()
+    db_session.refresh(emp1)
+    db_session.refresh(emp2)
+    return [emp1, emp2]

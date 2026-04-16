@@ -404,6 +404,260 @@ class TestSyncHistoryPagination:
 # RBAC Tests
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# OAuth Auto-Binding Tests (Phase 22)
+# ---------------------------------------------------------------------------
+
+class TestOAuthAutoBinding:
+    """Test: unique name match auto-binds feishu_open_id to User (D-01 layer 2, D-02)."""
+
+    def test_auto_bind_unique_match(self, test_client_feishu, db_session, seed_employee_master):
+        """Feishu name uniquely matches one EmployeeMaster -> auto_bound + feishu_open_id written."""
+        # Get authorize URL for valid state
+        resp = test_client_feishu.get("/api/v1/auth/feishu/authorize-url")
+        state = parse_qs(urlparse(resp.json()["data"]["url"]).query)["state"][0]
+
+        mock_http = _make_mock_httpx_client(open_id="ou_auto_bind_123", name="Test User")
+
+        with patch("backend.app.services.feishu_oauth_service.httpx.AsyncClient") as MockClient:
+            MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_http)
+            MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            resp2 = test_client_feishu.post(
+                "/api/v1/auth/feishu/callback",
+                json={"code": "mock_code", "state": state},
+            )
+            assert resp2.status_code == 200
+            data = resp2.json()["data"]
+            assert data["status"] == "auto_bound"
+            assert "access_token" in data
+
+        # Verify feishu_open_id written to user
+        user = db_session.query(User).filter(User.feishu_open_id == "ou_auto_bind_123").first()
+        assert user is not None
+        assert user.display_name == "Test User"
+
+    def test_matched_existing_bound_user(self, test_client_feishu, db_session):
+        """open_id already bound to a user -> status=matched, role preserved (D-01 layer 1, D-11)."""
+        existing_user = User(
+            username="bound_user",
+            hashed_password=hash_password("pass"),
+            role="hr",
+            display_name="Bound HR",
+            is_active=True,
+            must_change_password=False,
+            feishu_open_id="ou_already_bound",
+            feishu_union_id="un_bound",
+        )
+        db_session.add(existing_user)
+        db_session.commit()
+
+        resp = test_client_feishu.get("/api/v1/auth/feishu/authorize-url")
+        state = parse_qs(urlparse(resp.json()["data"]["url"]).query)["state"][0]
+
+        mock_http = _make_mock_httpx_client(open_id="ou_already_bound", name="Bound HR")
+
+        with patch("backend.app.services.feishu_oauth_service.httpx.AsyncClient") as MockClient:
+            MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_http)
+            MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            resp2 = test_client_feishu.post(
+                "/api/v1/auth/feishu/callback",
+                json={"code": "mock_code", "state": state},
+            )
+            assert resp2.status_code == 200
+            data = resp2.json()["data"]
+            assert data["status"] == "matched"
+            assert data["role"] == "hr"
+
+    def test_new_user_no_match(self, test_client_feishu, db_session):
+        """No EmployeeMaster match and no bound user -> status=new_user, employee role (D-01 layer 4, D-12)."""
+        resp = test_client_feishu.get("/api/v1/auth/feishu/authorize-url")
+        state = parse_qs(urlparse(resp.json()["data"]["url"]).query)["state"][0]
+
+        mock_http = _make_mock_httpx_client(open_id="ou_brand_new", name="Unknown Person")
+
+        with patch("backend.app.services.feishu_oauth_service.httpx.AsyncClient") as MockClient:
+            MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_http)
+            MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            resp2 = test_client_feishu.post(
+                "/api/v1/auth/feishu/callback",
+                json={"code": "mock_code", "state": state},
+            )
+            assert resp2.status_code == 200
+            data = resp2.json()["data"]
+            assert data["status"] == "new_user"
+            assert data["role"] == "employee"
+            assert "access_token" in data
+
+    def test_new_user_default_employee_role(self, test_client_feishu, db_session):
+        """New user created via OAuth always gets employee role (D-12, D-13)."""
+        resp = test_client_feishu.get("/api/v1/auth/feishu/authorize-url")
+        state = parse_qs(urlparse(resp.json()["data"]["url"]).query)["state"][0]
+
+        mock_http = _make_mock_httpx_client(open_id="ou_role_test", name="Role Test")
+
+        with patch("backend.app.services.feishu_oauth_service.httpx.AsyncClient") as MockClient:
+            MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_http)
+            MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            resp2 = test_client_feishu.post(
+                "/api/v1/auth/feishu/callback",
+                json={"code": "mock_code", "state": state},
+            )
+            assert resp2.status_code == 200
+            data = resp2.json()["data"]
+            assert data["role"] == "employee"
+
+        user = db_session.query(User).filter(User.feishu_open_id == "ou_role_test").first()
+        assert user is not None
+        assert user.role == "employee"
+
+
+class TestOAuthPendingCandidates:
+    """Test: multiple EmployeeMaster matches -> pending_candidates with masked employee_id (D-01 layer 3, D-04, D-06)."""
+
+    def test_pending_candidates_multiple_matches(self, test_client_feishu, db_session, seed_multiple_employees_same_name):
+        resp = test_client_feishu.get("/api/v1/auth/feishu/authorize-url")
+        state = parse_qs(urlparse(resp.json()["data"]["url"]).query)["state"][0]
+
+        mock_http = _make_mock_httpx_client(open_id="ou_pending_123", name="Duplicate Name")
+
+        with patch("backend.app.services.feishu_oauth_service.httpx.AsyncClient") as MockClient:
+            MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_http)
+            MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            resp2 = test_client_feishu.post(
+                "/api/v1/auth/feishu/callback",
+                json={"code": "mock_code", "state": state},
+            )
+            assert resp2.status_code == 200
+            data = resp2.json()["data"]
+            assert data["status"] == "pending_candidates"
+            assert "pending_token" in data
+            assert len(data["candidates"]) == 2
+
+            # Verify employee_id is masked (only last 4 chars visible)
+            for c in data["candidates"]:
+                assert "employee_master_id" in c
+                assert "person_name" in c
+                assert "employee_id_masked" in c
+                assert c["employee_id_masked"].startswith("****")
+                assert len(c["employee_id_masked"]) == 8  # ****XXXX for 7-char IDs
+
+            # Verify no access_token returned for pending state
+            assert "access_token" not in data
+
+
+class TestConfirmBind:
+    """Test: confirm-bind endpoint validates pending_token and completes binding (D-05)."""
+
+    def test_confirm_bind_success(self, test_client_feishu, db_session, seed_multiple_employees_same_name):
+        """Valid pending_token + employee_master_id -> binding + JWT."""
+        # First trigger pending_candidates
+        resp = test_client_feishu.get("/api/v1/auth/feishu/authorize-url")
+        state = parse_qs(urlparse(resp.json()["data"]["url"]).query)["state"][0]
+
+        mock_http = _make_mock_httpx_client(open_id="ou_confirm_123", name="Duplicate Name")
+
+        with patch("backend.app.services.feishu_oauth_service.httpx.AsyncClient") as MockClient:
+            MockClient.return_value.__aenter__ = AsyncMock(return_value=mock_http)
+            MockClient.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            resp2 = test_client_feishu.post(
+                "/api/v1/auth/feishu/callback",
+                json={"code": "mock_code", "state": state},
+            )
+            data = resp2.json()["data"]
+            pending_token = data["pending_token"]
+            emp_id = data["candidates"][0]["employee_master_id"]
+
+        # Confirm bind
+        resp3 = test_client_feishu.post(
+            "/api/v1/auth/feishu/confirm-bind",
+            json={"pending_token": pending_token, "employee_master_id": emp_id},
+        )
+        assert resp3.status_code == 200
+        data3 = resp3.json()["data"]
+        assert "access_token" in data3
+        assert data3["status"] == "bound"
+
+        # Verify user has feishu_open_id
+        user = db_session.query(User).filter(User.feishu_open_id == "ou_confirm_123").first()
+        assert user is not None
+
+    def test_confirm_bind_invalid_token(self, test_client_feishu, db_session):
+        """Invalid/expired pending_token -> rejection."""
+        resp = test_client_feishu.post(
+            "/api/v1/auth/feishu/confirm-bind",
+            json={"pending_token": "invalid.token.here", "employee_master_id": "fake-id"},
+        )
+        assert resp.status_code == 400
+
+    def test_confirm_bind_expired_token(self, test_client_feishu, db_session, seed_multiple_employees_same_name):
+        """Expired pending_token -> rejection."""
+        import jwt as pyjwt
+        from tests.conftest import TEST_SECRET_KEY
+
+        # Create an already-expired token
+        from datetime import datetime, timedelta, timezone
+        expired_payload = {
+            "feishu_open_id": "ou_expired",
+            "feishu_union_id": "un_expired",
+            "feishu_name": "Expired User",
+            "purpose": "confirm_bind",
+            "exp": datetime.now(timezone.utc) - timedelta(minutes=1),
+        }
+        expired_token = pyjwt.encode(expired_payload, TEST_SECRET_KEY, algorithm="HS256")
+
+        resp = test_client_feishu.post(
+            "/api/v1/auth/feishu/confirm-bind",
+            json={"pending_token": expired_token, "employee_master_id": "fake-id"},
+        )
+        assert resp.status_code == 400
+
+    def test_confirm_bind_rejects_already_bound_open_id(self, test_client_feishu, db_session, seed_multiple_employees_same_name):
+        """open_id already bound to another user -> 409 conflict (T-22-06)."""
+        import jwt as pyjwt
+        from tests.conftest import TEST_SECRET_KEY
+        from datetime import datetime, timedelta, timezone
+
+        # Pre-create a user with this open_id bound
+        existing = User(
+            username="already_bound",
+            hashed_password=hash_password("pass"),
+            role="employee",
+            display_name="Already Bound",
+            is_active=True,
+            must_change_password=False,
+            feishu_open_id="ou_conflict",
+        )
+        db_session.add(existing)
+        db_session.commit()
+
+        # Create a valid pending token for the same open_id
+        payload = {
+            "feishu_open_id": "ou_conflict",
+            "feishu_union_id": "un_conflict",
+            "feishu_name": "Duplicate Name",
+            "purpose": "confirm_bind",
+            "exp": datetime.now(timezone.utc) + timedelta(minutes=5),
+        }
+        token = pyjwt.encode(payload, TEST_SECRET_KEY, algorithm="HS256")
+        emp_id = str(seed_multiple_employees_same_name[0].id)
+
+        resp = test_client_feishu.post(
+            "/api/v1/auth/feishu/confirm-bind",
+            json={"pending_token": token, "employee_master_id": emp_id},
+        )
+        assert resp.status_code == 409
+
+
+# ---------------------------------------------------------------------------
+# RBAC Tests
+# ---------------------------------------------------------------------------
+
 class TestFeishuRBAC:
     def test_sync_push_requires_admin_or_hr(self, test_client_feishu, db_session):
         """Unauthenticated request to sync push should fail."""
