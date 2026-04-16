@@ -11,10 +11,18 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.app.api.v1.responses import error_response, success_response
+from backend.app.core.auth import AuthUser
 from backend.app.core.config import Settings
-from backend.app.dependencies import get_db
-from backend.app.services.feishu_oauth_service import FeishuOAuthError, exchange_code_for_user, confirm_bind
+from backend.app.dependencies import get_db, require_authenticated_user
+from backend.app.models.user import User
+from backend.app.services.feishu_oauth_service import (
+    FeishuOAuthError,
+    _fetch_feishu_user_info,
+    exchange_code_for_user,
+    confirm_bind,
+)
 from backend.app.services.system_setting_service import get_effective_feishu_settings
+from backend.app.services.user_service import bind_feishu, unbind_feishu
 
 router = APIRouter(prefix="/auth/feishu", tags=["飞书认证"])
 
@@ -150,3 +158,104 @@ async def confirm_bind_endpoint(
         return error_response("BIND_ERROR", error_msg, 400)
 
     return success_response(result)
+
+
+@router.get("/bind-authorize-url", summary="获取飞书绑定授权 URL", description="已登录用户获取飞书授权链接，用于绑定飞书账号。")
+async def get_bind_authorize_url(
+    request: Request,
+    current_user: AuthUser = Depends(require_authenticated_user),
+    db: Session = Depends(get_db),
+):
+    settings = _get_settings(request)
+    effective_settings = get_effective_feishu_settings(db, settings)
+    if not effective_settings.feishu_oauth_enabled:
+        return error_response("FEATURE_DISABLED", "飞书登录功能未启用", 404)
+
+    state_raw = f"bind:{secrets.token_urlsafe(32)}"
+    signed = _sign_state(state_raw, settings.auth_secret_key)
+
+    redirect_uri = getattr(settings, "feishu_oauth_redirect_uri", "")
+    url = (
+        f"https://accounts.feishu.cn/open-apis/authen/v1/authorize"
+        f"?client_id={effective_settings.feishu_app_id}"
+        f"&response_type=code"
+        f"&redirect_uri={redirect_uri}"
+        f"&state={state_raw}"
+    )
+    resp = success_response({"url": url})
+    resp.set_cookie(
+        OAUTH_STATE_COOKIE,
+        signed,
+        max_age=OAUTH_STATE_MAX_AGE,
+        httponly=True,
+        samesite="lax",
+        secure=False,
+    )
+    return resp
+
+
+@router.post("/bind-callback", summary="飞书绑定回调", description="已登录用户完成飞书授权后，将飞书账号绑定到当前用户。")
+async def bind_callback(
+    body: OAuthCallbackBody,
+    request: Request,
+    current_user: AuthUser = Depends(require_authenticated_user),
+    db: Session = Depends(get_db),
+):
+    settings = _get_settings(request)
+    effective_settings = get_effective_feishu_settings(db, settings)
+
+    # Validate CSRF state
+    cookie_value = request.cookies.get(OAUTH_STATE_COOKIE)
+    if not cookie_value:
+        return error_response("INVALID_STATE", "OAuth state 验证失败", 400)
+
+    original_state = _verify_state(cookie_value, settings.auth_secret_key)
+    if original_state is None or original_state != body.state:
+        return error_response("INVALID_STATE", "OAuth state 验证失败", 400)
+
+    try:
+        feishu_info = await _fetch_feishu_user_info(
+            body.code,
+            settings.model_copy(
+                update={
+                    "feishu_app_id": effective_settings.feishu_app_id,
+                    "feishu_app_secret": effective_settings.feishu_app_secret,
+                }
+            ),
+        )
+    except FeishuOAuthError as e:
+        return error_response("OAUTH_ERROR", str(e), 400)
+
+    open_id = feishu_info["open_id"]
+    union_id = feishu_info["union_id"]
+    feishu_name = feishu_info["name"]
+
+    # Check open_id not already bound to another user (T-22-06)
+    existing = db.query(User).filter(User.feishu_open_id == open_id).first()
+    if existing:
+        return error_response("ALREADY_BOUND", "该飞书账号已被其他用户绑定", 409)
+
+    # Find current user in DB and bind
+    db_user = db.query(User).filter(User.username == current_user.username).first()
+    if not db_user:
+        return error_response("USER_NOT_FOUND", "当前用户不存在", 404)
+
+    bind_feishu(db, str(db_user.id), open_id, union_id)
+
+    resp = success_response({"feishu_name": feishu_name, "bound": True})
+    resp.delete_cookie(OAUTH_STATE_COOKIE)
+    return resp
+
+
+@router.post("/unbind", summary="解绑飞书账号", description="清空当前用户的飞书绑定信息。")
+async def unbind_endpoint(
+    request: Request,
+    current_user: AuthUser = Depends(require_authenticated_user),
+    db: Session = Depends(get_db),
+):
+    db_user = db.query(User).filter(User.username == current_user.username).first()
+    if not db_user:
+        return error_response("USER_NOT_FOUND", "当前用户不存在", 404)
+
+    unbind_feishu(db, str(db_user.id))
+    return success_response({"unbound": True})

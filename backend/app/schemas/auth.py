@@ -14,6 +14,7 @@ class AuthUserRead(BaseModel):
     role: AuthRole
     display_name: str
     must_change_password: bool = False
+    feishu_bound: bool = False
 
 
 class AuthLoginRequest(BaseModel):

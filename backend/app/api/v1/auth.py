@@ -167,22 +167,23 @@ def get_current_user_endpoint(
     user=Depends(require_authenticated_user),
     db: Session = Depends(get_db),
 ):
-    # For admin/hr: look up real user record to get display_name and must_change_password
-    if user.role in ('admin', 'hr'):
-        db_user = get_user_by_username(db, user.username)
-        if db_user:
-            payload = AuthUserRead(
-                username=db_user.username,
-                role=db_user.role,
-                display_name=db_user.display_name or role_display_name(db_user.role),
-                must_change_password=db_user.must_change_password,
-            )
-            return success_response(payload.model_dump(mode='json'), message='Authenticated user retrieved.')
-    # For employee or fallback: no password account, must_change_password always False
+    # Look up real user record for display_name, must_change_password, feishu_bound
+    db_user = get_user_by_username(db, user.username)
+    if db_user:
+        payload = AuthUserRead(
+            username=db_user.username,
+            role=db_user.role,
+            display_name=db_user.display_name or role_display_name(db_user.role),
+            must_change_password=db_user.must_change_password,
+            feishu_bound=db_user.feishu_open_id is not None,
+        )
+        return success_response(payload.model_dump(mode='json'), message='Authenticated user retrieved.')
+    # Fallback: no DB record (e.g. auth disabled)
     payload = AuthUserRead(
         username=user.username,
         role=user.role,
         display_name=role_display_name(user.role),
         must_change_password=False,
+        feishu_bound=False,
     )
     return success_response(payload.model_dump(mode='json'), message='Authenticated user retrieved.')
