@@ -299,6 +299,17 @@ export async function retrySyncJob(jobId: string): Promise<SyncJob> {
 
 // ── OAuth ─────────────────────────────────────────────────────────
 
+export interface Candidate {
+  employee_master_id: string;
+  person_name: string;
+  department: string;
+  employee_id_masked: string;
+}
+
+export type FeishuOAuthResult =
+  | { status: 'matched' | 'auto_bound' | 'new_user'; access_token: string; role: string; username: string; display_name: string }
+  | { status: 'pending_candidates'; pending_token: string; feishu_name: string; candidates: Candidate[] };
+
 export async function fetchFeishuAuthorizeUrl(): Promise<string> {
   const response = await apiClient.get<ApiSuccessResponse<string>>(
     '/auth/feishu/authorize-url',
@@ -309,20 +320,24 @@ export async function fetchFeishuAuthorizeUrl(): Promise<string> {
 export async function feishuOAuthCallback(
   code: string,
   state: string,
-): Promise<{
-  access_token: string;
-  role: string;
-  username: string;
-  display_name: string;
-}> {
+): Promise<FeishuOAuthResult> {
+  const response = await apiClient.post<ApiSuccessResponse<FeishuOAuthResult>>(
+    '/auth/feishu/callback',
+    { code, state },
+  );
+  return response.data.data;
+}
+
+export async function confirmFeishuBind(
+  pendingToken: string,
+  employeeMasterId: string,
+): Promise<{ access_token: string; role: string; username: string; display_name: string }> {
   const response = await apiClient.post<
-    ApiSuccessResponse<{
-      access_token: string;
-      role: string;
-      username: string;
-      display_name: string;
-    }>
-  >('/auth/feishu/callback', { code, state });
+    ApiSuccessResponse<{ access_token: string; role: string; username: string; display_name: string }>
+  >('/auth/feishu/confirm-bind', {
+    pending_token: pendingToken,
+    employee_master_id: employeeMasterId,
+  });
   return response.data.data;
 }
 
