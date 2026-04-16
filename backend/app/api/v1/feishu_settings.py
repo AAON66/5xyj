@@ -23,6 +23,11 @@ from backend.app.schemas.feishu import (
     SyncConfigRead,
     SyncConfigUpdate,
 )
+from backend.app.mappings.manual_field_aliases import (
+    CANONICAL_FIELDS,
+    MANUAL_ALIAS_RULES,
+    normalize_signature,
+)
 from backend.app.services.feishu_client import FeishuClient, get_feishu_client
 from backend.app.services.system_setting_service import (
     FEISHU_APP_ID_KEY,
@@ -35,7 +40,8 @@ from backend.app.services.system_setting_service import (
     set_setting,
 )
 
-from typing import Optional
+from pydantic import BaseModel as PydanticBaseModel
+from typing import List, Optional
 
 
 async def _get_client_safe(
@@ -92,6 +98,59 @@ async def _validate_feishu_credentials(app_id: str, app_secret: str) -> Optional
             "status_code": 502,
         }
     return None
+
+
+def suggest_field_mapping(
+    feishu_fields: list,
+    system_fields: Optional[list] = None,
+) -> dict:
+    """Match feishu fields to canonical system fields using alias rules + exact key fallback."""
+    suggestions = []
+    matched_field_ids = set()
+    for ff in feishu_fields:
+        field_name = ff["field_name"]
+        field_id = ff.get("field_id", "")
+        best_match = None
+        best_confidence = 0.0
+        best_rule = ""
+        for rule in MANUAL_ALIAS_RULES:
+            if system_fields and rule.canonical_field not in system_fields:
+                continue
+            if rule.matches(field_name, region=None):
+                if rule.confidence > best_confidence:
+                    best_match = rule.canonical_field
+                    best_confidence = rule.confidence
+                    best_rule = " + ".join(rule.patterns)
+        # English exact key fallback
+        if best_match is None:
+            normalized = normalize_signature(field_name)
+            candidates = system_fields if system_fields else list(CANONICAL_FIELDS)
+            for sf in candidates:
+                if normalized == normalize_signature(sf):
+                    best_match = sf
+                    best_confidence = 1.0
+                    best_rule = "exact_key_match"
+                    break
+        if best_match:
+            suggestions.append({
+                "feishu_field_id": field_id,
+                "feishu_field_name": field_name,
+                "canonical_field": best_match,
+                "confidence": best_confidence,
+                "matched_rule": best_rule,
+            })
+            matched_field_ids.add(field_id)
+    unmatched = [
+        ff.get("field_id", "")
+        for ff in feishu_fields
+        if ff.get("field_id", "") not in matched_field_ids
+    ]
+    return {"suggestions": suggestions, "unmatched": unmatched}
+
+
+class SuggestMappingRequest(PydanticBaseModel):
+    feishu_fields: list
+    system_fields: Optional[list] = None
 
 
 @router.get("/configs", summary="获取所有同步配置", description="返回所有激活的同步配置列表。")
@@ -176,6 +235,24 @@ async def save_field_mapping(
     return success_response(SyncConfigRead.model_validate(config).model_dump())
 
 
+@router.post(
+    "/configs/{config_id}/suggest-mapping",
+    summary="获取字段映射建议",
+    description="基于同义词规则库，为飞书字段推荐系统字段映射。",
+)
+async def suggest_mapping_endpoint(
+    config_id: str,
+    body: SuggestMappingRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    config = db.get(SyncConfig, config_id)
+    if not config:
+        return error_response("NOT_FOUND", "同步配置不存在", 404)
+    result = suggest_field_mapping(body.feishu_fields, body.system_fields)
+    return success_response(result)
+
+
 @router.get("/configs/{config_id}/feishu-fields", summary="获取飞书表格字段列表", description="从飞书多维表格获取字段定义。")
 async def get_feishu_fields(
     config_id: str,
@@ -200,6 +277,7 @@ async def get_feishu_fields(
             field_id=f.get("field_id", ""),
             field_name=f.get("field_name", ""),
             field_type=f.get("type", 0),
+            ui_type=f.get("ui_type", None),
             description=f.get("description", None),
         ).model_dump()
         for f in fields

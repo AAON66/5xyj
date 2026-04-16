@@ -136,6 +136,8 @@ MANUAL_ALIAS_RULES: tuple[AliasRule, ...] = (
     AliasRule("pension_personal", ("职工基本养老保险(个人缴纳)",), confidence=0.98),
     AliasRule("pension_company", ("基本养老应缴费额", "单位部分"), confidence=0.97),
     AliasRule("pension_personal", ("基本养老应缴费额", "个人部分"), confidence=0.97),
+    AliasRule("pension_company", ("养老保险", "(单位)"), excludes=("个人",), confidence=0.92),
+    AliasRule("pension_personal", ("养老保险", "(个人)"), excludes=("单位",), confidence=0.92),
     AliasRule("pension_company", ("社保公司", "养老"), confidence=0.93),
     AliasRule("pension_personal", ("社保个人", "养老"), confidence=0.93),
     AliasRule("medical_company", ("社保公司", "医疗"), excludes=("补充", "大额"), confidence=0.93),
