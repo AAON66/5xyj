@@ -22,7 +22,7 @@ decisions:
 metrics:
   duration: "3m 12s"
   completed: "2026-04-16"
-status: checkpoint-paused
+status: complete
 ---
 
 # Phase 21 Plan 02: 飞书字段映射 UI 增强 Summary
