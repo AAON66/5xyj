@@ -97,7 +97,7 @@ function highlightText(text: string, keyword: string, highlightBg: string): Reac
 
 export default function SettingsPage() {
   const { user } = useAuth();
-  const { feishu_sync_enabled, feishu_oauth_enabled } = useFeishuFeatureFlag();
+  const { feishu_sync_enabled } = useFeishuFeatureFlag();
   const { isDark, toggleMode } = useThemeMode();
   const { token } = theme.useToken();
   const { message: messageApi } = App.useApp();
@@ -195,8 +195,6 @@ export default function SettingsPage() {
     return SETTINGS_CARDS.filter((card) => {
       if (!card.roles.includes(userRole)) return false;
       if (card.feishuOnly && !feishu_sync_enabled) return false;
-      // feishu-bind card only visible when feishu_oauth_enabled
-      if (card.key === 'feishu-bind' && !feishu_oauth_enabled) return false;
       if (!searchTerm) return true;
       const term = searchTerm.toLowerCase();
       return (
@@ -205,7 +203,7 @@ export default function SettingsPage() {
         card.keywords.some((k) => k.toLowerCase().includes(term))
       );
     });
-  }, [userRole, feishu_sync_enabled, feishu_oauth_enabled, searchTerm]);
+  }, [userRole, feishu_sync_enabled, searchTerm]);
 
   // Auto-scroll to first matching card on search
   useEffect(() => {
