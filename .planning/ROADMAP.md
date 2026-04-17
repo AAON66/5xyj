@@ -53,7 +53,7 @@ See: `.planning/milestones/v1.1-ROADMAP.md` for full details
 **Milestone Goal:** 打通飞书字段映射闭环、实现飞书 OAuth 自动登录、重做登录页面视觉体验
 
 - [x] **Phase 21: 飞书字段映射完善** - 拉取飞书真实字段并实现类型感知的智能映射 UI (completed 2026-04-16)
-- [ ] **Phase 22: 飞书 OAuth 自动匹配登录** - 飞书扫码登录 + 按姓名/工号自动绑定系统用户
+- [x] **Phase 22: 飞书 OAuth 自动匹配登录** - 飞书扫码登录 + 按姓名/工号自动绑定系统用户 (completed 2026-04-17)
 - [ ] **Phase 23: 登录页面改版** - 左右分栏布局 + Three.js 3D 粒子波浪动态背景
 
 ## Phase Details
@@ -87,9 +87,9 @@ Plans:
 **Plans**: 3 plans
 
 Plans:
-- [ ] 22-01-PLAN.md — 后端三级匹配逻辑 + confirm-bind + bind/unbind 端点 + 测试
-- [ ] 22-02-PLAN.md — 前端 Login.tsx OAuth 回调处理 + CandidateSelectModal 候选人选择
-- [ ] 22-03-PLAN.md — 前端 Settings.tsx 飞书账号绑定卡片
+- [x] 22-01-PLAN.md — 后端三级匹配逻辑 + confirm-bind + bind/unbind 端点 + 测试
+- [x] 22-02-PLAN.md — 前端 Login.tsx OAuth 回调处理 + CandidateSelectModal 候选人选择
+- [x] 22-03-PLAN.md — 前端 Settings.tsx 飞书账号绑定卡片
 
 **UI hint**: yes
 
@@ -133,5 +133,5 @@ Phases execute in numeric order: 21 -> 22 -> 23
 | 19. 融合能力增强 | v1.1 | 4/4 | Complete | 2026-04-09 |
 | 20. 对比重做与飞书完善 | v1.1 | 4/4 | Complete | 2026-04-09 |
 | 21. 飞书字段映射完善 | v1.2 | 2/2 | Complete    | 2026-04-16 |
-| 22. 飞书 OAuth 自动匹配登录 | v1.2 | 0/3 | Not started | - |
+| 22. 飞书 OAuth 自动匹配登录 | v1.2 | 3/3 | Complete    | 2026-04-17 |
 | 23. 登录页面改版 | v1.2 | 0/0 | Not started | - |
