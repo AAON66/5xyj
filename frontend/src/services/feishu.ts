@@ -310,20 +310,26 @@ export type FeishuOAuthResult =
   | { status: 'matched' | 'auto_bound' | 'new_user'; access_token: string; role: string; username: string; display_name: string }
   | { status: 'pending_candidates'; pending_token: string; feishu_name: string; candidates: Candidate[] };
 
+const FEISHU_STATE_SIGNED_KEY = 'feishu_oauth_state_signed';
+
 export async function fetchFeishuAuthorizeUrl(): Promise<string> {
-  const response = await apiClient.get<ApiSuccessResponse<string>>(
+  const response = await apiClient.get<ApiSuccessResponse<{ url: string; state_signed: string }>>(
     '/auth/feishu/authorize-url',
   );
-  return response.data.data;
+  // Store state_signed in localStorage for callback verification
+  localStorage.setItem(FEISHU_STATE_SIGNED_KEY, response.data.data.state_signed);
+  return response.data.data.url;
 }
 
 export async function feishuOAuthCallback(
   code: string,
   state: string,
 ): Promise<FeishuOAuthResult> {
+  const state_signed = localStorage.getItem(FEISHU_STATE_SIGNED_KEY) || '';
+  localStorage.removeItem(FEISHU_STATE_SIGNED_KEY);
   const response = await apiClient.post<ApiSuccessResponse<FeishuOAuthResult>>(
     '/auth/feishu/callback',
-    { code, state },
+    { code, state, state_signed },
   );
   return response.data.data;
 }
@@ -344,9 +350,10 @@ export async function confirmFeishuBind(
 // ── Bind / Unbind (authenticated user links their Feishu account) ─
 
 export async function fetchBindAuthorizeUrl(): Promise<string> {
-  const response = await apiClient.get<ApiSuccessResponse<{ url: string }>>(
+  const response = await apiClient.get<ApiSuccessResponse<{ url: string; state_signed: string }>>(
     '/auth/feishu/bind-authorize-url',
   );
+  localStorage.setItem(FEISHU_STATE_SIGNED_KEY, response.data.data.state_signed);
   return response.data.data.url;
 }
 
@@ -354,9 +361,11 @@ export async function feishuBindCallback(
   code: string,
   state: string,
 ): Promise<{ feishu_name: string }> {
+  const state_signed = localStorage.getItem(FEISHU_STATE_SIGNED_KEY) || '';
+  localStorage.removeItem(FEISHU_STATE_SIGNED_KEY);
   const response = await apiClient.post<
     ApiSuccessResponse<{ feishu_name: string }>
-  >('/auth/feishu/bind-callback', { code, state });
+  >('/auth/feishu/bind-callback', { code, state, state_signed });
   return response.data.data;
 }
 

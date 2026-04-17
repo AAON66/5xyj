@@ -33,6 +33,7 @@ OAUTH_STATE_MAX_AGE = 600  # 10 minutes
 class OAuthCallbackBody(BaseModel):
     code: str
     state: str
+    state_signed: str = ""
 
 
 class ConfirmBindBody(BaseModel):
@@ -62,7 +63,7 @@ def _get_settings(request: Request) -> Settings:
     return request.app.state.settings
 
 
-@router.get("/authorize-url", summary="获取飞书授权 URL", description="生成飞书 OAuth 授权链接，并设置 CSRF 状态 Cookie。")
+@router.get("/authorize-url", summary="获取飞书授权 URL", description="生成飞书 OAuth 授权链接，返回 state 签名供前端存储。")
 async def get_authorize_url(
     request: Request,
     db: Session = Depends(get_db),
@@ -75,7 +76,7 @@ async def get_authorize_url(
     state = secrets.token_urlsafe(32)
     signed = _sign_state(state, settings.auth_secret_key)
 
-    redirect_uri = getattr(settings, "feishu_oauth_redirect_uri", "")
+    redirect_uri = settings.feishu_oauth_redirect_uri
     url = (
         f"https://accounts.feishu.cn/open-apis/authen/v1/authorize"
         f"?client_id={effective_settings.feishu_app_id}"
@@ -83,16 +84,7 @@ async def get_authorize_url(
         f"&redirect_uri={redirect_uri}"
         f"&state={state}"
     )
-    resp = success_response({"url": url})
-    resp.set_cookie(
-        OAUTH_STATE_COOKIE,
-        signed,
-        max_age=OAUTH_STATE_MAX_AGE,
-        httponly=True,
-        samesite="lax",
-        secure=False,  # secure=True in production
-    )
-    return resp
+    return success_response({"url": url, "state_signed": signed})
 
 
 @router.post("/callback", summary="飞书 OAuth 回调", description="处理飞书 OAuth 回调，验证 state 后交换令牌。返回四种匹配状态。")
@@ -106,12 +98,12 @@ async def feishu_oauth_callback(
     if not effective_settings.feishu_oauth_enabled:
         return error_response("FEATURE_DISABLED", "飞书登录功能未启用", 404)
 
-    # Validate CSRF state via signed cookie (H2)
-    cookie_value = request.cookies.get(OAUTH_STATE_COOKIE)
-    if not cookie_value:
+    # Validate CSRF state: prefer body.state_signed, fallback to cookie
+    signed_value = body.state_signed or request.cookies.get(OAUTH_STATE_COOKIE) or ""
+    if not signed_value:
         return error_response("INVALID_STATE", "OAuth state 验证失败，请重新登录", 400)
 
-    original_state = _verify_state(cookie_value, settings.auth_secret_key)
+    original_state = _verify_state(signed_value, settings.auth_secret_key)
     if original_state is None or original_state != body.state:
         return error_response("INVALID_STATE", "OAuth state 验证失败，请重新登录", 400)
 
@@ -130,10 +122,7 @@ async def feishu_oauth_callback(
     except FeishuOAuthError as e:
         return error_response("OAUTH_ERROR", str(e), 400)
 
-    resp = success_response(result)
-    # Delete state cookie after successful validation
-    resp.delete_cookie(OAUTH_STATE_COOKIE)
-    return resp
+    return success_response(result)
 
 
 @router.post("/confirm-bind", summary="确认绑定选定员工", description="用临时 token 验证后，将飞书账号绑定到选定的员工。")
@@ -168,13 +157,11 @@ async def get_bind_authorize_url(
 ):
     settings = _get_settings(request)
     effective_settings = get_effective_feishu_settings(db, settings)
-    if not effective_settings.feishu_oauth_enabled:
-        return error_response("FEATURE_DISABLED", "飞书登录功能未启用", 404)
 
     state_raw = f"bind:{secrets.token_urlsafe(32)}"
     signed = _sign_state(state_raw, settings.auth_secret_key)
 
-    redirect_uri = getattr(settings, "feishu_oauth_redirect_uri", "")
+    redirect_uri = settings.feishu_oauth_redirect_uri
     url = (
         f"https://accounts.feishu.cn/open-apis/authen/v1/authorize"
         f"?client_id={effective_settings.feishu_app_id}"
@@ -182,16 +169,7 @@ async def get_bind_authorize_url(
         f"&redirect_uri={redirect_uri}"
         f"&state={state_raw}"
     )
-    resp = success_response({"url": url})
-    resp.set_cookie(
-        OAUTH_STATE_COOKIE,
-        signed,
-        max_age=OAUTH_STATE_MAX_AGE,
-        httponly=True,
-        samesite="lax",
-        secure=False,
-    )
-    return resp
+    return success_response({"url": url, "state_signed": signed})
 
 
 @router.post("/bind-callback", summary="飞书绑定回调", description="已登录用户完成飞书授权后，将飞书账号绑定到当前用户。")
@@ -204,12 +182,12 @@ async def bind_callback(
     settings = _get_settings(request)
     effective_settings = get_effective_feishu_settings(db, settings)
 
-    # Validate CSRF state
-    cookie_value = request.cookies.get(OAUTH_STATE_COOKIE)
-    if not cookie_value:
+    # Validate CSRF state: prefer body.state_signed, fallback to cookie
+    signed_value = body.state_signed or request.cookies.get(OAUTH_STATE_COOKIE) or ""
+    if not signed_value:
         return error_response("INVALID_STATE", "OAuth state 验证失败", 400)
 
-    original_state = _verify_state(cookie_value, settings.auth_secret_key)
+    original_state = _verify_state(signed_value, settings.auth_secret_key)
     if original_state is None or original_state != body.state:
         return error_response("INVALID_STATE", "OAuth state 验证失败", 400)
 

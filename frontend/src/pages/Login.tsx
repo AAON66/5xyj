@@ -50,7 +50,15 @@ export function LoginPage() {
     const params = new URLSearchParams(window.location.search);
     const code = params.get('code');
     const state = params.get('state');
-    if (code && state && feishu_oauth_enabled) {
+    if (code && state) {
+      // Bind callback: state starts with "bind:" → forward to settings page
+      if (state.startsWith('bind:')) {
+        window.location.href = `/settings?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}&action=bind`;
+        return;
+      }
+
+      if (!feishu_oauth_enabled) return;
+
       // Clear URL params to prevent re-triggering on refresh
       window.history.replaceState({}, '', window.location.pathname);
 

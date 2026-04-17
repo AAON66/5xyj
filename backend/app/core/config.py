@@ -65,6 +65,7 @@ class Settings(BaseSettings):
     feishu_oauth_enabled: bool = False
     feishu_app_id: str = ''
     feishu_app_secret: str = ''
+    feishu_oauth_redirect_uri: str = 'http://127.0.0.1:5173/login'
 
     # Anomaly detection thresholds (percentage)
     anomaly_threshold_pension: float = 20.0

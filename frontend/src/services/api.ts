@@ -47,6 +47,7 @@ export interface ApiInterceptorCallbacks {
 export const apiClient = axios.create({
   baseURL: getApiBaseUrl(),
   timeout: DEFAULT_REQUEST_TIMEOUT_MS,
+  withCredentials: true,
 });
 
 export function normalizeApiError(error: unknown): ApiClientError {
