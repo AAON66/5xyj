@@ -31,6 +31,15 @@ def _auth_headers(token: str) -> dict:
     return {"Authorization": f"Bearer {token}"}
 
 
+def _extract_state_and_signed(resp_json: dict) -> tuple[str, str]:
+    """Extract state from URL and state_signed from authorize-url response."""
+    data = resp_json["data"]
+    url = data["url"]
+    state = parse_qs(urlparse(url).query)["state"][0]
+    state_signed = data["state_signed"]
+    return state, state_signed
+
+
 def _make_mock_httpx_client(open_id: str = "ou_test123", name: str = "Test User"):
     """Create a mock httpx.AsyncClient that returns valid Feishu OAuth responses."""
     mock_http = AsyncMock()
@@ -109,16 +118,15 @@ class TestFeatureFlags:
 # ---------------------------------------------------------------------------
 
 class TestOAuthStateValidation:
-    def test_oauth_authorize_url_sets_state_cookie(self, test_client_feishu):
+    def test_oauth_authorize_url_returns_state_signed(self, test_client_feishu):
         resp = test_client_feishu.get("/api/v1/auth/feishu/authorize-url")
         assert resp.status_code == 200
         data = resp.json()["data"]
         assert data["url"].startswith("https://accounts.feishu.cn/")
-        # Check cookie is set
-        assert "feishu_oauth_state" in test_client_feishu.cookies
+        assert "state_signed" in data
 
     def test_oauth_callback_rejects_invalid_state(self, test_client_feishu):
-        # No cookie set -- should reject
+        # No state_signed -- should reject
         resp = test_client_feishu.post(
             "/api/v1/auth/feishu/callback",
             json={"code": "mock", "state": "wrong_state"},
@@ -127,27 +135,22 @@ class TestOAuthStateValidation:
         assert resp.json()["error"]["code"] == "INVALID_STATE"
 
     def test_oauth_callback_rejects_mismatched_state(self, test_client_feishu):
-        # Get valid cookie
         resp = test_client_feishu.get("/api/v1/auth/feishu/authorize-url")
         assert resp.status_code == 200
-        # POST with a DIFFERENT state than what was in the URL
+        state_signed = resp.json()["data"]["state_signed"]
+        # POST with a DIFFERENT state than what was in the URL but valid state_signed
         resp2 = test_client_feishu.post(
             "/api/v1/auth/feishu/callback",
-            json={"code": "mock", "state": "totally_different_state"},
+            json={"code": "mock", "state": "totally_different_state", "state_signed": state_signed},
         )
         assert resp2.status_code == 400
         assert resp2.json()["error"]["code"] == "INVALID_STATE"
 
     def test_oauth_callback_validates_state(self, test_client_feishu, db_session):
-        # Step 1: Get authorize URL and extract state
         resp = test_client_feishu.get("/api/v1/auth/feishu/authorize-url")
         assert resp.status_code == 200
-        url = resp.json()["data"]["url"]
-        parsed = urlparse(url)
-        qs = parse_qs(parsed.query)
-        state = qs["state"][0]
+        state, state_signed = _extract_state_and_signed(resp.json())
 
-        # Step 2: Mock httpx to return valid responses
         mock_http = _make_mock_httpx_client()
 
         with patch("backend.app.services.feishu_oauth_service.httpx.AsyncClient") as MockClient:
@@ -156,7 +159,7 @@ class TestOAuthStateValidation:
 
             resp2 = test_client_feishu.post(
                 "/api/v1/auth/feishu/callback",
-                json={"code": "mock_code", "state": state},
+                json={"code": "mock_code", "state": state, "state_signed": state_signed},
             )
             assert resp2.status_code == 200
             data = resp2.json()["data"]
@@ -169,10 +172,8 @@ class TestOAuthStateValidation:
 
 class TestOAuthUserCreation:
     def test_oauth_callback_creates_new_user(self, test_client_feishu, db_session):
-        # Get authorize URL for valid state
         resp = test_client_feishu.get("/api/v1/auth/feishu/authorize-url")
-        url = resp.json()["data"]["url"]
-        state = parse_qs(urlparse(url).query)["state"][0]
+        state, state_signed = _extract_state_and_signed(resp.json())
 
         mock_http = _make_mock_httpx_client(open_id="ou_new_user_123", name="New Feishu User")
 
@@ -182,7 +183,7 @@ class TestOAuthUserCreation:
 
             resp2 = test_client_feishu.post(
                 "/api/v1/auth/feishu/callback",
-                json={"code": "mock_code", "state": state},
+                json={"code": "mock_code", "state": state, "state_signed": state_signed},
             )
             assert resp2.status_code == 200
             data = resp2.json()["data"]
@@ -196,7 +197,6 @@ class TestOAuthUserCreation:
         assert user.display_name == "New Feishu User"
 
     def test_oauth_callback_existing_user(self, test_client_feishu, db_session):
-        # Pre-create user with feishu binding
         existing_user = User(
             username="existing_feishu_user",
             hashed_password=hash_password("doesntmatter"),
@@ -210,9 +210,8 @@ class TestOAuthUserCreation:
         db_session.add(existing_user)
         db_session.commit()
 
-        # Get state
         resp = test_client_feishu.get("/api/v1/auth/feishu/authorize-url")
-        state = parse_qs(urlparse(resp.json()["data"]["url"]).query)["state"][0]
+        state, state_signed = _extract_state_and_signed(resp.json())
 
         mock_http = _make_mock_httpx_client(open_id="ou_existing", name="Existing HR")
 
@@ -222,7 +221,7 @@ class TestOAuthUserCreation:
 
             resp2 = test_client_feishu.post(
                 "/api/v1/auth/feishu/callback",
-                json={"code": "mock_code", "state": state},
+                json={"code": "mock_code", "state": state, "state_signed": state_signed},
             )
             assert resp2.status_code == 200
             data = resp2.json()["data"]
@@ -415,7 +414,7 @@ class TestOAuthAutoBinding:
         """Feishu name uniquely matches one EmployeeMaster -> auto_bound + feishu_open_id written."""
         # Get authorize URL for valid state
         resp = test_client_feishu.get("/api/v1/auth/feishu/authorize-url")
-        state = parse_qs(urlparse(resp.json()["data"]["url"]).query)["state"][0]
+        state, state_signed = _extract_state_and_signed(resp.json())
 
         mock_http = _make_mock_httpx_client(open_id="ou_auto_bind_123", name="Test User")
 
@@ -425,7 +424,7 @@ class TestOAuthAutoBinding:
 
             resp2 = test_client_feishu.post(
                 "/api/v1/auth/feishu/callback",
-                json={"code": "mock_code", "state": state},
+                json={"code": "mock_code", "state": state, "state_signed": state_signed},
             )
             assert resp2.status_code == 200
             data = resp2.json()["data"]
@@ -453,7 +452,7 @@ class TestOAuthAutoBinding:
         db_session.commit()
 
         resp = test_client_feishu.get("/api/v1/auth/feishu/authorize-url")
-        state = parse_qs(urlparse(resp.json()["data"]["url"]).query)["state"][0]
+        state, state_signed = _extract_state_and_signed(resp.json())
 
         mock_http = _make_mock_httpx_client(open_id="ou_already_bound", name="Bound HR")
 
@@ -463,7 +462,7 @@ class TestOAuthAutoBinding:
 
             resp2 = test_client_feishu.post(
                 "/api/v1/auth/feishu/callback",
-                json={"code": "mock_code", "state": state},
+                json={"code": "mock_code", "state": state, "state_signed": state_signed},
             )
             assert resp2.status_code == 200
             data = resp2.json()["data"]
@@ -473,7 +472,7 @@ class TestOAuthAutoBinding:
     def test_new_user_no_match(self, test_client_feishu, db_session):
         """No EmployeeMaster match and no bound user -> status=new_user, employee role (D-01 layer 4, D-12)."""
         resp = test_client_feishu.get("/api/v1/auth/feishu/authorize-url")
-        state = parse_qs(urlparse(resp.json()["data"]["url"]).query)["state"][0]
+        state, state_signed = _extract_state_and_signed(resp.json())
 
         mock_http = _make_mock_httpx_client(open_id="ou_brand_new", name="Unknown Person")
 
@@ -483,7 +482,7 @@ class TestOAuthAutoBinding:
 
             resp2 = test_client_feishu.post(
                 "/api/v1/auth/feishu/callback",
-                json={"code": "mock_code", "state": state},
+                json={"code": "mock_code", "state": state, "state_signed": state_signed},
             )
             assert resp2.status_code == 200
             data = resp2.json()["data"]
@@ -494,7 +493,7 @@ class TestOAuthAutoBinding:
     def test_new_user_default_employee_role(self, test_client_feishu, db_session):
         """New user created via OAuth always gets employee role (D-12, D-13)."""
         resp = test_client_feishu.get("/api/v1/auth/feishu/authorize-url")
-        state = parse_qs(urlparse(resp.json()["data"]["url"]).query)["state"][0]
+        state, state_signed = _extract_state_and_signed(resp.json())
 
         mock_http = _make_mock_httpx_client(open_id="ou_role_test", name="Role Test")
 
@@ -504,7 +503,7 @@ class TestOAuthAutoBinding:
 
             resp2 = test_client_feishu.post(
                 "/api/v1/auth/feishu/callback",
-                json={"code": "mock_code", "state": state},
+                json={"code": "mock_code", "state": state, "state_signed": state_signed},
             )
             assert resp2.status_code == 200
             data = resp2.json()["data"]
@@ -520,7 +519,7 @@ class TestOAuthPendingCandidates:
 
     def test_pending_candidates_multiple_matches(self, test_client_feishu, db_session, seed_multiple_employees_same_name):
         resp = test_client_feishu.get("/api/v1/auth/feishu/authorize-url")
-        state = parse_qs(urlparse(resp.json()["data"]["url"]).query)["state"][0]
+        state, state_signed = _extract_state_and_signed(resp.json())
 
         mock_http = _make_mock_httpx_client(open_id="ou_pending_123", name="Duplicate Name")
 
@@ -530,7 +529,7 @@ class TestOAuthPendingCandidates:
 
             resp2 = test_client_feishu.post(
                 "/api/v1/auth/feishu/callback",
-                json={"code": "mock_code", "state": state},
+                json={"code": "mock_code", "state": state, "state_signed": state_signed},
             )
             assert resp2.status_code == 200
             data = resp2.json()["data"]
@@ -557,7 +556,7 @@ class TestConfirmBind:
         """Valid pending_token + employee_master_id -> binding + JWT."""
         # First trigger pending_candidates
         resp = test_client_feishu.get("/api/v1/auth/feishu/authorize-url")
-        state = parse_qs(urlparse(resp.json()["data"]["url"]).query)["state"][0]
+        state, state_signed = _extract_state_and_signed(resp.json())
 
         mock_http = _make_mock_httpx_client(open_id="ou_confirm_123", name="Duplicate Name")
 
@@ -567,7 +566,7 @@ class TestConfirmBind:
 
             resp2 = test_client_feishu.post(
                 "/api/v1/auth/feishu/callback",
-                json={"code": "mock_code", "state": state},
+                json={"code": "mock_code", "state": state, "state_signed": state_signed},
             )
             data = resp2.json()["data"]
             pending_token = data["pending_token"]
@@ -667,7 +666,7 @@ class TestFeishuBind:
         assert resp.status_code == 401
 
     def test_bind_authorize_url_returns_url(self, test_client_feishu, seed_test_admin):
-        """Authenticated user -> returns feishu authorize URL."""
+        """Authenticated user -> returns feishu authorize URL with state_signed."""
         token = _login_admin(test_client_feishu)
         resp = test_client_feishu.get(
             "/api/v1/auth/feishu/bind-authorize-url",
@@ -677,20 +676,18 @@ class TestFeishuBind:
         data = resp.json()["data"]
         assert "url" in data
         assert "feishu.cn" in data["url"]
-        assert "feishu_oauth_state" in test_client_feishu.cookies
+        assert "state_signed" in data
 
     def test_bind_callback_writes_open_id(self, test_client_feishu, seed_test_admin, db_session):
-        """Mock httpx + valid state -> feishu_open_id written to current user."""
+        """Mock httpx + valid state_signed -> feishu_open_id written to current user."""
         token = _login_admin(test_client_feishu)
 
-        # Get bind authorize URL (sets state cookie)
         resp = test_client_feishu.get(
             "/api/v1/auth/feishu/bind-authorize-url",
             headers=_auth_headers(token),
         )
         assert resp.status_code == 200
-        url = resp.json()["data"]["url"]
-        state = parse_qs(urlparse(url).query)["state"][0]
+        state, state_signed = _extract_state_and_signed(resp.json())
 
         mock_http = _make_mock_httpx_client(open_id="ou_bind_test", name="Admin Feishu")
 
@@ -700,7 +697,7 @@ class TestFeishuBind:
 
             resp2 = test_client_feishu.post(
                 "/api/v1/auth/feishu/bind-callback",
-                json={"code": "mock_code", "state": state},
+                json={"code": "mock_code", "state": state, "state_signed": state_signed},
                 headers=_auth_headers(token),
             )
             assert resp2.status_code == 200
@@ -732,7 +729,7 @@ class TestFeishuBind:
             "/api/v1/auth/feishu/bind-authorize-url",
             headers=_auth_headers(token),
         )
-        state = parse_qs(urlparse(resp.json()["data"]["url"]).query)["state"][0]
+        state, state_signed = _extract_state_and_signed(resp.json())
 
         mock_http = _make_mock_httpx_client(open_id="ou_already_taken", name="Taken")
 
@@ -742,7 +739,7 @@ class TestFeishuBind:
 
             resp2 = test_client_feishu.post(
                 "/api/v1/auth/feishu/bind-callback",
-                json={"code": "mock_code", "state": state},
+                json={"code": "mock_code", "state": state, "state_signed": state_signed},
                 headers=_auth_headers(token),
             )
             assert resp2.status_code == 409
