@@ -54,7 +54,7 @@ See: `.planning/milestones/v1.1-ROADMAP.md` for full details
 
 - [x] **Phase 21: 飞书字段映射完善** - 拉取飞书真实字段并实现类型感知的智能映射 UI (completed 2026-04-16)
 - [x] **Phase 22: 飞书 OAuth 自动匹配登录** - 飞书扫码登录 + 按姓名/工号自动绑定系统用户 (completed 2026-04-17)
-- [ ] **Phase 23: 登录页面改版** - 左右分栏布局 + Three.js 3D 粒子波浪动态背景
+- [x] **Phase 23: 登录页面改版** - 左右分栏布局 + Three.js 3D 粒子波浪动态背景 (completed 2026-04-19)
 
 ## Phase Details
 
@@ -107,7 +107,7 @@ Plans:
 Plans:
 - [x] 23-01-PLAN.md — three 依赖 + useWebGLSupport hook + CssGradientBackground + Wave 0 E2E 脚手架
 - [x] 23-02-PLAN.md — ParticleWave.tsx (Three.js 2560 粒子 + GPU shader 波浪 + 鼠标 gaussian 隆起 + cleanup)
-- [ ] 23-03-PLAN.md — BrandPanel + Login.tsx 分栏重构 + 玻璃卡片 + human-verify checkpoint
+- [x] 23-03-PLAN.md — BrandPanel + Login.tsx 分栏重构 + 玻璃卡片 + human-verify checkpoint
 
 **UI hint**: yes
 
@@ -140,4 +140,4 @@ Phases execute in numeric order: 21 -> 22 -> 23
 | 20. 对比重做与飞书完善 | v1.1 | 4/4 | Complete | 2026-04-09 |
 | 21. 飞书字段映射完善 | v1.2 | 2/2 | Complete    | 2026-04-16 |
 | 22. 飞书 OAuth 自动匹配登录 | v1.2 | 3/3 | Complete    | 2026-04-17 |
-| 23. 登录页面改版 | v1.2 | 2/3 | In Progress|  |
+| 23. 登录页面改版 | v1.2 | 3/3 | Complete    | 2026-04-19 |
