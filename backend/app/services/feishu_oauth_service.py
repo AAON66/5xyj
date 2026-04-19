@@ -27,32 +27,40 @@ class FeishuOAuthError(Exception):
     pass
 
 
+_FEISHU_TIMEOUT = httpx.Timeout(connect=15.0, read=20.0, write=20.0, pool=20.0)
+
+
 async def _fetch_feishu_user_info(
     code: str, settings: Settings
 ) -> dict:
     """Fetch open_id, union_id, name from Feishu OAuth code exchange."""
-    async with httpx.AsyncClient() as http:
-        # 1. Get app_access_token
-        app_token_resp = await http.post(
-            "https://open.feishu.cn/open-apis/auth/v3/app_access_token/internal",
-            json={"app_id": settings.feishu_app_id, "app_secret": settings.feishu_app_secret},
-        )
-        app_token_resp.raise_for_status()
-        app_data = app_token_resp.json()
-        if app_data.get("code") != 0:
-            raise FeishuOAuthError(f"Failed to get app_access_token: {app_data.get('msg')}")
-        app_access_token = app_data["app_access_token"]
+    try:
+        async with httpx.AsyncClient(timeout=_FEISHU_TIMEOUT) as http:
+            # 1. Get app_access_token
+            app_token_resp = await http.post(
+                "https://open.feishu.cn/open-apis/auth/v3/app_access_token/internal",
+                json={"app_id": settings.feishu_app_id, "app_secret": settings.feishu_app_secret},
+            )
+            app_token_resp.raise_for_status()
+            app_data = app_token_resp.json()
+            if app_data.get("code") != 0:
+                raise FeishuOAuthError(f"Failed to get app_access_token: {app_data.get('msg')}")
+            app_access_token = app_data["app_access_token"]
 
-        # 2. Exchange code for user_access_token + user info
-        user_resp = await http.post(
-            "https://open.feishu.cn/open-apis/authen/v1/access_token",
-            headers={"Authorization": f"Bearer {app_access_token}"},
-            json={"grant_type": "authorization_code", "code": code},
-        )
-        user_resp.raise_for_status()
-        user_data = user_resp.json().get("data", {})
-        if not user_data.get("open_id"):
-            raise FeishuOAuthError("Failed to get user info from Feishu")
+            # 2. Exchange code for user_access_token + user info
+            user_resp = await http.post(
+                "https://open.feishu.cn/open-apis/authen/v1/access_token",
+                headers={"Authorization": f"Bearer {app_access_token}"},
+                json={"grant_type": "authorization_code", "code": code},
+            )
+            user_resp.raise_for_status()
+            user_data = user_resp.json().get("data", {})
+            if not user_data.get("open_id"):
+                raise FeishuOAuthError("Failed to get user info from Feishu")
+    except httpx.TimeoutException as exc:
+        raise FeishuOAuthError("连接飞书服务超时，请稍后重试") from exc
+    except httpx.HTTPError as exc:
+        raise FeishuOAuthError(f"调用飞书接口失败：{exc.__class__.__name__}") from exc
 
     return {
         "open_id": user_data["open_id"],

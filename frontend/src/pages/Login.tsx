@@ -2,7 +2,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { App, Button, Card, Divider, Form, Input, Radio, Tabs, Typography } from 'antd';
-import { ApiOutlined, LockOutlined, UserOutlined, IdcardOutlined, SolutionOutlined } from '@ant-design/icons';
+import { ApiOutlined, LockOutlined, UserOutlined, IdcardOutlined, SolutionOutlined, SunOutlined, MoonOutlined } from '@ant-design/icons';
 
 import { useAuth } from '../hooks';
 import { useFeishuFeatureFlag } from '../hooks/useFeishuFeatureFlag';
@@ -55,10 +55,11 @@ export function LoginPage() {
   const [pendingFeishuName, setPendingFeishuName] = useState('');
   const [showCandidateModal, setShowCandidateModal] = useState(false);
   const [bindLoading, setBindLoading] = useState(false);
+  const [feishuLoading, setFeishuLoading] = useState(false);
 
   // Phase 23 visual hooks
   const { isMobile } = useResponsiveViewport();
-  const { isDark } = useThemeMode();
+  const { isDark, toggleMode } = useThemeMode();
   const webgl = useWebGLSupport();
 
   // UI-SPEC Layout Contract locks the desktop breakpoint at 1024px (Ant Design's
@@ -158,11 +159,14 @@ export function LoginPage() {
   }
 
   async function handleFeishuLogin() {
+    if (feishuLoading) return;
+    setFeishuLoading(true);
     try {
       const url = await fetchFeishuAuthorizeUrl();
       window.location.href = url;
     } catch {
       message.error('获取飞书授权链接失败');
+      setFeishuLoading(false);
     }
   }
 
@@ -360,6 +364,24 @@ export function LoginPage() {
         background: isDark ? '#141414' : colors.BG_LAYOUT,
       }}
     >
+      <Button
+        type="text"
+        shape="circle"
+        size="large"
+        icon={isDark ? <SunOutlined /> : <MoonOutlined />}
+        onClick={toggleMode}
+        aria-label={isDark ? '切换到亮色模式' : '切换到暗色模式'}
+        style={{
+          position: 'fixed',
+          top: 16,
+          right: 16,
+          zIndex: 10,
+          color: isDark ? '#F0F5FF' : '#1F2937',
+          background: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.72)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+        }}
+      />
       {!isMobile && (
         <div
           style={{
@@ -367,6 +389,7 @@ export function LoginPage() {
             position: 'relative',
             overflow: 'hidden',
             minHeight: '100vh',
+            background: isDark ? '#141414' : colors.BG_LAYOUT,
           }}
         >
           <LeftCanvas />
@@ -402,10 +425,12 @@ export function LoginPage() {
               <Button
                 block
                 icon={<ApiOutlined />}
+                loading={feishuLoading}
+                disabled={feishuLoading}
                 onClick={() => void handleFeishuLogin()}
                 style={{ marginBottom: 16 }}
               >
-                使用飞书登录
+                {feishuLoading ? '正在跳转飞书…' : '使用飞书登录'}
               </Button>
             </>
           )}

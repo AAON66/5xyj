@@ -34,8 +34,8 @@ interface BrandPanelProps {
  * - No raw HTML injection API used — all copy via JSX text nodes and Typography (T-23-03 mitigation)
  */
 export function BrandPanel({ isDark }: BrandPanelProps) {
-  const wordmarkColor = isDark ? '#F0F5FF' : '#FFFFFF';
-  const sloganColor = isDark ? '#E8F0FF' : '#FFFFFF';
+  const wordmarkColor = isDark ? '#F0F5FF' : '#1F2A44';
+  const sloganColor = isDark ? '#E8F0FF' : '#0B2A7A';
 
   const rootStyle: CSSProperties = {
     position: 'absolute',
@@ -48,12 +48,19 @@ export function BrandPanel({ isDark }: BrandPanelProps) {
     zIndex: 2,
   };
 
+  const strongShadow = isDark
+    ? '0 1px 2px rgba(0, 0, 0, 0.25)'
+    : '0 1px 2px rgba(255, 255, 255, 0.6)';
+  const heavyShadow = isDark
+    ? '0 2px 6px rgba(0, 0, 0, 0.25)'
+    : '0 1px 3px rgba(255, 255, 255, 0.7)';
+
   const wordmarkStyle: CSSProperties = {
     fontSize: 20,
     fontWeight: 600,
     lineHeight: 1.3,
     color: wordmarkColor,
-    textShadow: '0 1px 2px rgba(0, 0, 0, 0.25)',
+    textShadow: strongShadow,
   };
 
   const centerBlockStyle: CSSProperties = {
@@ -69,14 +76,14 @@ export function BrandPanel({ isDark }: BrandPanelProps) {
     lineHeight: 1.25,
     color: sloganColor,
     margin: 0,
-    textShadow: '0 2px 6px rgba(0, 0, 0, 0.25)',
+    textShadow: heavyShadow,
   };
 
   const subSloganStyle: CSSProperties = {
     fontSize: 14,
     fontWeight: 400,
     lineHeight: 1.5714,
-    color: 'rgba(255, 255, 255, 0.72)',
+    color: isDark ? 'rgba(255, 255, 255, 0.72)' : 'rgba(31, 42, 68, 0.72)',
     margin: 0,
   };
 
@@ -84,7 +91,7 @@ export function BrandPanel({ isDark }: BrandPanelProps) {
     fontSize: 14,
     fontWeight: 400,
     lineHeight: 1.5714,
-    color: 'rgba(255, 255, 255, 0.5)',
+    color: isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(31, 42, 68, 0.5)',
   };
 
   return (
