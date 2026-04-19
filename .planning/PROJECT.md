@@ -56,6 +56,9 @@
 - ✓ 数据管理多选筛选 + 匹配状态过滤 — v1.1 Phase 17
 - ✓ 批次删除联动清理（NormalizedRecords + MatchResults + ValidationIssues）— v1.1 Phase 17
 - ✓ 缴费基数数据修复（payment_base/payment_salary 映射规则修复）— v1.1 Phase 17
+- ✓ 飞书字段映射完善（飞书表字段下拉联动，支持一一映射）— v1.2 Phase 21
+- ✓ 飞书 OAuth 自动匹配登录（open_id 绑定 + 姓名/工号三级匹配 + 新用户建档）— v1.2 Phase 22
+- ✓ 登录页面改版（左右分栏 + Three.js 3D 粒子波浪 + WebGL 降级 + 暗黑玻璃卡片）— v1.2 Phase 23
 
 ### Active
 
@@ -140,4 +143,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-04-14 after v1.2 milestone started*
+*Last updated: 2026-04-19 after v1.2 Phase 23 (login redesign) completed*
