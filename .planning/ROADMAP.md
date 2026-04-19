@@ -102,7 +102,13 @@ Plans:
   2. 登录页左侧展示 Three.js 3D 粒子波浪动画，粒子随鼠标移动产生交互跟随效果
   3. 在不支持 WebGL 的环境下，登录页自动降级为静态渐变背景，不影响登录功能
   4. 登录页粒子颜色和表单卡片在暗黑模式下自动切换为适配的配色方案
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 23-01-PLAN.md — three 依赖 + useWebGLSupport hook + CssGradientBackground + Wave 0 E2E 脚手架
+- [ ] 23-02-PLAN.md — ParticleWave.tsx (Three.js 2560 粒子 + GPU shader 波浪 + 鼠标 gaussian 隆起 + cleanup)
+- [ ] 23-03-PLAN.md — BrandPanel + Login.tsx 分栏重构 + 玻璃卡片 + human-verify checkpoint
+
 **UI hint**: yes
 
 ## Progress
@@ -134,4 +140,4 @@ Phases execute in numeric order: 21 -> 22 -> 23
 | 20. 对比重做与飞书完善 | v1.1 | 4/4 | Complete | 2026-04-09 |
 | 21. 飞书字段映射完善 | v1.2 | 2/2 | Complete    | 2026-04-16 |
 | 22. 飞书 OAuth 自动匹配登录 | v1.2 | 3/3 | Complete    | 2026-04-17 |
-| 23. 登录页面改版 | v1.2 | 0/0 | Not started | - |
+| 23. 登录页面改版 | v1.2 | 0/3 | Planned     | - |

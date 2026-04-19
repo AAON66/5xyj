@@ -735,22 +735,24 @@ export function LoginPage() {
 
 **如果这个表为空：** 不为空 — 6 项假设需 Planner/Executor/用户在执行阶段特别关注。其中 A4 和 A5 需要专门的验证任务。
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+> All three questions are RESOLVED as of 2026-04-19. Kept here for decision provenance.
 
 1. **暗黑模式切换时的视觉过渡**
    - What we know: UI-SPEC 规定 "粒子色谱 + 卡片背景 crossfade 200ms（`motionDurationMid`）"
-   - What's unclear: 实际 shader uniform crossfade 要自己写插值逻辑；卡片 `backdrop-filter` 值不能单独 transition（浏览器不支持 transition `backdrop-filter`），只能 transition `background-color` + `opacity`
-   - Recommendation: Planner 把"暗色模式切换视觉流畅度"作为单独一个任务/子任务，执行后用户肉眼验收
+   - What was unclear: 实际 shader uniform crossfade 要自己写插值逻辑；卡片 `backdrop-filter` 值不能单独 transition（浏览器不支持 transition `backdrop-filter`），只能 transition `background-color` + `opacity`
+   - **RESOLVED:** Plan 02 采用 `useEffect deps: [isDark]` 整 effect 重建（Scene + ShaderMaterial uniforms），放弃手写 uniform diff 插值。crossfade 细节由 UI-SPEC 锁定的 `motionDurationMid`（200ms）+ Plan 03 human-verify checkpoint 步骤 2 人工签字验收。不把此拆为独立任务 — 当前实现足以满足 D-06 / D-07 的视觉要求。
 
 2. **Playwright 如何断言 WebGL 已渲染**
    - What we know: `canvas` DOM 元素一定存在；可 `canvas.getContext('webgl')` 确认 context 存在
-   - What's unclear: Playwright 抓不到 canvas 像素内容（WebGL 读取需 `gl.readPixels` + 测试代码配合）
-   - Recommendation: 测试策略 = DOM 断言（canvas 存在 + 尺寸非零 + context 非 null），像素级验证靠人工截图。如果未来要升级到像素对比，用 `@playwright/test` 的 visual regression 并 snapshot
+   - What was unclear: Playwright 抓不到 canvas 像素内容（WebGL 读取需 `gl.readPixels` + 测试代码配合）
+   - **RESOLVED:** 采用 DOM 断言 + data-attribute 策略。Plan 02 Task 1 在 canvas 上挂 `data-testid="particle-wave-canvas"` 和 `data-particle-color`；Plan 01 Task 3 的 `dark mode` 测试读 `data-particle-color` 属性字符串（`#7fa7ff`）断言色谱切换。像素级验证放在 Plan 03 Task 3 human-verify checkpoint。不引入 visual regression snapshot（本阶段不需要）。
 
 3. **Phase 22 尚未完成时是否可以开始 Phase 23**
    - What we know: STATE.md 显示 Phase 22 仍在 execute 阶段；CONTEXT 声明"OAuth 流程必须稳定后才改登录 UI"
-   - What's unclear: 本阶段完全不触及 OAuth 代码，理论上可独立开发；但 Login.tsx 改造需要合并现有 OAuth useEffect 逻辑
-   - Recommendation: 研究结论明确 — **先等 Phase 22 合并完成再开始 Phase 23 的 Plan 执行**，避免两个 Phase 同时改 Login.tsx 产生冲突。Planner 可以做 Plan，但 Executor 开工前确认 Phase 22 已 merge
+   - What was unclear: 本阶段完全不触及 OAuth 代码，理论上可独立开发；但 Login.tsx 改造需要合并现有 OAuth useEffect 逻辑
+   - **RESOLVED:** Phase 22 已于 2026-04-19 完成（见最近提交 `4240589 docs(phase-22): complete phase execution` 及 STATE.md 更新）。Plan 03 的 `read_first` 已要求读取当前 Login.tsx 完整实现并保留所有 OAuth useEffect 字节级相同。时序冲突已解除，Phase 23 Plan 03 Task 2 可直接执行。
 
 ## Sources
 
