@@ -1,5 +1,21 @@
 # Milestones
 
+## v1.2 飞书深度集成与登录体验升级 (Shipped: 2026-04-20)
+
+**Phases completed:** 3 phases, 8 plans, 15 tasks
+
+**Key accomplishments:**
+
+- 1. [Rule 2 - Missing functionality] Added broader pension alias rules
+- 1. [Rule 3 - Blocking] Worktree missing node_modules
+- 1. [Rule 1 - Bug] /me endpoint simplified for all roles
+- One-liner:
+- Three.js 精确版本 pin + useWebGLSupport 能力检测 hook + CssGradientBackground 降级组件 + Wave 0 E2E 红灯脚手架，为 Plan 02/03 建立视觉/测试/降级契约。
+- Three.js 粒子波浪组件完成：2560 GPU 粒子在 vertex shader 中做双正弦位移 + 鼠标高斯隆起跟随，严格 Strict Mode cleanup，暴露 `data-particle-color` 契约给 Plan 03 E2E。
+- 将 Plan 01/02 的降级 hook + 粒子组件装配到 Login.tsx：左右分栏（matchMedia 1024）+ React.lazy 粒子背景 + Suspense 降级 + 暗黑玻璃卡片 + 独立 BrandPanel 文字层，保留原认证逻辑零回归；人工 checkpoint 通过后追加飞书 loading、主题切换按钮、后端 httpx 超时修复四项 polish。
+
+---
+
 ## v1.1 体验优化与功能完善 (Shipped: 2026-04-14)
 
 **Phases completed:** 8 phases, 28 plans, 57 tasks

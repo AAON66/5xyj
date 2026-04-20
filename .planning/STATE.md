@@ -4,7 +4,7 @@ milestone: v1.2
 milestone_name: 飞书深度集成与登录体验升级
 status: executing
 stopped_at: Phase 23 UI-SPEC approved
-last_updated: "2026-04-20T01:26:58.959Z"
+last_updated: "2026-04-20T01:43:48.230Z"
 last_activity: 2026-04-20
 progress:
   total_phases: 3
