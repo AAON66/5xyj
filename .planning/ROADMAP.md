@@ -55,7 +55,7 @@ See: `.planning/milestones/v1.1-ROADMAP.md` for full details
 - [x] **Phase 21: 飞书字段映射完善** - 拉取飞书真实字段并实现类型感知的智能映射 UI (completed 2026-04-16)
 - [x] **Phase 22: 飞书 OAuth 自动匹配登录** - 飞书扫码登录 + 按姓名/工号自动绑定系统用户 (completed 2026-04-17)
 - [x] **Phase 23: 登录页面改版** - 左右分栏布局 + Three.js 3D 粒子波浪动态背景 (completed 2026-04-19)
-- [ ] **Phase 24: v1.2 技术债清理** - 飞书 OAuth 测试套件追平 + Phase 21/22 Nyquist VALIDATION.md 补齐 (gap closure)
+- [x] **Phase 24: v1.2 技术债清理** - 飞书 OAuth 测试套件追平 + Phase 21/22 Nyquist VALIDATION.md 补齐 (gap closure) (completed 2026-04-20)
 
 ## Phase Details
 
@@ -155,4 +155,4 @@ Phases execute in numeric order: 21 -> 22 -> 23 -> 24
 | 21. 飞书字段映射完善 | v1.2 | 2/2 | Complete    | 2026-04-16 |
 | 22. 飞书 OAuth 自动匹配登录 | v1.2 | 3/3 | Complete    | 2026-04-17 |
 | 23. 登录页面改版 | v1.2 | 3/3 | Complete    | 2026-04-19 |
-| 24. v1.2 技术债清理 | v1.2 | 0/0 | Not started | - |
+| 24. v1.2 技术债清理 | v1.2 | 1/1 | Complete    | 2026-04-20 |
