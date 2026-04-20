@@ -4,7 +4,7 @@
 
 - ✅ **v1.0 社保公积金管理系统** — Phases 1-12 (shipped 2026-04-04)
 - ✅ **v1.1 体验优化与功能完善** — Phases 13-20 (shipped 2026-04-14)
-- 🚧 **v1.2 飞书深度集成与登录体验升级** — Phases 21-23 (in progress)
+- 🚧 **v1.2 飞书深度集成与登录体验升级** — Phases 21-24 (in progress, gap closure pending)
 
 ## Phases
 
@@ -55,6 +55,7 @@ See: `.planning/milestones/v1.1-ROADMAP.md` for full details
 - [x] **Phase 21: 飞书字段映射完善** - 拉取飞书真实字段并实现类型感知的智能映射 UI (completed 2026-04-16)
 - [x] **Phase 22: 飞书 OAuth 自动匹配登录** - 飞书扫码登录 + 按姓名/工号自动绑定系统用户 (completed 2026-04-17)
 - [x] **Phase 23: 登录页面改版** - 左右分栏布局 + Three.js 3D 粒子波浪动态背景 (completed 2026-04-19)
+- [ ] **Phase 24: v1.2 技术债清理** - 飞书 OAuth 测试套件追平 + Phase 21/22 Nyquist VALIDATION.md 补齐 (gap closure)
 
 ## Phase Details
 
@@ -111,10 +112,23 @@ Plans:
 
 **UI hint**: yes
 
+### Phase 24: v1.2 技术债清理
+**Goal**: 把 v1.2 审计出的非阻塞债务清到绿线 — 后端飞书 OAuth 测试套件追平 body.state_signed 改造，Phase 21/22 VALIDATION.md 从 draft 升级到 nyquist_compliant
+**Depends on**: Phase 23（v1.2 实体功能已闭环后再清测试/合规债）
+**Requirements**: —（gap closure 不引入新需求；不回滚任何 REQUIREMENTS 状态）
+**Gap Closure**: Closes gaps from .planning/v1.2-MILESTONE-AUDIT.md
+**Success Criteria** (what must be TRUE):
+  1. `cd backend && pytest tests/test_feishu_auth.py` 16/16 绿（此前 9/16 红）
+  2. `.planning/phases/21-feishu-field-mapping/21-VALIDATION.md` frontmatter `nyquist_compliant: true`，Per-Task Map 用实际 plan 的 task ID 替换占位符
+  3. `.planning/phases/22-oauth/22-VALIDATION.md` frontmatter `nyquist_compliant: true`，Per-Task Map 用实际 plan 的 task ID 替换占位符
+**Plans**: TBD
+
+**UI hint**: no
+
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 21 -> 22 -> 23
+Phases execute in numeric order: 21 -> 22 -> 23 -> 24
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
@@ -141,3 +155,4 @@ Phases execute in numeric order: 21 -> 22 -> 23
 | 21. 飞书字段映射完善 | v1.2 | 2/2 | Complete    | 2026-04-16 |
 | 22. 飞书 OAuth 自动匹配登录 | v1.2 | 3/3 | Complete    | 2026-04-17 |
 | 23. 登录页面改版 | v1.2 | 3/3 | Complete    | 2026-04-19 |
+| 24. v1.2 技术债清理 | v1.2 | 0/0 | Not started | - |
