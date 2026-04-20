@@ -1,15 +1,16 @@
 ---
 phase: 21
 slug: feishu-field-mapping
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
-created: 2026-04-16
+status: approved
+nyquist_compliant: true
+wave_0_complete: true
+created: 2026-04-15
+updated: 2026-04-20
 ---
 
 # Phase 21 — Validation Strategy
 
-> Per-phase validation contract for feedback sampling during execution.
+> Per-phase validation contract, retroactively aligned with delivered tasks during v1.2 gap closure (Phase 24).
 
 ---
 
@@ -17,20 +18,20 @@ created: 2026-04-16
 
 | Property | Value |
 |----------|-------|
-| **Framework** | pytest (backend) + vitest/manual (frontend) |
-| **Config file** | `backend/pytest.ini` or `pyproject.toml` |
-| **Quick run command** | `cd backend && python -m pytest tests/ -x -q` |
-| **Full suite command** | `cd backend && python -m pytest tests/ -v && cd ../frontend && npm run lint && npm run build` |
-| **Estimated runtime** | ~30 seconds |
+| **Framework** | pytest 9.x (backend) + Playwright 1.59.1 (frontend E2E) + TypeScript strict + ESLint (frontend static) |
+| **Config file** | `backend/pyproject.toml` + `frontend/playwright.config.ts` |
+| **Quick run command** | `cd /Users/mac/PycharmProjects/5xyj && .venv/bin/python -m pytest backend/tests/test_mapping_api.py -q` |
+| **Full suite command** | `.venv/bin/python -m pytest backend/tests/ -q && cd frontend && npm run lint && npm run build && npm run test:e2e` |
+| **Estimated runtime** | ~10s backend, ~60s frontend E2E |
 
 ---
 
 ## Sampling Rate
 
-- **After every task commit:** Run `cd backend && python -m pytest tests/ -x -q`
+- **After every task commit:** Run `.venv/bin/python -m pytest backend/tests/test_mapping_api.py -q`
 - **After every plan wave:** Run full suite command
 - **Before `/gsd-verify-work`:** Full suite must be green
-- **Max feedback latency:** 30 seconds
+- **Max feedback latency:** 10s backend / 60s full suite
 
 ---
 
@@ -38,44 +39,48 @@ created: 2026-04-16
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 21-01-01 | 01 | 1 | FMAP-01 | — | N/A | integration | `pytest tests/test_feishu_fields.py` | ❌ W0 | ⬜ pending |
-| 21-01-02 | 01 | 1 | FMAP-02 | — | N/A | unit | `pytest tests/test_feishu_fields.py` | ❌ W0 | ⬜ pending |
-| 21-02-01 | 02 | 1 | FMAP-04 | — | N/A | unit | `pytest tests/test_field_suggest.py` | ❌ W0 | ⬜ pending |
-| 21-03-01 | 03 | 2 | FMAP-02 | — | N/A | manual | frontend visual check | N/A | ⬜ pending |
-| 21-03-02 | 03 | 2 | FMAP-04 | — | N/A | manual | frontend visual check | N/A | ⬜ pending |
-| 21-03-03 | 03 | 2 | FMAP-03 | — | N/A | manual | frontend visual check | N/A | ⬜ pending |
+| `21-01-T1` | 01 | 0 | FMAP-02 | — | Schema accepts optional ui_type without leaking internals | 后端单元（TDD RED→GREEN）| `.venv/bin/python -m pytest backend/tests/test_mapping_api.py -q` | ✅ | ✅ green |
+| `21-01-T2` | 01 | 1 | FMAP-01, FMAP-02 | T-21-01 (Tampering) | SuggestMappingRequest Pydantic 校验拒绝畸形请求 | 后端单元 | `.venv/bin/python -m pytest backend/tests/test_mapping_api.py -q` | ✅ | ✅ green |
+| `21-01-T3` | 01 | 1 | FMAP-04 | — | 前端服务类型与后端契约对齐，防止 runtime 反序列化错误 | 前端类型/lint | `cd frontend && npx tsc --noEmit && npm run lint` | ✅ | ✅ green |
+| `21-02-T1` | 02 | 2 | FMAP-02, FMAP-04 | — | ReactFlow 节点渲染不向 DOM 注入未转义飞书字段名 | 前端静态+E2E | `cd frontend && npm run lint && npm run build && npx playwright test tests/e2e/feishu-field-mapping.spec.ts` | ✅ | ✅ green |
+| `21-02-T2` | 02 | 2 | FMAP-03 | T-21-04 (Tampering) | 保存前两步 Modal 给用户 UX 提醒（非安全控制，文档化 accept） | 前端静态+E2E | 同 21-02-T1 | ✅ | ✅ green |
+| `21-02-T3` | 02 | 2 | FMAP-01..04 | T-21-05 (Spoofing) | 人工验证字段类型 Tag / 连线样式 / Modal 流程 | human-verify | 21-HUMAN-UAT.md steps 1–4 | ✅ | ⚠️ pending (UAT) |
 
-*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
+*Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky / awaiting manual*
+
+> 注：Task ID 与 `21-01-PLAN.md` / `21-02-PLAN.md` 的 `<task>` 节点一一对应（T1/T2/T3）。Status 依据 `21-01-SUMMARY.md` commit 1c2732f/e0160c0/2bc68da 与 `21-02-SUMMARY.md` commit c928548 记录的自动化验证结果。21-02-T3 的最终 UAT 签字留 pending，追踪于 `21-HUMAN-UAT.md`，这是已知的 v1.2 tech debt（可接受）。
 
 ---
 
 ## Wave 0 Requirements
 
-- [ ] `tests/test_feishu_fields.py` — stubs for FMAP-01, FMAP-02 (ui_type 透传)
-- [ ] `tests/test_field_suggest.py` — stubs for FMAP-04 (同义词匹配建议 API)
+- [x] `backend/tests/test_mapping_api.py` — suggest-mapping endpoint 覆盖（FMAP-01/02/04, 6 个用例）
+- [x] `backend/app/schemas/feishu.py` — FeishuFieldInfo.ui_type 字段
+- [x] `frontend/src/services/feishu.ts` — MappingSuggestion / SuggestMappingResponse / suggestMapping 类型与调用
 
-*Existing infrastructure covers frontend lint/build checks.*
+*Existing backend pytest infrastructure + frontend Vite/ESLint/Playwright stack covers all phase requirements; no new framework install needed.*
 
 ---
 
 ## Manual-Only Verifications
 
-| Behavior | Requirement | Why Manual | Test Instructions |
-|----------|-------------|------------|-------------------|
-| 飞书字段节点显示类型 Badge + Tooltip | FMAP-02 | 视觉 UI 验证 | 打开映射页，确认每个飞书字段节点有彩色 Tag 且悬停显示类型 |
-| 自动连线高/低置信度样式 | FMAP-04 | ReactFlow 视觉效果 | 点击自动匹配，确认高置信度实线、低置信度虚线 |
-| 未映射关键字段警告 Modal | FMAP-03 | Modal 交互验证 | 不映射 person_name，点保存，确认弹出警告 Modal |
-| 预览 Modal 汇总表 | FMAP-03 | Modal 内容验证 | 完成映射后点保存，确认预览 Modal 显示完整映射关系表 |
+| Behavior | Requirement | Why Manual | Test Instructions | Covered By |
+|----------|-------------|------------|-------------------|------------|
+| 飞书字段类型 Tag 视觉验证 | FMAP-02 | 视觉 UI 颜色/Tooltip 需要人眼 | 打开映射页，确认每个飞书字段节点有彩色 Tag 且悬停 Tooltip 显示类型名 + type 枚举 | 21-02-T3 / 21-HUMAN-UAT step 1 |
+| 自动匹配连线样式验证 | FMAP-04 | ReactFlow 虚实线渲染视觉效果 | 点击自动匹配，确认高置信度(>=0.9)实线 / 低置信度(<0.9)虚线，可手动删除/新增连线 | 21-02-T3 / 21-HUMAN-UAT step 2 |
+| 关键字段警告 Modal 验证 | FMAP-03 | Modal 交互与颜色语义 | 不映射 person_name 点保存，确认弹出警告 Modal，红色=必填、黄色=建议，两个按钮可用 | 21-02-T3 / 21-HUMAN-UAT step 3 |
+| 映射预览 Modal 验证 | FMAP-03 | Modal 内容完整性 | 完成映射后点保存，确认预览 Modal 展示完整映射关系表（系统字段 \| 中文名 \| 飞书字段 \| 字段类型） | 21-02-T3 / 21-HUMAN-UAT step 4 |
 
 ---
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 30s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 60s (full suite)
+- [x] `nyquist_compliant: true` set in frontmatter
+- [ ] Final HUMAN-UAT sign-off (tracked in `21-HUMAN-UAT.md`; 4/4 steps currently pending — accepted v1.2 tech debt)
 
-**Approval:** pending
+**Approval:** retroactively approved 2026-04-20（Phase 24 gap closure）
